@@ -1,0 +1,178 @@
+QualityFriend Main App - Local Docker Setup Notes
+=================================================
+
+Project path
+------------
+C:\laragon\www\app_qualityfriend
+
+Setup result
+------------
+- Next.js Main App runs in Docker at http://localhost:3000
+- PostgreSQL runs in Docker.
+- Development database: qualityfriend_dev
+- Database data uses a persistent Docker volume.
+- Database health endpoint: http://localhost:3000/api/health/database
+- PostgreSQL is available to Windows/pgAdmin at localhost:5433.
+- The future Admin App will join this Docker network and use the same database.
+
+Files created
+-------------
+- Dockerfile
+- compose.yaml
+- .dockerignore
+- .env.example
+- database.ts
+- app\api\health\database\route.ts
+- LOCAL-SETUP-NOTES.txt
+
+Files updated by package installation
+-------------------------------------
+- package.json
+- package-lock.json
+
+Packages added
+--------------
+- pg
+- @types/pg (development dependency)
+
+Commands run during setup
+-------------------------
+Run commands from C:\laragon\www\app_qualityfriend.
+
+1. Create the private environment file:
+
+   Copy-Item .env.example .env
+
+2. Edit .env and set a private local POSTGRES_PASSWORD.
+
+3. Build and start the containers:
+
+   docker compose up --build
+
+4. Check the containers:
+
+   docker compose ps
+
+5. Confirm the development database exists:
+
+   docker compose exec postgres psql -U qualityfriend -d qualityfriend_dev -c "SELECT current_database();"
+
+6. Test DNS inside the application container:
+
+   docker compose exec app node -e "require('dns').lookup('registry.npmjs.org', console.log)"
+
+7. Recreate the app after changing its DNS configuration:
+
+   docker compose up -d --force-recreate app
+
+8. Install the PostgreSQL packages:
+
+   docker compose exec app npm install pg
+   docker compose exec app npm install --save-dev @types/pg
+
+9. Create the health Route Handler directory:
+
+   New-Item -ItemType Directory -Force -Path "app\api\health\database"
+
+10. Restart the app so Next.js detects the new directory:
+
+   docker compose restart app
+
+Useful commands
+---------------
+Start the stack:
+
+   docker compose up -d
+
+Stop the stack without deleting database data:
+
+   docker compose down
+
+View app logs:
+
+   docker compose logs --tail=100 app
+
+View PostgreSQL logs:
+
+   docker compose logs --tail=100 postgres
+
+Rebuild after dependency or Dockerfile changes:
+
+   docker compose up -d --build
+
+Important: Do not use "docker compose down -v" unless the local PostgreSQL
+database and all stored data should be permanently deleted.
+
+pgAdmin connection
+------------------
+Name: QualityFriend Local (or any preferred label)
+Host: localhost
+Port: 5433
+Maintenance database: qualityfriend_dev
+Username: qualityfriend
+Password: POSTGRES_PASSWORD from the private .env file
+
+Problems encountered and fixes
+-------------------------------
+
+1. npm install failed with EAI_AGAIN
+
+   Problem:
+   The app container could not resolve registry.npmjs.org. DNS lookup returned
+   getaddrinfo EAI_AGAIN.
+
+   Fix:
+   DNS resolvers were added to the app service in compose.yaml. Docker
+   Desktop/WSL networking was restarted, and the app container was recreated.
+   The DNS test then returned an IPv4 address and npm installation worked.
+
+2. /api/health/database initially returned 404
+
+   Problem:
+   Next.js did not detect the new nested Route Handler directory through the
+   Windows Docker bind mount.
+
+   Fix:
+   The app container was restarted with "docker compose restart app". Next.js
+   then detected app\api\health\database\route.ts.
+
+3. PostgreSQL password question
+
+   Explanation:
+   PostgreSQL runs entirely inside Docker, but its official image needs a
+   password to initialize the database user. Applications use the same private
+   local password through DATABASE_URL. PostgreSQL does not need to be installed
+   through Windows or Laragon.
+
+Verification checklist
+----------------------
+- http://localhost:3000 loads the Main App.
+- http://localhost:3000/api/health/database returns status "connected".
+- The health response reports database "qualityfriend_dev".
+- qualityfriend-app and qualityfriend-postgres are running/healthy.
+
+AI execution note
+-----------------
+The AI prepared code and configuration files. The user ran all npm, Docker,
+PostgreSQL, filesystem, and troubleshooting commands.
+
+Admin App addition (2026-08-23)
+-------------------------------
+- The central compose.yaml now also defines qualityfriend-admin.
+- Admin project path: C:\laragon\www\admin_qualityfriend
+- Admin URL: http://localhost:3001
+- Admin database health: http://localhost:3001/api/health/database
+- Admin joins qualityfriend-local and connects to postgres:5432.
+- Main App and Admin use the same private .env values and qualityfriend_dev.
+- Persistent Admin volumes: admin_node_modules and admin_next_cache.
+- Rebuild only Admin with:
+    docker compose up -d --build --no-deps admin
+- View Admin logs with:
+    docker compose logs --tail=100 -f admin
+- Verified simultaneously: Main App HTTP 200, Admin HTTP 200, and both database
+  health endpoints HTTP 200 with status connected and database qualityfriend_dev.
+- Full Admin setup and verification details are in:
+    C:\laragon\www\admin_qualityfriend\LOCAL-SETUP-NOTES.txt
+
+Important: Do not run docker compose down -v; it deletes persistent volumes,
+including PostgreSQL data.

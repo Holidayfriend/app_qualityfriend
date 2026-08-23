@@ -1,0 +1,89 @@
+name: qualityfriend-local
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: qualityfriend-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-qualityfriend_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-qualityfriend}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-qualityfriend_local_password}
+    ports:
+      - "${POSTGRES_HOST_PORT:-5433}:5432"
+    volumes:
+      - qualityfriend_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - qualityfriend
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: qualityfriend-app
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER:-qualityfriend}:${POSTGRES_PASSWORD:-qualityfriend_local_password}@postgres:5432/${POSTGRES_DB:-qualityfriend_dev}
+      SUPER_ADMIN_NAME: ${SUPER_ADMIN_NAME:-}
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-}
+      SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-}
+      WATCHPACK_POLLING: "true"
+    ports:
+      - "${APP_HOST_PORT:-3000}:3000"
+    volumes:
+      - .:/app
+      - app_node_modules:/app/node_modules
+      - app_next_cache:/app/.next
+    depends_on:
+      postgres:
+        condition: service_healthy
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    networks:
+      - qualityfriend
+
+  admin:
+    build:
+      context: ../admin_qualityfriend
+      dockerfile: Dockerfile
+    container_name: qualityfriend-admin
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER:-qualityfriend}:${POSTGRES_PASSWORD:-qualityfriend_local_password}@postgres:5432/${POSTGRES_DB:-qualityfriend_dev}
+      WATCHPACK_POLLING: "true"
+    ports:
+      - "${ADMIN_HOST_PORT:-3001}:3000"
+    volumes:
+      - ../admin_qualityfriend:/app
+      - admin_node_modules:/app/node_modules
+      - admin_next_cache:/app/.next
+    depends_on:
+      postgres:
+        condition: service_healthy
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    networks:
+      - qualityfriend
+
+volumes:
+  qualityfriend_postgres_data:
+  app_node_modules:
+  app_next_cache:
+  admin_node_modules:
+  admin_next_cache:
+
+networks:
+  qualityfriend:
+    name: qualityfriend-local

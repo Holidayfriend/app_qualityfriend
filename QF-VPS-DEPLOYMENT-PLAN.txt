@@ -1,0 +1,408 @@
+QualityFriend - VPS Dev and Production Deployment Plan
+======================================================
+
+Status
+------
+This document is a deployment plan only. No VPS, DNS, GitHub, Docker, firewall,
+database, or domain changes have been performed from this plan.
+
+VPS information currently known
+-------------------------------
+Provider: Hostinger VPS
+Operating system: Ubuntu 24.04 LTS
+VPS hostname: srv1023547.hstgr.cloud
+VPS public IPv4: 72.60.135.83
+
+CRITICAL EXISTING-SERVICE RULE
+------------------------------
+The VPS already hosts another Docker application/container for api.site.com.
+
+Before deploying QualityFriend, inspect and document:
+
+- All existing containers, images, volumes, and Docker networks.
+- Which process or container currently owns ports 80 and 443.
+- The existing reverse proxy (Nginx, Nginx Proxy Manager, Traefik, Caddy, etc.).
+- Existing virtual-host and TLS certificate configuration.
+- Existing firewall rules.
+- Existing Docker Compose projects and their locations.
+- Current CPU, memory, disk, and Docker volume usage.
+
+Never stop, delete, restart, rebuild, rename, reconfigure, or disconnect the
+existing api.site.com container. Do not replace the existing reverse proxy or
+change ports 80/443 until its current routing has been inspected and preserved.
+
+Target domains
+--------------
+
+Main App development:
+dev.app.qualityfriend.solutions
+
+Main App production:
+app.qualityfriend.solutions
+
+Admin development:
+dev.admin.qualityfriend.solutions
+
+Admin production:
+admin.qualityfriend.solutions
+
+DNS plan
+--------
+Create these A records at the DNS provider that is authoritative for
+qualityfriend.solutions:
+
+Type   Name/Host    Value          Purpose
+A      dev.app      72.60.135.83   Main App development
+A      app          72.60.135.83   Main App production
+A      dev.admin    72.60.135.83   Admin development
+A      admin        72.60.135.83   Admin production
+
+Use a normal/default TTL during initial setup. If the domain nameservers are not
+managed by Hostinger, create the records with the actual authoritative DNS
+provider instead of Hostinger.
+
+Relevant German Hostinger panel labels
+--------------------------------------
+
+- VPS management: VPS -> Verwalten
+- Browser terminal: Webkonsole
+- Docker interface: Docker Manager
+- DNS records: DNS-Manager
+- Security: Sicherheit
+- Firewall rules: Firewall-Regeln
+- Backups: Backups und Überwachung / Snapshot und Backups
+- Settings: Einstellungen
+
+Do not point production traffic at an application until its container,
+database connection, migration, health check, and reverse-proxy route have been
+verified.
+
+Target container architecture
+-----------------------------
+
+Existing and protected:
+- Existing api.site.com container/application
+- Existing reverse proxy, if present
+
+New QualityFriend containers:
+- qualityfriend-app-dev
+- qualityfriend-app-prod
+- qualityfriend-admin-dev
+- qualityfriend-admin-prod
+- qualityfriend-postgres
+
+All four QualityFriend application containers connect to the single
+qualityfriend-postgres container through a private QualityFriend Docker network.
+The PostgreSQL port must not be exposed publicly to the internet.
+
+Environment-to-database mapping
+-------------------------------
+
+Development database:
+- Database: qualityfriend_dev
+- Main App dev -> qualityfriend_dev
+- Admin dev -> qualityfriend_dev
+
+Production database:
+- Database: qualityfriend_prod
+- Main App production -> qualityfriend_prod
+- Admin production -> qualityfriend_prod
+
+Development and production share the PostgreSQL server/container, but they do
+not share a database. Development must never connect to qualityfriend_prod, and
+production must never connect to qualityfriend_dev.
+
+Recommended database credentials
+--------------------------------
+Use separate database roles as an additional safety boundary:
+
+- qualityfriend_dev_user: access only to qualityfriend_dev
+- qualityfriend_prod_user: access only to qualityfriend_prod
+
+Use different strong passwords for both roles. Store credentials only in
+private VPS environment/secret files. Never commit them to Git or place them in
+NEXT_PUBLIC_ variables.
+
+Migration and seed ownership
+----------------------------
+
+The Main App repository is the only owner of:
+
+- prisma/schema.prisma
+- Prisma migration history
+- Database migration commands
+- Seed scripts
+
+Admin connects to the resulting shared schema but must not maintain or execute a
+second migration history.
+
+Development migrations target qualityfriend_dev only. Production deployments
+apply already-reviewed migrations to qualityfriend_prod with "prisma migrate
+deploy". Never run "prisma migrate dev" or "prisma migrate reset" against
+production.
+
+Development seed data may be applied explicitly. Production must not be filled
+with sample development data. A production Super Admin seed/bootstrap must be a
+controlled one-time operation using private production credentials.
+
+Suggested VPS directory layout
+------------------------------
+
+/opt/qualityfriend/
+  compose.yaml
+  env/
+    app-dev.env
+    app-prod.env
+    admin-dev.env
+    admin-prod.env
+    postgres.env
+  deployments/
+  backups/
+
+Environment files must be readable only by the deployment user/root and must
+never be committed to Git. Exact directories may be adjusted after inspecting
+the existing VPS deployment conventions.
+
+Container exposure and reverse proxy
+------------------------------------
+
+Preferred approach:
+
+- Only the existing reverse proxy publishes ports 80 and 443.
+- Application containers remain on private Docker networks.
+- The reverse proxy connects to application containers by container name and
+  internal port 3000.
+- PostgreSQL remains private and has no public host port.
+
+Routes:
+
+- dev.app.qualityfriend.solutions -> qualityfriend-app-dev:3000
+- app.qualityfriend.solutions -> qualityfriend-app-prod:3000
+- dev.admin.qualityfriend.solutions -> qualityfriend-admin-dev:3000
+- admin.qualityfriend.solutions -> qualityfriend-admin-prod:3000
+
+If the existing reverse proxy runs directly on the VPS instead of inside Docker,
+bind four unique application ports to 127.0.0.1 only, then proxy each hostname to
+its corresponding loopback port. Do not bind application ports publicly on
+0.0.0.0 unless there is a documented operational reason.
+
+TLS/HTTPS plan
+--------------
+
+- Wait for all four DNS records to resolve to 72.60.135.83.
+- Add the four hostnames to the existing reverse proxy.
+- Issue individual or combined Let's Encrypt certificates.
+- Redirect HTTP to HTTPS after certificate issuance succeeds.
+- Verify automatic certificate renewal.
+- Preserve the existing api.site.com certificate and routing.
+
+Repository and branch plan
+--------------------------
+
+Repositories:
+- app_qualityfriend
+- admin_qualityfriend
+
+Branches in both repositories:
+- develop -> development deployment
+- main -> production deployment
+
+Deployment mapping:
+
+app_qualityfriend develop
+-> qualityfriend-app-dev
+-> dev.app.qualityfriend.solutions
+-> qualityfriend_dev
+
+app_qualityfriend main
+-> qualityfriend-app-prod
+-> app.qualityfriend.solutions
+-> qualityfriend_prod
+
+admin_qualityfriend develop
+-> qualityfriend-admin-dev
+-> dev.admin.qualityfriend.solutions
+-> qualityfriend_dev
+
+admin_qualityfriend main
+-> qualityfriend-admin-prod
+-> admin.qualityfriend.solutions
+-> qualityfriend_prod
+
+GitHub Actions plan
+-------------------
+
+Each repository receives separate development and production workflows or one
+workflow with strict branch/environment conditions.
+
+Recommended GitHub environments:
+- development
+- production
+
+Protect the production environment with manual approval if available. Store SSH
+keys, deployment user, VPS host, registry credentials, and other secrets in
+GitHub Secrets/Environments. Do not place secret values in workflow YAML.
+
+Normal development deployment:
+
+1. Push to develop.
+2. Run lint, type checks, tests, and production image build.
+3. Publish an immutable image tagged with the commit SHA.
+4. Connect to the VPS using a restricted deployment account.
+5. Pull the exact image.
+6. For Main App schema changes, apply development migrations once to
+   qualityfriend_dev.
+7. Recreate only the targeted development container.
+8. Wait for the health check.
+9. Verify the development domain.
+10. Retain the previous image tag for rollback.
+
+Normal production deployment:
+
+1. Merge the approved develop branch into main.
+2. Run lint, type checks, tests, and production image build again.
+3. Publish an immutable image tagged with the commit SHA.
+4. Require production approval.
+5. Confirm a recent PostgreSQL backup exists.
+6. Pull the exact production image.
+7. For Main App schema changes, apply "prisma migrate deploy" once to
+   qualityfriend_prod before switching application traffic.
+8. Recreate only the targeted production container.
+9. Wait for the health check.
+10. Verify the production domain and critical database operation.
+11. Roll back the application image if health verification fails.
+
+Migration jobs must use deployment concurrency controls so Main App and Admin
+deployments cannot race. Admin workflows never run migrations.
+
+Image strategy
+--------------
+
+Build production images using the Next.js standalone output pattern supported by
+the installed Next.js version. Do not run the development server on the VPS.
+Containers should use production NODE_ENV and a non-root runtime user where
+supported.
+
+Tag images with immutable commit SHAs. Optional readable tags such as develop
+and main may point to the latest image, but deployments and rollbacks should use
+the immutable SHA tag.
+
+Health checks
+-------------
+
+Each application needs two checks:
+
+- Application health/liveness: confirms the Next.js server responds.
+- Database readiness: confirms the correct database is reachable.
+
+Database health responses must be verified carefully:
+
+- Development domains must report qualityfriend_dev.
+- Production domains must report qualityfriend_prod.
+
+Health endpoints must not expose credentials, connection strings, stack traces,
+or sensitive infrastructure details.
+
+Firewall and access plan
+------------------------
+
+- Allow SSH only from trusted addresses where practical.
+- Allow public TCP 80 and 443.
+- Do not allow public PostgreSQL port 5432.
+- Do not expose application container ports publicly when reverse proxy routing
+  can remain private or loopback-only.
+- Prefer SSH keys over root-password login.
+- Create a restricted deployment user instead of using root in GitHub Actions.
+- Keep the Hostinger firewall and Ubuntu firewall rules consistent.
+
+PostgreSQL persistence and backups
+----------------------------------
+
+- Store PostgreSQL data in a named Docker volume or an explicitly managed VPS
+  data directory.
+- Never use "docker compose down -v" on the VPS.
+- Configure scheduled logical backups for both qualityfriend_dev and
+  qualityfriend_prod.
+- Retain multiple backup generations off the VPS where possible.
+- Test a restore procedure before production launch.
+- Take/confirm a backup before every production schema migration.
+- Monitor disk usage so backups and Docker images cannot fill the 100 GB disk.
+
+Deployment phases
+-----------------
+
+Phase 1 - Repository readiness
+- Create the two GitHub repositories.
+- Commit Docker production files and lockfiles.
+- Commit Prisma schema and migration history only in Main App.
+- Confirm .env files and secrets are ignored.
+- Create develop and main branches.
+
+Phase 2 - Read-only VPS audit
+- Connect to the VPS.
+- Record all existing Docker and reverse-proxy state.
+- Back up existing proxy configuration.
+- Identify how api.site.com is routed.
+- Confirm available CPU, memory, disk, networks, and ports.
+- Make no changes during the audit.
+
+Phase 3 - Safe QualityFriend foundation
+- Create the QualityFriend private Docker network.
+- Create protected VPS secret files.
+- Deploy the PostgreSQL container and persistent volume.
+- Create qualityfriend_dev and qualityfriend_prod.
+- Create separate restricted database users.
+- Verify backup and restore commands.
+
+Phase 4 - Development applications
+- Deploy qualityfriend-app-dev.
+- Apply development migrations from Main App once.
+- Deploy qualityfriend-admin-dev.
+- Confirm both connect only to qualityfriend_dev.
+- Add development reverse-proxy routes and TLS.
+- Test development GitHub Actions end to end.
+
+Phase 5 - Production applications
+- Confirm production backup readiness.
+- Deploy qualityfriend-app-prod.
+- Apply reviewed production migrations once.
+- Deploy qualityfriend-admin-prod.
+- Confirm both connect only to qualityfriend_prod.
+- Add production reverse-proxy routes and TLS.
+- Verify production GitHub Actions and rollback.
+
+Phase 6 - Operational verification
+- Confirm api.site.com remains healthy and unchanged.
+- Confirm all four QualityFriend HTTPS domains.
+- Confirm development/production database isolation.
+- Confirm container restart policies work after VPS reboot.
+- Confirm certificate renewal, backups, monitoring, and disk alerts.
+- Document all final commands, paths, secrets locations, and recovery steps.
+
+Pre-deployment checklist
+------------------------
+
+[ ] Main App and Admin work simultaneously in local Docker.
+[ ] Main App owns migrations and seeders.
+[ ] Admin contains no independent migration history.
+[ ] Git repositories and develop/main branches exist.
+[ ] No .env file or real credential is committed.
+[ ] VPS Docker/reverse-proxy audit is complete.
+[ ] Existing api.site.com route and container are documented and protected.
+[ ] DNS provider and nameservers are confirmed.
+[ ] Four A records point to 72.60.135.83.
+[ ] PostgreSQL is not publicly exposed.
+[ ] qualityfriend_dev and qualityfriend_prod use separate database users.
+[ ] Backups and restore steps are tested.
+[ ] HTTPS certificates are active for all four domains.
+[ ] Development domains report qualityfriend_dev.
+[ ] Production domains report qualityfriend_prod.
+[ ] GitHub Actions deploys by immutable image tag.
+[ ] Production deployments require controlled migration and health verification.
+
+Final safety rule
+-----------------
+No implementation step should begin on the VPS until the existing Docker
+containers, reverse proxy, ports 80/443, networks, and api.site.com routing have
+been inspected. Every deployment action must target only explicitly identified
+QualityFriend resources.

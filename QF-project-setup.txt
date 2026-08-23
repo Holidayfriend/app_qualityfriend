@@ -1,0 +1,136 @@
+# QualityFriend – Project Setup & Deployment Plan
+
+**Project Name:** QualityFriend
+**Main Domain:** qualityfriend.solutions
+**Hosting:** Hostinger VPS
+**Database:** PostgreSQL
+**Deployment:** Docker + GitHub Actions
+
+## 1. Projects & Domains
+
+### Marketing
+* Development: dev.qualityfriend.solutions
+* Production: qualityfriend.solutions
+
+### Main App
+* Development: dev.app.qualityfriend.solutions
+* Production: app.qualityfriend.solutions
+
+Container mapping:
+* app-dev -> dev.app.qualityfriend.solutions
+* app-prod -> app.qualityfriend.solutions
+
+Repository branches:
+* develop -> Development
+* main -> Production
+
+Deployment workflow:
+* Push to develop -> GitHub Actions builds and deploys to app-dev -> dev.app.qualityfriend.solutions
+* Merge develop -> main -> GitHub Actions builds and deploys to app-prod -> app.qualityfriend.solutions
+
+### Admin
+* Development: dev.admin.qualityfriend.solutions
+* Production: admin.qualityfriend.solutions
+
+## 2. PostgreSQL Setup
+
+Use one shared PostgreSQL server/container for all three projects.
+
+All three applications (Marketing, Main App, Admin) use the same database for their respective environment.
+
+Databases:
+* Development: qualityfriend_dev
+* Production: qualityfriend_prod
+
+### Development
+All development containers connect to qualityfriend_dev.
+
+Architecture:
+marketing-dev -> qualityfriend_dev
+app-dev -> qualityfriend_dev
+admin-dev -> qualityfriend_dev
+
+### Production
+All production containers connect to qualityfriend_prod.
+
+Architecture:
+marketing-prod -> qualityfriend_prod
+app-prod -> qualityfriend_prod
+admin-prod -> qualityfriend_prod
+
+Development applications must never connect to the production database, and production applications must never connect to the development database.
+
+## 3. Local Environment Setup (DO THIS FIRST)
+
+Local setup must mirror the server architecture exactly:
+
+* ALL 3 projects run locally inside Docker (not native/Laragon-run apps).
+* PostgreSQL also runs locally inside Docker (not a native Postgres install) — same pattern as the server, just local.
+* All 3 local app containers share ONE local Postgres container, connecting to qualityfriend_dev.
+
+### Local project paths
+* C:\laragon\www\app_qualityfriend -> Main App
+* C:\laragon\www\admin_qualityfriend -> Admin App
+
+Both are plain Next.js apps — nothing else installed at this stage, just a fresh Next.js app in each.
+
+### Local setup order
+1. Set up app_qualityfriend (Main App) FIRST — Next.js app + its Docker container + connect to local shared Postgres container.
+2. Once app_qualityfriend is fully working locally, set up admin_qualityfriend the same way.
+3. Marketing project comes after Main App and Admin.
+
+Only after all 3 projects run correctly locally in Docker against the local shared Postgres database do we move to Git -> GitHub Actions -> Hostinger VPS.
+
+## 4. Docker Containers (Server / VPS target)
+
+Planned VPS containers:
+* marketing-dev
+* marketing-prod
+* app-dev
+* app-prod
+* admin-dev
+* admin-prod
+* postgres
+
+The six application containers share the same PostgreSQL container.
+
+There is already another Docker container running on the VPS for api.site.com.
+
+IMPORTANT: Do not modify, stop, delete, rebuild, restart, or otherwise disturb the existing api.site.com container.
+
+Before making any changes to VPS networking, ports 80/443, Docker networks, or reverse-proxy configuration, inspect the existing VPS setup first to make sure the current application is not affected.
+
+## 5. Development Workflow (once on server)
+
+Developers work locally and push changes to the develop branch.
+
+GitHub Actions automatically builds and deploys the development version.
+
+Example for Main App:
+Local Development -> develop -> GitHub Actions -> app-dev -> dev.app.qualityfriend.solutions
+
+After development changes have been tested and approved:
+develop -> main -> GitHub Actions -> app-prod -> app.qualityfriend.solutions
+
+Same workflow applies to Marketing and Admin projects.
+
+There should be no manual build or upload process for normal deployments.
+
+## 6. Overall Sequencing Summary
+
+1. Local: set up app_qualityfriend (Next.js) in Docker, connected to local shared Postgres (qualityfriend_dev).
+2. Local: set up admin_qualityfriend (Next.js) in Docker, same local shared Postgres.
+3. Local: set up Marketing project the same way.
+4. Confirm all 3 projects run locally at the same time against the local shared Postgres DB.
+5. Push to Git, then replicate the same architecture on the Hostinger VPS (separate dev/prod containers, shared Postgres, split databases).
+6. Connect all dev/prod domains to their respective containers.
+7. Confirm GitHub Actions deployment works end to end.
+8. Only after full local + server infrastructure is confirmed working does application development start.
+
+## 7. Working Rules
+
+* AI does NOT run any commands — no composer, npm, docker, database, permission, migration, or git commands.
+* AI only prepares code and configuration changes.
+* After changes are prepared, Claude provides a clear list of commands to run.
+* User runs all commands themselves and reports back any errors before continuing.
+* Local run of all 3 projects at once, against the local shared DB, needs to be confirmed working before moving to the server stage.
