@@ -13,14 +13,81 @@ datasource db {
 }
 
 model SuperAdmin {
-  id          String    @id @default(uuid()) @db.Uuid
-  name        String    @db.VarChar(120)
-  email       String    @unique @db.VarChar(320)
-  passwordHash String   @map("password_hash") @db.VarChar(255)
-  isActive    Boolean   @default(true) @map("is_active")
-  lastLoginAt DateTime? @map("last_login_at") @db.Timestamptz(3)
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id           String    @id @default(uuid()) @db.Uuid
+  name         String    @db.VarChar(120)
+  email        String    @unique @db.VarChar(320)
+  passwordHash String    @map("password_hash") @db.VarChar(255)
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   @@map("super_admins")
+}
+
+enum HotelLanguage {
+  EN
+  DE
+  IT
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  USER
+}
+
+model HotelTenant {
+  id               String        @id @default(uuid()) @db.Uuid
+  hotelNameEn      String        @map("hotel_name_en") @db.VarChar(180)
+  hotelNameDe      String        @map("hotel_name_de") @db.VarChar(180)
+  hotelNameIt      String        @map("hotel_name_it") @db.VarChar(180)
+  email            String        @db.VarChar(320)
+  logoUrl          String?       @map("logo_url") @db.VarChar(2048)
+  hotelLanguage    HotelLanguage @default(EN) @map("hotel_language")
+  isActive         Boolean       @default(true) @map("is_active")
+  dataProtectionEn String?       @map("data_protection_en") @db.Text
+  dataProtectionDe String?       @map("data_protection_de") @db.Text
+  dataProtectionIt String?       @map("data_protection_it") @db.Text
+  privacyPolicyEn  String?       @map("privacy_policy_en") @db.Text
+  privacyPolicyDe  String?       @map("privacy_policy_de") @db.Text
+  privacyPolicyIt  String?       @map("privacy_policy_it") @db.Text
+  companyName      String        @map("company_name") @db.VarChar(180)
+  streetAddress    String        @map("street_address") @db.VarChar(255)
+  postalCode       String        @map("postal_code") @db.VarChar(32)
+  city             String        @db.VarChar(120)
+  country          String        @db.VarChar(120)
+  contactPerson    String        @map("contact_person") @db.VarChar(180)
+  phoneNumber      String?       @map("phone_number") @db.VarChar(40)
+  vatId            String?       @map("vat_id") @db.VarChar(64)
+  tripadvisorId    String?       @map("tripadvisor_id") @db.VarChar(120)
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  users            User[]
+
+  @@index([isActive])
+  @@map("hotel_tenants")
+}
+
+model User {
+  id            String      @id @default(uuid()) @db.Uuid
+  hotelTenantId String      @map("hotel_tenant_id") @db.Uuid
+  firstName     String      @map("first_name") @db.VarChar(120)
+  lastName      String      @map("last_name") @db.VarChar(120)
+  email         String      @unique @db.VarChar(320)
+  passwordHash  String      @map("password_hash") @db.VarChar(255)
+  phoneNumber   String?     @map("phone_number") @db.VarChar(40)
+  role          UserRole    @default(USER)
+  isActive      Boolean     @default(true) @map("is_active")
+  isDeleted     Boolean     @default(false) @map("is_deleted")
+  deletedAt     DateTime?   @map("deleted_at") @db.Timestamptz(3)
+  lastLoginAt   DateTime?   @map("last_login_at") @db.Timestamptz(3)
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant   HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+
+  @@index([hotelTenantId])
+  @@index([hotelTenantId, isActive])
+  @@index([hotelTenantId, isDeleted])
+  @@map("users")
 }

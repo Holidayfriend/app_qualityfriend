@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState, type FormEvent } from "react";
 import { AuthCard } from "../../components/auth/auth-card";
 import { AuthShell } from "../../components/auth/auth-shell";
 import { LanguageSwitcher } from "../../components/i18n/language-switcher";
@@ -10,15 +11,36 @@ import { Input } from "../../components/ui/input";
 import { PasswordInput } from "../../components/ui/password-input";
 
 export default function RegisterPage() {
-  const { dictionary } = useI18n();
+  const { dictionary, locale } = useI18n();
   const t = dictionary.register;
   const optional = (label: string) => `${label} (${dictionary.common.optional})`;
+  const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error" | "email-exists">("idle");
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setStatus("submitting");
+    const form = event.currentTarget;
+    const values = Object.fromEntries(new FormData(form).entries());
+    const response = await fetch("/api/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...values, hotelLanguage: locale.toUpperCase() }),
+    }).catch(() => null);
+
+    if (response?.ok) {
+      form.reset();
+      setStatus("success");
+      return;
+    }
+    const result = await response?.json().catch(() => null);
+    setStatus(result?.error === "EMAIL_EXISTS" ? "email-exists" : "error");
+  }
 
   return (
     <AuthShell wide eyebrow={t.eyebrow} title={t.heroTitle} description={t.heroDescription} brandSubtitle={dictionary.common.brandSubtitle}>
       <div className="mb-3 flex justify-end"><LanguageSwitcher /></div>
       <AuthCard title={t.title} subtitle={t.subtitle}>
-        <form className="space-y-6">
+        <form className="space-y-6" onSubmit={handleSubmit}>
           <fieldset className="space-y-4">
             <legend className="mb-3 text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--qf-accent)]">{t.companySection}</legend>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -54,7 +76,9 @@ export default function RegisterPage() {
             </div>
           </fieldset>
           <label className="flex cursor-pointer items-start gap-2.5 text-[12px] leading-5 text-[var(--qf-text-muted)]"><input type="checkbox" name="terms" required className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--qf-accent)]" /><span>{t.terms}</span></label>
-          <Button type="submit" fullWidth>{t.submit}</Button>
+          {status === "success" ? <p role="status" className="rounded-lg bg-[#dcfce7] px-4 py-3 text-[13px] font-medium text-[#166534]">{t.success}</p> : null}
+          {status === "email-exists" || status === "error" ? <p role="alert" className="rounded-lg bg-[#fee2e2] px-4 py-3 text-[13px] font-medium text-[var(--qf-danger)]">{status === "email-exists" ? t.emailExists : t.error}</p> : null}
+          <Button type="submit" fullWidth disabled={status === "submitting"}>{status === "submitting" ? t.submitting : t.submit}</Button>
         </form>
         <p className="mt-6 text-center text-[13px] text-[var(--qf-text-muted)]">{t.hasAccount} <Link href="/login" className="font-semibold text-[var(--qf-accent)] hover:underline">{t.login}</Link></p>
       </AuthCard>
