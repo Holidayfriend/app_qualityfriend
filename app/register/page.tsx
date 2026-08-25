@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { AuthCard } from "../../components/auth/auth-card";
 import { AuthShell } from "../../components/auth/auth-shell";
@@ -12,6 +13,7 @@ import { PasswordInput } from "../../components/ui/password-input";
 
 export default function RegisterPage() {
   const { dictionary, locale } = useI18n();
+  const router = useRouter();
   const t = dictionary.register;
   const optional = (label: string) => `${label} (${dictionary.common.optional})`;
   const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error" | "email-exists">("idle");
@@ -28,8 +30,7 @@ export default function RegisterPage() {
     }).catch(() => null);
 
     if (response?.ok) {
-      form.reset();
-      setStatus("success");
+      router.push("/dashboard");
       return;
     }
     const result = await response?.json().catch(() => null);
