@@ -1,26 +1,26 @@
 @import "tailwindcss";
 
+/* QualityFriend design tokens — update the visual system here. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --qf-background: #f7f6f3;
+  --qf-surface: #ffffff;
+  --qf-navy: #1c2233;
+  --qf-navy-hover: #2a3347;
+  --qf-accent: #c4933a;
+  --qf-accent-hover: #ad7f2e;
+  --qf-accent-soft: #f5e8cc;
+  --qf-text: #1c2233;
+  --qf-text-muted: #6b7280;
+  --qf-text-light: #9ca3af;
+  --qf-border: #e8e6e1;
+  --qf-danger: #dc2626;
+  --qf-radius: 10px;
+  --qf-shadow: 0 1px 3px rgb(0 0 0 / 7%), 0 4px 16px rgb(0 0 0 / 5%);
+  --qf-font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body { background: var(--qf-background); color: var(--qf-text); font-family: var(--qf-font); }
+button, input { font: inherit; }
+::selection { background: var(--qf-accent-soft); color: var(--qf-text); }
