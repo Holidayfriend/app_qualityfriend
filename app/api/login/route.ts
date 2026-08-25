@@ -8,6 +8,7 @@ type LoginUser = {
   password_hash: string;
   is_active: boolean;
   is_deleted: boolean;
+  language: "EN" | "DE" | "IT";
 };
 
 export async function POST(request: Request) {
@@ -18,7 +19,7 @@ export async function POST(request: Request) {
   if (!email || !password) return NextResponse.json({ error: "INVALID_CREDENTIALS" }, { status: 401 });
 
   const result = await queryDatabase<LoginUser>(
-    `SELECT id, password_hash, is_active, is_deleted
+    `SELECT id, password_hash, is_active, is_deleted, language
      FROM users
      WHERE email = $1
      LIMIT 1`,
@@ -32,5 +33,5 @@ export async function POST(request: Request) {
   }
 
   await createSession(user.id);
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: true, language: user.language.toLowerCase() });
 }

@@ -12,7 +12,7 @@ import { Input } from "../../components/ui/input";
 import { PasswordInput } from "../../components/ui/password-input";
 
 export default function LoginPage() {
-  const { dictionary } = useI18n();
+  const { dictionary, setLocale } = useI18n();
   const t = dictionary.login;
   const router = useRouter();
   const [status, setStatus] = useState<"idle" | "submitting" | "error">("idle");
@@ -42,6 +42,8 @@ export default function LoginPage() {
     }).catch(() => null);
 
     if (response?.ok) {
+      const result = await response.json();
+      if (result.language === "en" || result.language === "de" || result.language === "it") setLocale(result.language);
       router.push("/dashboard");
       return;
     }

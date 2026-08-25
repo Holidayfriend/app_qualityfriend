@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useSyncExternalStore, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useSyncExternalStore, type ReactNode } from "react";
 import { dictionaries, supportedLocales, type Locale } from "../../lib/i18n/dictionaries";
 
 type I18nContextValue = { locale: Locale; setLocale: (locale: Locale) => void; dictionary: (typeof dictionaries)[Locale] };
@@ -30,14 +30,14 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     () => "en",
   );
 
-  const setLocale = (nextLocale: Locale) => {
+  const setLocale = useCallback((nextLocale: Locale) => {
     window.localStorage.setItem(storageKey, nextLocale);
     window.dispatchEvent(new Event(localeChangeEvent));
     document.documentElement.lang = nextLocale;
-  };
+  }, []);
 
   useEffect(() => { document.documentElement.lang = locale; }, [locale]);
-  const value = useMemo(() => ({ locale, setLocale, dictionary: dictionaries[locale] }), [locale]);
+  const value = useMemo(() => ({ locale, setLocale, dictionary: dictionaries[locale] }), [locale, setLocale]);
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
 

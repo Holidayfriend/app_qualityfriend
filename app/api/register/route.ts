@@ -55,10 +55,10 @@ export async function POST(request: Request) {
 
     const user = await client.query<{ id: string }>(
       `INSERT INTO users
-        (id, hotel_tenant_id, first_name, last_name, email, password_hash, phone_number, role, created_at, updated_at)
-       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, 'OWNER', NOW(), NOW())
+        (id, hotel_tenant_id, first_name, last_name, email, password_hash, phone_number, language, role, created_at, updated_at)
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7::"HotelLanguage", 'OWNER', NOW(), NOW())
        RETURNING id`,
-      [hotel.rows[0].id, firstName, lastName, email, passwordHash, phoneNumber],
+      [hotel.rows[0].id, firstName, lastName, email, passwordHash, phoneNumber, hotelLanguage],
     );
     await client.query("COMMIT");
     await createSession(user.rows[0].id);

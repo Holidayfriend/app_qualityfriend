@@ -77,6 +77,7 @@ model User {
   email         String      @unique @db.VarChar(320)
   passwordHash  String      @map("password_hash") @db.VarChar(255)
   phoneNumber   String?     @map("phone_number") @db.VarChar(40)
+  language      HotelLanguage @default(EN) @map("language")
   role          UserRole    @default(USER)
   isActive      Boolean     @default(true) @map("is_active")
   isDeleted     Boolean     @default(false) @map("is_deleted")
