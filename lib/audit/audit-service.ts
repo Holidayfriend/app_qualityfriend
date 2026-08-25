@@ -2,7 +2,7 @@ import "server-only";
 
 import type { PoolClient } from "pg";
 
-export type AuditAction = "CREATE" | "UPDATE" | "DELETE" | "STATUS_CHANGE";
+export type AuditAction = "CREATE" | "UPDATE" | "DELETE" | "RESTORE" | "STATUS_CHANGE";
 
 type AuditEntry = {
   hotelTenantId: string;
@@ -42,6 +42,7 @@ function descriptions(actor: string, entry: AuditEntry) {
     if (entry.action === "CREATE") result[locale] = locale === "de" ? `${actor} hat ${entity} „${after}“ erstellt` : locale === "it" ? `${actor} ha creato ${entity} “${after}”` : `${actor} created new ${entity} “${after}”`;
     else if (entry.action === "UPDATE") result[locale] = locale === "de" ? `${actor} hat ${entity} von „${before}“ zu „${after}“ aktualisiert` : locale === "it" ? `${actor} ha aggiornato ${entity} da “${before}” a “${after}”` : `${actor} updated ${entity} “${after}” from “${before}”`;
     else if (entry.action === "DELETE") result[locale] = locale === "de" ? `${actor} hat ${entity} „${before}“ gelöscht` : locale === "it" ? `${actor} ha eliminato ${entity} “${before}”` : `${actor} deleted ${entity} “${before}”`;
+    else if (entry.action === "RESTORE") result[locale] = locale === "de" ? `${actor} hat ${entity} „${after}“ wiederhergestellt` : locale === "it" ? `${actor} ha ripristinato ${entity} “${after}”` : `${actor} restored ${entity} “${after}”`;
     else result[locale] = locale === "de" ? `${actor} hat den Status von ${entity} „${after || before}“ geändert` : locale === "it" ? `${actor} ha cambiato lo stato di ${entity} “${after || before}”` : `${actor} changed the status of ${entity} “${after || before}”`;
   }
   return result;

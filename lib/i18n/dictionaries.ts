@@ -57,3 +57,9 @@ export const settingsPageMessages = {
   de: { departmentsTeams: "Abteilungen & Teams verwalten", departmentsTeamsDescription: "Abteilungen und Teams anlegen, bearbeiten und löschen" },
   it: { departmentsTeams: "Gestisci reparti e team", departmentsTeamsDescription: "Crea, modifica ed elimina reparti e team" },
 } as const;
+
+export const recycleBinMessages = {
+  en: { description: "Deleted items from this hotel can be restored here.", empty: "The recycle bin is empty.", restore: "Restore", deleted: "Deleted", types: { department: "Department", team: "Team" } },
+  de: { description: "Gelöschte Einträge dieses Hotels können hier wiederhergestellt werden.", empty: "Der Papierkorb ist leer.", restore: "Wiederherstellen", deleted: "Gelöscht", types: { department: "Abteilung", team: "Team" } },
+  it: { description: "Gli elementi eliminati di questo hotel possono essere ripristinati qui.", empty: "Il cestino è vuoto.", restore: "Ripristina", deleted: "Eliminato", types: { department: "Reparto", team: "Team" } },
+} as const;
