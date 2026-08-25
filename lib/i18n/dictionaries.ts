@@ -99,3 +99,15 @@ export const userManagementMessages = {
   de: { settings: "Einstellungen", search: "Nach Name oder E-Mail suchen…", add: "Nutzer hinzufügen", employee: "Mitarbeiter", email: "E-Mail", department: "Abteilung", role: "Rolle", status: "Status", actions: "Aktionen", active: "Aktiv", inactive: "Inaktiv", noDepartment: "Keine Abteilung", empty: "Keine Benutzer gefunden.", showing: "Zeigt {count} Mitarbeiter", createTitle: "Benutzer erstellen", editTitle: "Benutzer bearbeiten", firstName: "Vorname", lastName: "Nachname", phone: "Telefonnummer (optional)", password: "Passwort", newPassword: "Neues Passwort (optional)", save: "Speichern", cancel: "Abbrechen", required: "Dieses Feld ist erforderlich.", invalidEmail: "Geben Sie eine gültige E-Mail-Adresse ein.", shortPassword: "Das Passwort muss mindestens 8 Zeichen enthalten.", emailExists: "Diese E-Mail-Adresse wird bereits verwendet." },
   it: { settings: "Impostazioni", search: "Cerca per nome o e-mail…", add: "Aggiungi utente", employee: "Dipendente", email: "E-mail", department: "Reparto", role: "Ruolo", status: "Stato", actions: "Azioni", active: "Attivo", inactive: "Inattivo", noDepartment: "Nessun reparto", empty: "Nessun utente trovato.", showing: "Mostra {count} dipendenti", createTitle: "Crea utente", editTitle: "Modifica utente", firstName: "Nome", lastName: "Cognome", phone: "Numero di telefono (facoltativo)", password: "Password", newPassword: "Nuova password (facoltativa)", save: "Salva", cancel: "Annulla", required: "Questo campo è obbligatorio.", invalidEmail: "Inserisci un indirizzo e-mail valido.", shortPassword: "La password deve contenere almeno 8 caratteri.", emailExists: "Questo indirizzo e-mail è già in uso." },
 } as const;
+
+export const moduleNavigationMessages = {
+  en: { chat: "Chat", competitors: "Competitors", mcp: "MCP" },
+  de: { chat: "Chat", competitors: "Wettbewerber", mcp: "MCP" },
+  it: { chat: "Chat", competitors: "Concorrenti", mcp: "MCP" },
+} as const;
+
+export const mcpSettingsMessages = {
+  en: { title: "MCP integrations", description: "Connect and manage MCP services" },
+  de: { title: "MCP-Integrationen", description: "MCP-Dienste verbinden und verwalten" },
+  it: { title: "Integrazioni MCP", description: "Collega e gestisci i servizi MCP" },
+} as const;
