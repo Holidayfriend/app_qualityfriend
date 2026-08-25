@@ -1,4 +1,4 @@
-import { queryDatabase } from "@/database";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,10 +10,8 @@ type DatabaseHealthRow = {
 
 export async function GET() {
   try {
-    const result = await queryDatabase<DatabaseHealthRow>(
-      "SELECT current_database() AS database, NOW() AS server_time",
-    );
-    const connection = result.rows[0];
+    const result = await prisma.$queryRaw<DatabaseHealthRow[]>`SELECT current_database() AS database, NOW() AS server_time`;
+    const connection = result[0];
 
     return Response.json({
       status: "connected",

@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { PoolClient } from "pg";
+import type { Prisma } from "../../app/generated/prisma/client";
 
 export type AuditAction = "CREATE" | "UPDATE" | "DELETE" | "RESTORE" | "STATUS_CHANGE";
 
@@ -48,12 +48,8 @@ function descriptions(actor: string, entry: AuditEntry) {
   return result;
 }
 
-export async function recordAuditLog(client: PoolClient, entry: AuditEntry) {
-  const actorResult = await client.query<{ actor_name: string }>(`SELECT first_name || ' ' || last_name AS actor_name FROM users WHERE id = $1 LIMIT 1`, [entry.actorId]);
-  const description = descriptions(actorResult.rows[0]?.actor_name ?? "User", entry);
-  return client.query(
-    `INSERT INTO audit_logs (hotel_tenant_id, actor_id, action, entity_type, entity_id, changes, description)
-     VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb)`,
-    [entry.hotelTenantId, entry.actorId, entry.action, entry.entityType, entry.entityId ?? null, JSON.stringify(entry.changes ?? null), JSON.stringify(description)],
-  );
+export async function recordAuditLog(client: Prisma.TransactionClient, entry: AuditEntry) {
+  const actor=await client.user.findUnique({where:{id:entry.actorId},select:{firstName:true,lastName:true}});
+  const description=descriptions(actor?`${actor.firstName} ${actor.lastName}`:"User",entry);
+  return client.auditLog.create({data:{hotelTenantId:entry.hotelTenantId,actorId:entry.actorId,action:entry.action,entityType:entry.entityType,entityId:entry.entityId??null,changes:(entry.changes??null) as Prisma.InputJsonValue,description:description as Prisma.InputJsonValue}});
 }

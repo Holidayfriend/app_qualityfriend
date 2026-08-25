@@ -1,15 +1,7 @@
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
-import { queryDatabase } from "../../../database";
+import { prisma } from "../../../lib/prisma";
 import { createSession } from "../../../lib/auth/session";
-
-type LoginUser = {
-  id: string;
-  password_hash: string;
-  is_active: boolean;
-  is_deleted: boolean;
-  language: "EN" | "DE" | "IT";
-};
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
@@ -18,17 +10,10 @@ export async function POST(request: Request) {
 
   if (!email || !password) return NextResponse.json({ error: "INVALID_CREDENTIALS" }, { status: 401 });
 
-  const result = await queryDatabase<LoginUser>(
-    `SELECT id, password_hash, is_active, is_deleted, language
-     FROM users
-     WHERE email = $1
-     LIMIT 1`,
-    [email],
-  );
-  const user = result.rows[0];
-  const validPassword = user ? await bcrypt.compare(password, user.password_hash) : false;
+  const user=await prisma.user.findUnique({where:{email},select:{id:true,passwordHash:true,isActive:true,isDeleted:true,language:true}});
+  const validPassword = user ? await bcrypt.compare(password, user.passwordHash) : false;
 
-  if (!user || !validPassword || !user.is_active || user.is_deleted) {
+  if (!user || !validPassword || !user.isActive || user.isDeleted) {
     return NextResponse.json({ error: "INVALID_CREDENTIALS" }, { status: 401 });
   }
 

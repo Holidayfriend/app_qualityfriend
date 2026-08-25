@@ -1,16 +1,2 @@
-import { NextResponse } from "next/server";
-import { queryDatabase } from "../../../database";
-import { currentAccessUser } from "../../../lib/auth/module-access";
-
-export async function GET() {
-  const current = await currentAccessUser();
-  if (!current) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
-  const users = await queryDatabase(`
-    SELECT u.id,u.first_name,u.last_name,u.role,u.last_seen_at,(u.last_seen_at > NOW() - INTERVAL '90 seconds') AS is_online,
-      (SELECT COALESCE(m.text,m.attachment_name) FROM chat_messages m WHERE m.hotel_tenant_id=$1 AND ((m.sender_id=$2 AND m.recipient_id=u.id) OR (m.sender_id=u.id AND m.recipient_id=$2)) ORDER BY m.created_at DESC LIMIT 1) AS last_message,
-      (SELECT m.created_at FROM chat_messages m WHERE m.hotel_tenant_id=$1 AND ((m.sender_id=$2 AND m.recipient_id=u.id) OR (m.sender_id=u.id AND m.recipient_id=$2)) ORDER BY m.created_at DESC LIMIT 1) AS last_message_at,
-      (SELECT count(*)::int FROM chat_messages m WHERE m.sender_id=u.id AND m.recipient_id=$2 AND m.read_at IS NULL) AS unread_count
-    FROM users u WHERE u.hotel_tenant_id=$1 AND u.id<>$2 AND u.is_active=true AND u.is_deleted=false
-    ORDER BY last_message_at DESC NULLS LAST,u.first_name,u.last_name`, [current.hotel_tenant_id,current.id]);
-  return NextResponse.json({ currentUserId: current.id, users: users.rows });
-}
+import{NextResponse}from"next/server";import{currentAccessUser}from"../../../lib/auth/module-access";import{prisma}from"../../../lib/prisma";
+export async function GET(){const current=await currentAccessUser();if(!current)return NextResponse.json({error:"UNAUTHENTICATED"},{status:401});const users=await prisma.user.findMany({where:{hotelTenantId:current.hotel_tenant_id,id:{not:current.id},isActive:true,isDeleted:false},select:{id:true,firstName:true,lastName:true,role:true,lastSeenAt:true},orderBy:[{firstName:"asc"},{lastName:"asc"}]});const enriched=await Promise.all(users.map(async user=>{const[last,unread]=await Promise.all([prisma.chatMessage.findFirst({where:{hotelTenantId:current.hotel_tenant_id,OR:[{senderId:current.id,recipientId:user.id},{senderId:user.id,recipientId:current.id}]},orderBy:{createdAt:"desc"},select:{text:true,attachmentName:true,createdAt:true}}),prisma.chatMessage.count({where:{senderId:user.id,recipientId:current.id,readAt:null}})]);return{id:user.id,first_name:user.firstName,last_name:user.lastName,role:user.role,last_seen_at:user.lastSeenAt,is_online:Boolean(user.lastSeenAt&&user.lastSeenAt.getTime()>Date.now()-90000),last_message:last?.text??last?.attachmentName??null,last_message_at:last?.createdAt??null,unread_count:unread}}));enriched.sort((a,b)=>(b.last_message_at?.getTime()??0)-(a.last_message_at?.getTime()??0)||a.first_name.localeCompare(b.first_name));return NextResponse.json({currentUserId:current.id,users:enriched})}

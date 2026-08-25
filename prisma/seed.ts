@@ -30,18 +30,18 @@ const adapter = new PrismaPg({ connectionString });
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  const passwordHash = await bcrypt.hash(password, 12);
+  const passwordHash = await bcrypt.hash(password!, 12);
 
   await prisma.superAdmin.upsert({
     where: { email },
     update: {
-      name,
+      name: name!,
       passwordHash,
       isActive: true,
     },
     create: {
-      name,
-      email,
+      name: name!,
+      email: email!,
       passwordHash,
     },
   });

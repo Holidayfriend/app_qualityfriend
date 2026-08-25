@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
-import { getDatabasePool } from "../../../database";
+import { prisma } from "../../../lib/prisma";
 import { createSession } from "../../../lib/auth/session";
 import { recordAuditLog } from "../../../lib/audit/audit-service";
 
@@ -41,39 +41,15 @@ export async function POST(request: Request) {
   const phoneNumber = optionalString(data.phone);
   const vatId = optionalString(data.vatId);
   const passwordHash = await bcrypt.hash(password, 12);
-  const client = await getDatabasePool().connect();
-
   try {
-    await client.query("BEGIN");
-    const hotel = await client.query<{ id: string }>(
-      `INSERT INTO hotel_tenants
-        (id, hotel_name_en, hotel_name_de, hotel_name_it, email, hotel_language, company_name,
-         street_address, postal_code, city, country, contact_person, phone_number, vat_id, created_at, updated_at)
-       VALUES (gen_random_uuid(), $1, $1, $1, $2, $3::"HotelLanguage", $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
-       RETURNING id`,
-      [hotelName, email, hotelLanguage, companyName, streetAddress, postalCode, city, country, contactPerson, phoneNumber, vatId],
-    );
-
-    const user = await client.query<{ id: string }>(
-      `INSERT INTO users
-        (id, hotel_tenant_id, first_name, last_name, email, password_hash, phone_number, language, role, created_at, updated_at)
-       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7::"HotelLanguage", 'ADMIN', NOW(), NOW())
-       RETURNING id`,
-      [hotel.rows[0].id, firstName, lastName, email, passwordHash, phoneNumber, hotelLanguage],
-    );
-    await recordAuditLog(client, { hotelTenantId: hotel.rows[0].id, actorId: user.rows[0].id, action: "CREATE", entityType: "HOTEL", entityId: hotel.rows[0].id, changes: { after: { hotelName, companyName } } });
-    await recordAuditLog(client, { hotelTenantId: hotel.rows[0].id, actorId: user.rows[0].id, action: "CREATE", entityType: "USER", entityId: user.rows[0].id, changes: { after: { firstName, lastName, email, role: "ADMIN" } } });
-    await client.query("COMMIT");
-    await createSession(user.rows[0].id);
+    const userId=await prisma.$transaction(async tx=>{const hotel=await tx.hotelTenant.create({data:{hotelNameEn:hotelName,hotelNameDe:hotelName,hotelNameIt:hotelName,email,hotelLanguage:hotelLanguage as "EN"|"DE"|"IT",companyName,streetAddress,postalCode,city,country,contactPerson,phoneNumber,vatId}});const user=await tx.user.create({data:{hotelTenantId:hotel.id,firstName,lastName,email,passwordHash,phoneNumber,language:hotelLanguage as "EN"|"DE"|"IT",role:"ADMIN"}});await recordAuditLog(tx,{hotelTenantId:hotel.id,actorId:user.id,action:"CREATE",entityType:"HOTEL",entityId:hotel.id,changes:{after:{hotelName,companyName}}});await recordAuditLog(tx,{hotelTenantId:hotel.id,actorId:user.id,action:"CREATE",entityType:"USER",entityId:user.id,changes:{after:{firstName,lastName,email,role:"ADMIN"}}});return user.id});
+    await createSession(userId);
     return NextResponse.json({ success: true }, { status: 201 });
   } catch (error) {
-    await client.query("ROLLBACK");
-    if (error && typeof error === "object" && "code" in error && error.code === "23505") {
+    if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
       return NextResponse.json({ error: "EMAIL_EXISTS" }, { status: 409 });
     }
     console.error("Registration failed", error);
     return NextResponse.json({ error: "REGISTRATION_FAILED" }, { status: 500 });
-  } finally {
-    client.release();
   }
 }
