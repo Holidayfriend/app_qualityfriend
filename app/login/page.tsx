@@ -54,13 +54,13 @@ export default function LoginPage() {
       <div className="mb-3 flex justify-end"><LanguageSwitcher /></div>
       <AuthCard title={t.title} subtitle={t.subtitle}>
         <form className="space-y-5" onSubmit={handleSubmit} noValidate>
-          <Input id="email" name="email" type="email" label={t.email} error={errors.email} placeholder="name@hotel.com" autoComplete="email" required />
+          <Input id="email" name="email" type="email" label={t.email} error={errors.email} placeholder="name@hotel.com" autoComplete="email" />
           <div>
             <div className="mb-1.5 flex items-center justify-between">
               <span className="text-[13px] font-semibold text-[var(--qf-text)]">{t.password}</span>
               <a href="#" className="text-xs font-semibold text-[var(--qf-accent)] hover:underline">{t.forgotPassword}</a>
             </div>
-            <PasswordInput id="password" name="password" label="" error={errors.password} showLabel={t.showPassword} hideLabel={t.hidePassword} placeholder={t.passwordPlaceholder} autoComplete="current-password" required />
+            <PasswordInput id="password" name="password" label="" error={errors.password} showLabel={t.showPassword} hideLabel={t.hidePassword} placeholder={t.passwordPlaceholder} autoComplete="current-password" />
           </div>
           <label className="flex cursor-pointer items-center gap-2.5 text-[13px] text-[var(--qf-text-muted)]"><input type="checkbox" name="remember" className="h-4 w-4 accent-[var(--qf-accent)]" />{t.remember}</label>
           <Button type="submit" fullWidth disabled={status === "submitting"}>{status === "submitting" ? t.submitting : t.submit}</Button>

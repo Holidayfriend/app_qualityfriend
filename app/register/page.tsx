@@ -68,39 +68,39 @@ export default function RegisterPage() {
           <fieldset className="space-y-4">
             <legend className="mb-3 text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--qf-accent)]">{t.companySection}</legend>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Input id="company" name="company" label={t.company} error={errors.company} placeholder="QualityFriend GmbH" autoComplete="organization" required />
-              <Input id="hotel-name" name="hotelName" label={t.hotelName} error={errors.hotelName} placeholder="Hotel Weihrerhof" required />
+              <Input id="company" name="company" label={t.company} error={errors.company} placeholder="QualityFriend GmbH" autoComplete="organization" />
+              <Input id="hotel-name" name="hotelName" label={t.hotelName} error={errors.hotelName} placeholder="Hotel Weihrerhof" />
             </div>
             <Input id="vat-id" name="vatId" label={optional(t.vatId)} placeholder="IT12345678901" />
           </fieldset>
           <fieldset className="space-y-4 border-t border-[var(--qf-border)] pt-5">
             <legend className="mb-3 text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--qf-accent)]">{t.contactSection}</legend>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Input id="first-name" name="firstName" label={t.firstName} error={errors.firstName} autoComplete="given-name" required />
-              <Input id="last-name" name="lastName" label={t.lastName} error={errors.lastName} autoComplete="family-name" required />
+              <Input id="first-name" name="firstName" label={t.firstName} error={errors.firstName} autoComplete="given-name" />
+              <Input id="last-name" name="lastName" label={t.lastName} error={errors.lastName} autoComplete="family-name" />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Input id="contact-person" name="contactPerson" label={t.contactPerson} error={errors.contactPerson} autoComplete="name" required />
+              <Input id="contact-person" name="contactPerson" label={t.contactPerson} error={errors.contactPerson} autoComplete="name" />
               <Input id="phone" name="phone" type="tel" label={optional(t.phone)} autoComplete="tel" />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Input id="register-email" name="email" type="email" label={t.email} error={errors.email} placeholder="name@hotel.com" autoComplete="email" required />
-              <PasswordInput id="register-password" name="password" label={t.password} error={errors.password} showLabel={t.showPassword} hideLabel={t.hidePassword} placeholder={t.passwordPlaceholder} autoComplete="new-password" minLength={8} required />
+              <Input id="register-email" name="email" type="email" label={t.email} error={errors.email} placeholder="name@hotel.com" autoComplete="email" />
+              <PasswordInput id="register-password" name="password" label={t.password} error={errors.password} showLabel={t.showPassword} hideLabel={t.hidePassword} placeholder={t.passwordPlaceholder} autoComplete="new-password" />
             </div>
           </fieldset>
           <fieldset className="space-y-4 border-t border-[var(--qf-border)] pt-5">
             <legend className="mb-3 text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--qf-accent)]">{t.addressSection}</legend>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Input id="country" name="country" label={t.country} error={errors.country} autoComplete="country-name" required />
-              <Input id="city" name="city" label={t.city} error={errors.city} autoComplete="address-level2" required />
+              <Input id="country" name="country" label={t.country} error={errors.country} autoComplete="country-name" />
+              <Input id="city" name="city" label={t.city} error={errors.city} autoComplete="address-level2" />
             </div>
             <div className="grid gap-4 sm:grid-cols-[1fr_150px]">
-              <Input id="street" name="streetAddress" label={t.street} error={errors.streetAddress} autoComplete="street-address" required />
-              <Input id="zip" name="zip" label={t.zip} error={errors.zip} autoComplete="postal-code" required />
+              <Input id="street" name="streetAddress" label={t.street} error={errors.streetAddress} autoComplete="street-address" />
+              <Input id="zip" name="zip" label={t.zip} error={errors.zip} autoComplete="postal-code" />
             </div>
           </fieldset>
           <div>
-            <label className="flex cursor-pointer items-start gap-2.5 text-[12px] leading-5 text-[var(--qf-text-muted)]"><input type="checkbox" name="terms" required aria-invalid={Boolean(errors.terms)} aria-describedby={errors.terms ? "terms-error" : undefined} className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--qf-accent)]" /><span>{t.terms}</span></label>
+            <label className="flex cursor-pointer items-start gap-2.5 text-[12px] leading-5 text-[var(--qf-text-muted)]"><input type="checkbox" name="terms" aria-invalid={Boolean(errors.terms)} aria-describedby={errors.terms ? "terms-error" : undefined} className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--qf-accent)]" /><span>{t.terms}</span></label>
             {errors.terms ? <p id="terms-error" role="alert" className="ml-6.5 mt-1 text-[11px] font-medium text-[var(--qf-danger)]">{errors.terms}</p> : null}
           </div>
           {status === "success" ? <p role="status" className="rounded-lg bg-[#dcfce7] px-4 py-3 text-[13px] font-medium text-[#166534]">{t.success}</p> : null}
