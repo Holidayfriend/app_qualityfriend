@@ -63,3 +63,9 @@ export const recycleBinMessages = {
   de: { description: "Gelöschte Einträge dieses Hotels können hier wiederhergestellt werden.", empty: "Der Papierkorb ist leer.", restore: "Wiederherstellen", deleted: "Gelöscht", types: { department: "Abteilung", team: "Team" } },
   it: { description: "Gli elementi eliminati di questo hotel possono essere ripristinati qui.", empty: "Il cestino è vuoto.", restore: "Ripristina", deleted: "Eliminato", types: { department: "Reparto", team: "Team" } },
 } as const;
+
+export const hotelLanguageMessages = {
+  en: { title: "Hotel default language", label: "Default language", save: "Save", cancel: "Cancel" },
+  de: { title: "Standardsprache des Hotels", label: "Standardsprache", save: "Speichern", cancel: "Abbrechen" },
+  it: { title: "Lingua predefinita dell'hotel", label: "Lingua predefinita", save: "Salva", cancel: "Annulla" },
+} as const;
