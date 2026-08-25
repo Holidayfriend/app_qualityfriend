@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { LanguageSwitcher } from "../../components/i18n/language-switcher";
 import { useI18n } from "../../components/i18n/i18n-provider";
@@ -9,10 +9,11 @@ import { useI18n } from "../../components/i18n/i18n-provider";
 export default function DashboardPage() {
   const { dictionary, locale, setLocale } = useI18n();
   const router = useRouter();
+  const pathname = usePathname();
   const n = dictionary.navigation;
   const d = dictionary.dashboard;
   const [menuOpen, setMenuOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState(n.dashboard);
+  const [selectedItem, setSelectedItem] = useState(pathname === "/settings" ? "settings" : "dashboard");
   const [currentUser, setCurrentUser] = useState<{ first_name: string; last_name: string; role: string; language: "EN" | "DE" | "IT"; hotel_name_en: string; hotel_name_de: string; hotel_name_it: string } | null>(null);
 
   useEffect(() => {
@@ -33,12 +34,13 @@ export default function DashboardPage() {
   const greeting = d.greeting.replace(/, Klaus$/, "");
 
   const groups = [
-    { title: n.overview, items: [["🏠", n.dashboard, ""], ["✨", n.aiAssistant, n.new]] },
-    { title: n.operations, items: [["🤝", n.handovers, ""], ["✅", n.tasks, "7"], ["🧹", n.housekeeping, ""], ["🔧", n.repairs, "2"], ["📝", n.notes, ""]] },
-    { title: n.staff, items: [["📅", n.schedule, ""], ["🔍", n.recruiting, ""], ["📖", n.manuals, ""]] },
-    { title: n.strategy, items: [["📊", n.budget, ""], ["🎯", n.revenue, ""]] },
-    { title: n.administration, items: [["⚙️", n.settings, ""]] },
+    { title: n.overview, items: [["dashboard", "🏠", n.dashboard, ""], ["ai", "✨", n.aiAssistant, n.new]] },
+    { title: n.operations, items: [["handovers", "🤝", n.handovers, ""], ["tasks", "✅", n.tasks, "7"], ["housekeeping", "🧹", n.housekeeping, ""], ["repairs", "🔧", n.repairs, "2"], ["notes", "📝", n.notes, ""]] },
+    { title: n.staff, items: [["schedule", "📅", n.schedule, ""], ["recruiting", "🔍", n.recruiting, ""], ["manuals", "📖", n.manuals, ""]] },
+    { title: n.strategy, items: [["budget", "📊", n.budget, ""], ["revenue", "🎯", n.revenue, ""]] },
+    { title: n.administration, items: [["settings", "⚙️", n.settings, ""]] },
   ];
+  const selectedLabel = groups.flatMap((group) => group.items).find(([id]) => id === selectedItem)?.[2] ?? n.dashboard;
 
   return (
     <div className="min-h-screen bg-[var(--qf-background)] lg:flex">
@@ -52,9 +54,9 @@ export default function DashboardPage() {
           {groups.map((group) => (
             <div key={group.title} className="px-2.5 pb-1 pt-3.5">
               <p className="px-2 pb-1.5 text-[9px] font-semibold uppercase tracking-[1.1px] text-white/30">{group.title}</p>
-              {group.items.map(([icon, label, badge]) => {
-                const active = selectedItem === label;
-                return <button key={label} type="button" onClick={() => { setSelectedItem(label); setMenuOpen(false); }} className={`mb-px flex w-full items-center gap-2 rounded-[6px] px-2.5 py-1.5 text-left text-[11.5px] leading-4 transition ${active ? "bg-[var(--qf-accent)] font-semibold text-white" : "text-white/60 hover:bg-[var(--qf-navy-hover)] hover:text-white"}`}><span className="w-4 text-center text-[12px]">{icon}</span><span className="min-w-0 flex-1">{label}</span>{badge ? <span className={`rounded-full px-1.5 py-px text-[8px] font-bold text-white ${badge === n.new ? "bg-[#7c3aed]" : badge === "2" ? "bg-[var(--qf-danger)]" : "bg-[#d97706]"}`}>{badge}</span> : null}</button>;
+              {group.items.map(([id, icon, label, badge]) => {
+                const active = selectedItem === id;
+                return <button key={id} type="button" onClick={() => { setSelectedItem(id); setMenuOpen(false); if (id === "settings") router.push("/settings"); else if (id === "dashboard") router.push("/dashboard"); }} className={`mb-px flex w-full cursor-pointer items-center gap-2 rounded-[6px] px-2.5 py-1.5 text-left text-[11.5px] leading-4 transition ${active ? "bg-[var(--qf-accent)] font-semibold text-white" : "text-white/60 hover:bg-[var(--qf-navy-hover)] hover:text-white"}`}><span className="w-4 text-center text-[12px]">{icon}</span><span className="min-w-0 flex-1">{label}</span>{badge ? <span className={`rounded-full px-1.5 py-px text-[8px] font-bold text-white ${badge === n.new ? "bg-[#7c3aed]" : badge === "2" ? "bg-[var(--qf-danger)]" : "bg-[#d97706]"}`}>{badge}</span> : null}</button>;
               })}
             </div>
           ))}
@@ -80,10 +82,21 @@ export default function DashboardPage() {
           </div>
         </header>
 
-        <main className="flex min-h-[calc(100vh-56px)] items-center justify-center p-6">
-          <div className="text-center"><p className="text-sm font-bold text-[var(--qf-text)]">{selectedItem}</p><p className="mt-1 text-xs font-medium text-[var(--qf-text-muted)]">{dictionary.common.underDevelopment}</p></div>
+        <main className={selectedItem === "settings" ? "p-4 sm:p-5 lg:p-7" : "flex min-h-[calc(100vh-56px)] items-center justify-center p-6"}>
+          {selectedItem === "settings" ? <SettingsView settings={dictionary.settings} /> : <div className="text-center"><p className="text-sm font-bold text-[var(--qf-text)]">{selectedLabel}</p><p className="mt-1 text-xs font-medium text-[var(--qf-text-muted)]">{dictionary.common.underDevelopment}</p></div>}
         </main>
       </div>
     </div>
   );
+}
+
+type SettingsCopy = { [Key in keyof (typeof import("../../lib/i18n/dictionaries").dictionaries)["en"]["settings"]]: string };
+
+function SettingsView({ settings }: { settings: SettingsCopy }) {
+  const sections = [
+    { title: `👤 ${settings.usersTeams}`, items: [["👤", settings.manageUsers, settings.manageUsersDescription], ["👥", settings.manageTeams, settings.manageTeamsDescription], ["🔑", settings.roles, settings.rolesDescription]] },
+    { title: `🧠 ${settings.aiKnowledge}`, items: [["📚", settings.knowledge, settings.knowledgeDescription], ["🤖", settings.training, settings.trainingDescription]] },
+    { title: `⚙️ ${settings.general}`, wide: true, items: [["🌐", settings.defaultLanguage, settings.defaultLanguageDescription], ["🗑️", settings.recycleBin, settings.recycleBinDescription], ["📋", settings.activityLog, settings.activityLogDescription]] },
+  ];
+  return <div className="grid gap-[18px] lg:grid-cols-2">{sections.map((section) => <section key={section.title} className={`overflow-hidden rounded-[var(--qf-radius)] border border-[var(--qf-border)] bg-white shadow-[var(--qf-shadow)] ${section.wide ? "lg:col-span-2" : ""}`}><header className="border-b border-[var(--qf-border)] px-5 py-3.5"><h2 className="text-[14px] font-bold">{section.title}</h2></header><div>{section.items.map(([icon, title, description]) => <button key={title} type="button" className="flex w-full cursor-pointer items-start gap-3.5 border-b border-[var(--qf-border)] px-5 py-3.5 text-left transition last:border-0 hover:bg-[var(--qf-background)]"><span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-lg bg-[var(--qf-accent-soft)] text-[17px]">{icon}</span><span><span className="block text-[13.5px] font-bold">{title}</span><span className="mt-0.5 block text-xs leading-5 text-[var(--qf-text-muted)]">{description}</span></span></button>)}</div></section>)}</div>;
 }
