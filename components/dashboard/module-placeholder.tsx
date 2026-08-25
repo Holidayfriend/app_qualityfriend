@@ -1,0 +1,2 @@
+import { AppShell } from "./app-shell";
+export function ModulePlaceholder({activeItem,icon,title,underDevelopment}:{activeItem:string;icon:string;title:string;underDevelopment:string}){return <AppShell activeItem={activeItem}><main className="flex min-h-[calc(100vh-56px)] items-center justify-center p-6"><div className="text-center"><div className="mb-3 text-3xl">{icon}</div><h1 className="text-sm font-bold">{title}</h1><p className="mt-1 text-xs text-[var(--qf-text-muted)]">{underDevelopment}</p></div></main></AppShell>}

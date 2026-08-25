@@ -7,7 +7,7 @@ import { LanguageSwitcher } from "../i18n/language-switcher";
 import { useI18n } from "../i18n/i18n-provider";
 import { moduleNavigationMessages, roleLevelNames } from "../../lib/i18n/dictionaries";
 
-type AppShellProps = { activeItem: "dashboard" | "settings"; children: ReactNode };
+type AppShellProps = { activeItem: string; children: ReactNode };
 
 export function AppShell({ activeItem, children }: AppShellProps) {
   const { dictionary, locale, setLocale } = useI18n();
@@ -46,7 +46,10 @@ export function AppShell({ activeItem, children }: AppShellProps) {
     setMenuOpen(false);
     if (id === "settings") router.push("/settings");
     else if (id === "mcp") router.push("/settings/mcp");
-    else router.push("/dashboard");
+    else if (id === "chat") router.push("/chat");
+    else if (id === "competitors") router.push("/competitors");
+    else if (id === "ai") router.push("/ai-assistant");
+    else router.push(`/${id}`);
   }
 
   return <div className="min-h-screen bg-[var(--qf-background)] lg:flex">

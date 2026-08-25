@@ -1,0 +1,1 @@
+"use client"; import {ModulePlaceholder} from "../../components/dashboard/module-placeholder"; import {useI18n} from "../../components/i18n/i18n-provider"; export default function Page(){const{dictionary:d}=useI18n();return <ModulePlaceholder activeItem="budget" icon="📊" title={d.navigation.budget} underDevelopment={d.common.underDevelopment}/>}
