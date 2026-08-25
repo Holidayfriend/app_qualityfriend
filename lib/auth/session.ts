@@ -20,6 +20,10 @@ export async function createSession(userId: string) {
   (await cookies()).set(cookieName, token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge });
 }
 
+export async function clearSession() {
+  (await cookies()).delete(cookieName);
+}
+
 export async function getSessionUserId() {
   const token = (await cookies()).get(cookieName)?.value;
   if (!token) return null;

@@ -15,7 +15,8 @@
       "cancel": "Annulla",
       "nameEnglish": "Nome in inglese",
       "nameGerman": "Nome in tedesco",
-      "nameItalian": "Nome in italiano"
+      "nameItalian": "Nome in italiano",
+      "logout": "Esci"
     },
     "login": {
       "eyebrow": "Bentornato",

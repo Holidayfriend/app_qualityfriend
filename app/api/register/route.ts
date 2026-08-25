@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "../../../lib/prisma";
 import { createSession } from "../../../lib/auth/session";
 import { recordAuditLog } from "../../../lib/audit/audit-service";
+import { registrationRateLimit } from "../../../lib/security/registration-rate-limit";
 
 const languages = new Set(["EN", "DE", "IT"]);
 
@@ -16,6 +17,9 @@ function optionalString(value: unknown) {
 }
 
 export async function POST(request: Request) {
+  const limited = await registrationRateLimit(request);
+  if (limited) return limited;
+
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== "object") return NextResponse.json({ error: "INVALID_REQUEST" }, { status: 400 });
 

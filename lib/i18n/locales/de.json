@@ -15,7 +15,8 @@
       "cancel": "Abbrechen",
       "nameEnglish": "Name auf Englisch",
       "nameGerman": "Name auf Deutsch",
-      "nameItalian": "Name auf Italienisch"
+      "nameItalian": "Name auf Italienisch",
+      "logout": "Abmelden"
     },
     "login": {
       "eyebrow": "Willkommen zurück",
