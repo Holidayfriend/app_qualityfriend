@@ -1,6 +1,6 @@
 export const dictionaries = {
   en: {
-    common: { language: "Language", brandSubtitle: "Hotel Operations", optional: "optional" },
+    common: { language: "Language", brandSubtitle: "Hotel Operations", optional: "optional", required: "This field is required.", invalidEmail: "Enter a valid email address.", shortPassword: "Password must contain at least 8 characters.", acceptTerms: "You must accept the terms to continue." },
     login: {
       eyebrow: "Welcome back", heroTitle: "Your hotel. Your team. One system.", heroDescription: "Keep tasks, workflows, and your entire team in view from one central place.", title: "Sign in", subtitle: "Sign in with your QualityFriend account.", email: "Email address", password: "Password", passwordPlaceholder: "Your password", forgotPassword: "Forgot password?", remember: "Keep me signed in", submit: "Sign in", submitting: "Signing in...", error: "The email or password is incorrect.", noAccount: "No account yet?", register: "Create account", showPassword: "Show password", hidePassword: "Hide password",
     },
@@ -9,7 +9,7 @@ export const dictionaries = {
     },
   },
   de: {
-    common: { language: "Sprache", brandSubtitle: "Hotelbetrieb", optional: "optional" },
+    common: { language: "Sprache", brandSubtitle: "Hotelbetrieb", optional: "optional", required: "Dieses Feld ist erforderlich.", invalidEmail: "Geben Sie eine gültige E-Mail-Adresse ein.", shortPassword: "Das Passwort muss mindestens 8 Zeichen enthalten.", acceptTerms: "Sie müssen die Bedingungen akzeptieren." },
     login: {
       eyebrow: "Willkommen zurück", heroTitle: "Ihr Hotel. Ihr Team. Ein System.", heroDescription: "Behalten Sie Aufgaben, Abläufe und Ihr gesamtes Team an einem zentralen Ort im Blick.", title: "Anmelden", subtitle: "Melden Sie sich mit Ihrem QualityFriend-Konto an.", email: "E-Mail-Adresse", password: "Passwort", passwordPlaceholder: "Ihr Passwort", forgotPassword: "Passwort vergessen?", remember: "Angemeldet bleiben", submit: "Anmelden", submitting: "Anmeldung läuft...", error: "E-Mail-Adresse oder Passwort ist falsch.", noAccount: "Noch kein Konto?", register: "Konto erstellen", showPassword: "Passwort anzeigen", hidePassword: "Passwort ausblenden",
     },
@@ -18,7 +18,7 @@ export const dictionaries = {
     },
   },
   it: {
-    common: { language: "Lingua", brandSubtitle: "Gestione alberghiera", optional: "facoltativo" },
+    common: { language: "Lingua", brandSubtitle: "Gestione alberghiera", optional: "facoltativo", required: "Questo campo è obbligatorio.", invalidEmail: "Inserisci un indirizzo e-mail valido.", shortPassword: "La password deve contenere almeno 8 caratteri.", acceptTerms: "Devi accettare i termini per continuare." },
     login: {
       eyebrow: "Bentornato", heroTitle: "Il tuo hotel. Il tuo team. Un unico sistema.", heroDescription: "Tieni sotto controllo attività, processi e tutto il team da un unico spazio centrale.", title: "Accedi", subtitle: "Accedi con il tuo account QualityFriend.", email: "Indirizzo e-mail", password: "Password", passwordPlaceholder: "La tua password", forgotPassword: "Password dimenticata?", remember: "Resta connesso", submit: "Accedi", submitting: "Accesso in corso...", error: "L'indirizzo e-mail o la password non sono corretti.", noAccount: "Non hai ancora un account?", register: "Crea account", showPassword: "Mostra password", hidePassword: "Nascondi password",
     },

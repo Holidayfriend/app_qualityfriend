@@ -16,11 +16,25 @@ export default function LoginPage() {
   const t = dictionary.login;
   const router = useRouter();
   const [status, setStatus] = useState<"idle" | "submitting" | "error">("idle");
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const form = event.currentTarget;
+    const values = Object.fromEntries(new FormData(form).entries());
+    const nextErrors: Record<string, string> = {};
+    const email = String(values.email ?? "").trim();
+    const password = String(values.password ?? "");
+    if (!email) nextErrors.email = dictionary.common.required;
+    else if (!/^\S+@\S+\.\S+$/.test(email)) nextErrors.email = dictionary.common.invalidEmail;
+    if (!password) nextErrors.password = dictionary.common.required;
+    if (Object.keys(nextErrors).length) {
+      setErrors(nextErrors);
+      form.querySelector<HTMLElement>(`[name="${Object.keys(nextErrors)[0]}"]`)?.focus();
+      return;
+    }
+    setErrors({});
     setStatus("submitting");
-    const values = Object.fromEntries(new FormData(event.currentTarget).entries());
     const response = await fetch("/api/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -31,6 +45,7 @@ export default function LoginPage() {
       router.push("/dashboard");
       return;
     }
+    setErrors({ email: t.error, password: t.error });
     setStatus("error");
   }
 
@@ -38,17 +53,16 @@ export default function LoginPage() {
     <AuthShell eyebrow={t.eyebrow} title={t.heroTitle} description={t.heroDescription} brandSubtitle={dictionary.common.brandSubtitle}>
       <div className="mb-3 flex justify-end"><LanguageSwitcher /></div>
       <AuthCard title={t.title} subtitle={t.subtitle}>
-        <form className="space-y-5" onSubmit={handleSubmit}>
-          <Input id="email" name="email" type="email" label={t.email} placeholder="name@hotel.com" autoComplete="email" required />
+        <form className="space-y-5" onSubmit={handleSubmit} noValidate>
+          <Input id="email" name="email" type="email" label={t.email} error={errors.email} placeholder="name@hotel.com" autoComplete="email" required />
           <div>
             <div className="mb-1.5 flex items-center justify-between">
               <span className="text-[13px] font-semibold text-[var(--qf-text)]">{t.password}</span>
               <a href="#" className="text-xs font-semibold text-[var(--qf-accent)] hover:underline">{t.forgotPassword}</a>
             </div>
-            <PasswordInput id="password" name="password" label="" showLabel={t.showPassword} hideLabel={t.hidePassword} placeholder={t.passwordPlaceholder} autoComplete="current-password" required />
+            <PasswordInput id="password" name="password" label="" error={errors.password} showLabel={t.showPassword} hideLabel={t.hidePassword} placeholder={t.passwordPlaceholder} autoComplete="current-password" required />
           </div>
           <label className="flex cursor-pointer items-center gap-2.5 text-[13px] text-[var(--qf-text-muted)]"><input type="checkbox" name="remember" className="h-4 w-4 accent-[var(--qf-accent)]" />{t.remember}</label>
-          {status === "error" ? <p role="alert" className="rounded-lg bg-[#fee2e2] px-4 py-3 text-[13px] font-medium text-[var(--qf-danger)]">{t.error}</p> : null}
           <Button type="submit" fullWidth disabled={status === "submitting"}>{status === "submitting" ? t.submitting : t.submit}</Button>
         </form>
         <p className="mt-6 text-center text-[13px] text-[var(--qf-text-muted)]">{t.noAccount} <Link href="/register" className="font-semibold text-[var(--qf-accent)] hover:underline">{t.register}</Link></p>
