@@ -106,6 +106,8 @@ export const moduleNavigationMessages = {
   it: { chat: "Chat", competitors: "Concorrenti", mcp: "MCP" },
 } as const;
 
+export const accessDeniedMessages={en:{title:"Access denied",description:"You do not have permission to access this module.",dashboard:"Dashboard"},de:{title:"Zugriff verweigert",description:"Sie haben keine Berechtigung für dieses Modul.",dashboard:"Dashboard"},it:{title:"Accesso negato",description:"Non hai il permesso di accedere a questo modulo.",dashboard:"Dashboard"}} as const;
+
 export const mcpSettingsMessages = {
   en: { title: "MCP integrations", description: "Connect and manage MCP services" },
   de: { title: "MCP-Integrationen", description: "MCP-Dienste verbinden und verwalten" },

@@ -1,23 +1,14 @@
 "use client";
-
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { AppShell } from "../../components/dashboard/app-shell";
-import { HotelLanguageModal } from "../../components/settings/hotel-language-modal";
-import { useI18n } from "../../components/i18n/i18n-provider";
-import { mcpSettingsMessages, settingsPageMessages } from "../../lib/i18n/dictionaries";
-
-export default function SettingsPage() {
-  const { dictionary, locale } = useI18n();
-  const router = useRouter();
-  const [languageModalOpen, setLanguageModalOpen] = useState(false);
-  const s = dictionary.settings;
-  const pageMessages = settingsPageMessages[locale];
-  const mcpMessages = mcpSettingsMessages[locale];
-  const sections = [
-    { title: `👤 ${s.usersTeams}`, items: [["👤", s.manageUsers, s.manageUsersDescription, "/settings/users"], ["🏢", pageMessages.departmentsTeams, pageMessages.departmentsTeamsDescription, "/settings/departments"], ["🔑", s.roles, s.rolesDescription, "/settings/roles"]] },
-    { title: `🧠 ${s.aiKnowledge}`, items: [["📚", s.knowledge, s.knowledgeDescription, ""], ["🤖", s.training, s.trainingDescription, ""], ["🔌", mcpMessages.title, mcpMessages.description, "/settings/mcp"]] },
-    { title: `⚙️ ${s.general}`, wide: true, items: [["🌐", s.defaultLanguage, s.defaultLanguageDescription, "hotel-language"], ["🗑️", s.recycleBin, s.recycleBinDescription, "/settings/recycle-bin"], ["📋", s.activityLog, s.activityLogDescription, "/settings/activity-log"]] },
-  ];
-  return <AppShell activeItem="settings"><main className="p-4 sm:p-5 lg:p-7"><div className="grid gap-[18px] lg:grid-cols-2">{sections.map((section) => <section key={section.title} className={`overflow-hidden rounded-[var(--qf-radius)] border border-[var(--qf-border)] bg-white shadow-[var(--qf-shadow)] ${section.wide ? "lg:col-span-2" : ""}`}><header className="border-b border-[var(--qf-border)] px-5 py-3.5"><h2 className="text-[14px] font-bold">{section.title}</h2></header>{section.items.map(([icon, title, description, path]) => <button key={title} type="button" onClick={() => path === "hotel-language" ? setLanguageModalOpen(true) : path && router.push(path)} className="flex w-full cursor-pointer items-start gap-3.5 border-b border-[var(--qf-border)] px-5 py-3.5 text-left transition last:border-0 hover:bg-[var(--qf-background)]"><span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-lg bg-[var(--qf-accent-soft)] text-[17px]">{icon}</span><span><span className="block text-[13.5px] font-bold">{title}</span><span className="mt-0.5 block text-xs text-[var(--qf-text-muted)]">{description}</span></span></button>)}</section>)}</div></main><HotelLanguageModal open={languageModalOpen} onClose={() => setLanguageModalOpen(false)} /></AppShell>;
-}
+import {useEffect,useState}from"react";import{useRouter}from"next/navigation";
+import{AppShell}from"../../components/dashboard/app-shell";import{BrandLoader}from"../../components/ui/brand-loader";import{HotelLanguageModal}from"../../components/settings/hotel-language-modal";import{useI18n}from"../../components/i18n/i18n-provider";import{mcpSettingsMessages,requestMessages,settingsPageMessages}from"../../lib/i18n/dictionaries";
+type Requirement="users"|"roles"|"mcp"|"admin"|"recycleBin"|"activityLog";
+type Item=[string,string,string,string,Requirement];
+export default function SettingsPage(){const{dictionary,locale}=useI18n();const router=useRouter();const[languageModalOpen,setLanguageModalOpen]=useState(false);const[access,setAccess]=useState<{role:string;allowed_modules:string[]}|null>(null);const s=dictionary.settings,p=settingsPageMessages[locale],m=mcpSettingsMessages[locale],request=requestMessages[locale];
+ useEffect(()=>{let active=true;fetch("/api/me").then(async r=>{if(!r.ok)return router.replace("/login");const data=await r.json();if(active)setAccess(data)}).catch(()=>router.replace("/login"));return()=>{active=false}},[router]);
+ const sections:{title:string;wide?:boolean;items:Item[]}[]=[
+  {title:`👤 ${s.usersTeams}`,items:[["👤",s.manageUsers,s.manageUsersDescription,"/settings/users","users"],["🏢",p.departmentsTeams,p.departmentsTeamsDescription,"/settings/departments","admin"],["🔑",s.roles,s.rolesDescription,"/settings/roles","roles"]]},
+  {title:`🧠 ${s.aiKnowledge}`,items:[["📚",s.knowledge,s.knowledgeDescription,"","mcp"],["🤖",s.training,s.trainingDescription,"","mcp"],["🔌",m.title,m.description,"/settings/mcp","mcp"]]},
+  {title:`⚙️ ${s.general}`,wide:true,items:[["🌐",s.defaultLanguage,s.defaultLanguageDescription,"hotel-language","admin"],["🗑️",s.recycleBin,s.recycleBinDescription,"/settings/recycle-bin","recycleBin"],["📋",s.activityLog,s.activityLogDescription,"/settings/activity-log","activityLog"]]},
+ ];
+ const allowed=(requirement:Requirement)=>access?.role==="ADMIN"||Boolean(access?.allowed_modules.includes(requirement));const visible=sections.map(section=>({...section,items:section.items.filter(item=>allowed(item[4]))})).filter(section=>section.items.length);
+ return <AppShell activeItem="settings"><main className="p-4 sm:p-5 lg:p-7">{!access?<BrandLoader label={request.loading}/>:<div className="grid gap-[18px] lg:grid-cols-2">{visible.map(section=><section key={section.title} className={`overflow-hidden rounded-[var(--qf-radius)] border border-[var(--qf-border)] bg-white shadow-[var(--qf-shadow)] ${section.wide?"lg:col-span-2":""}`}><header className="border-b border-[var(--qf-border)] px-5 py-3.5"><h2 className="text-[14px] font-bold">{section.title}</h2></header>{section.items.map(([icon,title,description,path])=><button key={title} type="button" onClick={()=>path==="hotel-language"?setLanguageModalOpen(true):path&&router.push(path)} className="flex w-full cursor-pointer items-start gap-3.5 border-b border-[var(--qf-border)] px-5 py-3.5 text-left transition last:border-0 hover:bg-[var(--qf-background)]"><span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-lg bg-[var(--qf-accent-soft)] text-[17px]">{icon}</span><span><span className="block text-[13.5px] font-bold">{title}</span><span className="mt-0.5 block text-xs text-[var(--qf-text-muted)]">{description}</span></span></button>)}</section>)}</div>}</main><HotelLanguageModal open={languageModalOpen} onClose={()=>setLanguageModalOpen(false)}/></AppShell>}

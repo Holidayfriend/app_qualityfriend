@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { LanguageSwitcher } from "../i18n/language-switcher";
 import { useI18n } from "../i18n/i18n-provider";
@@ -12,11 +12,12 @@ type AppShellProps = { activeItem: string; children: ReactNode };
 export function AppShell({ activeItem, children }: AppShellProps) {
   const { dictionary, locale, setLocale } = useI18n();
   const router = useRouter();
+  const pathname = usePathname();
   const n = dictionary.navigation;
   const d = dictionary.dashboard;
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(activeItem);
-  const [currentUser, setCurrentUser] = useState<{ first_name: string; last_name: string; role: string; language: "EN" | "DE" | "IT"; hotel_name_en: string; hotel_name_de: string; hotel_name_it: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ first_name: string; last_name: string; role: string; language: "EN" | "DE" | "IT"; hotel_name_en: string; hotel_name_de: string; hotel_name_it: string; allowed_modules: string[] } | null>(null);
 
   useEffect(() => {
     fetch("/api/me").then(async (response) => {
@@ -39,7 +40,7 @@ export function AppShell({ activeItem, children }: AppShellProps) {
     { title: n.staff, items: [["schedule", "📅", n.schedule, ""], ["recruiting", "🔍", n.recruiting, ""], ["manuals", "📖", n.manuals, ""]] },
     { title: n.strategy, items: [["budget", "📊", n.budget, ""], ["revenue", "🎯", n.revenue, ""], ["competitors", "🏆", moduleNavigation.competitors, ""]] },
     { title: n.administration, items: [["mcp", "🔌", moduleNavigation.mcp, ""], ["settings", "⚙️", n.settings, ""]] },
-  ];
+  ].map((group) => ({ ...group, items: group.items.filter(([id]) => canShow(id)) }));
 
   function navigate(id: string) {
     setSelectedItem(id);
@@ -51,6 +52,20 @@ export function AppShell({ activeItem, children }: AppShellProps) {
     else if (id === "ai") router.push("/ai-assistant");
     else router.push(`/${id}`);
   }
+
+  function canShow(id: string) {
+    if (!currentUser) return false;
+    if (currentUser.role === "ADMIN") return true;
+    return currentUser.allowed_modules.includes(id === "ai" ? "aiAssistant" : id);
+  }
+
+  useEffect(() => {
+    const activeKey = pathname === "/settings/activity-log" ? "activityLog" : pathname === "/settings/recycle-bin" ? "recycleBin" : activeItem === "ai" ? "aiAssistant" : activeItem;
+    const canViewActive = currentUser?.role === "ADMIN" || Boolean(currentUser?.allowed_modules.includes(activeKey));
+    if (currentUser && !canViewActive) router.replace("/access-denied");
+    const chatButton = document.querySelector<HTMLButtonElement>(`button[aria-label="${moduleNavigation.chat}"]`);
+    if (chatButton) chatButton.hidden = !(currentUser?.role === "ADMIN" || currentUser?.allowed_modules.includes("chat"));
+  }, [activeItem, currentUser, moduleNavigation.chat, pathname, router]);
 
   return <div className="min-h-screen bg-[var(--qf-background)] lg:flex">
     {menuOpen ? <button aria-label="Close menu" className="fixed inset-0 z-40 cursor-pointer bg-black/40 lg:hidden" onClick={() => setMenuOpen(false)} /> : null}
