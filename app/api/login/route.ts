@@ -1,8 +1,10 @@
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { queryDatabase } from "../../../database";
+import { createSession } from "../../../lib/auth/session";
 
 type LoginUser = {
+  id: string;
   password_hash: string;
   is_active: boolean;
   is_deleted: boolean;
@@ -16,7 +18,7 @@ export async function POST(request: Request) {
   if (!email || !password) return NextResponse.json({ error: "INVALID_CREDENTIALS" }, { status: 401 });
 
   const result = await queryDatabase<LoginUser>(
-    `SELECT password_hash, is_active, is_deleted
+    `SELECT id, password_hash, is_active, is_deleted
      FROM users
      WHERE email = $1
      LIMIT 1`,
@@ -29,5 +31,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "INVALID_CREDENTIALS" }, { status: 401 });
   }
 
+  await createSession(user.id);
   return NextResponse.json({ success: true });
 }

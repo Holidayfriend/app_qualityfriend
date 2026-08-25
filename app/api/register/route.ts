@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { getDatabasePool } from "../../../database";
+import { createSession } from "../../../lib/auth/session";
 
 const languages = new Set(["EN", "DE", "IT"]);
 
@@ -52,13 +53,15 @@ export async function POST(request: Request) {
       [hotelName, email, hotelLanguage, companyName, streetAddress, postalCode, city, country, contactPerson, phoneNumber, vatId],
     );
 
-    await client.query(
+    const user = await client.query<{ id: string }>(
       `INSERT INTO users
         (id, hotel_tenant_id, first_name, last_name, email, password_hash, phone_number, role, created_at, updated_at)
-       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, 'OWNER', NOW(), NOW())`,
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, 'OWNER', NOW(), NOW())
+       RETURNING id`,
       [hotel.rows[0].id, firstName, lastName, email, passwordHash, phoneNumber],
     );
     await client.query("COMMIT");
+    await createSession(user.rows[0].id);
     return NextResponse.json({ success: true }, { status: 201 });
   } catch (error) {
     await client.query("ROLLBACK");

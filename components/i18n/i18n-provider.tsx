@@ -13,7 +13,7 @@ function isLocale(value: string | null): value is Locale {
 }
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const locale = useSyncExternalStore(
+  const locale = useSyncExternalStore<Locale>(
     (onStoreChange) => {
       window.addEventListener("storage", onStoreChange);
       window.addEventListener(localeChangeEvent, onStoreChange);
