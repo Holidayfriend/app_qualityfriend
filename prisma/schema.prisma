@@ -64,6 +64,8 @@ model HotelTenant {
   createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
   users            User[]
+  departments      Department[]
+  teams            Team[]
 
   @@index([isActive])
   @@map("hotel_tenants")
@@ -86,9 +88,63 @@ model User {
   createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
   hotelTenant   HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+  departmentsCreated Department[] @relation("DepartmentCreatedBy")
+  departmentsUpdated Department[] @relation("DepartmentUpdatedBy")
+  teamsCreated       Team[]       @relation("TeamCreatedBy")
+  teamsUpdated       Team[]       @relation("TeamUpdatedBy")
 
   @@index([hotelTenantId])
   @@index([hotelTenantId, isActive])
   @@index([hotelTenantId, isDeleted])
   @@map("users")
+}
+
+model Department {
+  id            String      @id @default(uuid()) @db.Uuid
+  hotelTenantId String      @map("hotel_tenant_id") @db.Uuid
+  nameEn        String      @map("name_en") @db.VarChar(180)
+  nameDe        String      @map("name_de") @db.VarChar(180)
+  nameIt        String      @map("name_it") @db.VarChar(180)
+  isActive      Boolean     @default(true) @map("is_active")
+  isDeleted     Boolean     @default(false) @map("is_deleted")
+  deletedAt     DateTime?   @map("deleted_at") @db.Timestamptz(3)
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant   HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+  createdById   String?     @map("created_by_id") @db.Uuid
+  updatedById   String?     @map("updated_by_id") @db.Uuid
+  createdBy     User?       @relation("DepartmentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy     User?       @relation("DepartmentUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([hotelTenantId, nameEn])
+  @@index([hotelTenantId, isDeleted])
+  @@index([hotelTenantId, isActive])
+  @@index([createdById])
+  @@index([updatedById])
+  @@map("departments")
+}
+
+model Team {
+  id            String      @id @default(uuid()) @db.Uuid
+  hotelTenantId String      @map("hotel_tenant_id") @db.Uuid
+  nameEn        String      @map("name_en") @db.VarChar(180)
+  nameDe        String      @map("name_de") @db.VarChar(180)
+  nameIt        String      @map("name_it") @db.VarChar(180)
+  isActive      Boolean     @default(true) @map("is_active")
+  isDeleted     Boolean     @default(false) @map("is_deleted")
+  deletedAt     DateTime?   @map("deleted_at") @db.Timestamptz(3)
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant   HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+  createdById   String?     @map("created_by_id") @db.Uuid
+  updatedById   String?     @map("updated_by_id") @db.Uuid
+  createdBy     User?       @relation("TeamCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy     User?       @relation("TeamUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([hotelTenantId, nameEn])
+  @@index([hotelTenantId, isDeleted])
+  @@index([hotelTenantId, isActive])
+  @@index([createdById])
+  @@index([updatedById])
+  @@map("teams")
 }
