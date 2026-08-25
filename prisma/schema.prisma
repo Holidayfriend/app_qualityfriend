@@ -32,9 +32,16 @@ enum HotelLanguage {
 }
 
 enum UserRole {
-  OWNER
+  EMPLOYEE
+  TEAM_LEAD
+  MANAGEMENT
   ADMIN
-  USER
+}
+
+enum PermissionScope {
+  OWN
+  DEPARTMENT
+  ALL
 }
 
 model HotelTenant {
@@ -67,6 +74,7 @@ model HotelTenant {
   departments      Department[]
   teams            Team[]
   auditLogs        AuditLog[]
+  rolePermissions  RoleModulePermission[]
 
   @@index([isActive])
   @@map("hotel_tenants")
@@ -81,7 +89,8 @@ model User {
   passwordHash  String      @map("password_hash") @db.VarChar(255)
   phoneNumber   String?     @map("phone_number") @db.VarChar(40)
   language      HotelLanguage @default(EN) @map("language")
-  role          UserRole    @default(USER)
+  role          UserRole    @default(EMPLOYEE)
+  departmentId  String?     @map("department_id") @db.Uuid
   isActive      Boolean     @default(true) @map("is_active")
   isDeleted     Boolean     @default(false) @map("is_deleted")
   deletedAt     DateTime?   @map("deleted_at") @db.Timestamptz(3)
@@ -94,10 +103,12 @@ model User {
   teamsCreated       Team[]       @relation("TeamCreatedBy")
   teamsUpdated       Team[]       @relation("TeamUpdatedBy")
   auditLogs          AuditLog[]
+  department         Department?  @relation("DepartmentMembers", fields: [departmentId], references: [id], onDelete: SetNull)
 
   @@index([hotelTenantId])
   @@index([hotelTenantId, isActive])
   @@index([hotelTenantId, isDeleted])
+  @@index([departmentId])
   @@map("users")
 }
 
@@ -117,6 +128,8 @@ model Department {
   updatedById   String?     @map("updated_by_id") @db.Uuid
   createdBy     User?       @relation("DepartmentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy     User?       @relation("DepartmentUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  members       User[]      @relation("DepartmentMembers")
+  rolePermissionDepartments RolePermissionDepartment[]
 
   @@unique([hotelTenantId, nameEn])
   @@index([hotelTenantId, isDeleted])
@@ -168,4 +181,37 @@ model AuditLog {
   @@index([actorId, createdAt])
   @@index([entityType, entityId])
   @@map("audit_logs")
+}
+
+model RoleModulePermission {
+  id              String          @id @default(uuid()) @db.Uuid
+  hotelTenantId   String          @map("hotel_tenant_id") @db.Uuid
+  role            UserRole
+  moduleKey       String          @map("module_key") @db.VarChar(80)
+  canView         Boolean         @default(false) @map("can_view")
+  canCreate       Boolean         @default(false) @map("can_create")
+  canUpdate       Boolean         @default(false) @map("can_update")
+  canChangeStatus Boolean         @default(false) @map("can_change_status")
+  canAssign       Boolean         @default(false) @map("can_assign")
+  canDelete       Boolean         @default(false) @map("can_delete")
+  scope           PermissionScope @default(OWN)
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant     HotelTenant     @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+  departments     RolePermissionDepartment[]
+
+  @@unique([hotelTenantId, role, moduleKey])
+  @@index([hotelTenantId, role])
+  @@map("role_module_permissions")
+}
+
+model RolePermissionDepartment {
+  permissionId String               @map("permission_id") @db.Uuid
+  departmentId String               @map("department_id") @db.Uuid
+  permission   RoleModulePermission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  department   Department           @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@id([permissionId, departmentId])
+  @@index([departmentId])
+  @@map("role_permission_departments")
 }

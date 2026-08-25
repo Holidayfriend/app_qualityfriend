@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { queryDatabase } from "../../../../database";
 import { getSessionUserId } from "../../../../lib/auth/session";
 
-type Actor = { id: string; hotel_tenant_id: string; role: "OWNER" | "ADMIN" | "USER" };
+type Actor = { id: string; hotel_tenant_id: string; role: "EMPLOYEE" | "TEAM_LEAD" | "MANAGEMENT" | "ADMIN" };
 
 export async function GET(request: Request) {
   const userId = await getSessionUserId();
@@ -11,13 +11,13 @@ export async function GET(request: Request) {
   const actor = actorResult.rows[0];
   if (!actor) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
 
-  const owner = actor.role === "OWNER";
+  const administrator = actor.role === "ADMIN";
   const url = new URL(request.url);
   const requestedUserId = url.searchParams.get("userId");
   const requestedDate = url.searchParams.get("date");
   const validDate = requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) ? requestedDate : null;
   let filteredUserId = actor.id;
-  if (owner && requestedUserId) {
+  if (administrator && requestedUserId) {
     const allowedUser = await queryDatabase<{ id: string }>(`SELECT id FROM users WHERE id = $1 AND hotel_tenant_id = $2 LIMIT 1`, [requestedUserId, actor.hotel_tenant_id]);
     filteredUserId = allowedUser.rows[0]?.id ?? actor.id;
   }
@@ -32,8 +32,8 @@ export async function GET(request: Request) {
        AND ($5::date IS NULL OR l.created_at >= $5::date AND l.created_at < $5::date + INTERVAL '1 day')
      ORDER BY l.created_at DESC
      LIMIT 250`,
-    [actor.hotel_tenant_id, owner, actor.id, owner && requestedUserId ? filteredUserId : null, validDate],
+    [actor.hotel_tenant_id, administrator, actor.id, administrator && requestedUserId ? filteredUserId : null, validDate],
   );
-  const users = owner ? await queryDatabase(`SELECT id, first_name, last_name FROM users WHERE hotel_tenant_id = $1 ORDER BY first_name, last_name`, [actor.hotel_tenant_id]) : null;
-  return NextResponse.json({ canViewAll: owner, logs: result.rows, users: users?.rows ?? [] });
+  const users = administrator ? await queryDatabase(`SELECT id, first_name, last_name FROM users WHERE hotel_tenant_id = $1 ORDER BY first_name, last_name`, [actor.hotel_tenant_id]) : null;
+  return NextResponse.json({ canViewAll: administrator, logs: result.rows, users: users?.rows ?? [] });
 }

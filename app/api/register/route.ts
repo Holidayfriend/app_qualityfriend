@@ -57,12 +57,12 @@ export async function POST(request: Request) {
     const user = await client.query<{ id: string }>(
       `INSERT INTO users
         (id, hotel_tenant_id, first_name, last_name, email, password_hash, phone_number, language, role, created_at, updated_at)
-       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7::"HotelLanguage", 'OWNER', NOW(), NOW())
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7::"HotelLanguage", 'ADMIN', NOW(), NOW())
        RETURNING id`,
       [hotel.rows[0].id, firstName, lastName, email, passwordHash, phoneNumber, hotelLanguage],
     );
     await recordAuditLog(client, { hotelTenantId: hotel.rows[0].id, actorId: user.rows[0].id, action: "CREATE", entityType: "HOTEL", entityId: hotel.rows[0].id, changes: { after: { hotelName, companyName } } });
-    await recordAuditLog(client, { hotelTenantId: hotel.rows[0].id, actorId: user.rows[0].id, action: "CREATE", entityType: "USER", entityId: user.rows[0].id, changes: { after: { firstName, lastName, email, role: "OWNER" } } });
+    await recordAuditLog(client, { hotelTenantId: hotel.rows[0].id, actorId: user.rows[0].id, action: "CREATE", entityType: "USER", entityId: user.rows[0].id, changes: { after: { firstName, lastName, email, role: "ADMIN" } } });
     await client.query("COMMIT");
     await createSession(user.rows[0].id);
     return NextResponse.json({ success: true }, { status: 201 });
