@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { queryDatabase } from "../../database";
 import { getSessionUserId } from "./session";
 
-export const moduleKeys=["dashboard","aiAssistant","chat","mcp","handovers","tasks","housekeeping","repairs","notes","schedule","recruiting","manuals","budget","revenue","competitors","users","roles","activityLog","recycleBin"] as const;
+export const moduleKeys=["dashboard","aiAssistant","chat","mcp","handovers","tasks","housekeeping","repairs","notes","schedule","recruiting","manuals","budget","revenue","competitors","users","departmentTeams","roles","activityLog","recycleBin"] as const;
 export type ModuleKey=typeof moduleKeys[number]|"settings";
 export type AccessUser={id:string;hotel_tenant_id:string;role:"EMPLOYEE"|"TEAM_LEAD"|"MANAGEMENT"|"ADMIN"};
 const defaults:Record<"EMPLOYEE"|"TEAM_LEAD"|"MANAGEMENT",Set<string>>={

@@ -8,7 +8,7 @@ import { BrandLoader } from "../../../components/ui/brand-loader";
 import { additionalModuleMessages, clientRoleMessages, requestMessages } from "../../../lib/i18n/dictionaries";
 
 type Level = "employee" | "teamLead" | "management" | "administrator";
-type ModuleId = "dashboard" | "aiAssistant" | "chat" | "mcp" | "handovers" | "tasks" | "housekeeping" | "repairs" | "notes" | "schedule" | "recruiting" | "manuals" | "budget" | "revenue" | "competitors" | "users" | "roles";
+type ModuleId = "dashboard" | "aiAssistant" | "chat" | "mcp" | "handovers" | "tasks" | "housekeeping" | "repairs" | "notes" | "schedule" | "recruiting" | "manuals" | "budget" | "revenue" | "competitors" | "users" | "departmentTeams" | "roles";
 type Row = { id: ModuleId; icon: string; levels: Level[]; departments: string[] };
 
 const all: Level[] = ["employee", "teamLead", "management", "administrator"];
@@ -29,6 +29,7 @@ const rows: Row[] = [
   { id: "revenue", icon: "🎯", levels: ["management", "administrator"], departments: ["all"] },
   { id: "competitors", icon: "🏆", levels: ["management", "administrator"], departments: ["all"] },
   { id: "users", icon: "👤", levels: ["administrator"], departments: ["all"] },
+  { id: "departmentTeams", icon: "🏢", levels: ["administrator"], departments: ["all"] },
   { id: "roles", icon: "🔑", levels: ["administrator"], departments: ["all"] },
 ];
 

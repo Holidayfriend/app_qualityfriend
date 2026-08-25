@@ -89,9 +89,9 @@ export const roleLevelNames = {
 } as const;
 
 export const additionalModuleMessages = {
-  en: { chat: "Chat", mcp: "MCP", competitors: "Competitors", users: "Create & edit users", roles: "Roles & access rights" },
-  de: { chat: "Chat", mcp: "MCP", competitors: "Wettbewerber", users: "Benutzer erstellen & bearbeiten", roles: "Rollen & Zugriffsrechte" },
-  it: { chat: "Chat", mcp: "MCP", competitors: "Concorrenti", users: "Crea e modifica utenti", roles: "Ruoli e diritti di accesso" },
+  en: { chat: "Chat", mcp: "MCP", competitors: "Competitors", users: "Create & edit users", departmentTeams: "Manage teams & departments", roles: "Roles & access rights" },
+  de: { chat: "Chat", mcp: "MCP", competitors: "Wettbewerber", users: "Benutzer erstellen & bearbeiten", departmentTeams: "Teams & Abteilungen verwalten", roles: "Rollen & Zugriffsrechte" },
+  it: { chat: "Chat", mcp: "MCP", competitors: "Concorrenti", users: "Crea e modifica utenti", departmentTeams: "Gestisci team e reparti", roles: "Ruoli e diritti di accesso" },
 } as const;
 
 export const userManagementMessages = {

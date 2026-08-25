@@ -1,12 +1,12 @@
 "use client";
 import {useEffect,useState}from"react";import{useRouter}from"next/navigation";
 import{AppShell}from"../../components/dashboard/app-shell";import{BrandLoader}from"../../components/ui/brand-loader";import{HotelLanguageModal}from"../../components/settings/hotel-language-modal";import{useI18n}from"../../components/i18n/i18n-provider";import{mcpSettingsMessages,requestMessages,settingsPageMessages}from"../../lib/i18n/dictionaries";
-type Requirement="users"|"roles"|"mcp"|"admin"|"recycleBin"|"activityLog";
+type Requirement="users"|"departmentTeams"|"roles"|"mcp"|"admin"|"recycleBin"|"activityLog";
 type Item=[string,string,string,string,Requirement];
 export default function SettingsPage(){const{dictionary,locale}=useI18n();const router=useRouter();const[languageModalOpen,setLanguageModalOpen]=useState(false);const[access,setAccess]=useState<{role:string;allowed_modules:string[]}|null>(null);const s=dictionary.settings,p=settingsPageMessages[locale],m=mcpSettingsMessages[locale],request=requestMessages[locale];
  useEffect(()=>{let active=true;fetch("/api/me").then(async r=>{if(!r.ok)return router.replace("/login");const data=await r.json();if(active)setAccess(data)}).catch(()=>router.replace("/login"));return()=>{active=false}},[router]);
  const sections:{title:string;wide?:boolean;items:Item[]}[]=[
-  {title:`👤 ${s.usersTeams}`,items:[["👤",s.manageUsers,s.manageUsersDescription,"/settings/users","users"],["🏢",p.departmentsTeams,p.departmentsTeamsDescription,"/settings/departments","admin"],["🔑",s.roles,s.rolesDescription,"/settings/roles","roles"]]},
+  {title:`👤 ${s.usersTeams}`,items:[["👤",s.manageUsers,s.manageUsersDescription,"/settings/users","users"],["🏢",p.departmentsTeams,p.departmentsTeamsDescription,"/settings/departments","departmentTeams"],["🔑",s.roles,s.rolesDescription,"/settings/roles","roles"]]},
   {title:`🧠 ${s.aiKnowledge}`,items:[["📚",s.knowledge,s.knowledgeDescription,"","mcp"],["🤖",s.training,s.trainingDescription,"","mcp"],["🔌",m.title,m.description,"/settings/mcp","mcp"]]},
   {title:`⚙️ ${s.general}`,wide:true,items:[["🌐",s.defaultLanguage,s.defaultLanguageDescription,"hotel-language","admin"],["🗑️",s.recycleBin,s.recycleBinDescription,"/settings/recycle-bin","recycleBin"],["📋",s.activityLog,s.activityLogDescription,"/settings/activity-log","activityLog"]]},
  ];

@@ -4,7 +4,7 @@ import { getSessionUserId } from "../../../../lib/auth/session";
 import { recordAuditLog } from "../../../../lib/audit/audit-service";
 
 const roles = new Set(["EMPLOYEE", "TEAM_LEAD", "MANAGEMENT"]);
-const modules = new Set(["dashboard", "aiAssistant", "chat", "mcp", "handovers", "tasks", "housekeeping", "repairs", "notes", "schedule", "recruiting", "manuals", "budget", "revenue", "competitors", "users", "roles"]);
+const modules = new Set(["dashboard", "aiAssistant", "chat", "mcp", "handovers", "tasks", "housekeeping", "repairs", "notes", "schedule", "recruiting", "manuals", "budget", "revenue", "competitors", "users", "departmentTeams", "roles"]);
 type Actor = { id: string; hotel_tenant_id: string; role: string };
 
 async function actor() {
