@@ -47,9 +47,9 @@ export const requestMessages = {
 } as const;
 
 export const auditMessages = {
-  en: { allUsers: "Showing activity from all hotel users.", onlyYou: "Showing only your activity.", empty: "No activity recorded yet.", actions: { CREATE: "created", UPDATE: "updated", DELETE: "deleted", STATUS_CHANGE: "changed status" }, entities: { DEPARTMENT: "department", TEAM: "team", HOTEL: "hotel", USER: "user" } },
-  de: { allUsers: "Aktivitäten aller Hotelbenutzer werden angezeigt.", onlyYou: "Nur Ihre Aktivitäten werden angezeigt.", empty: "Noch keine Aktivität aufgezeichnet.", actions: { CREATE: "erstellt", UPDATE: "aktualisiert", DELETE: "gelöscht", STATUS_CHANGE: "Status geändert" }, entities: { DEPARTMENT: "Abteilung", TEAM: "Team", HOTEL: "Hotel", USER: "Benutzer" } },
-  it: { allUsers: "Sono visualizzate le attività di tutti gli utenti dell'hotel.", onlyYou: "Sono visualizzate solo le tue attività.", empty: "Nessuna attività registrata.", actions: { CREATE: "ha creato", UPDATE: "ha aggiornato", DELETE: "ha eliminato", STATUS_CHANGE: "ha cambiato lo stato" }, entities: { DEPARTMENT: "reparto", TEAM: "team", HOTEL: "hotel", USER: "utente" } },
+  en: { allUsers: "Showing activity from all hotel users.", onlyYou: "Showing only your activity.", empty: "No activity recorded yet.", filterDate: "Date", filterUser: "Hotel user", everyUser: "All users", actions: { CREATE: "created", UPDATE: "updated", DELETE: "deleted", STATUS_CHANGE: "changed status" }, entities: { DEPARTMENT: "department", TEAM: "team", HOTEL: "hotel", USER: "user" } },
+  de: { allUsers: "Aktivitäten aller Hotelbenutzer werden angezeigt.", onlyYou: "Nur Ihre Aktivitäten werden angezeigt.", empty: "Noch keine Aktivität aufgezeichnet.", filterDate: "Datum", filterUser: "Hotelbenutzer", everyUser: "Alle Benutzer", actions: { CREATE: "erstellt", UPDATE: "aktualisiert", DELETE: "gelöscht", STATUS_CHANGE: "Status geändert" }, entities: { DEPARTMENT: "Abteilung", TEAM: "Team", HOTEL: "Hotel", USER: "Benutzer" } },
+  it: { allUsers: "Sono visualizzate le attività di tutti gli utenti dell'hotel.", onlyYou: "Sono visualizzate solo le tue attività.", empty: "Nessuna attività registrata.", filterDate: "Data", filterUser: "Utente dell'hotel", everyUser: "Tutti gli utenti", actions: { CREATE: "ha creato", UPDATE: "ha aggiornato", DELETE: "ha eliminato", STATUS_CHANGE: "ha cambiato lo stato" }, entities: { DEPARTMENT: "reparto", TEAM: "team", HOTEL: "hotel", USER: "utente" } },
 } as const;
 
 export const settingsPageMessages = {

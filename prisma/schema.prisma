@@ -159,6 +159,7 @@ model AuditLog {
   entityType    String      @map("entity_type") @db.VarChar(80)
   entityId      String?     @map("entity_id") @db.Uuid
   changes       Json?
+  description   Json?
   createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
   hotelTenant   HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
   actor         User?       @relation(fields: [actorId], references: [id], onDelete: SetNull)
