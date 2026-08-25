@@ -14,7 +14,7 @@ export default function SettingsPage() {
   const s = dictionary.settings;
   const pageMessages = settingsPageMessages[locale];
   const sections = [
-    { title: `👤 ${s.usersTeams}`, items: [["👤", s.manageUsers, s.manageUsersDescription, ""], ["🏢", pageMessages.departmentsTeams, pageMessages.departmentsTeamsDescription, "/settings/departments"], ["🔑", s.roles, s.rolesDescription, "/settings/roles"]] },
+    { title: `👤 ${s.usersTeams}`, items: [["👤", s.manageUsers, s.manageUsersDescription, "/settings/users"], ["🏢", pageMessages.departmentsTeams, pageMessages.departmentsTeamsDescription, "/settings/departments"], ["🔑", s.roles, s.rolesDescription, "/settings/roles"]] },
     { title: `🧠 ${s.aiKnowledge}`, items: [["📚", s.knowledge, s.knowledgeDescription, ""], ["🤖", s.training, s.trainingDescription, ""]] },
     { title: `⚙️ ${s.general}`, wide: true, items: [["🌐", s.defaultLanguage, s.defaultLanguageDescription, "hotel-language"], ["🗑️", s.recycleBin, s.recycleBinDescription, "/settings/recycle-bin"], ["📋", s.activityLog, s.activityLogDescription, "/settings/activity-log"]] },
   ];

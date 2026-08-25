@@ -7,7 +7,7 @@ import { BrandLoader } from "../../../components/ui/brand-loader";
 import { useI18n } from "../../../components/i18n/i18n-provider";
 import { recycleBinMessages, requestMessages } from "../../../lib/i18n/dictionaries";
 
-type Item = { id: string; type: "department" | "team"; names: Record<"en" | "de" | "it", string>; deletedAt: string };
+type Item = { id: string; type: "department" | "team" | "user"; names: Record<"en" | "de" | "it", string>; deletedAt: string };
 
 export default function RecycleBinPage() {
   const { dictionary, locale } = useI18n();

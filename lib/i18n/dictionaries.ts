@@ -59,9 +59,9 @@ export const settingsPageMessages = {
 } as const;
 
 export const recycleBinMessages = {
-  en: { description: "Deleted items from this hotel can be restored here.", empty: "The recycle bin is empty.", restore: "Restore", deleted: "Deleted", types: { department: "Department", team: "Team" } },
-  de: { description: "Gelöschte Einträge dieses Hotels können hier wiederhergestellt werden.", empty: "Der Papierkorb ist leer.", restore: "Wiederherstellen", deleted: "Gelöscht", types: { department: "Abteilung", team: "Team" } },
-  it: { description: "Gli elementi eliminati di questo hotel possono essere ripristinati qui.", empty: "Il cestino è vuoto.", restore: "Ripristina", deleted: "Eliminato", types: { department: "Reparto", team: "Team" } },
+  en: { description: "Deleted items from this hotel can be restored here.", empty: "The recycle bin is empty.", restore: "Restore", deleted: "Deleted", types: { department: "Department", team: "Team", user: "User" } },
+  de: { description: "Gelöschte Einträge dieses Hotels können hier wiederhergestellt werden.", empty: "Der Papierkorb ist leer.", restore: "Wiederherstellen", deleted: "Gelöscht", types: { department: "Abteilung", team: "Team", user: "Benutzer" } },
+  it: { description: "Gli elementi eliminati di questo hotel possono essere ripristinati qui.", empty: "Il cestino è vuoto.", restore: "Ripristina", deleted: "Eliminato", types: { department: "Reparto", team: "Team", user: "Utente" } },
 } as const;
 
 export const hotelLanguageMessages = {
@@ -92,4 +92,10 @@ export const additionalModuleMessages = {
   en: { chat: "Chat", mcp: "MCP", competitors: "Competitors", users: "Create & edit users", roles: "Roles & access rights" },
   de: { chat: "Chat", mcp: "MCP", competitors: "Wettbewerber", users: "Benutzer erstellen & bearbeiten", roles: "Rollen & Zugriffsrechte" },
   it: { chat: "Chat", mcp: "MCP", competitors: "Concorrenti", users: "Crea e modifica utenti", roles: "Ruoli e diritti di accesso" },
+} as const;
+
+export const userManagementMessages = {
+  en: { settings: "Settings", search: "Search by name or email…", add: "Add user", employee: "Employee", email: "Email", department: "Department", role: "Role", status: "Status", actions: "Actions", active: "Active", inactive: "Inactive", noDepartment: "No department", empty: "No users found.", showing: "Showing {count} employees", createTitle: "Create user", editTitle: "Edit user", firstName: "First name", lastName: "Last name", phone: "Phone number (optional)", password: "Password", newPassword: "New password (optional)", save: "Save", cancel: "Cancel", required: "This field is required.", invalidEmail: "Enter a valid email address.", shortPassword: "Password must contain at least 8 characters.", emailExists: "This email address is already in use." },
+  de: { settings: "Einstellungen", search: "Nach Name oder E-Mail suchen…", add: "Nutzer hinzufügen", employee: "Mitarbeiter", email: "E-Mail", department: "Abteilung", role: "Rolle", status: "Status", actions: "Aktionen", active: "Aktiv", inactive: "Inaktiv", noDepartment: "Keine Abteilung", empty: "Keine Benutzer gefunden.", showing: "Zeigt {count} Mitarbeiter", createTitle: "Benutzer erstellen", editTitle: "Benutzer bearbeiten", firstName: "Vorname", lastName: "Nachname", phone: "Telefonnummer (optional)", password: "Passwort", newPassword: "Neues Passwort (optional)", save: "Speichern", cancel: "Abbrechen", required: "Dieses Feld ist erforderlich.", invalidEmail: "Geben Sie eine gültige E-Mail-Adresse ein.", shortPassword: "Das Passwort muss mindestens 8 Zeichen enthalten.", emailExists: "Diese E-Mail-Adresse wird bereits verwendet." },
+  it: { settings: "Impostazioni", search: "Cerca per nome o e-mail…", add: "Aggiungi utente", employee: "Dipendente", email: "E-mail", department: "Reparto", role: "Ruolo", status: "Stato", actions: "Azioni", active: "Attivo", inactive: "Inattivo", noDepartment: "Nessun reparto", empty: "Nessun utente trovato.", showing: "Mostra {count} dipendenti", createTitle: "Crea utente", editTitle: "Modifica utente", firstName: "Nome", lastName: "Cognome", phone: "Numero di telefono (facoltativo)", password: "Password", newPassword: "Nuova password (facoltativa)", save: "Salva", cancel: "Annulla", required: "Questo campo è obbligatorio.", invalidEmail: "Inserisci un indirizzo e-mail valido.", shortPassword: "La password deve contenere almeno 8 caratteri.", emailExists: "Questo indirizzo e-mail è già in uso." },
 } as const;
