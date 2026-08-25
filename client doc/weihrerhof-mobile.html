@@ -1,0 +1,1334 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weihrerhof – Mobile</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#F7F6F3;--surface:#fff;--sidebar:#1C2233;
+  --accent:#C4933A;--accent-light:#F5E8CC;
+  --text:#1C2233;--text2:#6B7280;--text3:#9CA3AF;--border:#E8E6E1;
+  --green:#16A34A;--green-bg:#DCFCE7;--amber:#D97706;--amber-bg:#FEF3C7;
+  --red:#DC2626;--red-bg:#FEE2E2;--blue:#2563EB;--blue-bg:#DBEAFE;
+  --purple:#7C3AED;--purple-bg:#EDE9FE;
+  --r:14px;--sh:0 1px 3px rgba(0,0,0,.06),0 6px 20px rgba(0,0,0,.08);
+  --tap:50px; /* Mindest-Touch-Ziel */
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;background:#EDEBE6;color:var(--text);
+  min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 12px;-webkit-font-smoothing:antialiased}
+
+/* ============ DEMO-LEISTE (nicht Teil der eigentlichen App) ============ */
+.demo-bar{width:100%;max-width:400px;background:var(--sidebar);border-radius:12px;padding:10px 12px;margin-bottom:14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.demo-lbl{font-size:10.5px;color:rgba(255,255,255,.4);font-weight:600;letter-spacing:.4px;text-transform:uppercase;width:100%}
+.demo-persona{padding:6px 11px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;background:rgba(255,255,255,.08);color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.12);white-space:nowrap}
+.demo-persona.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* ============ PHONE FRAME ============ */
+.device{width:390px;max-width:100%;height:844px;max-height:88vh;background:var(--sidebar);border-radius:44px;padding:14px;box-shadow:0 20px 60px rgba(0,0,0,.35);position:relative}
+.screen-frame{width:100%;height:100%;background:var(--bg);border-radius:32px;overflow:hidden;position:relative;display:flex;flex-direction:column}
+.notch{position:absolute;top:14px;left:50%;transform:translateX(-50%);width:120px;height:26px;background:var(--sidebar);border-radius:14px;z-index:50}
+
+/* ============ TOPBAR ============ */
+.m-topbar{padding:44px 18px 12px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;display:flex;justify-content:space-between;align-items:flex-start}
+.m-greet{font-size:19px;font-weight:800;line-height:1.2}
+.m-greet-sub{font-size:12.5px;color:var(--text2);margin-top:2px}
+.m-bell{width:38px;height:38px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:16px;position:relative;flex-shrink:0}
+.m-bell .dot{position:absolute;top:6px;right:7px;width:8px;height:8px;background:var(--red);border-radius:50%;border:2px solid var(--surface)}
+
+/* ============ SCREEN CONTENT ============ */
+.m-content{flex:1;overflow-y:auto;padding:16px 16px 90px;-webkit-overflow-scrolling:touch}
+.m-screen{display:none}
+.m-screen.active{display:block}
+
+/* ============ STAT-CHIPS (Zusammenfassung "Heute für dich") ============ */
+.stat-row{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:18px}
+.stat-chip{background:var(--surface);border-radius:12px;padding:12px 10px;box-shadow:var(--sh);display:flex;align-items:center;gap:8px}
+.stat-chip .n{font-size:20px;font-weight:800;line-height:1}
+.stat-chip .l{font-size:11px;color:var(--text2);font-weight:600;line-height:1.25}
+.stat-chip.r .n{color:var(--red)}
+.stat-chip.a .n{color:var(--amber)}
+
+/* ============ SECTION ============ */
+.m-sec-title{font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:18px 0 8px}
+.m-sec-title:first-child{margin-top:0}
+
+/* ============ ROOM/TASK CARD ============ */
+.m-card{background:var(--surface);border-radius:var(--r);box-shadow:var(--sh);padding:14px;margin-bottom:10px;display:flex;gap:12px;align-items:center}
+.m-card-main{flex:1;min-width:0}
+.m-card-title{font-size:15.5px;font-weight:700;display:flex;align-items:center;gap:6px}
+.m-card-sub{font-size:12.5px;color:var(--text2);margin-top:3px;line-height:1.4}
+.m-badge{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:5px}
+.m-badge.r{background:var(--red-bg);color:var(--red)}
+.m-badge.a{background:var(--amber-bg);color:var(--amber)}
+.m-badge.g{background:var(--green-bg);color:var(--green)}
+.m-badge.b{background:var(--blue-bg);color:var(--blue)}
+
+.m-btn{min-height:var(--tap);padding:0 16px;border-radius:12px;font-size:14px;font-weight:700;border:none;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;flex-shrink:0;white-space:nowrap}
+.m-btn-primary{background:var(--accent);color:#fff}
+.m-btn-ghost{background:var(--bg);color:var(--text)}
+.m-btn-danger{background:var(--red-bg);color:var(--red)}
+.m-btn-sm{min-height:40px;padding:0 12px;font-size:13px;border-radius:10px}
+.m-btn-full{width:100%}
+.m-btn:active{transform:scale(.97)}
+
+/* ============ BOTTOM NAV ============ */
+.m-bottomnav{position:absolute;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);display:flex;align-items:stretch;padding-bottom:8px;z-index:40}
+.m-navitem{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:9px 4px 4px;font-size:10.5px;font-weight:600;color:var(--text3);cursor:pointer;min-height:var(--tap)}
+.m-navitem .ic{font-size:20px}
+.m-navitem.active{color:var(--accent)}
+.m-navitem.fab .ic{width:46px;height:46px;background:var(--accent);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;margin-top:-22px;box-shadow:0 4px 14px rgba(196,147,58,.5)}
+.m-navitem.fab{color:var(--accent);font-weight:700}
+
+/* ============ BOTTOM SHEET (Melden) ============ */
+.sheet-overlay{position:absolute;inset:0;background:rgba(0,0,0,0);pointer-events:none;transition:.25s;z-index:60;display:flex;align-items:flex-end}
+.sheet-overlay.open{background:rgba(0,0,0,.4);pointer-events:auto}
+.sheet{background:var(--surface);width:100%;border-radius:24px 24px 0 0;padding:10px 18px 22px;max-height:88%;overflow-y:auto;transform:translateY(100%);transition:.28s cubic-bezier(.32,.72,0,1)}
+.sheet-overlay.open .sheet{transform:translateY(0)}
+.sheet-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:6px auto 14px}
+.sheet-title{font-size:17px;font-weight:800;margin-bottom:14px}
+.field-lbl{font-size:12px;font-weight:700;color:var(--text2);margin-bottom:7px;display:block}
+.m-input{width:100%;min-height:var(--tap);padding:0 14px;border:1.5px solid var(--border);border-radius:12px;font-size:15px;background:var(--bg);margin-bottom:16px}
+.m-input:focus{outline:none;border-color:var(--accent)}
+.chip-picker{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.chip-opt{min-height:44px;padding:0 15px;border-radius:22px;background:var(--bg);border:1.5px solid var(--border);font-size:14px;font-weight:600;display:flex;align-items:center;cursor:pointer}
+.chip-opt.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.voice-photo-row{display:flex;gap:10px;margin-bottom:16px}
+.vp-btn{flex:1;min-height:64px;border-radius:14px;background:var(--bg);border:1.5px dashed var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:12.5px;font-weight:600;color:var(--text2);cursor:pointer}
+.vp-btn .ic{font-size:22px}
+.confirm-box{background:var(--accent-light);border-radius:14px;padding:16px;display:flex;gap:12px;align-items:flex-start;margin-bottom:14px}
+.confirm-icon{font-size:26px;flex-shrink:0}
+.confirm-title{font-size:15px;font-weight:800}
+.confirm-sub{font-size:13px;color:var(--text2);margin-top:2px}
+.change-link{font-size:13px;color:var(--accent);font-weight:600;text-align:center;margin-bottom:14px;cursor:pointer}
+
+/* ============ ZIMMER-DETAIL ============ */
+.room-hero{background:var(--surface);border-radius:var(--r);box-shadow:var(--sh);padding:20px;margin-bottom:16px;text-align:center}
+.room-num{font-size:38px;font-weight:800;line-height:1}
+.room-cat{font-size:13px;color:var(--text2);margin-top:2px}
+.room-status-badge{display:inline-block;margin-top:10px;padding:5px 14px;border-radius:20px;font-size:13px;font-weight:700}
+.action-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+.action-grid .m-btn{min-height:64px;flex-direction:column;font-size:13px;gap:4px}
+.action-grid .m-btn .ic{font-size:22px}
+.info-row{display:flex;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--border);font-size:13.5px}
+.info-row:last-child{border-bottom:none}
+.info-row .k{color:var(--text2)}
+.info-row .v{font-weight:600;text-align:right}
+
+/* ============ CHECKLISTEN-ZEILE MIT AUSNAHME-OPTION ============ */
+.cl-item-row{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--border)}
+.cl-item-row.exception{opacity:.7}
+.icon-btn-round{width:36px;height:36px;border-radius:50%;background:var(--bg);border:none;font-size:16px;cursor:pointer;flex-shrink:0;color:var(--text2)}
+
+/* ============ WEITERE ZIMMER (kompakt, sekundär) ============ */
+.other-rooms-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:18px}
+.other-room-tile{aspect-ratio:1;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:13px;font-weight:800;cursor:pointer;gap:1px}
+.other-room-tile .ri{font-size:10px}
+.other-room-tile.dirty{background:var(--red-bg);color:var(--red)}
+.other-room-tile.cleaning{background:var(--amber-bg);color:var(--amber)}
+.other-room-tile.clean{background:var(--green-bg);color:var(--green)}
+.other-room-tile.inspected{background:var(--blue-bg);color:var(--blue)}
+.other-room-tile.occupied{background:var(--blue-bg);color:var(--blue)}
+.other-room-tile.dnc{background:var(--bg);color:var(--text3);border:1px solid var(--border)}
+.other-rooms-legend{font-size:11px;color:var(--text3);margin:-10px 0 16px;line-height:1.5}
+
+.toast{position:absolute;bottom:96px;left:16px;right:16px;background:var(--sidebar);color:#fff;padding:14px 16px;border-radius:12px;font-size:13.5px;font-weight:600;text-align:center;z-index:80;opacity:0;pointer-events:none;transition:.25s;box-shadow:var(--sh)}
+.toast.show{opacity:1;transform:translateY(-4px)}
+
+/* ============ STICKY PRIMARY ACTION (Einhandbedienung) ============ */
+.sticky-bar{position:absolute;bottom:74px;left:0;right:0;padding:12px 16px;background:linear-gradient(to top, var(--bg) 60%, transparent);display:none;gap:10px;z-index:35}
+.sticky-bar.show{display:flex}
+.sticky-bar .m-btn{min-height:56px;font-size:15px}
+.secondary-actions-row{display:flex;gap:10px;margin-bottom:18px}
+.secondary-actions-row .m-btn{flex:1;min-height:48px;font-size:13px}
+</style>
+</head>
+<body>
+
+<div class="demo-bar">
+  <div class="demo-lbl">🔧 Demo · Person wechseln</div>
+  <div class="demo-persona active" data-persona="sabine" onclick="switchPersona('sabine')">Sabine · Housekeeping</div>
+  <div class="demo-persona" data-persona="thomas" onclick="switchPersona('thomas')">Thomas · Haustechnik</div>
+  <div class="demo-persona" data-persona="maria" onclick="switchPersona('maria')">Maria · Rezeption</div>
+  <div class="demo-persona" data-persona="luca" onclick="switchPersona('luca')">Luca · Service</div>
+</div>
+
+<div class="device">
+  <div class="notch"></div>
+  <div class="screen-frame">
+
+    <header class="m-topbar">
+      <div>
+        <div class="m-greet" id="m-greet">Guten Morgen, Sabine</div>
+        <div class="m-greet-sub" id="m-greet-sub">Mittwoch, 19. August</div>
+      </div>
+      <div class="m-bell" onclick="openNotifications()">🔔<div class="dot" id="bell-dot"></div></div>
+    </header>
+
+    <main class="m-content" id="m-content">
+
+      <!-- ============ HEUTE: HOUSEKEEPING ============ -->
+      <div class="m-screen" id="screen-heute-hk">
+        <div class="stat-row">
+          <div class="stat-chip r"><div><div class="n">2</div><div class="l">Express-<br>Zimmer</div></div></div>
+          <div class="stat-chip"><div><div class="n">5</div><div class="l">weitere<br>Zimmer</div></div></div>
+          <div class="stat-chip"><div><div class="n">2</div><div class="l">Zusatz-<br>aufgaben</div></div></div>
+          <div class="stat-chip a"><div><div class="n">1</div><div class="l">wichtige<br>Info</div></div></div>
+        </div>
+
+        <div class="m-sec-title">🔴 Express – zuerst</div>
+        <div id="my-express-rooms"></div>
+
+        <div class="m-sec-title">🧹 Deine weiteren Zimmer</div>
+        <div id="my-other-rooms"></div>
+
+        <div class="m-card" id="other-rooms-summary" onclick="showScreen('screen-zimmer-alle')" style="cursor:pointer">
+          <div class="m-card-main">
+            <div class="m-card-title">Weitere Zimmer im Haus ›</div>
+            <div class="m-card-sub" id="other-rooms-summary-text">–</div>
+          </div>
+        </div>
+
+        <div class="m-sec-title">✅ Aufgaben</div>
+        <div class="m-card">
+          <div class="m-card-main"><div class="m-card-title">Babybett Zi. 51 vorbereiten</div><div class="m-card-sub">Für Anreise 14:00</div></div>
+          <button class="m-btn m-btn-ghost m-btn-sm" onclick="markDone(this)">Erledigt</button>
+        </div>
+        <div class="m-card">
+          <div class="m-card-main"><div class="m-card-title">Lager Handtücher auffüllen</div><div class="m-card-sub">Etage 1</div></div>
+          <button class="m-btn m-btn-ghost m-btn-sm" onclick="markDone(this)">Erledigt</button>
+        </div>
+
+        <div class="m-sec-title">📢 Wichtige Info</div>
+        <div class="m-card">
+          <div class="m-card-main"><div class="m-card-title">Zimmer 44 möchte heute keinen Service</div><div class="m-card-sub">Von Rezeption · heute 07:40</div></div>
+          <button class="m-btn m-btn-ghost m-btn-sm" onclick="markDone(this)">Gelesen</button>
+        </div>
+      </div>
+
+      <!-- ============ ZIMMER-DETAIL ============ -->
+      <div class="m-screen" id="screen-room-detail">
+        <div style="margin-bottom:10px;color:var(--accent);font-weight:600;font-size:13.5px;cursor:pointer" onclick="showScreen(lastListScreen)">← Zurück</div>
+        <div class="room-hero">
+          <div class="room-num" id="rd-number">45</div>
+          <div class="room-cat" id="rd-cat">Suite · Etage 1</div>
+          <div class="room-status-badge" id="rd-status">🔴 Express · Schmutzig</div>
+        </div>
+        <div class="secondary-actions-row" id="rd-secondary-actions">
+          <button class="m-btn m-btn-danger" onclick="roomAction('problem')"><span class="ic">⚠️</span>Problem melden</button>
+          <button class="m-btn m-btn-ghost" onclick="roomAction('note')"><span class="ic">📝</span>Notiz</button>
+        </div>
+        <div id="rd-confirm-banner" style="display:none;background:var(--green-bg);color:var(--green);border-radius:14px;padding:14px 16px;margin-bottom:18px;align-items:center;gap:10px;font-weight:700;font-size:14.5px">
+          <span style="font-size:20px">✅</span> Als sauber bestätigt
+        </div>
+        <div class="m-sec-title">Details</div>
+        <div class="m-card" style="display:block">
+          <div class="info-row"><div class="k">Gast</div><div class="v" id="rd-guest">–</div></div>
+          <div class="info-row"><div class="k">Abreise / Anreise</div><div class="v" id="rd-stay">–</div></div>
+          <div class="info-row"><div class="k">Besonderheit</div><div class="v" id="rd-remark">–</div></div>
+        </div>
+      </div>
+
+      <!-- ============ ZIMMER: GANZES HAUS (echte Nav-Destination) ============ -->
+      <div class="m-screen" id="screen-zimmer-alle">
+        <div class="m-sec-title">🧹 Deine Zimmer</div>
+        <div id="zimmer-alle-mine"></div>
+        <div class="m-sec-title">Weitere Zimmer im Haus</div>
+        <div id="zimmer-alle-others"></div>
+        <div class="other-rooms-legend">🔴 Schmutzig · 🧹 Reinigung · ✓ Sauber · 🚫 Kein Service</div>
+      </div>
+
+      <!-- ============ HEUTE: HAUSTECHNIK ============ -->
+      <div class="m-screen" id="screen-heute-ht">
+        <div class="m-sec-title">🔴 Jetzt wichtig</div>
+        <div class="m-card" onclick="openRepair('heizung48')">
+          <div class="m-card-main">
+            <div class="m-card-title">Zimmer 48 · Heizung</div>
+            <div class="m-card-sub">Gast betroffen · seit 18 Std. offen</div>
+          </div>
+          <button class="m-btn m-btn-primary m-btn-sm" onclick="event.stopPropagation();quickTakeOver('heizung48')" id="qbtn-heizung48">Übernehmen</button>
+        </div>
+        <div class="m-card" onclick="openRepair('fenster55')">
+          <div class="m-card-main">
+            <div class="m-card-title">Zimmer 55 · Fenstergriff</div>
+            <div class="m-card-sub"><span class="m-badge a">Wartet</span>&nbsp;auf Ersatzteil</div>
+          </div>
+          <button class="m-btn m-btn-ghost m-btn-sm" onclick="event.stopPropagation();openRepair('fenster55')">Öffnen</button>
+        </div>
+
+        <div class="m-sec-title">Danach</div>
+        <div class="m-card" onclick="openRepair('aussenlicht')">
+          <div class="m-card-main">
+            <div class="m-card-title">Außenbeleuchtung prüfen</div>
+            <div class="m-card-sub">Aus Checkliste „Housekeeping – Morgenkontrolle"</div>
+          </div>
+          <button class="m-btn m-btn-ghost m-btn-sm" onclick="event.stopPropagation();quickTakeOver('aussenlicht')" id="qbtn-aussenlicht">Übernehmen</button>
+        </div>
+        <div class="m-card" onclick="openRepair('hydrauliker')">
+          <div class="m-card-main">
+            <div class="m-card-title">Hydrauliker · Heizraum</div>
+            <div class="m-card-sub">Verteilerraum, kein akuter Termin</div>
+          </div>
+          <button class="m-btn m-btn-ghost m-btn-sm" onclick="event.stopPropagation();quickTakeOver('hydrauliker')" id="qbtn-hydrauliker">Übernehmen</button>
+        </div>
+      </div>
+
+      <!-- ============ REPARATUR-DETAIL ============ -->
+      <div class="m-screen" id="screen-repair-detail">
+        <div style="margin-bottom:10px;color:var(--accent);font-weight:600;font-size:13.5px;cursor:pointer" onclick="showScreen(lastListScreen)">← Zurück</div>
+        <div class="room-hero">
+          <div style="font-size:26px;margin-bottom:4px" id="rep-icon">🔧</div>
+          <div style="font-size:19px;font-weight:800" id="rep-title">–</div>
+          <div class="room-cat" id="rep-loc">–</div>
+          <div class="room-status-badge" id="rep-status">Neu</div>
+        </div>
+        <div class="secondary-actions-row" id="rep-secondary-actions"></div>
+        <div id="rep-waiting-picker" style="display:none;margin-bottom:18px">
+          <label class="field-lbl">Worauf wird gewartet?</label>
+          <div class="chip-picker">
+            <div class="chip-opt" onclick="setRepairWaiting('Ersatzteil')">Ersatzteil</div>
+            <div class="chip-opt" onclick="setRepairWaiting('Externe Firma')">Externe Firma</div>
+            <div class="chip-opt" onclick="setRepairWaiting('Gastzugang')">Gastzugang</div>
+            <div class="chip-opt" onclick="setRepairWaiting('Entscheidung')">Entscheidung</div>
+          </div>
+        </div>
+        <div class="m-sec-title">Details</div>
+        <div class="m-card" style="display:block">
+          <div class="info-row"><div class="k">Beschreibung</div><div class="v" id="rep-desc" style="text-align:right;max-width:70%">–</div></div>
+          <div class="info-row"><div class="k">Gemeldet</div><div class="v" id="rep-meta">–</div></div>
+          <div class="info-row"><div class="k">Zuständig</div><div class="v" id="rep-assignee">–</div></div>
+        </div>
+      </div>
+
+      <!-- ============ HAUSTECHNIK: CHECKLISTEN (echte Nav-Destination) ============ -->
+      <div class="m-screen" id="screen-checklisten">
+        <div class="m-sec-title">📋 Housekeeping – Morgenkontrolle</div>
+        <div class="m-card" style="display:block" id="checklist-group-0">
+          <div class="cl-item-row" data-item="Außenbeleuchtung prüfen"><label style="display:flex;align-items:center;gap:10px;flex:1;cursor:pointer" onclick="toggleChecklistItemMobile(this)"><input type="checkbox" style="width:22px;height:22px;flex-shrink:0"><span>Außenbeleuchtung prüfen</span></label><button class="icon-btn-round" onclick="openChecklistException(this)">⋯</button></div>
+          <div class="cl-item-row" data-item="Notschalter Hauptverteiler"><label style="display:flex;align-items:center;gap:10px;flex:1;cursor:pointer" onclick="toggleChecklistItemMobile(this)"><input type="checkbox" style="width:22px;height:22px;flex-shrink:0"><span>Notschalter Hauptverteiler</span></label><button class="icon-btn-round" onclick="openChecklistException(this)">⋯</button></div>
+          <div class="cl-item-row" data-item="Heizraum Sichtkontrolle" style="border-bottom:none"><label style="display:flex;align-items:center;gap:10px;flex:1;cursor:pointer" onclick="toggleChecklistItemMobile(this)"><input type="checkbox" style="width:22px;height:22px;flex-shrink:0"><span>Heizraum Sichtkontrolle</span></label><button class="icon-btn-round" onclick="openChecklistException(this)">⋯</button></div>
+        </div>
+        <div class="m-sec-title">🔥 Wochenkontrolle Sicherheit</div>
+        <div class="m-card" style="display:block">
+          <div class="cl-item-row" data-item="Feuerlöscher Etage 1 & 2" style="border-bottom:none"><label style="display:flex;align-items:center;gap:10px;flex:1;cursor:pointer" onclick="toggleChecklistItemMobile(this)"><input type="checkbox" style="width:22px;height:22px;flex-shrink:0"><span>Feuerlöscher Etage 1 &amp; 2</span></label><button class="icon-btn-round" onclick="openChecklistException(this)">⋯</button></div>
+        </div>
+      </div>
+
+      <!-- ============ HEUTE: REZEPTION ============ -->
+      <div class="m-screen" id="screen-heute-re">
+        <div class="stat-row">
+          <div class="stat-chip a"><div><div class="n">1</div><div class="l">wichtige<br>Übergabe</div></div></div>
+          <div class="stat-chip"><div><div class="n">3</div><div class="l">Aufgaben<br>heute</div></div></div>
+        </div>
+        <div class="m-sec-title">🤝 Übergabe</div>
+        <div class="m-card" onclick="openHandover('reception')">
+          <div class="m-card-main">
+            <div class="m-card-title">Tägliche Übergabe Reception</div>
+            <div class="m-card-sub">44 fehlt 4-Bett-Zimmer, 46 fehlt Doppel</div>
+          </div>
+          <button class="m-btn m-btn-primary m-btn-sm" onclick="event.stopPropagation();quickMarkRead('reception')" id="qbtn-reception">Gelesen</button>
+        </div>
+        <div class="m-sec-title">✅ Aufgaben</div>
+        <div class="m-card">
+          <div class="m-card-main"><div class="m-card-title">Schlüsselanhänger nachbestellen</div><div class="m-card-sub">Zi. 60, 63, 64</div></div>
+          <button class="m-btn m-btn-ghost m-btn-sm" onclick="markDone(this)">Erledigt</button>
+        </div>
+        <div class="m-card">
+          <div class="m-card-main"><div class="m-card-title">TripAdvisor-Rezension beantworten</div><div class="m-card-sub">Fam. Wagner · 5★</div></div>
+          <button class="m-btn m-btn-ghost m-btn-sm" onclick="markDone(this)">Erledigt</button>
+        </div>
+      </div>
+
+      <!-- ============ ÜBERGABE-DETAIL ============ -->
+      <div class="m-screen" id="screen-handover-detail">
+        <div style="margin-bottom:10px;color:var(--accent);font-weight:600;font-size:13.5px;cursor:pointer" onclick="showScreen(lastListScreen)">← Zurück</div>
+        <div class="m-card" style="display:block;margin-bottom:14px">
+          <div style="font-size:18px;font-weight:800;margin-bottom:2px" id="hov-title">–</div>
+          <div style="font-size:12.5px;color:var(--text2);margin-bottom:14px" id="hov-meta">–</div>
+          <div id="hov-sections"></div>
+        </div>
+        <button class="m-btn m-btn-primary m-btn-full" id="hov-read-btn" onclick="markHandoverReadMobile()">✓ Gelesen</button>
+        <div style="font-size:12.5px;color:var(--text2);margin-top:12px;cursor:pointer" id="hov-read-status" onclick="toggleReadNames()"></div>
+        <div id="hov-read-names" style="display:none;margin-top:8px;font-size:12.5px;color:var(--text2)"></div>
+      </div>
+
+      <!-- ============ ÜBERGABEN: LISTE (echte Nav-Destination) ============ -->
+      <div class="m-screen" id="screen-uebergaben-liste">
+        <div class="m-sec-title">Übergaben</div>
+        <div style="font-size:12.5px;color:var(--text2);margin:-10px 0 14px" id="uebergaben-liste-subtitle">Für deine Abteilung</div>
+        <div id="uebergaben-liste-content"></div>
+      </div>
+
+      <!-- ============ HEUTE: SERVICE ============ -->
+      <div class="m-screen" id="screen-heute-sv">
+        <div class="stat-row">
+          <div class="stat-chip"><div><div class="n">11–22</div><div class="l">Dein<br>Dienst</div></div></div>
+          <div class="stat-chip a"><div><div class="n">2</div><div class="l">wichtige<br>Übergaben</div></div></div>
+        </div>
+        <div class="m-sec-title">📢 Wichtig</div>
+        <div class="m-card" onclick="openHandover('geburtstag')">
+          <div class="m-card-main"><div class="m-card-title">Zimmer 44 · Geburtstag</div><div class="m-card-sub">Kleine Überraschung beim Abendessen erwünscht</div></div>
+          <button class="m-btn m-btn-ghost m-btn-sm" onclick="event.stopPropagation();quickMarkRead('geburtstag')" id="qbtn-geburtstag">Gelesen</button>
+        </div>
+        <div class="m-card" onclick="openHandover('tisch8')">
+          <div class="m-card-main"><div class="m-card-title">Tisch 8 · 20:30</div><div class="m-card-sub">Gast kommt später als reserviert</div></div>
+          <button class="m-btn m-btn-ghost m-btn-sm" onclick="event.stopPropagation();quickMarkRead('tisch8')" id="qbtn-tisch8">Gelesen</button>
+        </div>
+        <div class="m-sec-title">✅ Aufgaben</div>
+        <div class="m-card">
+          <div class="m-card-main"><div class="m-card-title">Tischplan Abendservice vorbereiten</div><div class="m-card-sub">7 Pers. um 19:30</div></div>
+          <button class="m-btn m-btn-ghost m-btn-sm" onclick="markDone(this)">Erledigt</button>
+        </div>
+      </div>
+
+      <!-- ============ AUFGABEN (generische Liste) ============ -->
+      <div class="m-screen" id="screen-aufgaben">
+        <div class="m-sec-title">Deine Aufgaben</div>
+        <div id="aufgaben-list"></div>
+      </div>
+
+      <!-- ============ MEHR ============ -->
+      <div class="m-screen" id="screen-mehr">
+        <div class="m-sec-title">Mehr</div>
+        <div class="m-card" style="display:block">
+          <div class="info-row" style="cursor:pointer" onclick="renderProfil();showScreen('screen-profil')"><div class="k">👤 Profil</div><div class="v">›</div></div>
+          <div class="info-row" style="cursor:pointer" onclick="showScreen('screen-handbuch')"><div class="k">📖 Handbuch</div><div class="v">›</div></div>
+          <div class="info-row" style="cursor:pointer" onclick="showScreen('screen-dienstplan-mobil')"><div class="k">📅 Mein Dienstplan</div><div class="v">›</div></div>
+          <div class="info-row" style="cursor:pointer" onclick="showScreen('screen-abwesenheit')"><div class="k">🏖 Abwesenheit beantragen</div><div class="v">›</div></div>
+          <div class="info-row" style="cursor:pointer" onclick="openNotifications()"><div class="k">🔔 Benachrichtigungen</div><div class="v">›</div></div>
+          <div class="info-row" style="cursor:pointer" onclick="handleLogout()"><div class="k">🚪 Abmelden</div><div class="v">›</div></div>
+        </div>
+      </div>
+
+      <!-- ============ PROFIL ============ -->
+      <div class="m-screen" id="screen-profil">
+        <div style="margin-bottom:10px;color:var(--accent);font-weight:600;font-size:13.5px;cursor:pointer" onclick="showScreen('screen-mehr')">← Zurück</div>
+        <div class="room-hero">
+          <div style="font-size:40px;width:72px;height:72px;border-radius:50%;background:var(--accent-light);color:var(--accent);display:flex;align-items:center;justify-content:center;margin:0 auto 10px;font-weight:800" id="profil-avatar">SM</div>
+          <div class="room-num" style="font-size:20px" id="profil-name">Sabine Moser</div>
+          <div class="room-cat" id="profil-dept">Housekeeping · Mitarbeiterin</div>
+        </div>
+        <div class="m-card" style="display:block">
+          <div class="info-row"><div class="k">Diese Woche gearbeitet</div><div class="v">32,5 Std.</div></div>
+          <div class="info-row"><div class="k">Zimmer heute erledigt</div><div class="v" id="profil-rooms-done">0</div></div>
+          <div class="info-row"><div class="k">Sprache</div><div class="v">Deutsch</div></div>
+        </div>
+      </div>
+
+      <!-- ============ HANDBUCH ============ -->
+      <div class="m-screen" id="screen-handbuch">
+        <div style="margin-bottom:10px;color:var(--accent);font-weight:600;font-size:13.5px;cursor:pointer" onclick="showScreen('screen-mehr')">← Zurück</div>
+        <div class="m-sec-title">📖 Handbuch</div>
+        <input class="m-input" placeholder="🔎 Suchen, z. B. 'WLAN-Passwort'">
+        <div class="m-card" style="display:block">
+          <div class="info-row" style="cursor:pointer"><div class="k">🧹 Reinigungsstandards</div><div class="v">›</div></div>
+          <div class="info-row" style="cursor:pointer"><div class="k">🔑 Schlüssel & Zutritt</div><div class="v">›</div></div>
+          <div class="info-row" style="cursor:pointer"><div class="k">🚨 Notfälle & Sicherheit</div><div class="v">›</div></div>
+          <div class="info-row" style="cursor:pointer"><div class="k">📶 WLAN & Technik</div><div class="v">›</div></div>
+        </div>
+      </div>
+
+      <!-- ============ MEIN DIENSTPLAN ============ -->
+      <div class="m-screen" id="screen-dienstplan-mobil">
+        <div style="margin-bottom:10px;color:var(--accent);font-weight:600;font-size:13.5px;cursor:pointer" onclick="showScreen('screen-mehr')">← Zurück</div>
+        <div class="m-sec-title">📅 Diese Woche</div>
+        <div class="m-card" style="display:block">
+          <div class="info-row"><div class="k">Mo</div><div class="v">08:00 – 16:00</div></div>
+          <div class="info-row"><div class="k">Di</div><div class="v">08:00 – 16:00</div></div>
+          <div class="info-row"><div class="k">Mi (heute)</div><div class="v" style="color:var(--accent)">08:00 – 16:00</div></div>
+          <div class="info-row"><div class="k">Do</div><div class="v">Frei</div></div>
+          <div class="info-row"><div class="k">Fr</div><div class="v">08:00 – 16:00</div></div>
+          <div class="info-row"><div class="k">Sa</div><div class="v">10:00 – 18:00</div></div>
+          <div class="info-row"><div class="k">So</div><div class="v">Frei</div></div>
+        </div>
+      </div>
+
+      <!-- ============ ABWESENHEIT BEANTRAGEN ============ -->
+      <div class="m-screen" id="screen-abwesenheit">
+        <div style="margin-bottom:10px;color:var(--accent);font-weight:600;font-size:13.5px;cursor:pointer" onclick="showScreen('screen-mehr')">← Zurück</div>
+        <div class="m-sec-title">🏖 Abwesenheit beantragen</div>
+        <label class="field-lbl">Zeitraum</label>
+        <input class="m-input" type="date" id="abwesenheit-von">
+        <input class="m-input" type="date" id="abwesenheit-bis">
+        <label class="field-lbl">Grund</label>
+        <div class="chip-picker">
+          <div class="chip-opt active">Urlaub</div>
+          <div class="chip-opt">Krank</div>
+          <div class="chip-opt">Sonstiges</div>
+        </div>
+        <button class="m-btn m-btn-primary m-btn-full" onclick="submitAbwesenheit()">Antrag senden</button>
+      </div>
+
+      <!-- ============ BENACHRICHTIGUNGEN (nur relevante, persönliche Ereignisse) ============ -->
+      <div class="m-screen" id="screen-notifications">
+        <div style="margin-bottom:10px;color:var(--accent);font-weight:600;font-size:13.5px;cursor:pointer" onclick="showScreen(lastListScreen)">← Zurück</div>
+        <div class="m-sec-title">Benachrichtigungen</div>
+        <div id="notifications-list"></div>
+      </div>
+
+    </main>
+
+    <div class="sticky-bar" id="sticky-bar"></div>
+    <nav class="m-bottomnav" id="m-bottomnav"></nav>
+
+    <div class="toast" id="m-toast"></div>
+
+    <!-- ============ MELDEN-SHEET ============ -->
+    <div class="sheet-overlay" id="melden-overlay">
+      <div class="sheet">
+        <div class="sheet-handle"></div>
+
+        <div id="melden-step1">
+          <div class="sheet-title">Was möchtest du melden?</div>
+          <label class="field-lbl">Wo?</label>
+          <div id="melden-location-prefilled" style="display:none;margin-bottom:16px"></div>
+          <div id="melden-location-picker">
+            <input class="m-input" id="melden-location-search" placeholder="🔎 Zimmer oder Bereich..." style="margin-bottom:8px">
+            <div class="chip-picker" id="melden-recent-chips" style="margin-top:0;margin-bottom:16px"></div>
+          </div>
+          <label class="field-lbl">Was ist los?</label>
+          <input class="m-input" id="melden-text" placeholder="Kurz beschreiben...">
+          <div class="voice-photo-row">
+            <div class="vp-btn" onclick="meldenVoice()"><span class="ic">🎤</span>Sprechen</div>
+            <div class="vp-btn" onclick="meldenPhoto()"><span class="ic">📷</span>Foto</div>
+          </div>
+          <div id="melden-photo-preview" style="font-size:12.5px;color:var(--text2);margin:-8px 0 14px;text-align:center"></div>
+          <button class="m-btn m-btn-primary m-btn-full" onclick="meldenClassify()">Melden</button>
+          <button class="m-btn m-btn-ghost m-btn-full" style="margin-top:8px" onclick="closeMelden()">Abbrechen</button>
+        </div>
+
+        <!-- Nur bei UNSICHERER Erkennung: kurz nachfragen -->
+        <div id="melden-step2" style="display:none">
+          <div class="sheet-title">Ich bin nicht sicher, wohin das gehört</div>
+          <div class="chip-picker" id="melden-target-chips">
+            <div class="chip-opt" onclick="selectMeldenTarget('reparatur',this)">🔧 Reparatur</div>
+            <div class="chip-opt" onclick="selectMeldenTarget('aufgabe',this)">✅ Aufgabe</div>
+            <div class="chip-opt" onclick="selectMeldenTarget('uebergabe',this)">🤝 Übergabe</div>
+          </div>
+          <button class="m-btn m-btn-primary m-btn-full" onclick="meldenSend()">Melden</button>
+          <button class="m-btn m-btn-ghost m-btn-full" style="margin-top:8px" onclick="meldenBack()">← Zurück</button>
+        </div>
+
+        <!-- Bei EINDEUTIGER Erkennung: direkt gesendet, nur noch Bestätigung + Ändern-Option -->
+        <div id="melden-step3" style="display:none">
+          <div class="confirm-box" style="background:var(--green-bg)">
+            <div class="confirm-icon">✅</div>
+            <div>
+              <div class="confirm-title" style="color:var(--green)" id="melden-sent-title">Gemeldet an Haustechnik</div>
+              <div class="confirm-sub" id="melden-sent-sub">Elektrik · Zimmer 45</div>
+            </div>
+          </div>
+          <div class="change-link" onclick="meldenUndo()">Nicht richtig? Ändern →</div>
+          <button class="m-btn m-btn-ghost m-btn-full" style="margin-top:10px" onclick="closeMelden()">Fertig</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ CHECKLISTE: AUSNAHME (Nicht möglich / Weitergeben) ============ -->
+    <div class="sheet-overlay" id="cl-exception-overlay">
+      <div class="sheet">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title">Nicht möglich</div>
+        <div style="font-size:13.5px;color:var(--text2);margin:-8px 0 16px" id="cl-exception-item">–</div>
+        <label class="field-lbl">Kurzer Kommentar</label>
+        <input class="m-input" id="cl-exception-comment" placeholder="z. B. Lampe defekt, Ersatzteil fehlt...">
+        <label class="field-lbl">Weitergeben an</label>
+        <select class="m-input" id="cl-exception-target" style="padding:0 14px">
+          <option value="">– auswählen –</option>
+          <optgroup label="Person">
+            <option value="person:Sabine Moser">Sabine Moser</option>
+            <option value="person:Thomas Gruber">Thomas Gruber</option>
+            <option value="person:Maria Rieder">Maria Rieder</option>
+            <option value="person:Luca Bianchi">Luca Bianchi</option>
+          </optgroup>
+          <optgroup label="Abteilung">
+            <option value="dept:Housekeeping">Housekeeping</option>
+            <option value="dept:Haustechnik">Haustechnik</option>
+            <option value="dept:Rezeption">Rezeption</option>
+          </optgroup>
+        </select>
+        <div class="vp-btn" style="margin-bottom:16px" onclick="clExceptionPhoto()"><span class="ic">📷</span><span id="cl-exception-photo-label">Foto anhängen (optional)</span></div>
+        <button class="m-btn m-btn-primary m-btn-full" onclick="submitChecklistException()">Weitergeben</button>
+        <button class="m-btn m-btn-ghost m-btn-full" style="margin-top:8px" onclick="closeChecklistException()">Abbrechen</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ============ DATENMODELL ============ */
+const roomsData = {
+  '45': {category:'Suite', floor:'1', status:'dirty', express:true, guest:'–', stay:'Abreise heute → Anreise 14:00', remark:'Express-Priorität', cleaner:'sabine'},
+  '51': {category:'Suite', floor:'1', status:'dirty', express:true, guest:'–', stay:'Abreise heute → frei', remark:'Express-Priorität', cleaner:'sabine'},
+  '43': {category:'Standard', floor:'1', status:'dirty', express:false, guest:'– (abgereist)', stay:'Abreise heute', remark:'Standardreinigung', cleaner:'sabine'},
+  '44': {category:'Seeblick', floor:'1', status:'occupied', express:false, guest:'Hr. Brunner', stay:'bis 22.08.', remark:'Kein Service heute gewünscht', cleaner:'sabine'},
+  '48': {category:'Seeblick', floor:'1', status:'dnc', express:false, guest:'Fam. Cart', stay:'bis 29.08.', remark:'DND heute aktiv', cleaner:'sabine'},
+  '42': {category:'Seeblick', floor:'1', status:'occupied', express:false, guest:'Fam. Wagner', stay:'bis 25.08.', remark:'–', cleaner:null},
+  '46': {category:'Standard', floor:'1', status:'clean', express:false, guest:'–', stay:'Anreise heute 15:00', remark:'–', cleaner:'rebecca'},
+  '47': {category:'Standard', floor:'1', status:'clean', express:false, guest:'–', stay:'frei', remark:'–', cleaner:null},
+  '50': {category:'Standard', floor:'1', status:'clean', express:false, guest:'Fr. Steiner', stay:'bis 24.08.', remark:'Kein Service (Aufenthalt)', cleaner:'rebecca'},
+  '52': {category:'Standard', floor:'1', status:'clean', express:false, guest:'–', stay:'frei', remark:'–', cleaner:null},
+  '55': {category:'Seeblick', floor:'2', status:'cleaning', express:false, guest:'–', stay:'frei', remark:'–', cleaner:'rebecca'},
+  '56': {category:'Standard', floor:'2', status:'clean', express:false, guest:'–', stay:'frei', remark:'–', cleaner:null},
+  '57': {category:'Seeblick', floor:'2', status:'clean', express:false, guest:'Fam. Cart', stay:'bis 29.08.', remark:'–', cleaner:'rebecca'},
+  '58': {category:'Standard', floor:'2', status:'cleaning', express:false, guest:'–', stay:'frei', remark:'–', cleaner:'rebecca'},
+  '60': {category:'Einzel', floor:'2', status:'clean', express:false, guest:'–', stay:'Anreise heute 16:00', remark:'–', cleaner:'rebecca'},
+  '61': {category:'Einzel', floor:'2', status:'dirty', express:false, guest:'Hr. Toifl', stay:'bis 23.08.', remark:'–', cleaner:'rebecca'}
+};
+const cleanerNames = {sabine:'Sabine', rebecca:'Rebecca'};
+const roomStatusMeta = {
+  dirty:{icon:'🔴', label:'Schmutzig', cls:'r'},
+  cleaning:{icon:'🧹', label:'In Reinigung', cls:'a'},
+  clean:{icon:'✅', label:'Sauber', cls:'g'},
+  inspected:{icon:'🔍', label:'Inspiziert', cls:'b'},
+  occupied:{icon:'🟣', label:'Belegt · kein Reinigungsbedarf', cls:'b'},
+  dnc:{icon:'🚫', label:'Kein Service', cls:''}
+};
+
+const aufgabenData = {
+  sabine: [
+    {title:'Babybett Zi. 51 vorbereiten', sub:'Für Anreise 14:00', prio:'r'},
+    {title:'Lager Handtücher auffüllen', sub:'Etage 1', prio:''},
+    {title:'Wäschesäcke zur Wäscherei bringen', sub:'Bis 16:00', prio:''},
+    {title:'Minibar-Kontrolle Etage 2', sub:'Wöchentlich', prio:''}
+  ],
+  thomas: [
+    {title:'Zimmer 48 · Heizung', sub:'Gast betroffen · dringend', prio:'r'},
+    {title:'Außenbeleuchtung prüfen', sub:'Aus Checkliste Housekeeping', prio:''},
+    {title:'Hydrauliker · Heizraum', sub:'Kein akuter Termin', prio:''},
+    {title:'Rasenmäher warten', sub:'Diese Woche', prio:''}
+  ],
+  maria: [
+    {title:'Schlüsselanhänger nachbestellen', sub:'Zi. 60, 63, 64', prio:''},
+    {title:'TripAdvisor-Rezension beantworten', sub:'Fam. Wagner · 5★', prio:'a'},
+    {title:'Smartbox-Preisliste prüfen', sub:'Vor dem Wochenende', prio:''}
+  ],
+  luca: [
+    {title:'Tischplan Abendservice vorbereiten', sub:'7 Pers. um 19:30', prio:''},
+    {title:'Weinbestand kontrollieren', sub:'Vor dem Wochenende', prio:''}
+  ]
+};
+// Welche Persona vertritt in diesem Demo welche Abteilung – für unzugewiesene Abteilungs-Aufgaben aus Checklisten
+const deptToPersonaKey = {Housekeeping:'sabine', Haustechnik:'thomas', Rezeption:'maria'};
+
+const navConfig = {
+  sabine: [
+    {screen:'screen-heute-hk', icon:'🏠', label:'Heute'},
+    {screen:'screen-zimmer-alle', icon:'🧹', label:'Zimmer'},
+    {fab:true},
+    {screen:'screen-aufgaben', icon:'✅', label:'Aufgaben'},
+    {screen:'screen-mehr', icon:'⋯', label:'Mehr'}
+  ],
+  thomas: [
+    {screen:'screen-heute-ht', icon:'🏠', label:'Heute'},
+    {screen:'screen-aufgaben', icon:'🔧', label:'Aufträge'},
+    {fab:true},
+    {screen:'screen-checklisten', icon:'📋', label:'Checklisten'},
+    {screen:'screen-mehr', icon:'⋯', label:'Mehr'}
+  ],
+  maria: [
+    {screen:'screen-heute-re', icon:'🏠', label:'Heute'},
+    {screen:'screen-aufgaben', icon:'✅', label:'Aufgaben'},
+    {fab:true},
+    {screen:'screen-uebergaben-liste', icon:'🤝', label:'Übergaben'},
+    {screen:'screen-mehr', icon:'⋯', label:'Mehr'}
+  ],
+  luca: [
+    {screen:'screen-heute-sv', icon:'🏠', label:'Heute'},
+    {screen:'screen-aufgaben', icon:'✅', label:'Aufgaben'},
+    {fab:true},
+    {screen:'screen-uebergaben-liste', icon:'🤝', label:'Übergaben'},
+    {screen:'screen-mehr', icon:'⋯', label:'Mehr'}
+  ]
+};
+
+const personaMeta = {
+  sabine: {name:'Sabine', full:'Sabine Moser', dept:'Housekeeping', home:'screen-heute-hk', cleanerKey:'sabine'},
+  thomas: {name:'Thomas', full:'Thomas Gruber', dept:'Haustechnik', home:'screen-heute-ht', cleanerKey:null},
+  maria:  {name:'Maria', full:'Maria Rieder', dept:'Rezeption', home:'screen-heute-re', cleanerKey:null},
+  luca:   {name:'Luca', full:'Luca Bianchi', dept:'Restaurant/Service', home:'screen-heute-sv', cleanerKey:null}
+};
+
+const recentLocations = ['45','51','Etage 1'];
+
+const notificationsData = {
+  sabine: [
+    {icon:'⚡', title:'Zimmer 45 ist jetzt Express', sub:'Anreise vorgezogen auf 13:30 · vor 12 Min.', action:()=>openRoom('45')}
+  ],
+  thomas: [
+    {icon:'🔴', title:'Gast betroffen', sub:'Zimmer 48 · Heizung ausgefallen · vor 1 Min.', action:()=>openRepair('heizung48')}
+  ],
+  maria: [
+    {icon:'🤝', title:'Neue Übergabe eingegangen', sub:'Tägliche Übergabe Reception · vor 8 Min.', action:()=>openHandover('reception')}
+  ],
+  luca: [
+    {icon:'📢', title:'Neue wichtige Info', sub:'Zimmer 44 · Geburtstag heute Abend · vor 20 Min.', action:()=>openHandover('geburtstag')}
+  ]
+};
+
+function openNotifications(){
+  const list = notificationsData[currentPersona] || [];
+  document.getElementById('notifications-list').innerHTML = list.length ? list.map((n,i)=>`
+    <div class="m-card" onclick="handleNotificationTap(${i})">
+      <div class="m-card-main"><div class="m-card-title">${n.icon} ${n.title}</div><div class="m-card-sub">${n.sub}</div></div>
+    </div>`).join('') : '<div style="font-size:13px;color:var(--text3);text-align:center;padding:20px">Keine neuen Benachrichtigungen.</div>';
+  document.getElementById('bell-dot').style.display = 'none';
+  showScreen('screen-notifications');
+}
+function handleNotificationTap(i){
+  const n = notificationsData[currentPersona][i];
+  if(n && n.action) n.action();
+}
+
+function toggleChecklistItemMobile(label){
+  const cb = label.querySelector('input');
+  cb.checked = !cb.checked;
+  label.style.opacity = cb.checked ? '.5' : '1';
+  label.style.textDecoration = cb.checked ? 'line-through' : 'none';
+}
+
+/* ---- Checkliste: Ausnahmefall "Nicht möglich / Weitergeben" ---- */
+let currentClExceptionRow = null;
+function openChecklistException(btn){
+  currentClExceptionRow = btn.closest('.cl-item-row');
+  document.getElementById('cl-exception-item').textContent = currentClExceptionRow.dataset.item;
+  document.getElementById('cl-exception-comment').value = '';
+  document.getElementById('cl-exception-target').value = '';
+  document.getElementById('cl-exception-photo-label').textContent = 'Foto anhängen (optional)';
+  document.getElementById('cl-exception-overlay').classList.add('open');
+}
+function closeChecklistException(){
+  document.getElementById('cl-exception-overlay').classList.remove('open');
+}
+function clExceptionPhoto(){
+  document.getElementById('cl-exception-photo-label').textContent = '📷 Foto.jpg angehängt';
+}
+function submitChecklistException(){
+  const targetVal = document.getElementById('cl-exception-target').value;
+  if(!targetVal){ showToast('Bitte auswählen, wer sich darum kümmert'); return; }
+  const comment = document.getElementById('cl-exception-comment').value.trim();
+  const itemText = currentClExceptionRow.dataset.item;
+  const [type, name] = targetVal.split(':');
+
+  if(type==='person'){
+    // Bekannte Person: echte, ihr zugewiesene Aufgabe
+    const targetPersonaKey = Object.keys(personaMeta).find(k => personaMeta[k].full === name);
+    if(targetPersonaKey){
+      aufgabenData[targetPersonaKey] = aufgabenData[targetPersonaKey] || [];
+      aufgabenData[targetPersonaKey].unshift({
+        title: itemText + ' (aus Checkliste)',
+        sub: comment ? 'Weitergegeben von ' + personaMeta[currentPersona].name + ': ' + comment : 'Weitergegeben von ' + personaMeta[currentPersona].name,
+        prio: 'a', unassigned:false
+      });
+      if(targetPersonaKey === currentPersona) renderAufgaben();
+    }
+  } else if(type==='dept'){
+    // Abteilung: unzugewiesene Aufgabe im Pool der Abteilung, nicht automatisch einer Person zugewiesen
+    const targetPersonaKey = deptToPersonaKey[name];
+    if(targetPersonaKey){
+      aufgabenData[targetPersonaKey] = aufgabenData[targetPersonaKey] || [];
+      aufgabenData[targetPersonaKey].unshift({
+        title: itemText,
+        sub: `Abteilung: ${name} · Verantwortlicher: – · Quelle: Checkliste Housekeeping${comment ? ' · ' + comment : ''}`,
+        prio: 'a', unassigned:true
+      });
+      if(targetPersonaKey === currentPersona) renderAufgaben();
+    }
+  }
+
+  // Ursprünglichen Checklistenpunkt sichtbar als weitergegeben markieren – verschwindet nicht einfach
+  currentClExceptionRow.classList.add('exception');
+  currentClExceptionRow.querySelector('span').innerHTML = `${itemText} <span class="m-badge a" style="margin-left:6px">→ ${name}</span>`;
+  currentClExceptionRow.querySelector('input').disabled = true;
+  currentClExceptionRow.querySelector('.icon-btn-round').style.display = 'none';
+
+  closeChecklistException();
+  showToast('↪ Weitergegeben an ' + name);
+}
+
+let hovReadNamesShown = false;
+function toggleReadNames(){
+  hovReadNamesShown = !hovReadNamesShown;
+  document.getElementById('hov-read-names').style.display = hovReadNamesShown ? 'block' : 'none';
+  if(hovReadNamesShown){
+    const h = mHandoversData[currentHandoverKey];
+    const allStaff = ['Maria Rieder','Marion','Luca Bianchi'];
+    document.getElementById('hov-read-names').innerHTML = allStaff.map(n=>`<div>${h.readBy.includes(n)?'✅':'⬜'} ${n}</div>`).join('');
+  }
+}
+
+/* ---- Reparaturen (mobile), gleicher Status-Flow wie Desktop ---- */
+const mRepairsData = {
+  heizung48: {title:'Zimmer 48 · Heizung', loc:'Zimmer 48', icon:'🔥', desc:'Gast beschwert sich über schwache Heizleistung.', reporter:'Klaus · heute 06:20', guestAffected:true, openSinceHours:18, status:'offen', assignee:null, inProgress:false, waiting:null},
+  fenster55: {title:'Zimmer 55 · Fenstergriff', loc:'Zimmer 55', icon:'🪟', desc:'Fenstergriff im Bad wackelt, könnte abbrechen.', reporter:'Peter W. · gestern', guestAffected:false, status:'offen', assignee:'Peter W.', inProgress:false, waiting:{reason:'Ersatzteil'}},
+  aussenlicht: {title:'Außenbeleuchtung prüfen', loc:'Garten/Außenbereich', icon:'💡', desc:'Aus Checkliste „Housekeeping – Morgenkontrolle" – Lampe evtl. defekt.', reporter:'Checkliste · heute', guestAffected:false, status:'offen', assignee:null, inProgress:false, waiting:null},
+  hydrauliker: {title:'Hydrauliker · Heizraum', loc:'Heizraum/Verteilerraum', icon:'🔧', desc:'Anschlüsse Verbundanlage, Pumpe, Rückschlagventil prüfen.', reporter:'Klaus · 26.01.', guestAffected:false, status:'offen', assignee:null, inProgress:false, waiting:null}
+};
+
+/* ---- Übergaben (mobile) ---- */
+const mHandoversData = {
+  reception: {title:'Tägliche Übergabe Reception', meta:'Klaus · heute 07:10', pinned:true, dept:'Rezeption',
+    sections:{dringend:'', gaeste:'Bestätigung Sugamosto\n44 fehlt 4-Bett-Zimmer, 46 fehlt Doppel.', sonstiges:'Schlüsselanhänger nachbestellen (60, 63, 64).\n✓ Aufgabe erstellt · Maria\n\nPreise Smartbox: Standard ist Doppelzimmer, alles andere Aufpreis.'},
+    readBy:['Maria Rieder']},
+  geburtstag: {title:'Zimmer 44 · Geburtstag', meta:'Rezeption · heute 09:00', pinned:true, dept:'Restaurant/Service',
+    sections:{dringend:'', gaeste:'Kleine Überraschung beim Abendessen erwünscht – Gast feiert heute Geburtstag.', sonstiges:''},
+    readBy:[]},
+  tisch8: {title:'Tisch 8 · 20:30', meta:'Rezeption · heute 11:30', pinned:false, dept:'Restaurant/Service',
+    sections:{dringend:'', gaeste:'Gast kommt später als reserviert (20:30 statt 19:30).', sonstiges:''},
+    readBy:[]}
+};
+
+let currentPersona = 'sabine';
+let lastListScreen = 'screen-heute-hk';
+let currentRoomNumber = null;
+let meldenTarget = '';
+let meldenPrefilledLocation = null;
+
+/* ============ REPARATUR-DETAIL (gleicher Status-Flow wie Desktop) ============ */
+let currentRepairKey = null;
+
+function repairStatusLabel(r){
+  if(r.status==='erledigt') return {label:'Erledigt', cls:'g'};
+  if(r.waiting) return {label:'Wartet auf ' + r.waiting.reason, cls:'a'};
+  if(r.assignee && r.inProgress) return {label:'In Arbeit · ' + r.assignee, cls:'b'};
+  if(r.assignee) return {label:'Übernommen · ' + r.assignee, cls:'b'};
+  return {label:'Neu', cls:''};
+}
+
+function openRepair(key){
+  currentRepairKey = key;
+  const r = mRepairsData[key];
+  document.getElementById('rep-icon').textContent = r.icon;
+  document.getElementById('rep-title').textContent = r.title;
+  document.getElementById('rep-loc').textContent = r.loc + (r.guestAffected ? ' · Gast betroffen' : '');
+  const st = repairStatusLabel(r);
+  const badge = document.getElementById('rep-status');
+  badge.textContent = st.label;
+  badge.style.background = st.cls==='r'?'var(--red-bg)':st.cls==='a'?'var(--amber-bg)':st.cls==='g'?'var(--green-bg)':st.cls==='b'?'var(--blue-bg)':'var(--bg)';
+  badge.style.color = st.cls==='r'?'var(--red)':st.cls==='a'?'var(--amber)':st.cls==='g'?'var(--green)':st.cls==='b'?'var(--blue)':'var(--text2)';
+  document.getElementById('rep-desc').textContent = r.desc;
+  document.getElementById('rep-meta').textContent = r.reporter + (r.openSinceHours ? ' · seit ' + r.openSinceHours + ' Std.' : '');
+  document.getElementById('rep-assignee').textContent = r.assignee || 'Niemand';
+  document.getElementById('rep-waiting-picker').style.display = 'none';
+  showScreen('screen-repair-detail');
+  renderRepairActions();
+}
+
+function renderRepairActions(){
+  const r = mRepairsData[currentRepairKey];
+  const sticky = document.getElementById('sticky-bar');
+  const secondary = document.getElementById('rep-secondary-actions');
+  if(r.status==='erledigt'){
+    sticky.innerHTML = `<button class="m-btn m-btn-ghost m-btn-full" onclick="repairSetStatus('offen')">↺ Wieder öffnen</button>`;
+    sticky.classList.add('show');
+    secondary.innerHTML = '';
+    return;
+  }
+  if(!r.assignee){
+    // Aus dem Auftrag heraus: ein Tap übernimmt + startet gleichzeitig ("Arbeit starten")
+    sticky.innerHTML = `<button class="m-btn m-btn-primary m-btn-full" onclick="repairStartWork()">▶️ Arbeit starten</button>`;
+    secondary.innerHTML = '';
+  } else {
+    sticky.innerHTML = `<button class="m-btn m-btn-primary m-btn-full" onclick="repairSetStatus('erledigt')">✓ Als abgeschlossen markieren</button>`;
+    let sec = '';
+    if(!r.waiting) sec += `<button class="m-btn m-btn-ghost" onclick="toggleWaitingPicker()">⏸ Warten</button>`;
+    else sec += `<button class="m-btn m-btn-ghost" onclick="repairClearWaiting()">▶️ Warten aufheben</button>`;
+    secondary.innerHTML = sec;
+  }
+  sticky.classList.add('show');
+}
+
+function quickTakeOver(key){
+  mRepairsData[key].assignee = personaMeta[currentPersona].full;
+  mRepairsData[key].inProgress = false;
+  showToast('🙋 Übernommen: ' + mRepairsData[key].title);
+  const btn = document.getElementById('qbtn-' + key);
+  if(btn){ btn.textContent = '✓ Übernommen'; btn.style.opacity='.6'; btn.onclick=null; btn.removeAttribute('onclick'); }
+}
+function repairStartWork(){
+  // Übernimmt automatisch (falls noch niemand zuständig) UND setzt direkt auf "In Arbeit" – ein Schritt statt zwei
+  const r = mRepairsData[currentRepairKey];
+  r.assignee = personaMeta[currentPersona].full;
+  r.inProgress = true;
+  showToast('▶️ Übernommen & Arbeit gestartet');
+  openRepair(currentRepairKey);
+}
+function toggleWaitingPicker(){
+  document.getElementById('rep-waiting-picker').style.display = 'block';
+}
+function setRepairWaiting(reason){
+  mRepairsData[currentRepairKey].waiting = {reason};
+  showToast('⏸ Wartet auf ' + reason);
+  openRepair(currentRepairKey);
+}
+function repairClearWaiting(){
+  mRepairsData[currentRepairKey].waiting = null;
+  openRepair(currentRepairKey);
+  showToast('▶️ Warten aufgehoben');
+}
+function repairSetStatus(status){
+  mRepairsData[currentRepairKey].status = status;
+  openRepair(currentRepairKey);
+  showToast(status==='erledigt' ? '✓ Als abgeschlossen markiert' : '↺ Wieder geöffnet');
+}
+
+/* ============ ÜBERGABE-DETAIL ============ */
+let currentHandoverKey = null;
+const hovSectionMeta = {dringend:{label:'⚠️ Dringendes', color:'var(--red)'}, gaeste:{label:'🏷 Gäste', color:'var(--text)'}, sonstiges:{label:'📦 Sonstiges', color:'var(--text)'}};
+
+function openHandover(key){
+  currentHandoverKey = key;
+  const h = mHandoversData[key];
+  document.getElementById('hov-title').textContent = h.title;
+  document.getElementById('hov-meta').textContent = h.meta;
+  const parts = Object.entries(hovSectionMeta).map(([k,meta])=>{
+    const text = h.sections[k];
+    if(!text) return '';
+    return `<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:${meta.color};text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">${meta.label}</div><div style="font-size:14px;line-height:1.5;white-space:pre-line">${text}</div></div>`;
+  }).join('');
+  document.getElementById('hov-sections').innerHTML = parts;
+
+  const persona = personaMeta[currentPersona].full;
+  const already = h.readBy.includes(persona);
+  const btn = document.getElementById('hov-read-btn');
+  btn.textContent = already ? '✓ Gelesen' : '✓ Gelesen markieren';
+  btn.style.opacity = already ? '.5' : '1';
+  // Für normale Mitarbeiter: nur Anzahl, keine Namensliste standardmäßig (nur bei wichtigen Übergaben, per Tap aufklappbar)
+  const totalRelevant = 3; // Beispiel-Teamgröße für diese Übergabe
+  document.getElementById('hov-read-status').innerHTML = h.pinned
+    ? `${h.readBy.length} von ${totalRelevant} gelesen <span style="color:var(--accent);font-weight:600">Details ›</span>`
+    : (already ? '' : '');
+  document.getElementById('hov-read-names').style.display = 'none';
+  hovReadNamesShown = false;
+  showScreen('screen-handover-detail');
+}
+function quickMarkRead(key){
+  const persona = personaMeta[currentPersona].full;
+  const h = mHandoversData[key];
+  if(!h.readBy.includes(persona)) h.readBy.push(persona);
+  showToast('✓ Gelesen');
+  const btn = document.getElementById('qbtn-' + key);
+  if(btn){ btn.textContent = '✓ Gelesen'; btn.style.opacity='.6'; btn.onclick=null; btn.removeAttribute('onclick'); }
+}
+function markHandoverReadMobile(){
+  const persona = personaMeta[currentPersona].full;
+  const h = mHandoversData[currentHandoverKey];
+  if(!h.readBy.includes(persona)) h.readBy.push(persona);
+  showToast('✓ Als gelesen markiert');
+  openHandover(currentHandoverKey);
+}
+
+/* ============ NAVIGATION ============ */
+function showScreen(id){
+  document.querySelectorAll('.m-screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.m-navitem').forEach(n=>n.classList.toggle('active', n.dataset.screen===id));
+  const detailScreens = ['screen-room-detail','screen-repair-detail','screen-handover-detail','screen-notifications'];
+  if(!detailScreens.includes(id)) lastListScreen = id;
+  document.getElementById('sticky-bar').classList.remove('show'); // wird von der jeweiligen open*()-Funktion bei Bedarf wieder gezeigt
+  document.getElementById('m-content').scrollTop = 0;
+}
+
+function renderUebergabenListe(){
+  const box = document.getElementById('uebergaben-liste-content');
+  if(!box) return;
+  const myDept = personaMeta[currentPersona].dept;
+  const sub = document.getElementById('uebergaben-liste-subtitle');
+  if(sub) sub.textContent = 'Für ' + myDept;
+  const relevant = Object.entries(mHandoversData).filter(([k,h]) => h.dept === myDept);
+  if(!relevant.length){ box.innerHTML = '<div style="font-size:13px;color:var(--text3);text-align:center;padding:20px">Keine Übergaben für deine Abteilung.</div>'; return; }
+  box.innerHTML = relevant.map(([key,h])=>{
+    const persona = personaMeta[currentPersona].full;
+    const read = h.readBy.includes(persona);
+    return `<div class="m-card" onclick="openHandover('${key}')">
+      <div class="m-card-main"><div class="m-card-title">${h.title}${h.pinned?' <span class=\"m-badge a\">Wichtig</span>':''}</div><div class="m-card-sub">${h.meta}</div></div>
+      ${read ? '<span style="color:var(--green);font-size:18px">✓</span>' : ''}
+    </div>`;
+  }).join('');
+}
+
+const roomTileIcon = (r) => r.status==='clean' ? '✓' : r.status==='inspected' ? '🔍' : r.status==='cleaning' ? '🧹' : r.status==='dnc' ? '🚫' : r.status==='occupied' ? '' : '!';
+
+// Baut eine grosse Karte für "meine Zimmer" – Aktionsbutton nur, wenn wirklich eine Reinigung ansteht (Fix: DND/Belegt = kein "Starten")
+function myRoomCardHtml(num, express){
+  const r = roomsData[num];
+  let sub = '', btn = '', cardStyle = '';
+  if(r.status==='dnc'){
+    sub = '🚫 Kein Service gewünscht';
+    btn = ''; // Harter Zustand: kein Aktionsbutton
+  } else if(r.status==='occupied'){
+    sub = 'Aufenthalt · ' + (r.remark==='–' ? 'kein Reinigungsbedarf' : r.remark);
+    btn = '';
+  } else if(r.status==='dirty'){
+    sub = r.stay;
+    btn = `<button class="m-btn ${express?'m-btn-primary':'m-btn-ghost'} m-btn-sm" onclick="event.stopPropagation();startRoom('${num}')">Starten</button>`;
+  } else if(r.status==='cleaning'){
+    sub = r.stay;
+    btn = `<button class="m-btn m-btn-primary m-btn-sm" onclick="event.stopPropagation();finishRoom('${num}')">Fertig</button>`;
+    cardStyle = 'border-left:4px solid var(--amber)';
+  } else if(r.status==='clean'){
+    sub = r.stay;
+    btn = `<button class="m-btn m-btn-ghost m-btn-sm" style="opacity:.5">✓ Sauber</button>`;
+    cardStyle = 'border-left:4px solid var(--green);background:var(--green-bg)';
+  } else if(r.status==='inspected'){
+    sub = r.stay;
+    btn = `<button class="m-btn m-btn-ghost m-btn-sm" style="opacity:.5">🔍 Inspiziert</button>`;
+    cardStyle = 'border-left:4px solid var(--blue);background:var(--blue-bg)';
+  }
+  return `<div class="m-card" style="${cardStyle}" onclick="openRoom('${num}')">
+    <div class="m-card-main"><div class="m-card-title">Zimmer ${num}${express?' <span class="m-badge r">Express</span>':''}</div><div class="m-card-sub">${sub}</div></div>
+    ${btn}
+  </div>`;
+}
+
+function renderMyRooms(){
+  const mine = personaMeta[currentPersona].cleanerKey;
+  if(!mine) return;
+  const myRooms = Object.entries(roomsData).filter(([num,r])=>r.cleaner===mine);
+  const express = myRooms.filter(([num,r])=>r.express).map(([num])=>num);
+  const normal = myRooms.filter(([num,r])=>!r.express).map(([num])=>num);
+  const exBox = document.getElementById('my-express-rooms');
+  const otBox = document.getElementById('my-other-rooms');
+  if(exBox) exBox.innerHTML = express.map(n=>myRoomCardHtml(n,true)).join('');
+  if(otBox) otBox.innerHTML = normal.map(n=>myRoomCardHtml(n,false)).join('');
+}
+
+function renderOtherRoomsSummary(){
+  const mine = personaMeta[currentPersona].cleanerKey;
+  const others = Object.entries(roomsData).filter(([num,r]) => r.cleaner !== mine);
+  const cleaning = others.filter(([n,r])=>r.status==='cleaning').length;
+  const unassigned = others.filter(([n,r])=>!r.cleaner).length;
+  const el = document.getElementById('other-rooms-summary-text');
+  if(el) el.textContent = `${others.length} Zimmer · ${cleaning} in Reinigung · ${unassigned} unzugewiesen`;
+}
+
+function otherRoomsGroupedHtml(mine){
+  const others = Object.entries(roomsData).filter(([num,r]) => r.cleaner !== mine);
+  const groups = {};
+  others.forEach(([num,r])=>{
+    const key = r.cleaner || '_unassigned';
+    if(!groups[key]) groups[key] = [];
+    groups[key].push(num);
+  });
+  const tileHtml = (num)=>`<div class="other-room-tile ${roomsData[num].status}" onclick="openRoom('${num}')"><div>${num}</div><div class="ri">${roomTileIcon(roomsData[num])}</div></div>`;
+  let html = '';
+  const orderedKeys = Object.keys(groups).sort((a,b)=> (a==='_unassigned') - (b==='_unassigned'));
+  orderedKeys.forEach(key=>{
+    const nums = groups[key];
+    const label = key==='_unassigned' ? '⬜ Unzugewiesen' : '🧹 ' + (cleanerNames[key] || key);
+    html += `<div style="font-size:12.5px;font-weight:700;color:var(--text2);margin:${html?'14px':'0'} 0 8px">${label} <span style="font-weight:400;color:var(--text3)">· ${nums.length} Zimmer</span></div>`;
+    html += `<div class="other-rooms-grid">${nums.map(tileHtml).join('')}</div>`;
+  });
+  return html;
+}
+
+function renderZimmerAlle(){
+  const mine = personaMeta[currentPersona].cleanerKey;
+  const mineBox = document.getElementById('zimmer-alle-mine');
+  const otherBox = document.getElementById('zimmer-alle-others');
+  if(!mineBox) return;
+  const myRooms = Object.entries(roomsData).filter(([num,r])=>r.cleaner===mine);
+  mineBox.innerHTML = myRooms.map(([num,r])=>myRoomCardHtml(num, r.express)).join('') || '<div style="font-size:13px;color:var(--text3)">Dir sind aktuell keine Zimmer zugewiesen.</div>';
+  otherBox.innerHTML = otherRoomsGroupedHtml(mine);
+}
+
+function renderBottomNav(){
+  const items = navConfig[currentPersona];
+  const nav = document.getElementById('m-bottomnav');
+  nav.innerHTML = items.map(it=>{
+    if(it.fab) return `<div class="m-navitem fab" onclick="openMelden()"><div class="ic">＋</div>Melden</div>`;
+    return `<div class="m-navitem" data-screen="${it.screen}" onclick="showScreen('${it.screen}')"><div class="ic">${it.icon}</div>${it.label}</div>`;
+  }).join('');
+}
+
+function renderAufgaben(){
+  const list = aufgabenData[currentPersona] || [];
+  const mine = list.filter(t=>!t.unassigned);
+  const pool = list.filter(t=>t.unassigned);
+
+  const cardHtml = (t,i,isPool)=>`
+    <div class="m-card">
+      <div class="m-card-main"><div class="m-card-title">${t.title}${t.prio==='r'?' <span class="m-badge r">Dringend</span>':t.prio==='a'?' <span class="m-badge a">Wichtig</span>':''}</div><div class="m-card-sub">${t.sub}</div></div>
+      ${isPool ? `<button class="m-btn m-btn-primary m-btn-sm" onclick="takeOverAufgabe(${i})">Übernehmen</button>` : `<button class="m-btn m-btn-ghost m-btn-sm" onclick="markDone(this)">Erledigt</button>`}
+    </div>`;
+
+  let html = '';
+  if(pool.length){
+    html += `<div class="m-sec-title">Aufgaben deiner Abteilung / zum Übernehmen</div>`;
+    html += pool.map((t)=>cardHtml(t, list.indexOf(t), true)).join('');
+    html += `<div class="m-sec-title">Deine Aufgaben</div>`;
+  }
+  html += mine.map((t)=>cardHtml(t, list.indexOf(t), false)).join('');
+  document.getElementById('aufgaben-list').innerHTML = html;
+}
+function takeOverAufgabe(index){
+  const list = aufgabenData[currentPersona];
+  list[index].unassigned = false;
+  list[index].sub = list[index].sub.replace('Verantwortlicher: –', 'Verantwortlicher: ' + personaMeta[currentPersona].full);
+  showToast('🙋 Übernommen');
+  renderAufgaben();
+}
+
+/* ============ PERSONA-WECHSEL ============ */
+function switchPersona(key){
+  currentPersona = key;
+  document.querySelectorAll('.demo-persona').forEach(p=>p.classList.toggle('active', p.dataset.persona===key));
+  const meta = personaMeta[key];
+  document.getElementById('m-greet').textContent = 'Guten Morgen, ' + meta.name;
+  document.getElementById('m-greet-sub').textContent = 'Mittwoch, 19. August';
+  document.getElementById('bell-dot').style.display = (notificationsData[key]||[]).length ? 'block' : 'none';
+  renderBottomNav();
+  renderAufgaben();
+  renderMyRooms();
+  renderOtherRoomsSummary();
+  renderZimmerAlle();
+  renderUebergabenListe();
+  showScreen(meta.home);
+}
+
+/* ============ ZIMMER ============ */
+function openRoom(number){
+  currentRoomNumber = number;
+  const r = roomsData[number];
+  const meta = roomStatusMeta[r.status];
+  document.getElementById('rd-number').textContent = number;
+  document.getElementById('rd-cat').textContent = r.category + ' · Etage ' + r.floor;
+  document.getElementById('rd-status').textContent = meta.icon + ' ' + (r.express ? 'Express · ' : '') + meta.label;
+  document.getElementById('rd-status').style.background = meta.cls==='r'?'var(--red-bg)':meta.cls==='a'?'var(--amber-bg)':meta.cls==='g'?'var(--green-bg)':meta.cls==='b'?'var(--blue-bg)':'var(--bg)';
+  document.getElementById('rd-status').style.color = meta.cls==='r'?'var(--red)':meta.cls==='a'?'var(--amber)':meta.cls==='g'?'var(--green)':meta.cls==='b'?'var(--blue)':'var(--text2)';
+  document.getElementById('rd-guest').textContent = r.guest;
+  document.getElementById('rd-stay').textContent = r.stay;
+  document.getElementById('rd-remark').textContent = r.remark;
+  showScreen('screen-room-detail');
+  updateRoomActionButtons();
+}
+
+function updateRoomActionButtons(){
+  const r = roomsData[currentRoomNumber];
+  const sticky = document.getElementById('sticky-bar');
+  const confirmBanner = document.getElementById('rd-confirm-banner');
+  const secondary = document.getElementById('rd-secondary-actions');
+  confirmBanner.style.display = 'none';
+  secondary.style.display = 'flex';
+  secondary.innerHTML = `<button class="m-btn m-btn-danger" onclick="roomAction('problem')"><span class="ic">⚠️</span>Problem melden</button>
+    <button class="m-btn m-btn-ghost" onclick="roomAction('note')"><span class="ic">📝</span>Notiz</button>`;
+
+  if(r.status==='dnc' || r.status==='occupied'){
+    // Harter Zustand: kein Reinigungs-Aktionsbutton möglich
+    sticky.classList.remove('show');
+  } else if(r.status==='dirty'){
+    sticky.innerHTML = `<button class="m-btn m-btn-primary m-btn-full" onclick="roomAction('start')">▶️ Reinigung starten</button>`;
+    sticky.classList.add('show');
+  } else if(r.status==='cleaning'){
+    sticky.innerHTML = `<button class="m-btn m-btn-primary m-btn-full" onclick="roomAction('done')">✓ Zimmer fertig</button>`;
+    sticky.classList.add('show');
+  } else if(r.status==='clean'){
+    sticky.classList.remove('show');
+    confirmBanner.style.display = 'flex';
+    confirmBanner.style.background = 'var(--green-bg)';
+    confirmBanner.style.color = 'var(--green)';
+    confirmBanner.innerHTML = `<span style="font-size:20px">✅</span> Als sauber bestätigt`;
+    // Inspektion ist meist ein zweiter Blick (z. B. Teamleitung) – daher sekundär, nicht als Hauptaktion
+    secondary.innerHTML = `<button class="m-btn m-btn-ghost m-btn-full" onclick="roomAction('inspect')"><span class="ic">🔍</span>Als inspiziert markieren</button>`;
+  } else if(r.status==='inspected'){
+    sticky.classList.remove('show');
+    confirmBanner.style.display = 'flex';
+    confirmBanner.style.background = 'var(--blue-bg)';
+    confirmBanner.style.color = 'var(--blue)';
+    confirmBanner.innerHTML = `<span style="font-size:20px">🔍</span> Als inspiziert bestätigt`;
+  }
+}
+
+function roomAction(type){
+  const r = roomsData[currentRoomNumber];
+  if(type==='start'){
+    r.status = 'cleaning';
+    showToast('🧹 Reinigung Zimmer ' + currentRoomNumber + ' gestartet');
+  } else if(type==='done'){
+    r.status = 'clean';
+    showToast('✅ Zimmer ' + currentRoomNumber + ' als sauber markiert');
+  } else if(type==='inspect'){
+    r.status = 'inspected';
+    showToast('🔍 Zimmer ' + currentRoomNumber + ' als inspiziert markiert');
+  } else if(type==='problem'){
+    openMelden(currentRoomNumber);
+    return;
+  } else if(type==='note'){
+    showToast('📝 Notiz gespeichert (Demo)');
+    return;
+  }
+  openRoom(currentRoomNumber); // neu rendern
+  renderMyRooms();
+  renderOtherRoomsSummary();
+  renderZimmerAlle();
+}
+
+function startRoom(number){
+  roomsData[number].status = 'cleaning';
+  showToast('🧹 Reinigung Zimmer ' + number + ' gestartet');
+  renderMyRooms();
+  renderZimmerAlle();
+}
+function finishRoom(number){
+  roomsData[number].status = 'clean';
+  showToast('✅ Zimmer ' + number + ' als sauber markiert');
+  renderMyRooms();
+  renderZimmerAlle();
+}
+
+
+/* ============ MELDEN (kontextsensitiv, KI-klassifiziert) ============ */
+function openMelden(prefillRoom){
+  meldenPrefilledLocation = prefillRoom || null;
+  meldenTarget = '';
+  document.getElementById('melden-text').value = '';
+  document.getElementById('melden-location-search').value = '';
+  document.getElementById('melden-photo-preview').textContent = '';
+  document.getElementById('melden-step1').style.display = '';
+  document.getElementById('melden-step2').style.display = 'none';
+  document.getElementById('melden-step3').style.display = 'none';
+
+  const prefilledBox = document.getElementById('melden-location-prefilled');
+  const picker = document.getElementById('melden-location-picker');
+  if(meldenPrefilledLocation){
+    // Kontext bereits bekannt (z. B. aus Zimmer-Detail) – nicht nochmal fragen
+    prefilledBox.style.display = 'block';
+    prefilledBox.innerHTML = `<div class="chip-opt active" style="cursor:default;display:inline-flex">📍 Zimmer ${meldenPrefilledLocation} (aktuell geöffnet)</div>`;
+    picker.style.display = 'none';
+  } else {
+    prefilledBox.style.display = 'none';
+    picker.style.display = 'block';
+    const chipBox = document.getElementById('melden-recent-chips');
+    chipBox.innerHTML = `<span style="font-size:11px;color:var(--text3);width:100%">Zuletzt</span>` +
+      recentLocations.map(loc=>`<div class="chip-opt" onclick="selectMeldenLocation('${loc}')">${loc.match(/^\d/)?'Zi. '+loc:loc}</div>`).join('');
+  }
+
+  document.getElementById('melden-overlay').classList.add('open');
+}
+function closeMelden(){ document.getElementById('melden-overlay').classList.remove('open'); }
+
+function selectMeldenLocation(loc){
+  document.getElementById('melden-location-search').value = loc.match(/^\d/) ? 'Zimmer ' + loc : loc;
+  meldenPrefilledLocation = loc;
+}
+
+function meldenVoice(){
+  document.getElementById('melden-text').value = 'Die linke Lampe beim Bett funktioniert nicht';
+  document.getElementById('melden-photo-preview').textContent = '🎤 Spracheingabe erkannt';
+}
+function meldenPhoto(){
+  document.getElementById('melden-photo-preview').textContent = '📷 Foto angehängt';
+}
+
+function getMeldenLocation(){
+  if(meldenPrefilledLocation) return meldenPrefilledLocation;
+  const raw = document.getElementById('melden-location-search').value.trim();
+  return raw.replace(/^Zimmer\s*/i,'') || null;
+}
+
+let meldenLastMatch = null;
+function meldenClassify(){
+  const location = getMeldenLocation();
+  const text = document.getElementById('melden-text').value.trim();
+  if(!location){ showToast('Bitte einen Ort angeben'); return; }
+  if(!text){ showToast('Bitte kurz beschreiben, worum es geht'); return; }
+
+  const t = text.toLowerCase();
+  const rules = [
+    {words:['lampe','licht','steckdose','strom','schalter'], icon:'⚡', label:'Elektrik'},
+    {words:['wasser','abfluss','heizung','dusche','wc','toilette','tropft'], icon:'🚿', label:'Sanitär/Heizung'},
+    {words:['möbel','stuhl','tisch','schrank','tür','fenster','griff','klemmt'], icon:'🪑', label:'Mobiliar'},
+    {words:['wlan','internet','tv','fernseher','fernbedienung'], icon:'💻', label:'IT/Technik'}
+  ];
+  let match = null;
+  for(const r of rules){ if(r.words.some(w=>t.includes(w))){ match = r; break; } }
+  meldenLastMatch = match;
+
+  if(match){
+    // Eindeutig erkannt → sofort senden, kein extra Bestätigungsschritt
+    meldenTarget = 'reparatur';
+    meldenSend(true, match, location);
+  } else {
+    // Nur bei echter Unsicherheit nachfragen
+    document.getElementById('melden-step1').style.display = 'none';
+    document.getElementById('melden-step2').style.display = '';
+    meldenTarget = '';
+    document.querySelectorAll('#melden-target-chips .chip-opt').forEach(c=>c.classList.remove('active'));
+  }
+}
+function selectMeldenTarget(target, btn){
+  meldenTarget = target;
+  btn.parentElement.querySelectorAll('.chip-opt').forEach(c=>c.classList.remove('active'));
+  btn.classList.add('active');
+}
+function meldenBack(){
+  document.getElementById('melden-step1').style.display = '';
+  document.getElementById('melden-step2').style.display = 'none';
+}
+function meldenUndo(){
+  // Zurück zur Eingabe, mit erneuter Möglichkeit das Ziel zu wählen
+  document.getElementById('melden-step3').style.display = 'none';
+  document.getElementById('melden-step2').style.display = '';
+  document.querySelectorAll('#melden-target-chips .chip-opt').forEach(c=>c.classList.remove('active'));
+}
+function meldenSend(direct, match, location){
+  if(!direct && !meldenTarget){ showToast('Bitte wählen, wohin die Meldung soll'); return; }
+  const loc = location || getMeldenLocation();
+  const labelMap = {reparatur:'Haustechnik', aufgabe:'Deinen Aufgaben', uebergabe:'der Übergabe'};
+
+  document.getElementById('melden-step1').style.display = 'none';
+  document.getElementById('melden-step2').style.display = 'none';
+  document.getElementById('melden-step3').style.display = '';
+  document.getElementById('melden-sent-title').textContent = 'Gemeldet an ' + labelMap[meldenTarget];
+  document.getElementById('melden-sent-sub').textContent = (match ? match.label + ' · ' : '') + (loc.match(/^\d/) ? 'Zimmer ' + loc : loc);
+}
+
+/* ============ HILFSFUNKTIONEN ============ */
+function handleLogout(){
+  if(confirm('Möchtest du dich wirklich abmelden?')){
+    showToast('👋 Abgemeldet (Demo)');
+  }
+}
+function submitAbwesenheit(){
+  const von = document.getElementById('abwesenheit-von').value;
+  const bis = document.getElementById('abwesenheit-bis').value;
+  if(!von || !bis){ showToast('Bitte Zeitraum angeben'); return; }
+  showToast('✓ Antrag gesendet – wartet auf Genehmigung');
+  showScreen('screen-mehr');
+}
+function renderProfil(){
+  const meta = personaMeta[currentPersona];
+  const key = currentPersona;
+  const avatars = {sabine:'SM', thomas:'TG', maria:'MR', luca:'LB'};
+  document.getElementById('profil-avatar').textContent = avatars[key] || '';
+  document.getElementById('profil-name').textContent = meta.full;
+  document.getElementById('profil-dept').textContent = meta.dept + ' · Mitarbeiter';
+  const doneRooms = Object.values(roomsData).filter(r=>r.cleaner===meta.cleanerKey && (r.status==='clean'||r.status==='inspected')).length;
+  document.getElementById('profil-rooms-done').textContent = doneRooms;
+}
+
+function markDone(btn, label){
+  btn.textContent = '✓ ' + (label || 'Erledigt');
+  btn.style.opacity = '.5';
+  btn.onclick = null;
+  btn.removeAttribute('onclick');
+  const card = btn.closest('.m-card');
+  if(card) card.style.opacity = '.6';
+}
+
+let toastTimer = null;
+function showToast(msg){
+  const el = document.getElementById('m-toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>el.classList.remove('show'), 2200);
+}
+
+/* ============ INIT ============ */
+switchPersona('sabine');
+</script>
+</body>
+</html>
