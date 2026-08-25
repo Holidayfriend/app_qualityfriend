@@ -39,3 +39,21 @@ export const dictionaries = {
 
 export type Locale = keyof typeof dictionaries;
 export const supportedLocales = ["en", "de", "it"] as const;
+
+export const requestMessages = {
+  en: { loading: "Loading…", failed: "Something went wrong. Please try again.", nameExists: "This name already exists." },
+  de: { loading: "Wird geladen…", failed: "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.", nameExists: "Dieser Name existiert bereits." },
+  it: { loading: "Caricamento…", failed: "Qualcosa è andato storto. Riprova.", nameExists: "Questo nome esiste già." },
+} as const;
+
+export const auditMessages = {
+  en: { allUsers: "Showing activity from all hotel users.", onlyYou: "Showing only your activity.", empty: "No activity recorded yet.", actions: { CREATE: "created", UPDATE: "updated", DELETE: "deleted", STATUS_CHANGE: "changed status" }, entities: { DEPARTMENT: "department", TEAM: "team", HOTEL: "hotel", USER: "user" } },
+  de: { allUsers: "Aktivitäten aller Hotelbenutzer werden angezeigt.", onlyYou: "Nur Ihre Aktivitäten werden angezeigt.", empty: "Noch keine Aktivität aufgezeichnet.", actions: { CREATE: "erstellt", UPDATE: "aktualisiert", DELETE: "gelöscht", STATUS_CHANGE: "Status geändert" }, entities: { DEPARTMENT: "Abteilung", TEAM: "Team", HOTEL: "Hotel", USER: "Benutzer" } },
+  it: { allUsers: "Sono visualizzate le attività di tutti gli utenti dell'hotel.", onlyYou: "Sono visualizzate solo le tue attività.", empty: "Nessuna attività registrata.", actions: { CREATE: "ha creato", UPDATE: "ha aggiornato", DELETE: "ha eliminato", STATUS_CHANGE: "ha cambiato lo stato" }, entities: { DEPARTMENT: "reparto", TEAM: "team", HOTEL: "hotel", USER: "utente" } },
+} as const;
+
+export const settingsPageMessages = {
+  en: { departmentsTeams: "Manage departments & teams", departmentsTeamsDescription: "Create, edit, and delete departments and teams" },
+  de: { departmentsTeams: "Abteilungen & Teams verwalten", departmentsTeamsDescription: "Abteilungen und Teams anlegen, bearbeiten und löschen" },
+  it: { departmentsTeams: "Gestisci reparti e team", departmentsTeamsDescription: "Crea, modifica ed elimina reparti e team" },
+} as const;

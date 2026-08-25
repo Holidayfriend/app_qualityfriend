@@ -66,6 +66,7 @@ model HotelTenant {
   users            User[]
   departments      Department[]
   teams            Team[]
+  auditLogs        AuditLog[]
 
   @@index([isActive])
   @@map("hotel_tenants")
@@ -92,6 +93,7 @@ model User {
   departmentsUpdated Department[] @relation("DepartmentUpdatedBy")
   teamsCreated       Team[]       @relation("TeamCreatedBy")
   teamsUpdated       Team[]       @relation("TeamUpdatedBy")
+  auditLogs          AuditLog[]
 
   @@index([hotelTenantId])
   @@index([hotelTenantId, isActive])
@@ -147,4 +149,22 @@ model Team {
   @@index([createdById])
   @@index([updatedById])
   @@map("teams")
+}
+
+model AuditLog {
+  id            String      @id @default(uuid()) @db.Uuid
+  hotelTenantId String      @map("hotel_tenant_id") @db.Uuid
+  actorId       String?     @map("actor_id") @db.Uuid
+  action        String      @db.VarChar(40)
+  entityType    String      @map("entity_type") @db.VarChar(80)
+  entityId      String?     @map("entity_id") @db.Uuid
+  changes       Json?
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  hotelTenant   HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+  actor         User?       @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([hotelTenantId, createdAt])
+  @@index([actorId, createdAt])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
 }

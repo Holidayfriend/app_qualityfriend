@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { getDatabasePool } from "../../../database";
 import { createSession } from "../../../lib/auth/session";
+import { recordAuditLog } from "../../../lib/audit/audit-service";
 
 const languages = new Set(["EN", "DE", "IT"]);
 
@@ -60,6 +61,8 @@ export async function POST(request: Request) {
        RETURNING id`,
       [hotel.rows[0].id, firstName, lastName, email, passwordHash, phoneNumber, hotelLanguage],
     );
+    await recordAuditLog(client, { hotelTenantId: hotel.rows[0].id, actorId: user.rows[0].id, action: "CREATE", entityType: "HOTEL", entityId: hotel.rows[0].id, changes: { after: { hotelName, companyName } } });
+    await recordAuditLog(client, { hotelTenantId: hotel.rows[0].id, actorId: user.rows[0].id, action: "CREATE", entityType: "USER", entityId: user.rows[0].id, changes: { after: { firstName, lastName, email, role: "OWNER" } } });
     await client.query("COMMIT");
     await createSession(user.rows[0].id);
     return NextResponse.json({ success: true }, { status: 201 });
