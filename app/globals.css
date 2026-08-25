@@ -24,3 +24,40 @@ html, body { margin: 0; min-height: 100%; }
 body { background: var(--qf-background); color: var(--qf-text); font-family: var(--qf-font); }
 button, input { font: inherit; }
 ::selection { background: var(--qf-accent-soft); color: var(--qf-text); }
+
+/* Chat owns the viewport: header/composer stay fixed and only messages scroll. */
+.qf-chat-shell > div:last-child {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex: 1 1 0%;
+  flex-direction: column;
+  overflow: hidden;
+}
+.qf-chat-shell > div:last-child > header { flex: 0 0 auto; }
+.qf-chat-shell > div:last-child > main {
+  height: auto;
+  min-height: 0;
+  flex: 1 1 0%;
+  overflow: hidden;
+}
+button[data-chat-button="true"] { position: relative; }
+button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
+  content: attr(data-unread);
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: flex;
+  min-width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid white;
+  border-radius: 999px;
+  background: #16a34a;
+  padding: 0 4px;
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+}

@@ -28,12 +28,29 @@ export function AppShell({ activeItem, children }: AppShellProps) {
     }).catch(() => router.replace("/login"));
   }, [router, setLocale]);
 
+  useEffect(() => {
+    let active = true;
+    async function refreshChatStatus() {
+      try {
+        const response = await fetch("/api/chat/status", { cache: "no-store" });
+        if (!response.ok || !active) return;
+        const data = await response.json();
+        const button = document.querySelector<HTMLButtonElement>("button[data-chat-button='true']");
+        if (button) button.dataset.unread = data.unreadCount > 0 ? String(Math.min(data.unreadCount, 99)) : "";
+      } catch { /* The normal authentication flow handles disconnected sessions. */ }
+    }
+    void refreshChatStatus();
+    const timer = window.setInterval(refreshChatStatus, 15000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, []);
+
   const fullName = currentUser ? `${currentUser.first_name} ${currentUser.last_name}` : "";
   const initials = currentUser ? `${currentUser.first_name[0] ?? ""}${currentUser.last_name[0] ?? ""}`.toUpperCase() : "";
   const hotelName = currentUser ? currentUser[locale === "de" ? "hotel_name_de" : locale === "it" ? "hotel_name_it" : "hotel_name_en"] : "";
   const greeting = d.greeting.replace(/, Klaus$/, "");
   const roleName = currentUser ? roleLevelNames[locale][currentUser.role as keyof typeof roleLevelNames.en] ?? currentUser.role : "";
   const moduleNavigation = moduleNavigationMessages[locale];
+  const chatLayout = activeItem === "chat";
   const groups = [
     { title: n.overview, items: [["dashboard", "🏠", n.dashboard, ""], ["ai", "✨", n.aiAssistant, n.new]] },
     { title: n.operations, items: [["handovers", "🤝", n.handovers, ""], ["tasks", "✅", n.tasks, "7"], ["housekeeping", "🧹", n.housekeeping, ""], ["repairs", "🔧", n.repairs, "2"], ["notes", "📝", n.notes, ""]] },
@@ -64,10 +81,10 @@ export function AppShell({ activeItem, children }: AppShellProps) {
     const canViewActive = currentUser?.role === "ADMIN" || Boolean(currentUser?.allowed_modules.includes(activeKey));
     if (currentUser && !canViewActive) router.replace("/access-denied");
     const chatButton = document.querySelector<HTMLButtonElement>(`button[aria-label="${moduleNavigation.chat}"]`);
-    if (chatButton) chatButton.hidden = !(currentUser?.role === "ADMIN" || currentUser?.allowed_modules.includes("chat"));
+    if (chatButton) { chatButton.dataset.chatButton = "true"; chatButton.hidden = !(currentUser?.role === "ADMIN" || currentUser?.allowed_modules.includes("chat")); }
   }, [activeItem, currentUser, moduleNavigation.chat, pathname, router]);
 
-  return <div className="min-h-screen bg-[var(--qf-background)] lg:flex">
+  return <div className={`${chatLayout ? "qf-chat-shell h-dvh overflow-hidden" : "min-h-screen"} bg-[var(--qf-background)] lg:flex`}>
     {menuOpen ? <button aria-label="Close menu" className="fixed inset-0 z-40 cursor-pointer bg-black/40 lg:hidden" onClick={() => setMenuOpen(false)} /> : null}
     <aside className={`fixed inset-y-0 left-0 z-50 flex w-[220px] flex-col overflow-y-auto bg-[var(--qf-navy)] text-white transition-transform lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${menuOpen ? "translate-x-0" : "-translate-x-full"}`}>
       <div className="flex items-center gap-3 border-b border-white/[.07] px-[18px] py-4"><div className="rounded-lg bg-white p-1"><Image src="/logo-icon.png" alt="" width={32} height={32} className="h-8 w-8 rounded-md object-contain" /></div><div className="min-w-0"><p className="truncate text-[13px] font-bold">{hotelName || "QualityFriend"}</p><p className="mt-0.5 text-[10px] text-white/35">{dictionary.common.brandSubtitle}</p></div></div>

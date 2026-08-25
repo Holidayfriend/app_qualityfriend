@@ -95,6 +95,7 @@ model User {
   isDeleted     Boolean     @default(false) @map("is_deleted")
   deletedAt     DateTime?   @map("deleted_at") @db.Timestamptz(3)
   lastLoginAt   DateTime?   @map("last_login_at") @db.Timestamptz(3)
+  lastSeenAt    DateTime?   @map("last_seen_at") @db.Timestamptz(3)
   createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
   hotelTenant   HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
@@ -104,12 +105,44 @@ model User {
   teamsUpdated       Team[]       @relation("TeamUpdatedBy")
   auditLogs          AuditLog[]
   department         Department?  @relation("DepartmentMembers", fields: [departmentId], references: [id], onDelete: SetNull)
+  chatMessagesSent     ChatMessage[] @relation("ChatMessageSender")
+  chatMessagesReceived ChatMessage[] @relation("ChatMessageRecipient")
 
   @@index([hotelTenantId])
   @@index([hotelTenantId, isActive])
   @@index([hotelTenantId, isDeleted])
+  @@index([hotelTenantId, lastSeenAt])
   @@index([departmentId])
   @@map("users")
+}
+
+enum ChatMessageType {
+  TEXT
+  DOCUMENT
+  IMAGE
+  VIDEO
+  VOICE
+}
+
+model ChatMessage {
+  id             String          @id @default(uuid()) @db.Uuid
+  hotelTenantId  String          @map("hotel_tenant_id") @db.Uuid
+  senderId       String          @map("sender_id") @db.Uuid
+  recipientId    String          @map("recipient_id") @db.Uuid
+  type           ChatMessageType @default(TEXT)
+  text           String?         @db.Text
+  attachmentPath String?         @map("attachment_path") @db.VarChar(2048)
+  attachmentName String?         @map("attachment_name") @db.VarChar(255)
+  attachmentMime String?         @map("attachment_mime") @db.VarChar(160)
+  attachmentSize Int?            @map("attachment_size")
+  readAt         DateTime?       @map("read_at") @db.Timestamptz(3)
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  sender         User            @relation("ChatMessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient      User            @relation("ChatMessageRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@index([hotelTenantId, senderId, recipientId, createdAt])
+  @@index([recipientId, readAt, createdAt])
+  @@map("chat_messages")
 }
 
 model Department {
