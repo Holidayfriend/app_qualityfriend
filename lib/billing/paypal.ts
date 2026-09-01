@@ -63,7 +63,7 @@ async function paypalRequest<T>(path: string, init: RequestInit = {}) {
   return response.status === 204 ? undefined as T : await response.json() as T;
 }
 
-export async function createPaypalSubscription(hotelTenantId: string) {
+export async function createPaypalSubscription(hotelTenantId: string, recurringAmount?: string) {
   const planId = await paypalPlanId();
   return paypalRequest<PaypalSubscription>("/v1/billing/subscriptions", {
     method: "POST",
@@ -71,6 +71,7 @@ export async function createPaypalSubscription(hotelTenantId: string) {
     body: JSON.stringify({
       plan_id: planId,
       custom_id: hotelTenantId,
+      ...(recurringAmount ? { plan: { billing_cycles: [{ sequence: 1, total_cycles: 0, pricing_scheme: { fixed_price: { value: recurringAmount, currency_code: "EUR" } } }] } } : {}),
       application_context: {
         brand_name: "QualityFriend",
         locale: "en-DE",

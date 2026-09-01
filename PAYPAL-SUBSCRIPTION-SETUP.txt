@@ -59,6 +59,17 @@ Migration owned by this project:
   prisma/migrations/20260901120000_add_paypal_subscriptions/migration.sql
   prisma/migrations/20260901130000_add_billing_configuration/migration.sql
   prisma/migrations/20260902090000_add_payment_transaction_details/migration.sql
+  prisma/migrations/20260902110000_add_recurring_coupons/migration.sql
+
+Coupon management is available to the super administrator at:
+
+  http://localhost:3001/coupons
+
+Coupons from 1% through 99% override the recurring PayPal price for every
+monthly cycle. A 100% coupon creates a complimentary QualityFriend subscription
+without opening PayPal checkout. Expiry controls the last redemption date;
+already redeemed recurring discounts continue. Usage limits count hotels, and
+each hotel can redeem a coupon only once.
 
 The migration deliberately keeps existing hotels ACTIVE. New registrations
 start as PENDING and must subscribe.

@@ -51,6 +51,7 @@ enum SubscriptionStatus {
   SUSPENDED
   CANCELLED
   EXPIRED
+  COMPED
 }
 
 enum PaymentProvider {
@@ -96,9 +97,43 @@ model HotelTenant {
   rolePermissions  RoleModulePermission[]
   subscriptions    Subscription[]
   paymentEvents    PaymentEvent[]
+  couponRedemptions CouponRedemption[]
 
   @@index([isActive])
   @@map("hotel_tenants")
+}
+
+model Coupon {
+  id              String   @id @default(uuid()) @db.Uuid
+  code            String   @unique @db.VarChar(64)
+  percentOff      Int      @map("percent_off")
+  maxRedemptions  Int?     @map("max_redemptions")
+  redemptionCount Int     @default(0) @map("redemption_count")
+  expiresAt       DateTime? @map("expires_at") @db.Timestamptz(3)
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  redemptions     CouponRedemption[]
+
+  @@index([isActive, expiresAt])
+  @@map("coupons")
+}
+
+model CouponRedemption {
+  id                   String   @id @default(uuid()) @db.Uuid
+  couponId             String   @map("coupon_id") @db.Uuid
+  hotelTenantId        String   @unique @map("hotel_tenant_id") @db.Uuid
+  originalAmount       Decimal  @map("original_amount") @db.Decimal(10, 2)
+  discountedAmount     Decimal  @map("discounted_amount") @db.Decimal(10, 2)
+  currencyCode         String   @default("EUR") @map("currency_code") @db.VarChar(3)
+  paypalSubscriptionId String?  @map("paypal_subscription_id") @db.VarChar(128)
+  redeemedAt           DateTime @default(now()) @map("redeemed_at") @db.Timestamptz(3)
+  coupon               Coupon   @relation(fields: [couponId], references: [id], onDelete: Restrict)
+  hotelTenant          HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+
+  @@unique([couponId, hotelTenantId])
+  @@index([hotelTenantId, redeemedAt])
+  @@map("coupon_redemptions")
 }
 
 model Subscription {

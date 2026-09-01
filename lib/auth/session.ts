@@ -60,7 +60,7 @@ export async function getSessionUserId() {
   const userId = await getRawSessionUserId();
   if (!userId) return null;
   const user = await prisma.user.findFirst({
-    where: { id: userId, isActive: true, isDeleted: false, hotelTenant: { isActive: true, subscriptionStatus: "ACTIVE" } },
+    where: { id: userId, isActive: true, isDeleted: false, hotelTenant: { isActive: true, subscriptionStatus: { in: ["ACTIVE", "COMPED"] } } },
     select: { id: true },
   });
   return user?.id ?? null;

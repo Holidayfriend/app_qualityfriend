@@ -24,6 +24,8 @@ export default function SubscribePage() {
   const [data, setData] = useState<BillingData | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [couponCode,setCouponCode]=useState("");
+  const [coupon,setCoupon]=useState<{code:string;percentOff:number;amount:string;free:boolean}|null>(null);
 
   useEffect(() => {
     let active = true;
@@ -63,7 +65,7 @@ export default function SubscribePage() {
           style: { shape: "rect", color: "gold", layout: "vertical", label: "subscribe" },
           createSubscription: async () => {
             setError("");
-            const response = await fetch("/api/billing/paypal/create-subscription", { method: "POST" });
+            const response = await fetch("/api/billing/paypal/create-subscription", { method: "POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({couponCode:coupon?.code||null}) });
             const result = await response.json();
             if (!response.ok || !result.subscriptionId) throw new Error(result.error || "CREATE_FAILED");
             return result.subscriptionId;
@@ -82,7 +84,9 @@ export default function SubscribePage() {
     }
     void mount();
     return () => { cancelled = true; buttons?.close?.(); };
-  }, [data?.clientId, data?.canManage, data?.status, t.error]);
+  }, [data?.clientId, data?.canManage, data?.status, t.error,coupon?.code]);
+
+  async function applyCoupon(){if(!couponCode.trim()||busy)return;setBusy(true);setError("");const response=await fetch("/api/billing/coupon",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({code:couponCode})}).catch(()=>null),result=await response?.json().catch(()=>null);if(!response?.ok)setError("Coupon code is invalid, expired, or has reached its usage limit.");else if(result.free){router.replace("/dashboard");router.refresh()}else setCoupon({code:result.code,percentOff:result.percentOff,amount:result.amount,free:false});setBusy(false)}
 
   async function cancel() {
     if (!window.confirm(t.cancel)) return;
@@ -96,10 +100,10 @@ export default function SubscribePage() {
 
   return <AuthShell eyebrow={t.eyebrow} title={t.title} description={t.description} brandSubtitle={dictionary.common.brandSubtitle}>
     <AuthCard title={t.plan} subtitle={t.includes}>
-      <div className="text-center"><span className="text-4xl font-bold text-[var(--qf-text)]">{data ? new Intl.NumberFormat(locale, { style: "currency", currency: data.currency }).format(Number(data.price)) : t.price}</span><span className="ml-1 text-sm text-[var(--qf-text-muted)]">{t.month}</span></div>
+      <div className="text-center"><span className="text-4xl font-bold text-[var(--qf-text)]">{data ? new Intl.NumberFormat(locale, { style: "currency", currency: data.currency }).format(Number(coupon?.amount||data.price)) : t.price}</span><span className="ml-1 text-sm text-[var(--qf-text-muted)]">{t.month}</span>{coupon?<p className="mt-2 text-sm font-bold text-green-700">{coupon.percentOff}% recurring discount applied · {coupon.code}</p>:null}</div>
       {!data ? <div className="mt-6 h-12 animate-pulse rounded-lg bg-[var(--qf-border)]" /> : null}
-      {data?.status === "ACTIVE" ? <div className="mt-6 space-y-4"><p className="rounded-lg bg-green-50 p-4 text-sm font-semibold text-green-700">✓ {t.active}</p><Button fullWidth onClick={() => router.push("/dashboard")}>{t.dashboard}</Button>{data.canManage ? <button onClick={cancel} disabled={busy} className="w-full cursor-pointer text-sm font-semibold text-red-600 disabled:opacity-50">{busy ? t.cancelling : t.cancel}</button> : null}</div> : null}
-      {data && data.status !== "ACTIVE" ? <div className="mt-6 space-y-4"><p className="rounded-lg bg-amber-50 p-4 text-sm text-amber-800">{data.status === "APPROVAL_PENDING" ? t.pending : t.suspended}</p>{data.canManage ? <div ref={paypalContainer} className="min-h-12" /> : <p className="text-sm text-[var(--qf-text-muted)]">{t.admin}</p>}</div> : null}
+      {data && ["ACTIVE","COMPED"].includes(data.status) ? <div className="mt-6 space-y-4"><p className="rounded-lg bg-green-50 p-4 text-sm font-semibold text-green-700">✓ {data.status==="COMPED"?"Complimentary subscription is active.":t.active}</p><Button fullWidth onClick={() => router.push("/dashboard")}>{t.dashboard}</Button>{data.canManage&&data.status==="ACTIVE" ? <button onClick={cancel} disabled={busy} className="w-full cursor-pointer text-sm font-semibold text-red-600 disabled:opacity-50">{busy ? t.cancelling : t.cancel}</button> : null}</div> : null}
+      {data && !["ACTIVE","COMPED"].includes(data.status) ? <div className="mt-6 space-y-4"><p className="rounded-lg bg-amber-50 p-4 text-sm text-amber-800">{data.status === "APPROVAL_PENDING" ? t.pending : t.suspended}</p>{data.canManage?<div className="flex gap-2"><input value={couponCode} onChange={e=>setCouponCode(e.target.value.toUpperCase())} placeholder="Coupon code" className="min-w-0 flex-1 rounded-lg border px-3 py-2 text-sm"/><button onClick={applyCoupon} disabled={busy} className="cursor-pointer rounded-lg border px-4 py-2 text-sm font-bold disabled:opacity-50">Apply</button></div>:null}{data.canManage ? <div ref={paypalContainer} className="min-h-12" /> : <p className="text-sm text-[var(--qf-text-muted)]">{t.admin}</p>}</div> : null}
       {error ? <p role="alert" className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
       <button onClick={logout} className="mt-6 w-full cursor-pointer text-sm text-[var(--qf-text-muted)] hover:underline">{t.signout}</button>
     </AuthCard>

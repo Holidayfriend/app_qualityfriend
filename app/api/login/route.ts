@@ -19,5 +19,5 @@ export async function POST(request: Request) {
 
   if(user.twoFactorEnabled){await createTwoFactorChallenge(user.id);return NextResponse.json({success:true,requiresTwoFactor:true,language:user.language.toLowerCase()})}
   await createSession(user.id);
-  return NextResponse.json({ success: true, language: user.language.toLowerCase(), redirectTo: user.hotelTenant.subscriptionStatus === "ACTIVE" ? "/dashboard" : "/billing/subscribe" });
+  return NextResponse.json({ success: true, language: user.language.toLowerCase(), redirectTo: ["ACTIVE","COMPED"].includes(user.hotelTenant.subscriptionStatus) ? "/dashboard" : "/billing/subscribe" });
 }
