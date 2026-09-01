@@ -125,6 +125,10 @@ model PaymentEvent {
   provider        PaymentProvider @default(PAYPAL)
   providerEventId String          @unique @map("provider_event_id") @db.VarChar(128)
   eventType       String          @map("event_type") @db.VarChar(160)
+  providerTransactionId String?   @map("provider_transaction_id") @db.VarChar(128)
+  amount          Decimal?        @db.Decimal(12, 2)
+  currencyCode    String?         @map("currency_code") @db.VarChar(3)
+  transactionAt   DateTime?       @map("transaction_at") @db.Timestamptz(3)
   hotelTenantId   String?         @map("hotel_tenant_id") @db.Uuid
   payload         Json
   processedAt     DateTime?       @map("processed_at") @db.Timestamptz(3)
@@ -133,6 +137,8 @@ model PaymentEvent {
 
   @@index([hotelTenantId, createdAt])
   @@index([eventType, createdAt])
+  @@index([transactionAt])
+  @@index([providerTransactionId])
   @@map("payment_events")
 }
 

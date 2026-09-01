@@ -58,6 +58,7 @@ Migration owned by this project:
 
   prisma/migrations/20260901120000_add_paypal_subscriptions/migration.sql
   prisma/migrations/20260901130000_add_billing_configuration/migration.sql
+  prisma/migrations/20260902090000_add_payment_transaction_details/migration.sql
 
 The migration deliberately keeps existing hotels ACTIVE. New registrations
 start as PENDING and must subscribe.

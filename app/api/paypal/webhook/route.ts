@@ -10,6 +10,17 @@ type WebhookEvent = {
 };
 
 function date(value: unknown) { return typeof value === "string" && !Number.isNaN(Date.parse(value)) ? new Date(value) : null; }
+function paymentDetails(resource: Record<string, unknown>) {
+  const amount = resource.amount && typeof resource.amount === "object" ? resource.amount as Record<string, unknown> : null;
+  const value = typeof amount?.total === "string" ? amount.total : typeof amount?.value === "string" ? amount.value : null;
+  const currency = typeof amount?.currency === "string" ? amount.currency : typeof amount?.currency_code === "string" ? amount.currency_code : null;
+  return {
+    providerTransactionId: typeof resource.id === "string" ? resource.id : null,
+    amount: value && /^\d+(\.\d{1,2})?$/.test(value) ? value : null,
+    currencyCode: currency?.slice(0, 3).toUpperCase() || null,
+    transactionAt: date(resource.create_time) || date(resource.update_time),
+  };
+}
 
 export async function POST(request: Request) {
   const event = await request.json().catch(() => null) as WebhookEvent | null;
@@ -41,10 +52,11 @@ export async function POST(request: Request) {
       "BILLING.SUBSCRIPTION.EXPIRED": "EXPIRED",
     } as const;
     const nextStatus = statusByEvent[event.event_type as keyof typeof statusByEvent];
+    const transaction = event.event_type.startsWith("PAYMENT.SALE.") ? paymentDetails(resource) : null;
 
     await prisma.$transaction(async (tx) => {
       await tx.paymentEvent.create({
-        data: { providerEventId: event.id!, eventType: event.event_type!, hotelTenantId, payload: event as Prisma.InputJsonValue },
+        data: { providerEventId: event.id!, eventType: event.event_type!, hotelTenantId, payload: event as Prisma.InputJsonValue, ...(transaction || {}) },
       });
       if (subscriptionId && verifiedSubscription && hotelTenantId) {
         const startedAt = date(verifiedSubscription.start_time);
