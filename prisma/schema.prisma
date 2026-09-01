@@ -44,6 +44,19 @@ enum PermissionScope {
   ALL
 }
 
+enum SubscriptionStatus {
+  PENDING
+  APPROVAL_PENDING
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+  EXPIRED
+}
+
+enum PaymentProvider {
+  PAYPAL
+}
+
 model HotelTenant {
   id               String        @id @default(uuid()) @db.Uuid
   hotelNameEn      String        @map("hotel_name_en") @db.VarChar(180)
@@ -68,6 +81,12 @@ model HotelTenant {
   phoneNumber      String?       @map("phone_number") @db.VarChar(40)
   vatId            String?       @map("vat_id") @db.VarChar(64)
   tripadvisorId    String?       @map("tripadvisor_id") @db.VarChar(120)
+  subscriptionStatus SubscriptionStatus @default(PENDING) @map("subscription_status")
+  paypalSubscriptionId String?   @unique @map("paypal_subscription_id") @db.VarChar(128)
+  paypalPlanId     String?       @map("paypal_plan_id") @db.VarChar(128)
+  subscriptionStartedAt DateTime? @map("subscription_started_at") @db.Timestamptz(3)
+  subscriptionCurrentPeriodEnd DateTime? @map("subscription_current_period_end") @db.Timestamptz(3)
+  subscriptionCancelledAt DateTime? @map("subscription_cancelled_at") @db.Timestamptz(3)
   createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
   users            User[]
@@ -75,9 +94,62 @@ model HotelTenant {
   teams            Team[]
   auditLogs        AuditLog[]
   rolePermissions  RoleModulePermission[]
+  subscriptions    Subscription[]
+  paymentEvents    PaymentEvent[]
 
   @@index([isActive])
   @@map("hotel_tenants")
+}
+
+model Subscription {
+  id                     String             @id @default(uuid()) @db.Uuid
+  hotelTenantId          String             @map("hotel_tenant_id") @db.Uuid
+  provider               PaymentProvider    @default(PAYPAL)
+  providerSubscriptionId String             @unique @map("provider_subscription_id") @db.VarChar(128)
+  providerPlanId         String             @map("provider_plan_id") @db.VarChar(128)
+  status                 SubscriptionStatus @default(APPROVAL_PENDING)
+  payerEmail             String?            @map("payer_email") @db.VarChar(320)
+  startedAt              DateTime?          @map("started_at") @db.Timestamptz(3)
+  nextBillingAt          DateTime?          @map("next_billing_at") @db.Timestamptz(3)
+  cancelledAt            DateTime?          @map("cancelled_at") @db.Timestamptz(3)
+  createdAt              DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant            HotelTenant        @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+
+  @@index([hotelTenantId, status])
+  @@map("subscriptions")
+}
+
+model PaymentEvent {
+  id              String          @id @default(uuid()) @db.Uuid
+  provider        PaymentProvider @default(PAYPAL)
+  providerEventId String          @unique @map("provider_event_id") @db.VarChar(128)
+  eventType       String          @map("event_type") @db.VarChar(160)
+  hotelTenantId   String?         @map("hotel_tenant_id") @db.Uuid
+  payload         Json
+  processedAt     DateTime?       @map("processed_at") @db.Timestamptz(3)
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  hotelTenant     HotelTenant?    @relation(fields: [hotelTenantId], references: [id], onDelete: SetNull)
+
+  @@index([hotelTenantId, createdAt])
+  @@index([eventType, createdAt])
+  @@map("payment_events")
+}
+
+model BillingConfiguration {
+  id                String   @id @db.VarChar(32)
+  provider          PaymentProvider @default(PAYPAL)
+  environment       String   @default("sandbox") @db.VarChar(16)
+  productId         String?  @map("product_id") @db.VarChar(128)
+  planId            String?  @map("plan_id") @db.VarChar(128)
+  productName       String   @default("QualityFriend Hotel Operations") @map("product_name") @db.VarChar(127)
+  planName          String   @default("QualityFriend Monthly") @map("plan_name") @db.VarChar(127)
+  currencyCode      String   @default("EUR") @map("currency_code") @db.VarChar(3)
+  monthlyPrice      Decimal  @default(39.00) @map("monthly_price") @db.Decimal(10, 2)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("billing_configurations")
 }
 
 model User {

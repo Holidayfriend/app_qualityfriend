@@ -34,7 +34,7 @@ export default function TwoFactorLoginPage() {
         return;
       }
       if (result?.language === "en" || result?.language === "de" || result?.language === "it") setLocale(result.language);
-      router.replace("/dashboard");
+      router.replace(result?.redirectTo || "/dashboard");
       router.refresh();
     } catch {
       setError("Verification could not be completed. Please try again.");

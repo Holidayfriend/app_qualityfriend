@@ -48,7 +48,7 @@ export async function POST(request: Request) {
   try {
     const userId=await prisma.$transaction(async tx=>{const hotel=await tx.hotelTenant.create({data:{hotelNameEn:hotelName,hotelNameDe:hotelName,hotelNameIt:hotelName,email,hotelLanguage:hotelLanguage as "EN"|"DE"|"IT",companyName,streetAddress,postalCode,city,country,contactPerson,phoneNumber,vatId}});const user=await tx.user.create({data:{hotelTenantId:hotel.id,firstName,lastName,email,passwordHash,phoneNumber,language:hotelLanguage as "EN"|"DE"|"IT",role:"ADMIN"}});await recordAuditLog(tx,{hotelTenantId:hotel.id,actorId:user.id,action:"CREATE",entityType:"HOTEL",entityId:hotel.id,changes:{after:{hotelName,companyName}}});await recordAuditLog(tx,{hotelTenantId:hotel.id,actorId:user.id,action:"CREATE",entityType:"USER",entityId:user.id,changes:{after:{firstName,lastName,email,role:"ADMIN"}}});return user.id});
     await createSession(userId);
-    return NextResponse.json({ success: true }, { status: 201 });
+    return NextResponse.json({ success: true, redirectTo: "/billing/subscribe" }, { status: 201 });
   } catch (error) {
     if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
       return NextResponse.json({ error: "EMAIL_EXISTS" }, { status: 409 });

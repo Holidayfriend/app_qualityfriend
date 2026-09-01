@@ -1,0 +1,517 @@
+QUALITYFRIEND PAYPAL SUBSCRIPTION SETUP
+=======================================
+
+IMPLEMENTATION STATUS (ALREADY CODED)
+=====================================
+
+The application code is complete for:
+
+- EUR 39.00 monthly PayPal subscription checkout
+- tenant-level subscription records and status
+- server-created subscriptions (the browser cannot choose price, plan or hotel)
+- server verification after PayPal approval
+- cryptographically verified PayPal webhooks
+- idempotent webhook event storage
+- activation, suspension, cancellation, expiry and reactivation handling
+- registration and login redirects to the subscription page
+- blocking protected application pages until the hotel is ACTIVE
+- English, German and Italian subscription UI
+- hotel administrator cancellation
+
+The developer does NOT need to create more PayPal application code for the
+normal setup. Product/plan creation and later price changes are available in
+the QualityFriend admin site at:
+
+  http://localhost:3001/billing
+
+The remaining work is: create the PayPal Business REST app, add its credentials
+to .env, run the migrations, recreate both containers, use the admin billing
+screen to create the product/plan, and configure the webhook in PayPal.
+
+Application routes already implemented:
+
+  /billing/subscribe
+  /api/billing/subscription
+  /api/billing/paypal/create-subscription
+  /api/billing/paypal/approve
+  /api/billing/paypal/cancel
+  /api/paypal/webhook
+
+
+FIRST: APPLY THE DATABASE MIGRATION (YOU RUN THIS)
+==================================================
+
+From this exact directory:
+
+  C:\laragon\www\app_qualityfriend
+
+run:
+
+  docker compose exec app npx prisma migrate deploy
+
+Then regenerate the Prisma client if your deployment/build process does not do
+it automatically:
+
+  docker compose exec app npx prisma generate
+
+Migration owned by this project:
+
+  prisma/migrations/20260901120000_add_paypal_subscriptions/migration.sql
+  prisma/migrations/20260901130000_add_billing_configuration/migration.sql
+
+The migration deliberately keeps existing hotels ACTIVE. New registrations
+start as PENDING and must subscribe.
+
+Business rule
+-------------
+
+- QualityFriend has one plan: EUR 39.00 per month.
+- Registration creates the hotel and owner account, but the hotel starts with
+  subscription status PENDING and cannot use the application yet.
+- After registration, redirect the owner to /billing/subscribe.
+- Only an ACTIVE subscription unlocks the software for every active user in
+  that hotel tenant.
+- Do not unlock access from a browser redirect or PayPal onApprove callback
+  alone. The backend must verify the subscription with PayPal and process
+  verified PayPal webhooks.
+
+IMPORTANT OWNERSHIP RULE
+------------------------
+
+app_qualityfriend owns the shared database, Prisma schema, migrations and seed
+scripts. Do not create PayPal migrations in admin_qualityfriend.
+
+
+PART 1 - CREATE PAYPAL ACCOUNTS AND REST APP
+=============================================
+
+1. Create or use a PayPal Business account.
+
+2. Open:
+talhasahi86@gmail.com
+Sahi00786
+   https://developer.paypal.com/dashboard/
+
+3. Select Apps & Credentials.
+
+4. Select Sandbox, then Create App.
+
+5. Give the app a clear name, for example:
+   QualityFriend SaaS Sandbox
+
+6. Save these values privately:
+
+   - Sandbox Client ID
+   - Sandbox Client Secret
+
+   Never put the Client Secret in browser code or in NEXT_PUBLIC_* variables.
+
+7. Under Testing Tools > Sandbox Accounts, make sure you have:
+
+   - One Business sandbox account (the QualityFriend seller)
+   - One Personal sandbox account (the hotel customer used for testing)
+
+Official documentation:
+https://developer.paypal.com/api/rest/authentication
+https://developer.paypal.com/sandbox-testing/overview/
+
+
+PART 2 - ADD SANDBOX ENVIRONMENT SETTINGS
+==========================================
+
+Add these values to C:\laragon\www\app_qualityfriend\.env:
+
+PAYPAL_ENVIRONMENT=sandbox
+PAYPAL_CLIENT_ID=PASTE_SANDBOX_CLIENT_ID
+PAYPAL_CLIENT_SECRET=PASTE_SANDBOX_CLIENT_SECRET
+PAYPAL_PRODUCT_ID=
+PAYPAL_PLAN_ID=
+PAYPAL_WEBHOOK_ID=
+NEXT_PUBLIC_PAYPAL_CLIENT_ID=PASTE_SANDBOX_CLIENT_ID
+
+The Client ID may be public and is used by the PayPal JavaScript SDK.
+The Client Secret and Webhook ID are server-only.
+
+After changing .env, recreate the app container. A restart does not reload
+Docker environment variables:
+
+docker compose up -d --force-recreate app
+
+
+PART 3 - CREATE PRODUCT AND PLAN FROM QUALITYFRIEND ADMIN (RECOMMENDED)
+======================================================================
+
+Do not paste credentials into PowerShell. Put the rotated Sandbox Client ID and
+Client Secret only in the private app_qualityfriend .env file, then run:
+
+  docker compose up -d --force-recreate app admin
+
+Open:
+
+  http://localhost:3001/billing
+
+Log in as the QualityFriend super administrator. Enter the product name, plan
+name and monthly EUR price, then click "Create PayPal product and plan".
+
+The admin server obtains the access token privately, creates the PayPal product
+and plan, and stores the returned IDs in the shared billing_configurations
+table. The hotel application reads the active plan from that shared table.
+
+To change the price later, return to the same admin page, enter the new monthly
+price, and click "Update monthly price". PayPal applies its notification and
+timing rules to existing subscribers.
+
+IMPORTANT: Never paste a Client Secret in chat, source code, or a browser form.
+If a secret was exposed, replace it in the PayPal dashboard immediately.
+
+
+PART 3A - MANUAL ACCESS TOKEN METHOD (OPTIONAL FALLBACK ONLY)
+============================================================
+
+In PowerShell, replace the two placeholder values and run:
+
+$clientId = "BAAZ8EZvFgNTPAKgH5Oufc-A7WE1k88MiTroy9RD7vel1B5kbWs2Z9oRc7FzOOsexxROQTfWyKA0hbCUz4"
+$clientSecret = "EF7iW-6bNedI-ZJOYbnjoIrqfUaoa5bOnqLGhrSd8BlUgj9NYBgvQEKqbn3iQsFDMyDHvgILLOmf8JJF"
+$basic = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("${clientId}:${clientSecret}"))
+$tokenResponse = Invoke-RestMethod `
+  -Method Post `
+  -Uri "https://api-m.sandbox.paypal.com/v1/oauth2/token" `
+  -Headers @{ Authorization = "Basic $basic" } `
+  -ContentType "application/x-www-form-urlencoded" `
+  -Body "grant_type=client_credentials"
+$accessToken = $tokenResponse.access_token
+
+The access token is temporary. Do not save it in .env. The application obtains
+new access tokens automatically using the Client ID and Client Secret.
+
+
+PART 4 - CREATE THE QUALITYFRIEND PRODUCT
+=========================================
+
+Run this in the same PowerShell window where $accessToken exists:
+
+$productBody = @{
+  name = "QualityFriend Hotel Operations"
+  description = "QualityFriend hotel operations SaaS subscription"
+  type = "SERVICE"
+  category = "SOFTWARE"
+} | ConvertTo-Json
+
+$product = Invoke-RestMethod `
+  -Method Post `
+  -Uri "https://api-m.sandbox.paypal.com/v1/catalogs/products" `
+  -Headers @{
+    Authorization = "Bearer $accessToken"
+    "PayPal-Request-Id" = "qualityfriend-product-v1"
+  } `
+  -ContentType "application/json" `
+  -Body $productBody
+
+$product.id
+
+Copy the returned PROD-... value into .env:
+
+PAYPAL_PRODUCT_ID=PROD-RETURNED-BY-PAYPAL
+
+
+PART 5 - CREATE THE EUR 39 MONTHLY PLAN
+=======================================
+
+Replace PROD-RETURNED-BY-PAYPAL below with the product ID:
+
+$planBody = @{
+  product_id = "PROD-RETURNED-BY-PAYPAL"
+  name = "QualityFriend Monthly"
+  description = "QualityFriend full access - EUR 39 per month"
+  status = "ACTIVE"
+  billing_cycles = @(
+    @{
+      frequency = @{
+        interval_unit = "MONTH"
+        interval_count = 1
+      }
+      tenure_type = "REGULAR"
+      sequence = 1
+      total_cycles = 0
+      pricing_scheme = @{
+        fixed_price = @{
+          value = "39.00"
+          currency_code = "EUR"
+        }
+      }
+    }
+  )
+  payment_preferences = @{
+    auto_bill_outstanding = $true
+    payment_failure_threshold = 3
+  }
+} | ConvertTo-Json -Depth 10
+
+$plan = Invoke-RestMethod `
+  -Method Post `
+  -Uri "https://api-m.sandbox.paypal.com/v1/billing/plans" `
+  -Headers @{
+    Authorization = "Bearer $accessToken"
+    "PayPal-Request-Id" = "qualityfriend-eur-39-monthly-v1"
+  } `
+  -ContentType "application/json" `
+  -Body $planBody
+
+$plan.id
+
+Copy the returned P-... value into .env:
+
+PAYPAL_PLAN_ID=P-RETURNED-BY-PAYPAL
+
+Do not create a new plan every time the application starts. Create it once per
+PayPal environment and store its ID. PayPal permits only one currency per plan.
+
+Official documentation:
+https://developer.paypal.com/subscriptions/integrate
+https://developer.paypal.com/subscriptions/pricing-plan
+
+
+PART 6 - IMPLEMENTED APPLICATION DATABASE DESIGN
+=================================================
+
+The migration has already been created only in app_qualityfriend. It adds:
+
+hotel_tenants.subscription_status
+  PENDING | APPROVAL_PENDING | ACTIVE | SUSPENDED | CANCELLED | EXPIRED
+
+hotel_tenants.paypal_subscription_id
+hotel_tenants.paypal_plan_id
+hotel_tenants.subscription_started_at
+hotel_tenants.subscription_current_period_end
+hotel_tenants.subscription_cancelled_at
+
+Implemented separate tables:
+
+subscriptions
+  id
+  hotel_tenant_id
+  provider                       = PAYPAL
+  provider_subscription_id       unique
+  provider_plan_id
+  status
+  payer_email
+  started_at
+  next_billing_at
+  cancelled_at
+  created_at
+  updated_at
+
+payment_events
+  id
+  provider                       = PAYPAL
+  provider_event_id              unique (prevents duplicate processing)
+  event_type
+  hotel_tenant_id
+  payload                        JSONB
+  processed_at
+  created_at
+
+The webhook must be idempotent. PayPal can deliver the same event more than
+once, so provider_event_id must be unique.
+
+
+PART 7 - REQUIRED APPLICATION FLOW
+===================================
+
+Registration:
+
+1. Create hotel tenant and owner user in one database transaction.
+2. Set subscription_status to PENDING.
+3. Create the normal login session.
+4. Redirect to /billing/subscribe instead of /dashboard.
+
+Access guard:
+
+1. Every protected page and API checks the hotel subscription status.
+2. ACTIVE permits access.
+3. Other statuses redirect to /billing/subscribe or /billing/status.
+4. Always allow these routes while payment is pending:
+
+   /billing/*
+   /api/billing/*
+   /api/paypal/webhook
+   /api/logout
+   /settings/account (optional)
+
+5. The subscription belongs to the hotel tenant, not an individual employee.
+   When the hotel is ACTIVE, its permitted users can access the application.
+
+PayPal button page:
+
+1. Load the PayPal JavaScript SDK with:
+
+   client-id=NEXT_PUBLIC_PAYPAL_CLIENT_ID
+   vault=true
+   intent=subscription
+   currency=EUR
+
+2. createSubscription must use PAYPAL_PLAN_ID.
+
+3. Send the hotel tenant UUID as PayPal custom_id. This is how the verified
+   webhook is safely mapped back to the hotel.
+
+4. onApprove sends subscriptionID to the backend.
+
+5. The backend calls PayPal GET /v1/billing/subscriptions/{subscription_id}.
+
+6. The backend verifies all of the following before updating local records:
+
+   - The PayPal plan_id equals PAYPAL_PLAN_ID.
+   - custom_id equals the authenticated hotel tenant ID.
+   - The subscription belongs to the expected environment.
+   - The returned status is valid.
+
+7. Treat onApprove as pending confirmation. The verified webhook is the final
+   authority for continued access.
+
+
+PART 8 - CONFIGURE THE PAYPAL WEBHOOK
+=====================================
+
+The webhook must be publicly reachable over HTTPS. localhost cannot receive
+real PayPal webhooks. Example production URL:
+
+https://app.your-domain.com/api/paypal/webhook
+
+In PayPal Developer Dashboard:
+
+1. Open Apps & Credentials.
+2. Select the Sandbox app.
+3. Find Webhooks and select Add Webhook.
+4. Enter the HTTPS webhook URL.
+5. Subscribe to these events:
+
+   BILLING.SUBSCRIPTION.ACTIVATED
+   BILLING.SUBSCRIPTION.UPDATED
+   BILLING.SUBSCRIPTION.SUSPENDED
+   BILLING.SUBSCRIPTION.CANCELLED
+   BILLING.SUBSCRIPTION.EXPIRED
+   BILLING.SUBSCRIPTION.PAYMENT.FAILED
+   BILLING.SUBSCRIPTION.RE-ACTIVATED
+   PAYMENT.SALE.COMPLETED
+   PAYMENT.SALE.REFUNDED
+   PAYMENT.SALE.REVERSED
+
+6. Save the webhook.
+7. Copy its webhook ID into .env:
+
+PAYPAL_WEBHOOK_ID=YOUR-SANDBOX-WEBHOOK-ID
+
+The webhook route must verify every event by calling PayPal's webhook signature
+verification API using PAYPAL_WEBHOOK_ID and the original PayPal transmission
+headers. Never trust an unverified webhook body.
+
+Return HTTP 2xx only after the event is safely recorded. PayPal retries failed
+deliveries, so processing must be idempotent.
+
+Official documentation:
+https://developer.paypal.com/api/rest/webhooks/
+https://developer.paypal.com/api/rest/webhooks/rest/
+https://developer.paypal.com/api/rest/webhooks/event-names/
+
+
+PART 9 - STATUS AND ACCESS MAPPING
+==================================
+
+PayPal event/status                  Local access
+--------------------------------------------------------------
+ACTIVATED                            Allow access (ACTIVE)
+PAYMENT.SALE.COMPLETED               Keep access active; record payment
+RE-ACTIVATED                         Allow access again
+SUSPENDED                            Block access or apply chosen grace period
+PAYMENT.FAILED                       Record failure; follow PayPal status
+CANCELLED                            Block after the paid period ends
+EXPIRED                              Block access
+SALE REFUNDED / REVERSED             Flag for administrator review
+
+Do not immediately erase hotel data when payment stops. Block application
+access and retain data according to the contract and data-retention policy.
+
+
+PART 10 - SANDBOX TEST CHECKLIST
+================================
+
+1. Register a new hotel.
+2. Confirm it is redirected to /billing/subscribe.
+3. Confirm direct /dashboard access is blocked.
+4. Pay using the Sandbox Personal buyer account, not the Business seller.
+5. Confirm PayPal creates a subscription with plan price EUR 39.00 monthly.
+6. Confirm the verified ACTIVATED webhook changes the hotel to ACTIVE.
+7. Confirm the owner and hotel employees can now log in.
+8. Send duplicate webhook events and confirm they do not duplicate records.
+9. Test cancellation, suspension, failed payment and reactivation.
+10. Confirm one hotel can never activate or view another hotel's subscription.
+11. Confirm changing a subscription ID in the browser cannot unlock access.
+12. Confirm webhook requests with invalid signatures are rejected.
+
+
+PART 11 - GO LIVE
+=================
+
+Sandbox and Live are completely separate. Sandbox product IDs, plan IDs,
+credentials and webhook IDs do not work in Live.
+
+1. Complete PayPal Business verification.
+2. In Apps & Credentials, switch from Sandbox to Live.
+3. Create/select the Live REST app.
+4. Obtain the Live Client ID and Client Secret.
+5. Obtain a Live access token.
+6. Create a new Live product.
+7. Create a new Live EUR 39 monthly plan.
+8. Create the Live HTTPS webhook and select the same events.
+9. Update production secrets:
+
+   PAYPAL_ENVIRONMENT=live
+   PAYPAL_CLIENT_ID=LIVE_CLIENT_ID
+   PAYPAL_CLIENT_SECRET=LIVE_CLIENT_SECRET
+   PAYPAL_PRODUCT_ID=LIVE_PRODUCT_ID
+   PAYPAL_PLAN_ID=LIVE_PLAN_ID
+   PAYPAL_WEBHOOK_ID=LIVE_WEBHOOK_ID
+   NEXT_PUBLIC_PAYPAL_CLIENT_ID=LIVE_CLIENT_ID
+
+10. The production API base URL must be:
+
+    https://api-m.paypal.com
+
+11. Recreate the production app container so it loads the new secrets.
+12. Complete one controlled real subscription and cancellation test.
+
+
+SECURITY RULES
+==============
+
+- Never commit .env.
+- Never expose PAYPAL_CLIENT_SECRET to the browser.
+- Never trust price, plan ID, hotel ID or subscription status sent by the UI.
+- Never unlock access solely from onApprove or a return URL.
+- Verify the PayPal subscription on the server.
+- Verify every webhook signature.
+- Store each PayPal event ID once to prevent duplicate processing.
+- Keep an audit log for activation, suspension, cancellation and reactivation.
+- Use HTTPS in production.
+- Keep separate Sandbox and Live credentials.
+- Back up subscription and payment-event database records.
+
+
+FINAL VALUES NEEDED BY THE APPLICATION DEVELOPER
+================================================
+
+[ ] Sandbox Client ID
+[ ] Sandbox Client Secret
+[ ] Sandbox Product ID (PROD-...)
+[ ] Sandbox Plan ID (P-...)
+[ ] Sandbox Webhook ID
+[ ] Public HTTPS webhook URL
+[ ] Live Client ID
+[ ] Live Client Secret
+[ ] Live Product ID
+[ ] Live Plan ID
+[ ] Live Webhook ID
+
+Do not send Client Secrets through chat or commit them to Git. Put them directly
+in the private .env file or the production secret manager.

@@ -47,7 +47,8 @@ export default function RegisterPage() {
     }).catch(() => null);
 
     if (response?.ok) {
-      router.push("/dashboard");
+      const result = await response.json().catch(() => null);
+      router.push(result?.redirectTo || "/billing/subscribe");
       return;
     }
     const result = await response?.json().catch(() => null);

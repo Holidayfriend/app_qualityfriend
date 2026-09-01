@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
+import { prisma } from "../prisma";
 
 const cookieName = "qualityfriend_session";
 const challengeCookieName = "qualityfriend_2fa_challenge";
@@ -38,7 +39,7 @@ export async function consumeTwoFactorChallenge() {
 
 export async function clearTwoFactorChallenge() { (await cookies()).delete(challengeCookieName); }
 
-export async function getSessionUserId() {
+export async function getRawSessionUserId() {
   const token = (await cookies()).get(cookieName)?.value;
   if (!token) return null;
   const [payload, providedSignature] = token.split(".");
@@ -53,4 +54,14 @@ export async function getSessionUserId() {
   } catch {
     return null;
   }
+}
+
+export async function getSessionUserId() {
+  const userId = await getRawSessionUserId();
+  if (!userId) return null;
+  const user = await prisma.user.findFirst({
+    where: { id: userId, isActive: true, isDeleted: false, hotelTenant: { isActive: true, subscriptionStatus: "ACTIVE" } },
+    select: { id: true },
+  });
+  return user?.id ?? null;
 }

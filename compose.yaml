@@ -35,6 +35,13 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-qualityfriend}:${POSTGRES_PASSWORD:-qualityfriend_local_password}@postgres:5432/${POSTGRES_DB:-qualityfriend_dev}
       AUTH_SECRET: ${AUTH_SECRET:-qualityfriend_local_development_session_secret}
       TOTP_ENCRYPTION_KEY: ${TOTP_ENCRYPTION_KEY:-qualityfriend_local_development_totp_encryption_secret}
+      PAYPAL_ENVIRONMENT: ${PAYPAL_ENVIRONMENT:-sandbox}
+      PAYPAL_CLIENT_ID: ${PAYPAL_CLIENT_ID:-}
+      PAYPAL_CLIENT_SECRET: ${PAYPAL_CLIENT_SECRET:-}
+      PAYPAL_PRODUCT_ID: ${PAYPAL_PRODUCT_ID:-}
+      PAYPAL_PLAN_ID: ${PAYPAL_PLAN_ID:-}
+      PAYPAL_WEBHOOK_ID: ${PAYPAL_WEBHOOK_ID:-}
+      NEXT_PUBLIC_PAYPAL_CLIENT_ID: ${NEXT_PUBLIC_PAYPAL_CLIENT_ID:-}
       SUPER_ADMIN_NAME: ${SUPER_ADMIN_NAME:-}
       SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-}
       SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-}
@@ -64,6 +71,9 @@ services:
       NODE_ENV: development
       DATABASE_URL: postgresql://${POSTGRES_USER:-qualityfriend}:${POSTGRES_PASSWORD:-qualityfriend_local_password}@postgres:5432/${POSTGRES_DB:-qualityfriend_dev}
       AUTH_SECRET: ${ADMIN_AUTH_SECRET:-qualityfriend_admin_local_development_session_secret}
+      PAYPAL_ENVIRONMENT: ${PAYPAL_ENVIRONMENT:-sandbox}
+      PAYPAL_CLIENT_ID: ${PAYPAL_CLIENT_ID:-}
+      PAYPAL_CLIENT_SECRET: ${PAYPAL_CLIENT_SECRET:-}
       WATCHPACK_POLLING: "true"
     ports:
       - "${ADMIN_HOST_PORT:-3001}:3000"

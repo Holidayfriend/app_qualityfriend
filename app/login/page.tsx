@@ -45,7 +45,7 @@ export default function LoginPage() {
       const result = await response.json();
       if (result.language === "en" || result.language === "de" || result.language === "it") setLocale(result.language);
       if (result.requiresTwoFactor) { router.push("/login/two-factor"); return; }
-      router.push("/dashboard");
+      router.push(result.redirectTo || "/dashboard");
       return;
     }
     setErrors({ email: t.error, password: t.error });

@@ -10,7 +10,7 @@ export async function POST(request: Request) {
 
   if (!email || !password) return NextResponse.json({ error: "INVALID_CREDENTIALS" }, { status: 401 });
 
-  const user=await prisma.user.findUnique({where:{email},select:{id:true,passwordHash:true,isActive:true,isDeleted:true,language:true,twoFactorEnabled:true}});
+  const user=await prisma.user.findUnique({where:{email},select:{id:true,passwordHash:true,isActive:true,isDeleted:true,language:true,twoFactorEnabled:true,hotelTenant:{select:{subscriptionStatus:true}}}});
   const validPassword = user ? await bcrypt.compare(password, user.passwordHash) : false;
 
   if (!user || !validPassword || !user.isActive || user.isDeleted) {
@@ -19,5 +19,5 @@ export async function POST(request: Request) {
 
   if(user.twoFactorEnabled){await createTwoFactorChallenge(user.id);return NextResponse.json({success:true,requiresTwoFactor:true,language:user.language.toLowerCase()})}
   await createSession(user.id);
-  return NextResponse.json({ success: true, language: user.language.toLowerCase() });
+  return NextResponse.json({ success: true, language: user.language.toLowerCase(), redirectTo: user.hotelTenant.subscriptionStatus === "ACTIVE" ? "/dashboard" : "/billing/subscribe" });
 }
