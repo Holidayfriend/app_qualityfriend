@@ -16,6 +16,7 @@ export function AppShell({ activeItem, children }: AppShellProps) {
   const n = dictionary.navigation;
   const d = dictionary.dashboard;
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [selectedItem, setSelectedItem] = useState(activeItem);
   const [currentUser, setCurrentUser] = useState<{ first_name: string; last_name: string; role: string; language: "EN" | "DE" | "IT"; hotel_name_en: string; hotel_name_de: string; hotel_name_it: string; allowed_modules: string[] } | null>(null);
@@ -52,6 +53,12 @@ export function AppShell({ activeItem, children }: AppShellProps) {
   const roleName = currentUser ? roleLevelNames[locale][currentUser.role as keyof typeof roleLevelNames.en] ?? currentUser.role : "";
   const moduleNavigation = moduleNavigationMessages[locale];
   const chatLayout = activeItem === "chat";
+  const mobileNavigation = [
+    ["dashboard", "🏠", "Start"],
+    ["tasks", "✅", "Aufgaben"],
+    ["housekeeping", "🧹", "Housek."],
+    ["chat", "✨", "KI-Chat"],
+  ];
   const groups = [
     { title: n.overview, items: [["dashboard", "🏠", n.dashboard, ""], ["ai", "✨", n.aiAssistant, n.new]] },
     { title: n.operations, items: [["handovers", "🤝", n.handovers, ""], ["tasks", "✅", n.tasks, "7"], ["housekeeping", "🧹", n.housekeeping, ""], ["repairs", "🔧", n.repairs, "2"], ["notes", "📝", n.notes, ""]] },
@@ -63,6 +70,7 @@ export function AppShell({ activeItem, children }: AppShellProps) {
   function navigate(id: string) {
     setSelectedItem(id);
     setMenuOpen(false);
+    setMobileMoreOpen(false);
     if (id === "settings") router.push("/settings");
     else if (id === "mcp") router.push("/settings/mcp");
     else if (id === "chat") router.push("/chat");
@@ -103,6 +111,17 @@ export function AppShell({ activeItem, children }: AppShellProps) {
       <nav className="flex-1 py-1">{groups.map((group) => <div key={group.title} className="px-2.5 pb-1 pt-3.5"><p className="px-2 pb-1.5 text-[9px] font-semibold uppercase tracking-[1.1px] text-white/30">{group.title}</p>{group.items.map(([id, icon, label, badge]) => { const active = selectedItem === id; return <button key={id} type="button" onClick={() => navigate(id)} className={`mb-px flex w-full cursor-pointer items-center gap-2 rounded-[6px] px-2.5 py-1.5 text-left text-[11.5px] leading-4 transition ${active ? "bg-[var(--qf-accent)] font-semibold text-white" : "text-white/60 hover:bg-[var(--qf-navy-hover)] hover:text-white"}`}><span className="w-4 text-center text-[12px]">{icon}</span><span className="min-w-0 flex-1">{label}</span>{badge ? <span className={`rounded-full px-1.5 py-px text-[8px] font-bold text-white ${badge === n.new ? "bg-[#7c3aed]" : badge === "2" ? "bg-[var(--qf-danger)]" : "bg-[#d97706]"}`}>{badge}</span> : null}</button>; })}</div>)}</nav>
       <div className="border-t border-white/[.07] p-2.5"><button type="button" onClick={() => { setMenuOpen(false); router.push("/settings/account"); }} aria-label={`${fullName} account settings`} className="flex w-full cursor-pointer items-center gap-2.5 rounded-[7px] px-2.5 py-2 text-left transition hover:bg-[var(--qf-navy-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--qf-accent)]"><div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-[var(--qf-accent)] text-xs font-bold">{initials}</div><div className="min-w-0 flex-1"><p className="truncate text-[11.5px] font-medium text-white/85">{fullName}</p><p className="text-[9.5px] text-white/35">{roleName}</p></div><span aria-hidden className="text-xs text-white/30">›</span></button></div>
     </aside>
+    {mobileMoreOpen ? <section className="fixed inset-x-0 bottom-[calc(68px+env(safe-area-inset-bottom))] top-14 z-30 overflow-y-auto bg-[var(--qf-background)] p-4 lg:hidden" aria-label="Mehr">
+      {groups.slice(1).map((group) => {
+        const items = group.items.filter(([id]) => !["tasks", "housekeeping"].includes(id));
+        if (!items.length) return null;
+        return <div key={group.title} className="mb-4"><h2 className="mb-2 text-[11px] font-bold uppercase tracking-[.5px] text-[var(--qf-text-muted)]">{group.title}</h2><div className="overflow-hidden rounded-[10px] border border-[var(--qf-border)] bg-white shadow-[var(--qf-shadow)]">{items.map(([id, icon, label, badge]) => <button key={id} type="button" onClick={() => navigate(id)} className="flex min-h-14 w-full cursor-pointer items-center gap-3 border-b border-[var(--qf-border)] px-4 text-left last:border-b-0"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--qf-background)] text-base">{icon}</span><span className="min-w-0 flex-1 text-[13px] font-semibold">{label}</span>{badge ? <span className="text-[10px] font-bold text-[var(--qf-text-muted)]">{badge}</span> : null}<span className="text-lg text-[var(--qf-text-light)]">›</span></button>)}</div></div>;
+      })}
+    </section> : null}
+    <nav aria-label="Mobile navigation" className="qf-mobile-nav fixed inset-x-0 bottom-0 z-40 flex border-t border-[var(--qf-border)] bg-white/95 px-1 pt-2 pb-[calc(8px+env(safe-area-inset-bottom))] backdrop-blur-xl lg:hidden">
+      {mobileNavigation.map(([id, icon, label]) => <button key={id} type="button" onClick={() => navigate(id)} className={`flex min-h-11 flex-1 cursor-pointer flex-col items-center justify-center gap-[3px] border-0 bg-transparent px-0 text-[10px] font-semibold ${!mobileMoreOpen && selectedItem === id ? "text-[var(--qf-accent)]" : "text-[var(--qf-text-light)]"}`}><span aria-hidden className="text-[21px] leading-none">{icon}</span><span>{label}</span></button>)}
+      <button type="button" onClick={() => setMobileMoreOpen(true)} className={`flex min-h-11 flex-1 cursor-pointer flex-col items-center justify-center gap-[3px] border-0 bg-transparent px-0 text-[10px] font-semibold ${mobileMoreOpen ? "text-[var(--qf-accent)]" : "text-[var(--qf-text-light)]"}`}><span aria-hidden className="text-[21px] leading-none">⋯</span><span>Mehr</span></button>
+    </nav>
     <div className="min-w-0 flex-1"><header className="sticky top-0 z-30 flex min-h-14 items-center gap-3 border-b border-[var(--qf-border)] bg-white px-4 lg:px-7"><button type="button" onClick={() => setMenuOpen(true)} className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--qf-border)] text-lg lg:hidden" aria-label="Open menu">☰</button><div className="min-w-0"><p className="truncate text-[16px] font-bold">{greeting}{currentUser ? `, ${currentUser.first_name}` : ""}</p><p className="text-[11px] text-[var(--qf-text-muted)] sm:hidden">{d.date}</p></div><p className="hidden text-[13px] text-[var(--qf-text-muted)] sm:block">{d.date}</p><div className="ml-auto flex items-center gap-2"><button type="button" onClick={() => navigate("chat")} aria-label={moduleNavigation.chat} title={moduleNavigation.chat} className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--qf-border)] bg-white text-base transition hover:border-[var(--qf-accent)] hover:bg-[var(--qf-accent-soft)]">💬</button><div className="hidden xl:block"><LanguageSwitcher iconOnly /></div><button type="button" className="hidden h-9 cursor-pointer items-center gap-1.5 rounded-[7px] bg-[#7c3aed] px-3.5 text-[13px] font-semibold text-white md:flex">⚡ {d.report}</button><button type="button" className="hidden h-9 cursor-pointer items-center rounded-[7px] bg-[var(--qf-accent)] px-3.5 text-[13px] font-semibold text-white sm:flex">+ {d.addTask}</button><button type="button" aria-label="Notifications" className="relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--qf-border)] bg-white">🔔<span className="absolute right-1 top-1 h-2 w-2 rounded-full border-2 border-white bg-[var(--qf-danger)]" /></button><button type="button" onClick={() => void logout()} disabled={loggingOut} aria-label={dictionary.common.logout} title={dictionary.common.logout} className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--qf-border)] bg-white text-[var(--qf-text-muted)] transition hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:cursor-wait disabled:opacity-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px]" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 5H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4"/><path d="m15 8 4 4-4 4"/><path d="M19 12H9"/></svg></button></div></header>{children}</div>
   </div>;
 }
