@@ -62,6 +62,7 @@ services:
     environment:
       NODE_ENV: development
       DATABASE_URL: postgresql://${POSTGRES_USER:-qualityfriend}:${POSTGRES_PASSWORD:-qualityfriend_local_password}@postgres:5432/${POSTGRES_DB:-qualityfriend_dev}
+      AUTH_SECRET: ${ADMIN_AUTH_SECRET:-qualityfriend_admin_local_development_session_secret}
       WATCHPACK_POLLING: "true"
     ports:
       - "${ADMIN_HOST_PORT:-3001}:3000"
