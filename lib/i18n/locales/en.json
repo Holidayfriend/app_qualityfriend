@@ -150,6 +150,8 @@
       "general": "General",
       "defaultLanguage": "Hotel default language",
       "defaultLanguageDescription": "Fallback language for the interface",
+      "twoFactor": "Google Authenticator",
+      "twoFactorDescription": "Enable or disable two-factor authentication for your account",
       "recycleBin": "Recycle bin",
       "recycleBinDescription": "Restore deleted entries",
       "activityLog": "Activity log",

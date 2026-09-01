@@ -150,6 +150,8 @@
       "general": "Allgemein",
       "defaultLanguage": "Standardsprache Hotel",
       "defaultLanguageDescription": "Fallback-Sprache der Oberfläche",
+      "twoFactor": "Google Authenticator",
+      "twoFactorDescription": "Zwei-Faktor-Authentifizierung für Ihr Konto aktivieren oder deaktivieren",
       "recycleBin": "Papierkorb",
       "recycleBinDescription": "Gelöschte Einträge wiederherstellen",
       "activityLog": "Aktivitätsprotokoll",

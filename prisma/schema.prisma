@@ -96,6 +96,10 @@ model User {
   deletedAt     DateTime?   @map("deleted_at") @db.Timestamptz(3)
   lastLoginAt   DateTime?   @map("last_login_at") @db.Timestamptz(3)
   lastSeenAt    DateTime?   @map("last_seen_at") @db.Timestamptz(3)
+  twoFactorEnabled Boolean  @default(false) @map("two_factor_enabled")
+  twoFactorSecret  String?  @map("two_factor_secret") @db.Text
+  twoFactorRecoveryCodes Json? @map("two_factor_recovery_codes")
+  twoFactorEnabledAt DateTime? @map("two_factor_enabled_at") @db.Timestamptz(3)
   createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
   hotelTenant   HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)

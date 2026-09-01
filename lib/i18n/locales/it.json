@@ -150,6 +150,8 @@
       "general": "Generale",
       "defaultLanguage": "Lingua predefinita dell'hotel",
       "defaultLanguageDescription": "Lingua di fallback dell'interfaccia",
+      "twoFactor": "Google Authenticator",
+      "twoFactorDescription": "Attiva o disattiva l'autenticazione a due fattori per il tuo account",
       "recycleBin": "Cestino",
       "recycleBinDescription": "Ripristina gli elementi eliminati",
       "activityLog": "Registro attività",

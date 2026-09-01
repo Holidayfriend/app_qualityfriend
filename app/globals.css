@@ -25,6 +25,10 @@ body { background: var(--qf-background); color: var(--qf-text); font-family: var
 button, input { font: inherit; }
 ::selection { background: var(--qf-accent-soft); color: var(--qf-text); }
 
+/* Authenticator setup: separate the verification button from the code field. */
+.max-w-sm.text-left > button { margin-top: 1rem; }
+.mx-auto.max-w-2xl > .p-5 > div > button { margin-top: 1rem; }
+
 /* Chat owns the viewport: header/composer stay fixed and only messages scroll. */
 .qf-chat-shell > div:last-child {
   display: flex;
