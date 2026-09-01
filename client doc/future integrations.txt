@@ -1,0 +1,8 @@
+Groundwork for future integrations (IoT/devices, energy management, access control)
+No concrete use case yet, but deliberately kept in mind: hotels increasingly connect energy management (per-room heating/AC tied to occupancy status), smart locks, or meters/sensors. Rather than building UI for this now, I'd just keep the architecture open:
+●	A generic external_systems configuration table (system type, credentials, active/inactive) — the same principle already decided for the multi-provider AI integration (ai_provider_config).
+●	A generic, room-bound device/sensor data model (device type, external ID, associated room, last reading), instead of a new table per integration.
+●	A clean webhook/event inbound for events like "room unlocked" or "room vacated", plus the ability to trigger commands the other way (e.g. lower the heating on check-out).
+This is purely architectural groundwork with no UI cost — it only gets fleshed out once an actual vendor is on the table.
+Not hypothetical: an energy management integration was already attempted once — which is exactly why this section exists.
+Important for how this relates to AI: external_systems (above) and ai_provider_config (the already-decided multi-provider AI setup for Claude/Perplexity/DeepSeek via askAI($moduleKey)) are two separate but interacting layers. A connected external system (e.g. Brevo for marketing/email) should be exposed to the AI as a usable tool, not just a data source — the same principle as MCP connectors: connected → usable, not connected → not visible to the AI. Concretely, e.g.: the AI could suggest creating a campaign directly in Brevo while drafting a marketing note, or pull Brevo metrics as an additional data source into the AI Revenue Forecast.
