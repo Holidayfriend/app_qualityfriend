@@ -57,7 +57,7 @@ export function AppShell({ activeItem, children }: AppShellProps) {
     { title: n.operations, items: [["handovers", "🤝", n.handovers, ""], ["tasks", "✅", n.tasks, "7"], ["housekeeping", "🧹", n.housekeeping, ""], ["repairs", "🔧", n.repairs, "2"], ["notes", "📝", n.notes, ""]] },
     { title: n.staff, items: [["schedule", "📅", n.schedule, ""], ["recruiting", "🔍", n.recruiting, ""], ["manuals", "📖", n.manuals, ""]] },
     { title: n.strategy, items: [["budget", "📊", n.budget, ""], ["revenue", "🎯", n.revenue, ""], ["competitors", "🏆", moduleNavigation.competitors, ""]] },
-    { title: n.administration, items: [["mcp", "🔌", moduleNavigation.mcp, ""], ["settings", "⚙️", n.settings, ""]] },
+    { title: n.administration, items: [["settings", "⚙️", n.settings, ""]] },
   ].map((group) => ({ ...group, items: group.items.filter(([id]) => canShow(id)) }));
 
   function navigate(id: string) {
