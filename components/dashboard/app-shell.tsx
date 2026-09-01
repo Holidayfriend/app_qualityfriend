@@ -104,7 +104,7 @@ export function AppShell({ activeItem, children }: AppShellProps) {
     if (chatButton) { chatButton.dataset.chatButton = "true"; chatButton.hidden = !(currentUser?.role === "ADMIN" || currentUser?.allowed_modules.includes("chat")); }
   }, [activeItem, currentUser, moduleNavigation.chat, pathname, router]);
 
-  return <div className={`${chatLayout ? "qf-chat-shell h-dvh overflow-hidden" : "min-h-screen"} bg-[var(--qf-background)] lg:flex`}>
+  return <div className={`qf-app-shell ${chatLayout ? "qf-chat-shell h-dvh overflow-hidden" : "min-h-screen"} bg-[var(--qf-background)] lg:flex`}>
     {menuOpen ? <button aria-label="Close menu" className="fixed inset-0 z-40 cursor-pointer bg-black/40 lg:hidden" onClick={() => setMenuOpen(false)} /> : null}
     <aside className={`fixed inset-y-0 left-0 z-50 flex w-[220px] flex-col overflow-y-auto bg-[var(--qf-navy)] text-white transition-transform lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${menuOpen ? "translate-x-0" : "-translate-x-full"}`}>
       <div className="flex items-center gap-3 border-b border-white/[.07] px-[18px] py-4"><div className="rounded-lg bg-white p-1"><Image src="/logo-icon.png" alt="" width={32} height={32} className="h-8 w-8 rounded-md object-contain" /></div><div className="min-w-0"><p className="truncate text-[13px] font-bold">{hotelName || "QualityFriend"}</p><p className="mt-0.5 text-[10px] text-white/35">{dictionary.common.brandSubtitle}</p></div></div>
