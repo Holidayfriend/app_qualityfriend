@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<title>Weihrerhof – Mobile</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#F7F6F3;--surface:#fff;--sidebar:#1C2233;
+  --accent:#C4933A;--accent-light:#F5E8CC;
+  --text:#1C2233;--text2:#6B7280;--text3:#9CA3AF;--border:#E8E6E1;
+  --green:#16A34A;--green-bg:#DCFCE7;--amber:#D97706;--amber-bg:#FEF3C7;
+  --red:#DC2626;--red-bg:#FEE2E2;--blue:#2563EB;--blue-bg:#DBEAFE;
+  --purple:#7C3AED;--purple-bg:#EDE9FE;
+  --r:14px;--sh:0 1px 2px rgba(0,0,0,.05),0 6px 20px rgba(0,0,0,.06);
+}
+html,body{background:#EDEBE6;height:100%;font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;color:var(--text)}
+
+/* ============ DEVICE FRAME (demo chrome, drops out on real phones) ============ */
+.stage{min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:28px 12px}
+.phone{width:390px;height:844px;background:var(--bg);border-radius:44px;box-shadow:0 30px 60px rgba(0,0,0,.35),0 0 0 12px #0d0f16,0 0 0 13px #2a2e3a;position:relative;overflow:hidden;flex-shrink:0}
+.notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:32px;background:#0d0f16;border-radius:0 0 20px 20px;z-index:50}
+.statusbar{position:absolute;top:0;left:0;right:0;height:48px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 6px;font-size:14px;font-weight:600;z-index:40;color:var(--text)}
+.app{position:absolute;inset:0;display:flex;flex-direction:column;padding-top:48px}
+
+@media (max-width:480px){
+  .stage{padding:0}
+  .phone{width:100%;height:100vh;border-radius:0;box-shadow:none}
+  .notch{display:none}
+  .statusbar{display:none}
+  .app{padding-top:0}
+}
+
+/* ============ TOPBAR ============ */
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 18px;flex-shrink:0}
+.topbar-row{display:flex;align-items:center;gap:10px}
+.tb-greeting{font-size:18px;font-weight:700}
+.tb-date{font-size:12px;color:var(--text2);margin-top:1px}
+.tb-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.icon-btn{width:38px;height:38px;border-radius:50%;border:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:16px;position:relative;flex-shrink:0}
+.ndot{position:absolute;top:5px;right:6px;width:7px;height:7px;background:var(--red);border-radius:50%;border:1.5px solid white}
+.tb-simple{display:flex;align-items:center;gap:10px}
+.back-btn{width:34px;height:34px;border-radius:50%;background:#F3F2EE;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.tb-title{font-size:16.5px;font-weight:700}
+
+/* ============ CONTENT SCROLL ============ */
+.content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:16px 16px 90px}
+.content::-webkit-scrollbar{display:none}
+.page{display:none}
+.page.active{display:block}
+
+/* ============ BOTTOM NAV ============ */
+.role-bar{flex-shrink:0;background:#12151f;padding:8px 14px;display:flex;align-items:center;gap:9px;overflow-x:auto}
+.role-bar::-webkit-scrollbar{display:none}
+.role-bar-lbl{font-size:9.5px;font-weight:700;color:rgba(255,255,255,.4);white-space:nowrap;flex-shrink:0;letter-spacing:.3px}
+.role-chip{flex-shrink:0;padding:5px 11px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(255,255,255,.08);color:rgba(255,255,255,.65);border:1px solid rgba(255,255,255,.12);white-space:nowrap}
+.role-chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.bottomnav{position:absolute;bottom:0;left:0;right:0;background:rgba(255,255,255,.92);backdrop-filter:blur(20px);border-top:1px solid var(--border);display:flex;padding:8px 4px calc(8px + env(safe-area-inset-bottom));z-index:30}
+.bn-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 0;color:var(--text3);cursor:pointer;border:none;background:none}
+.bn-item .bn-ic{font-size:21px;line-height:1}
+.bn-item .bn-lbl{font-size:10px;font-weight:600}
+.bn-item.active{color:var(--accent)}
+.bn-badge{position:absolute;top:-2px;right:22%;background:var(--red);color:#fff;font-size:9px;font-weight:700;padding:1px 4px;border-radius:8px;min-width:14px;text-align:center}
+
+/* ============ AI BANNER ============ */
+.ai-banner{padding:16px;background:linear-gradient(135deg,#1e1b4b,#312e81);border-radius:var(--r);color:#fff;margin-bottom:16px}
+.ai-top{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.ai-title{font-size:13px;font-weight:700}
+.ai-body{font-size:12.5px;opacity:.85;line-height:1.55}
+.ai-btn{margin-top:12px;width:100%;padding:10px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:9px;color:#fff;font-size:12.5px;font-weight:600}
+
+/* ============ MODULE GRID (dashboard nav replacement) ============ */
+.mgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+.mtile{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px 4px 10px;display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;box-shadow:var(--sh)}
+.mtile .mic{font-size:21px}
+.mtile .mlbl{font-size:10.5px;font-weight:600;color:var(--text2);text-align:center;line-height:1.2}
+.mtile .mbadge{position:absolute;top:6px;right:6px;background:var(--red);color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px}
+
+/* ============ KPI SCROLL ============ */
+.kpi-scroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:2px;margin-bottom:16px;scroll-snap-type:x mandatory}
+.kpi-scroll::-webkit-scrollbar{display:none}
+.kpi{background:var(--surface);border-radius:var(--r);padding:14px 16px;box-shadow:var(--sh);border:1px solid var(--border);min-width:132px;flex-shrink:0;scroll-snap-align:start}
+.kpi-lbl{font-size:10.5px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.kpi-val{font-size:23px;font-weight:700;line-height:1}
+.kpi-val span{font-size:13px;color:var(--text2);font-weight:600}
+.kpi-sub{font-size:11px;color:var(--text2);margin-top:6px}
+.chip{padding:2px 7px;border-radius:5px;font-size:10.5px;font-weight:600;display:inline-block}
+.chip-g{background:var(--green-bg);color:var(--green)}
+.chip-r{background:var(--red-bg);color:var(--red)}
+.chip-a{background:var(--amber-bg);color:var(--amber)}
+.chip-b{background:var(--blue-bg);color:var(--blue)}
+.chip-p{background:var(--purple-bg);color:var(--purple)}
+.chip-n{background:#F3F4F6;color:var(--text2)}
+
+/* ============ CARD ============ */
+.card{background:var(--surface);border-radius:var(--r);box-shadow:var(--sh);border:1px solid var(--border);overflow:hidden;margin-bottom:14px}
+.ch{padding:13px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+.ct{font-size:13.5px;font-weight:700}
+.ca{font-size:12px;color:var(--accent);font-weight:600}
+.cb{padding:14px 16px}
+.section-title{font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin:4px 0 10px}
+
+/* ============ ACTIVITY / ALERT ROW ============ */
+.al{display:flex;align-items:flex-start;gap:11px;padding:10px 0;border-bottom:1px solid var(--border)}
+.al:last-child{border-bottom:none}
+.al-ic{width:32px;height:32px;border-radius:9px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:15px}
+.al-ic.r{background:var(--red-bg)} .al-ic.a{background:var(--amber-bg)} .al-ic.g{background:var(--green-bg)} .al-ic.b{background:var(--blue-bg)} .al-ic.p{background:var(--purple-bg)}
+.al-t{font-size:13px;font-weight:600;line-height:1.3}
+.al-m{font-size:11.5px;color:var(--text2);margin-top:2px}
+.al-r{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;margin-left:auto}
+.sc{padding:3px 7px;border-radius:5px;font-size:10.5px;font-weight:600;white-space:nowrap}
+.sc-g{background:var(--green-bg);color:var(--green)} .sc-a{background:var(--amber-bg);color:var(--amber)} .sc-b{background:var(--blue-bg);color:var(--blue)} .sc-r{background:var(--red-bg);color:var(--red)}
+.tl{font-size:10.5px;color:var(--text3)}
+
+/* ============ WEATHER ============ */
+.weather{display:flex;align-items:center;gap:12px;padding:14px 16px;background:linear-gradient(135deg,#1C2233,#2A3347);border-radius:var(--r);color:#fff;margin-bottom:16px}
+.w-temp{font-size:24px;font-weight:700}
+.w-desc{font-size:11px;opacity:.7}
+.w-detail{margin-left:auto;text-align:right;font-size:11px;opacity:.7;line-height:1.6}
+
+/* ============ HOUSEKEEPING (3/row) ============ */
+.hk-legend{display:flex;flex-wrap:wrap;gap:6px 10px;margin-bottom:12px}
+.hk-li{display:flex;align-items:center;gap:4px;font-size:10.5px;color:var(--text2)}
+.hk-dot{width:9px;height:9px;border-radius:3px;flex-shrink:0}
+.hk-floor{margin-bottom:14px}
+.hk-fl{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.hk-rooms{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.hk-r{aspect-ratio:1/1;border-radius:11px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:700;position:relative;border:1.5px solid transparent}
+.hk-r .rn{font-size:18px;font-weight:700} .hk-r .ri{font-size:11px;margin-top:2px}
+.hk-r.dirty{background:#FEE2E2;color:#DC2626;border-color:#FECACA}
+.hk-r.cleaning{background:#FEF3C7;color:#D97706;border-color:#FDE68A}
+.hk-r.clean{background:#DCFCE7;color:#16A34A;border-color:#BBF7D0}
+.hk-r.inspected{background:#DBEAFE;color:#2563EB;border-color:#BFDBFE}
+.hk-r.dnc{background:#F3F4F6;color:#6B7280;border-color:#E5E7EB}
+.hk-r.express{background:#F5E8CC;color:#C4933A;border-color:#E8D5A0}
+.hk-r.occupied{background:#EDE9FE;color:#7C3AED;border-color:#C4B5FD}
+.hk-flag{position:absolute;top:4px;right:5px;font-size:9px}
+
+/* ============ FILTER CHIPS ============ */
+.filter-row{display:flex;gap:7px;overflow-x:auto;padding-bottom:2px;margin-bottom:12px}
+.filter-row::-webkit-scrollbar{display:none}
+.filter-btn{padding:6px 13px;border-radius:20px;font-size:12px;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--text2);white-space:nowrap;flex-shrink:0}
+.filter-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* ============ SWIPE TODO CARDS ============ */
+.swipe-wrap{position:relative;overflow:hidden;border-radius:12px;margin-bottom:10px}
+.swipe-bg{position:absolute;inset:0;display:flex;align-items:center;justify-content:space-between;padding:0 18px;font-size:12px;font-weight:700;color:#fff}
+.swipe-bg .left{background:var(--green)}
+.swipe-bg-l{position:absolute;inset:0;background:var(--green);display:flex;align-items:center;padding-left:18px;color:#fff;font-size:12px;font-weight:700}
+.swipe-bg-r{position:absolute;inset:0;background:var(--amber);display:flex;align-items:center;justify-content:flex-end;padding-right:18px;color:#fff;font-size:12px;font-weight:700}
+.todo-card{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:11px;z-index:1}
+.todo-cb{width:22px;height:22px;border-radius:7px;border:2px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px}
+.todo-cb.done{background:var(--green);border-color:var(--green);color:#fff}
+.todo-body{flex:1;min-width:0}
+.todo-t{font-size:13px;font-weight:600;line-height:1.3}
+.todo-t.done{text-decoration:line-through;color:var(--text3)}
+.todo-dept{font-size:11px;color:var(--text3);margin-top:3px}
+.swipe-hint{text-align:center;font-size:10.5px;color:var(--text3);margin:2px 0 14px}
+
+/* ============ HANDOVER ============ */
+.hov-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:15px;margin-bottom:12px;box-shadow:var(--sh)}
+.hov-header{display:flex;flex-direction:column;gap:4px;margin-bottom:11px}
+.hov-shift-badge{align-self:flex-start;padding:4px 11px;border-radius:20px;font-size:11px;font-weight:700;background:var(--accent-light);color:var(--accent);border:1px solid #E8D5A0}
+.hov-from{font-size:12px;color:var(--text2)}
+.hov-section{margin-bottom:11px}
+.hov-sl{font-size:10.5px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+.hov-text{font-size:13px;color:var(--text);line-height:1.55}
+.hov-guest{display:flex;align-items:center;gap:8px;padding:7px 9px;background:var(--bg);border-radius:6px;margin-bottom:5px;font-size:12.5px}
+.hov-room{background:var(--border);padding:2px 7px;border-radius:4px;font-size:10.5px;font-weight:600;color:var(--text2);flex-shrink:0}
+.voice-btn{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;padding:11px;background:var(--red-bg);color:var(--red);border-radius:9px;font-size:12.5px;font-weight:600;border:1px solid #FECACA;margin-top:8px}
+
+/* ============ DIENSTPLAN (day tabs) ============ */
+.day-tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:14px;padding-bottom:2px}
+.day-tabs::-webkit-scrollbar{display:none}
+.day-tab{flex-shrink:0;width:48px;padding:8px 0;border-radius:11px;text-align:center;border:1px solid var(--border);background:var(--surface)}
+.day-tab .dn{font-size:10px;color:var(--text3);font-weight:600}
+.day-tab .dd{font-size:15px;font-weight:700;margin-top:2px}
+.day-tab.active{background:var(--sidebar);border-color:var(--sidebar)}
+.day-tab.active .dn{color:rgba(255,255,255,.6)}
+.day-tab.active .dd{color:#fff}
+.day-tab.warn{border-color:var(--amber)}
+.day-tab.warn .dd{color:var(--amber)}
+.shift-card{display:flex;align-items:center;gap:11px;padding:11px 0;border-bottom:1px solid var(--border)}
+.shift-card:last-child{border-bottom:none}
+.sh-av{width:38px;height:38px;border-radius:50%;background:var(--accent-light);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0}
+.sh-name{font-size:13.5px;font-weight:700}
+.sh-dept{font-size:11px;color:var(--text3)}
+.sh-time{margin-left:auto;padding:5px 11px;border-radius:8px;font-size:12px;font-weight:700}
+.sh-time.f{background:var(--accent-light);color:var(--accent)}
+.sh-time.m{background:var(--blue-bg);color:var(--blue)}
+.sh-time.s{background:var(--purple-bg);color:var(--purple)}
+.sh-time.off{background:#F3F4F6;color:var(--text3);font-style:italic}
+.sh-time.vac{background:var(--green-bg);color:var(--green)}
+.sh-time.open{background:var(--amber-bg);color:var(--amber)}
+
+/* ============ BUDGET ============ */
+.bud-chart{height:120px;display:flex;align-items:flex-end;gap:5px;padding:0 0 18px;overflow-x:auto}
+.bar-wrap{min-width:26px;flex:1;display:flex;flex-direction:column;align-items:center;gap:3px}
+.bar-group{display:flex;gap:2px;align-items:flex-end;width:100%}
+.b-forecast{flex:1;border-radius:3px 3px 0 0;background:var(--accent-light)}
+.b-actual{flex:1;border-radius:3px 3px 0 0;background:var(--accent)}
+.bar-lbl{font-size:9px;color:var(--text3)}
+.progress-bar{height:6px;border-radius:3px;background:var(--border);margin-top:4px;overflow:hidden}
+.progress-fill{height:100%;border-radius:3px}
+.bar-g{background:var(--green)} .bar-a{background:var(--amber)} .bar-r{background:var(--red)}
+.toggle-detail{width:100%;padding:11px;background:var(--bg);border:1px dashed var(--border);border-radius:9px;font-size:12.5px;font-weight:600;color:var(--text2);margin-top:4px}
+.bud-detail{display:none;margin-top:12px}
+.bud-detail.open{display:block}
+.bud-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:12.5px}
+.bud-row:last-child{border-bottom:none}
+.bud-row.group{font-weight:700}
+
+/* ============ COMPETITORS ============ */
+.comp-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px 14px;margin-bottom:9px;box-shadow:var(--sh)}
+.comp-self{border:2px solid var(--accent)}
+.comp-top{display:flex;justify-content:space-between;align-items:flex-start}
+.comp-name{font-size:13.5px;font-weight:700}
+.comp-rank{padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700}
+.comp-row{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:12px}
+.stars{color:var(--amber);font-size:12px}
+.tag{padding:2px 7px;border-radius:4px;font-size:10.5px;background:#F3F4F6;color:var(--text2)}
+
+/* ============ RECRUITING ============ */
+.stage-tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:12px;padding-bottom:2px}
+.stage-tabs::-webkit-scrollbar{display:none}
+.stage-tab{flex-shrink:0;padding:7px 13px;border-radius:20px;font-size:11.5px;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--text2);white-space:nowrap}
+.stage-tab.active{background:var(--sidebar);color:#fff;border-color:var(--sidebar)}
+.recruit-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px;margin-bottom:9px;box-shadow:var(--sh)}
+.rc-top{display:flex;justify-content:space-between;align-items:flex-start}
+.rc-name{font-size:13.5px;font-weight:700}
+.rc-role{font-size:12px;color:var(--text2);margin-top:2px}
+.score-row{display:flex;align-items:center;gap:7px;margin-top:8px}
+.score-bar{flex:1;height:5px;border-radius:3px;background:var(--border)}
+.score-fill{height:100%;border-radius:3px}
+.rc-meta{font-size:11px;color:var(--text3);margin-top:7px}
+
+/* ============ REPAIRS ============ */
+.rep{display:flex;align-items:flex-start;gap:11px;padding:13px;background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:9px;box-shadow:var(--sh)}
+.rep-prio{width:4px;border-radius:2px;align-self:stretch;flex-shrink:0}
+.rep-prio.h{background:var(--red)} .rep-prio.m{background:var(--amber)} .rep-prio.l{background:var(--green)}
+.rep-ic{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+
+/* ============ NOTES ============ */
+.note-grid{display:flex;flex-direction:column;gap:10px}
+.note-card{border-radius:12px;padding:14px}
+.note-title{font-size:13px;font-weight:700;margin-bottom:5px}
+.note-body{font-size:12px;line-height:1.5;opacity:.85}
+.note-meta{font-size:10.5px;opacity:.6;margin-top:9px}
+
+/* ============ HANDBUCH ============ */
+.hb-item{display:flex;align-items:center;gap:11px;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:11px;margin-bottom:8px}
+.hb-ic{width:36px;height:36px;border-radius:9px;background:var(--accent-light);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.hb-t{font-size:13px;font-weight:600}
+.hb-m{font-size:11px;color:var(--text2);margin-top:2px}
+
+/* ============ SEARCH / INPUT ============ */
+.search-bar{display:flex;gap:8px;margin-bottom:14px}
+.search-bar input{flex:1;padding:11px 14px;border:1px solid var(--border);border-radius:11px;font-size:14px;outline:none;background:var(--surface)}
+.fab{position:absolute;right:16px;bottom:88px;width:52px;height:52px;border-radius:50%;background:var(--accent);color:#fff;font-size:22px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 20px rgba(196,147,58,.4);z-index:25;border:none}
+
+/* ============ CHAT ============ */
+.chat-page{display:flex;flex-direction:column;height:100%}
+.chat-quick{display:flex;gap:8px;overflow-x:auto;padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
+.chat-quick::-webkit-scrollbar{display:none}
+.qchip{flex-shrink:0;padding:8px 13px;border-radius:20px;font-size:11.5px;font-weight:600;background:var(--bg);border:1px solid var(--border);color:var(--text2);white-space:nowrap}
+.chat-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+.msg{max-width:82%;display:flex;flex-direction:column;gap:3px}
+.msg.user{align-self:flex-end;align-items:flex-end}
+.msg.ai{align-self:flex-start}
+.msg-bubble{padding:10px 13px;border-radius:14px;font-size:13.5px;line-height:1.5}
+.msg.user .msg-bubble{background:var(--accent);color:#fff;border-radius:14px 14px 3px 14px}
+.msg.ai .msg-bubble{background:var(--surface);border:1px solid var(--border);border-radius:14px 14px 14px 3px}
+.msg-time{font-size:10px;color:var(--text3)}
+.chat-input-row{padding:10px 12px;border-top:1px solid var(--border);background:var(--surface);display:flex;gap:8px;align-items:center;flex-shrink:0;padding-bottom:calc(10px + env(safe-area-inset-bottom))}
+.chat-input{flex:1;padding:11px 14px;border:1px solid var(--border);border-radius:22px;font-size:14px;outline:none;background:var(--bg)}
+.mic-btn{width:40px;height:40px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;border:none}
+.chat-send{width:40px;height:40px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;border:none}
+
+/* ============ MEHR (more) sheet-style page ============ */
+.more-list{display:flex;flex-direction:column;gap:8px}
+.more-item{display:flex;align-items:center;gap:13px;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:12px}
+.more-ic{width:40px;height:40px;border-radius:10px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.more-t{font-size:13.5px;font-weight:700}
+.more-s{font-size:11.5px;color:var(--text2);margin-top:1px}
+.more-chev{margin-left:auto;color:var(--text3);font-size:16px}
+
+hr.div{border:none;border-top:1px solid var(--border);margin:12px 0}
+</style>
+</head>
+<body>
+
+<div class="stage">
+<div class="phone">
+  <div class="notch"></div>
+  <div class="statusbar"><span>9:41</span><span>●●● 5G 🔋</span></div>
+  <div class="app">
+
+    <!-- ============ ROLE SWITCHER (demo control) ============ -->
+    <div class="role-bar">
+      <span class="role-bar-lbl">🔧 DEMO ROLLE</span>
+      <span class="role-chip active" data-role="admin" onclick="setRole('admin',this)">Klaus (Admin)</span>
+      <span class="role-chip" data-role="management" onclick="setRole('management',this)">Management</span>
+      <span class="role-chip" data-role="reception" onclick="setRole('reception',this)">Maria (Rezeption)</span>
+      <span class="role-chip" data-role="housekeeping" onclick="setRole('housekeeping',this)">Sabine (Housek.)</span>
+      <span class="role-chip" data-role="restaurant" onclick="setRole('restaurant',this)">Luca (Restaurant)</span>
+    </div>
+
+    <!-- ============ TOPBAR (dynamic) ============ -->
+    <div class="topbar" id="topbar">
+      <div class="topbar-row" id="topbar-default">
+        <div>
+          <div class="tb-greeting">Guten Morgen, Klaus</div>
+          <div class="tb-date">Mi, 19. August 2026</div>
+        </div>
+        <div class="tb-right">
+          <button class="icon-btn">🔔<div class="ndot"></div></button>
+        </div>
+      </div>
+      <div class="topbar-row" id="topbar-sub" style="display:none">
+        <div class="tb-simple">
+          <div class="back-btn" onclick="go('dashboard')">←</div>
+          <div class="tb-title" id="sub-title">Titel</div>
+        </div>
+        <div class="tb-right">
+          <button class="icon-btn" id="tb-action" style="display:none">+</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ CONTENT ============ -->
+    <div class="content" id="content">
+
+      <!-- ══════════ DASHBOARD ══════════ -->
+      <div class="page active" id="p-dashboard">
+        <div class="ai-banner">
+          <div class="ai-top"><span>✨</span><span class="ai-title">KI-Tagesanalyse</span></div>
+          <div class="ai-body">Heute 10 Ankünfte, 6 Abgänge. ⚡ Zi. 45 & 51 brauchen Express-Reinigung vor 14:00. Zorah hat frei – Frühstücksvertretung Mo. noch ungeregelt. Neue ⭐⭐⭐⭐⭐ TripAdvisor-Rezension wartet auf Antwort.</div>
+          <button class="ai-btn" onclick="go('chat')">Mit KI besprechen →</button>
+        </div>
+
+        <div class="kpi-scroll">
+          <div class="kpi"><div class="kpi-lbl">Auslastung</div><div class="kpi-val">87<span>%</span></div><div class="kpi-sub"><span class="chip chip-g">↑ +4%</span></div></div>
+          <div class="kpi"><div class="kpi-lbl">An- / Abreise</div><div class="kpi-val">10<span>/6</span></div><div class="kpi-sub">ab 15:00</div></div>
+          <div class="kpi"><div class="kpi-lbl">Zi. bereit</div><div class="kpi-val">9<span>/12</span></div><div class="kpi-sub"><span class="chip chip-r">3 offen</span></div></div>
+          <div class="kpi"><div class="kpi-lbl">Ø Bewertung</div><div class="kpi-val">4.9<span>★</span></div><div class="kpi-sub"><span class="chip chip-b">137</span></div></div>
+        </div>
+
+        <div class="section-title">Module</div>
+        <div class="mgrid">
+          <div class="mtile" data-page="housekeeping" onclick="go('housekeeping')"><span class="mic">🧹</span><span class="mlbl">Housekeeping</span></div>
+          <div class="mtile" data-page="todos" onclick="go('todos')"><span class="mic">✅</span><span class="mlbl">Aufgaben</span><span class="mbadge">7</span></div>
+          <div class="mtile" data-page="handover" onclick="go('handover')"><span class="mic">🤝</span><span class="mlbl">Übergaben</span></div>
+          <div class="mtile" data-page="dienstplan" onclick="go('dienstplan')"><span class="mic">📅</span><span class="mlbl">Dienstplan</span></div>
+          <div class="mtile" data-page="repairs" onclick="go('repairs')"><span class="mic">🔧</span><span class="mlbl">Reparaturen</span><span class="mbadge">2</span></div>
+          <div class="mtile" data-page="budget" onclick="go('budget')"><span class="mic">📊</span><span class="mlbl">Budget</span></div>
+          <div class="mtile" data-page="notes" onclick="go('notes')"><span class="mic">📝</span><span class="mlbl">Notizen</span></div>
+          <div class="mtile" data-page="more" onclick="go('more')"><span class="mic">⋯</span><span class="mlbl">Mehr</span></div>
+        </div>
+
+        <div class="card">
+          <div class="ch"><div class="ct">🔔 Aktivitäten heute</div><span class="ca" onclick="go('todos')">Alle →</span></div>
+          <div class="cb">
+            <div class="al"><div class="al-ic r">⚡</div><div><div class="al-t">Express-Reinigung Zi. 45 & 51</div><div class="al-m">Housekeeping · fällig 14:00</div></div><div class="al-r"><span class="sc sc-r">DRINGEND</span><div class="tl">jetzt</div></div></div>
+            <div class="al"><div class="al-ic a">⭐</div><div><div class="al-t">TripAdvisor-Rezension offen</div><div class="al-m">Fam. Wagner · 5★ · gestern</div></div><div class="al-r"><span class="sc sc-a">OFFEN</span><div class="tl">1 Std.</div></div></div>
+            <div class="al"><div class="al-ic a">👤</div><div><div class="al-t">Frühstücksvertretung Zorah</div><div class="al-m">Restaurant · morgen früh</div></div><div class="al-r"><span class="sc sc-a">OFFEN</span><div class="tl">2 Std.</div></div></div>
+            <div class="al"><div class="al-ic g">✅</div><div><div class="al-t">Tischplan Service aktualisiert</div><div class="al-m">von Klaus · 7 Pers. 19:30</div></div><div class="al-r"><span class="sc sc-g">FERTIG</span><div class="tl">09:14</div></div></div>
+          </div>
+        </div>
+
+        <div class="weather">
+          <div style="font-size:30px">⛅</div>
+          <div><div class="w-temp">18°</div><div class="w-desc">Wechselhaft · Ritten</div></div>
+          <div class="w-detail">Regen ab 16:00<br>Wind 12 km/h</div>
+        </div>
+
+        <div class="card">
+          <div class="ch"><div class="ct">🧹 Housekeeping</div><span class="ca" onclick="go('housekeeping')">Vollansicht →</span></div>
+          <div class="cb">
+            <div style="display:flex;gap:8px">
+              <div style="flex:1;text-align:center;padding:9px 4px;background:var(--red-bg);border-radius:9px"><div style="font-size:17px;font-weight:700;color:var(--red)">3</div><div style="font-size:10px;color:var(--red)">Schmutzig</div></div>
+              <div style="flex:1;text-align:center;padding:9px 4px;background:var(--amber-bg);border-radius:9px"><div style="font-size:17px;font-weight:700;color:var(--amber)">2</div><div style="font-size:10px;color:var(--amber)">Reinigung</div></div>
+              <div style="flex:1;text-align:center;padding:9px 4px;background:var(--green-bg);border-radius:9px"><div style="font-size:17px;font-weight:700;color:var(--green)">6</div><div style="font-size:10px;color:var(--green)">Bereit</div></div>
+              <div style="flex:1;text-align:center;padding:9px 4px;background:var(--blue-bg);border-radius:9px"><div style="font-size:17px;font-weight:700;color:var(--blue)">3</div><div style="font-size:10px;color:var(--blue)">Insp.</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="ch"><div class="ct">📅 Heute im Dienst</div><span class="ca" onclick="go('dienstplan')">Plan →</span></div>
+          <div class="cb">
+            <div style="font-size:12px;color:var(--text2);margin-bottom:9px">7 Mitarbeiter · 1 abwesend</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px">
+              <span style="padding:5px 10px;background:var(--accent-light);color:var(--accent);border-radius:7px;font-size:11.5px;font-weight:600">Maria R. 07–15</span>
+              <span style="padding:5px 10px;background:var(--blue-bg);color:var(--blue);border-radius:7px;font-size:11.5px;font-weight:600">Thomas K. 15–23</span>
+              <span style="padding:5px 10px;background:var(--accent-light);color:var(--accent);border-radius:7px;font-size:11.5px;font-weight:600">Sabine M. 08–16</span>
+              <span style="padding:5px 10px;background:var(--red-bg);color:var(--red);border-radius:7px;font-size:11.5px;font-weight:600">Zorah A. 🏖 Urlaub</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════ HOUSEKEEPING ══════════ -->
+      <div class="page" id="p-housekeeping">
+        <div class="kpi-scroll">
+          <div class="kpi"><div class="kpi-lbl">Zimmer gesamt</div><div class="kpi-val">12</div><div class="kpi-sub">2 Etagen</div></div>
+          <div class="kpi"><div class="kpi-lbl">Express</div><div class="kpi-val" style="color:var(--red)">2</div><div class="kpi-sub"><span class="chip chip-r">bis 14:00</span></div></div>
+        </div>
+        <div class="hk-legend">
+          <div class="hk-li"><div class="hk-dot" style="background:#DC2626"></div>Schmutzig</div>
+          <div class="hk-li"><div class="hk-dot" style="background:#D97706"></div>Reinigung</div>
+          <div class="hk-li"><div class="hk-dot" style="background:#16A34A"></div>Bereit</div>
+          <div class="hk-li"><div class="hk-dot" style="background:#2563EB"></div>Inspiziert</div>
+          <div class="hk-li"><div class="hk-dot" style="background:#C4933A"></div>Express ⚡</div>
+          <div class="hk-li"><div class="hk-dot" style="background:#7C3AED"></div>Belegt</div>
+          <div class="hk-li"><div class="hk-dot" style="background:#9CA3AF"></div>Kein Service</div>
+        </div>
+        <div class="hk-floor">
+          <div class="hk-fl">Etage 1</div>
+          <div class="hk-rooms">
+            <div class="hk-r occupied" onclick="openSheet('room')"><div class="rn">42</div><div class="ri">👤</div></div>
+            <div class="hk-r inspected" onclick="openSheet('room')"><div class="rn">43</div><div class="ri">✓</div></div>
+            <div class="hk-r cleaning" onclick="openSheet('room')"><div class="rn">44</div><div class="ri">🧹</div></div>
+            <div class="hk-r express" onclick="openSheet('room')"><div class="rn">45</div><div class="ri">⚡</div><div class="hk-flag">🔴</div></div>
+            <div class="hk-r inspected" onclick="openSheet('room')"><div class="rn">46</div><div class="ri">✓</div></div>
+            <div class="hk-r clean" onclick="openSheet('room')"><div class="rn">47</div><div class="ri">✓</div></div>
+            <div class="hk-r dirty" onclick="openSheet('room')"><div class="rn">48</div><div class="ri">!</div></div>
+            <div class="hk-r dnc" onclick="openSheet('room')"><div class="rn">50</div><div class="ri">🚫</div></div>
+            <div class="hk-r express" onclick="openSheet('room')"><div class="rn">51</div><div class="ri">⚡</div><div class="hk-flag">🔴</div></div>
+          </div>
+        </div>
+        <div class="hk-floor">
+          <div class="hk-fl">Etage 2</div>
+          <div class="hk-rooms">
+            <div class="hk-r inspected" onclick="openSheet('room')"><div class="rn">55</div><div class="ri">✓</div></div>
+            <div class="hk-r clean" onclick="openSheet('room')"><div class="rn">56</div><div class="ri">✓</div></div>
+            <div class="hk-r cleaning" onclick="openSheet('room')"><div class="rn">57</div><div class="ri">🧹</div></div>
+            <div class="hk-r clean" onclick="openSheet('room')"><div class="rn">58</div><div class="ri">✓</div></div>
+            <div class="hk-r inspected" onclick="openSheet('room')"><div class="rn">60</div><div class="ri">✓</div></div>
+            <div class="hk-r occupied" onclick="openSheet('room')"><div class="rn">61</div><div class="ri">👤</div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="ch"><div class="ct">👥 Zuweisungen</div></div>
+          <div class="cb">
+            <div class="al"><div class="al-ic a">👤</div><div><div class="al-t">Sabine M.</div><div class="al-m">Zi. 45, 51 (Express) · 43, 44, 48</div></div><div class="al-r"><span class="sc sc-a">5 Zi.</span></div></div>
+            <div class="al"><div class="al-ic b">👤</div><div><div class="al-t">Peter W.</div><div class="al-m">Zi. 55, 57, 58, 60</div></div><div class="al-r"><span class="sc sc-b">4 Zi.</span></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════ TODOS ══════════ -->
+      <div class="page" id="p-todos">
+        <div class="ai-banner" style="padding:13px">
+          <div class="ai-top"><span>✨</span><span class="ai-title">KI-Priorisierung</span></div>
+          <div class="ai-body">Von 314 Aufgaben zeigt die KI dir die 7 wichtigsten für heute – sortiert nach Dringlichkeit, Abteilung & Buchungslage.</div>
+        </div>
+        <div class="kpi-scroll">
+          <div class="kpi"><div class="kpi-lbl">Gesamt offen</div><div class="kpi-val">314</div><div class="kpi-sub"><span class="chip chip-r">7 heute</span></div></div>
+          <div class="kpi"><div class="kpi-lbl">Diese Woche</div><div class="kpi-val">23</div><div class="kpi-sub"><span class="chip chip-a">4 überfällig</span></div></div>
+        </div>
+        <div class="filter-row">
+          <div class="filter-btn active">Alle</div>
+          <div class="filter-btn">Rezeption</div>
+          <div class="filter-btn">Housekeeping</div>
+          <div class="filter-btn">Restaurant</div>
+          <div class="filter-btn">Verwaltung</div>
+        </div>
+        <div class="section-title">Prioritäten heute</div>
+
+        <div class="swipe-wrap"><div class="swipe-bg-l">✓ Erledigt</div><div class="swipe-bg-r">→ Verschieben</div>
+          <div class="todo-card"><div class="todo-cb"></div><div class="todo-body"><div class="todo-t">Express-Reinigung Zi. 45 & 51 bis 14:00</div><div class="todo-dept">Housekeeping</div></div><span class="chip chip-r">DRINGEND</span></div>
+        </div>
+        <div class="swipe-wrap"><div class="swipe-bg-l">✓ Erledigt</div><div class="swipe-bg-r">→ Verschieben</div>
+          <div class="todo-card"><div class="todo-cb"></div><div class="todo-body"><div class="todo-t">TripAdvisor Rezension Fam. Wagner beantworten</div><div class="todo-dept">Management</div></div><span class="chip chip-r">HOCH</span></div>
+        </div>
+        <div class="swipe-wrap"><div class="swipe-bg-l">✓ Erledigt</div><div class="swipe-bg-r">→ Verschieben</div>
+          <div class="todo-card"><div class="todo-cb"></div><div class="todo-body"><div class="todo-t">Frühstücksvertretung Zorah morgen klären</div><div class="todo-dept">Restaurant</div></div><span class="chip chip-r">HOCH</span></div>
+        </div>
+        <div class="swipe-wrap"><div class="swipe-bg-l">✓ Erledigt</div><div class="swipe-bg-r">→ Verschieben</div>
+          <div class="todo-card"><div class="todo-cb"></div><div class="todo-body"><div class="todo-t">Lager Milch prüfen & nachbestellen</div><div class="todo-dept">Küche</div></div><span class="chip chip-a">MITTEL</span></div>
+        </div>
+        <div class="swipe-wrap"><div class="swipe-bg-l">✓ Erledigt</div><div class="swipe-bg-r">→ Verschieben</div>
+          <div class="todo-card"><div class="todo-cb"></div><div class="todo-body"><div class="todo-t">Reparatur Heizung Zi. 48 – Handwerker bestätigen</div><div class="todo-dept">Technik</div></div><span class="chip chip-a">MITTEL</span></div>
+        </div>
+        <div class="swipe-wrap"><div class="swipe-bg-l">✓ Erledigt</div><div class="swipe-bg-r">→ Verschieben</div>
+          <div class="todo-card"><div class="todo-cb"></div><div class="todo-body"><div class="todo-t">Notausgänge Etage 2 – Wochenkontrolle</div><div class="todo-dept">Sicherheit</div></div><span class="chip chip-n">NIEDRIG</span></div>
+        </div>
+        <div class="swipe-wrap">
+          <div class="todo-card"><div class="todo-cb done">✓</div><div class="todo-body"><div class="todo-t done">Erste-Hilfe-Koffer Etage 1 kontrolliert</div><div class="todo-dept">Sicherheit</div></div><span class="chip chip-g">FERTIG</span></div>
+        </div>
+        <div class="swipe-hint">← rechts wischen zum Erledigen · links zum Verschieben →</div>
+
+        <div class="card">
+          <div class="ch"><div class="ct">📊 Diese Woche</div></div>
+          <div class="cb">
+            <div style="margin-bottom:11px"><div style="display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:4px"><span>Erledigt</span><span style="font-weight:600">18/41</span></div><div class="progress-bar"><div class="progress-fill bar-g" style="width:44%"></div></div></div>
+            <div style="margin-bottom:11px"><div style="display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:4px"><span>Housekeeping</span><span style="font-weight:600">8/12</span></div><div class="progress-bar"><div class="progress-fill bar-g" style="width:67%"></div></div></div>
+            <div><div style="display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:4px"><span>Restaurant</span><span style="font-weight:600">6/20</span></div><div class="progress-bar"><div class="progress-fill bar-r" style="width:30%"></div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════ HANDOVER ══════════ -->
+      <div class="page" id="p-handover">
+        <div class="card" style="background:linear-gradient(135deg,#1e1b4b,#312e81);border:none">
+          <div class="cb" style="color:#fff">
+            <div style="font-size:12px;font-weight:700;margin-bottom:6px">✨ KI-Zusammenfassung</div>
+            <div style="font-size:12.5px;line-height:1.6;opacity:.9">
+              <strong>Fokus heute:</strong> 10 Ankünfte, 2 VIP. Zi. 45 & 51 Toppriorität. Restaurant 19:30 mit 7 Pers. ausgebucht.<br><br>
+              <strong>Personal:</strong> Zorah morgen abwesend – Frühstücksvertretung offen.
+            </div>
+            <button class="ai-btn" style="margin-top:12px">✨ Neue Übergabe mit KI ausfüllen</button>
+          </div>
+        </div>
+
+        <div class="section-title">Aktuelle Übergaben</div>
+        <div class="hov-card">
+          <div class="hov-header">
+            <span class="hov-shift-badge">Früh → Mittelschicht</span>
+            <div class="hov-from">Maria R. → Thomas K. · 15:00</div>
+          </div>
+          <div class="hov-section">
+            <div class="hov-sl">⚠️ Dringendes</div>
+            <div class="hov-text">Zi. 48 – Fam. Mayer bittet um Extra-Handtücher bis 16:00. Tisch 19:30 für 7 Pers. bestätigt (Tisch 4+5).</div>
+          </div>
+          <div class="hov-section">
+            <div class="hov-sl">🏷 Besondere Gäste</div>
+            <div class="hov-guest"><span class="hov-room">Zi. 52</span>Fam. Hofer – 10. Hochzeitstag, Willkommenspaket ✅</div>
+            <div class="hov-guest"><span class="hov-room">Zi. 44</span>Hr. Brunner – VIP, Early-Check-in 13:00, Upgrade</div>
+          </div>
+          <div class="hov-section" style="margin-bottom:0">
+            <div class="hov-sl">📦 Lager & Sonstiges</div>
+            <div class="hov-text">Marmelade & Honig nachgeordert ✅ · Milch prüfen · Schlüssel Zi. 46 liegt an Rezeption</div>
+          </div>
+        </div>
+        <div class="hov-card" style="opacity:.7">
+          <div class="hov-header">
+            <span class="hov-shift-badge" style="background:#F3F4F6;color:var(--text2);border-color:var(--border)">Spät → Nachtschicht</span>
+            <div class="hov-from">Thomas K. → Jana M. · 23:00</div>
+          </div>
+          <div style="font-size:12.5px;color:var(--text2)">Noch nicht ausgefüllt · fällig 22:30</div>
+          <button class="voice-btn">🎙 Per Sprache ausfüllen</button>
+        </div>
+      </div>
+
+      <!-- ══════════ DIENSTPLAN ══════════ -->
+      <div class="page" id="p-dienstplan">
+        <div class="kpi-scroll">
+          <div class="kpi"><div class="kpi-lbl">Team Woche</div><div class="kpi-val">8</div><div class="kpi-sub">1 im Urlaub</div></div>
+          <div class="kpi"><div class="kpi-lbl">Stunden</div><div class="kpi-val">312<span>h</span></div><div class="kpi-sub"><span class="chip chip-g">i.Budget</span></div></div>
+          <div class="kpi"><div class="kpi-lbl">Offene Schicht</div><div class="kpi-val" style="color:var(--amber)">1</div><div class="kpi-sub"><span class="chip chip-a">Mo. Frühst.</span></div></div>
+        </div>
+
+        <div class="day-tabs">
+          <div class="day-tab"><div class="dn">MI</div><div class="dd">19</div></div>
+          <div class="day-tab"><div class="dn">DO</div><div class="dd">20</div></div>
+          <div class="day-tab"><div class="dn">FR</div><div class="dd">21</div></div>
+          <div class="day-tab active"><div class="dn">SA</div><div class="dd">22</div></div>
+          <div class="day-tab"><div class="dn">SO</div><div class="dd">23</div></div>
+          <div class="day-tab warn"><div class="dn">MO</div><div class="dd">24</div></div>
+          <div class="day-tab"><div class="dn">DI</div><div class="dd">25</div></div>
+        </div>
+
+        <div style="padding:11px 14px;background:var(--amber-bg);border:1px solid #FDE68A;border-radius:11px;font-size:12px;color:var(--amber);margin-bottom:14px;display:flex;gap:8px;align-items:flex-start">
+          <span>⚠️</span><div><strong>Mo. 24.8 Frühstück unbesetzt</strong> – Zorah im Urlaub.<br><button class="btn" style="background:var(--amber);color:#fff;font-size:11px;padding:5px 10px;border:none;border-radius:6px;margin-top:6px">✨ KI-Vorschlag</button></div>
+        </div>
+
+        <div class="card">
+          <div class="ch"><div class="ct">📅 Samstag, 22. August</div></div>
+          <div class="cb" style="padding:8px 16px">
+            <div class="shift-card"><div class="sh-av">MR</div><div><div class="sh-name">Maria R.</div><div class="sh-dept">Rezeption</div></div><div class="sh-time f">07–15</div></div>
+            <div class="shift-card"><div class="sh-av">TK</div><div><div class="sh-name">Thomas K.</div><div class="sh-dept">Rezeption</div></div><div class="sh-time m">15–23</div></div>
+            <div class="shift-card"><div class="sh-av">SM</div><div><div class="sh-name">Sabine M.</div><div class="sh-dept">Housekeeping</div></div><div class="sh-time f">08–16</div></div>
+            <div class="shift-card"><div class="sh-av">LB</div><div><div class="sh-name">Luca B.</div><div class="sh-dept">Restaurant</div></div><div class="sh-time s">17–23</div></div>
+            <div class="shift-card"><div class="sh-av" style="background:var(--green-bg);color:var(--green)">ZA</div><div><div class="sh-name">Zorah A.</div><div class="sh-dept">Restaurant</div></div><div class="sh-time vac">Urlaub</div></div>
+            <div class="shift-card"><div class="sh-av" style="background:var(--accent-light);color:var(--accent)">KP</div><div><div class="sh-name">Klaus P.</div><div class="sh-dept">Management</div></div><div class="sh-time f">09–18</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════ BUDGET ══════════ -->
+      <div class="page" id="p-budget">
+        <div class="kpi-scroll">
+          <div class="kpi"><div class="kpi-lbl">Umsatz YTD</div><div class="kpi-val">847<span>k€</span></div><div class="kpi-sub"><span class="chip chip-g">↑ +12%</span></div></div>
+          <div class="kpi"><div class="kpi-lbl">GOP YTD</div><div class="kpi-val">312<span>k€</span></div><div class="kpi-sub"><span class="chip chip-g">36.8%</span></div></div>
+          <div class="kpi"><div class="kpi-lbl">Personalk.</div><div class="kpi-val">38<span>%</span></div><div class="kpi-sub"><span class="chip chip-a">Budget 35%</span></div></div>
+          <div class="kpi"><div class="kpi-lbl">RevPAR</div><div class="kpi-val">287<span>€</span></div><div class="kpi-sub"><span class="chip chip-g">↑ +22€</span></div></div>
+        </div>
+
+        <div class="card">
+          <div class="ch"><div class="ct">✨ KI-Forecast Sept–Dez</div></div>
+          <div class="cb">
+            <div style="font-size:12.5px;line-height:1.55;color:var(--text2)">Basierend auf Buchungsstand & Vorjahr erwartet die KI ein Jahresergebnis von <strong style="color:var(--text)">1.42 Mio. €</strong> – ca. 8% über Budget.</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="ch"><div class="ct">📊 Prognose vs. Effektiv</div></div>
+          <div class="cb">
+            <div class="bud-chart">
+              <div class="bar-wrap"><div class="bar-group"><div class="b-forecast" style="height:66px"></div><div class="b-actual" style="height:70px"></div></div><div class="bar-lbl">Jan</div></div>
+              <div class="bar-wrap"><div class="bar-group"><div class="b-forecast" style="height:55px"></div><div class="b-actual" style="height:60px"></div></div><div class="bar-lbl">Feb</div></div>
+              <div class="bar-wrap"><div class="bar-group"><div class="b-forecast" style="height:62px"></div><div class="b-actual" style="height:64px"></div></div><div class="bar-lbl">Mär</div></div>
+              <div class="bar-wrap"><div class="bar-group"><div class="b-forecast" style="height:74px"></div><div class="b-actual" style="height:80px"></div></div><div class="bar-lbl">Apr</div></div>
+              <div class="bar-wrap"><div class="bar-group"><div class="b-forecast" style="height:88px"></div><div class="b-actual" style="height:98px"></div></div><div class="bar-lbl">Mai</div></div>
+              <div class="bar-wrap"><div class="bar-group"><div class="b-forecast" style="height:95px"></div><div class="b-actual" style="height:93px"></div></div><div class="bar-lbl">Jun</div></div>
+              <div class="bar-wrap"><div class="bar-group"><div class="b-forecast" style="height:108px"></div><div class="b-actual" style="height:112px"></div></div><div class="bar-lbl">Jul</div></div>
+              <div class="bar-wrap"><div class="bar-group"><div class="b-forecast" style="height:104px"></div><div class="b-actual" style="height:0"></div></div><div class="bar-lbl" style="color:var(--accent);font-weight:700">Aug</div></div>
+              <div class="bar-wrap"><div class="bar-group"><div class="b-forecast" style="height:88px"></div></div><div class="bar-lbl">Sep</div></div>
+              <div class="bar-wrap"><div class="bar-group"><div class="b-forecast" style="height:74px"></div></div><div class="bar-lbl">Okt</div></div>
+              <div class="bar-wrap"><div class="bar-group"><div class="b-forecast" style="height:58px"></div></div><div class="bar-lbl">Nov</div></div>
+              <div class="bar-wrap"><div class="bar-group"><div class="b-forecast" style="height:68px"></div></div><div class="bar-lbl">Dez</div></div>
+            </div>
+            <div style="display:flex;gap:14px;font-size:11px;color:var(--text2)"><span><span style="width:9px;height:9px;background:var(--accent-light);border-radius:2px;display:inline-block;margin-right:4px"></span>Prognose</span><span><span style="width:9px;height:9px;background:var(--accent);border-radius:2px;display:inline-block;margin-right:4px"></span>Effektiv</span></div>
+            <button class="toggle-detail" onclick="document.getElementById('budDetail').classList.toggle('open')">📋 Detailtabelle anzeigen</button>
+            <div class="bud-detail" id="budDetail">
+              <div class="bud-row group"><span>Betriebserlöse</span></div>
+              <div class="bud-row"><span>Logisumsatz</span><span>698k€ <span style="color:var(--green)">(+78k)</span></span></div>
+              <div class="bud-row"><span>Restaurant</span><span>132k€ <span style="color:var(--red)">(−8k)</span></span></div>
+              <div class="bud-row"><span>Nebenerlöse</span><span>47k€ <span style="color:var(--green)">(+2k)</span></span></div>
+              <div class="bud-row group"><span>Gesamt</span><span style="color:var(--green)">877k€ (+72k)</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════ MEHR ══════════ -->
+      <div class="page" id="p-more">
+        <div class="section-title" data-section="strategie">Strategie</div>
+        <div class="more-list" style="margin-bottom:16px">
+          <div class="more-item" data-page="competitors" onclick="go('competitors')"><div class="more-ic">🏆</div><div><div class="more-t">Mitbewerber</div><div class="more-s">Rang #1 · Preisvorteil +22€</div></div><div class="more-chev">›</div></div>
+          <div class="more-item" data-page="budget" onclick="go('budget')"><div class="more-ic">📊</div><div><div class="more-t">Budget & Forecast</div><div class="more-s">847k€ YTD · +12% vs. Budget</div></div><div class="more-chev">›</div></div>
+        </div>
+        <div class="section-title" data-section="personal">Personal</div>
+        <div class="more-list" style="margin-bottom:16px">
+          <div class="more-item" data-page="dienstplan" onclick="go('dienstplan')"><div class="more-ic">📅</div><div><div class="more-t">Dienstplan</div><div class="more-s">1 offene Schicht</div></div><div class="more-chev">›</div></div>
+          <div class="more-item" data-page="recruiting" onclick="go('recruiting')"><div class="more-ic">🔍</div><div><div class="more-t">Recruiting</div><div class="more-s">3 neue Bewerbungen</div></div><div class="more-chev">›</div></div>
+          <div class="more-item" data-page="handbuch" onclick="go('handbuch')"><div class="more-ic">📖</div><div><div class="more-t">Handbücher</div><div class="more-s">7 Dokumente</div></div><div class="more-chev">›</div></div>
+        </div>
+        <div class="section-title" data-section="betrieb">Betrieb</div>
+        <div class="more-list">
+          <div class="more-item" data-page="repairs" onclick="go('repairs')"><div class="more-ic">🔧</div><div><div class="more-t">Reparaturen</div><div class="more-s">2 offen</div></div><div class="more-chev">›</div></div>
+          <div class="more-item" data-page="notes" onclick="go('notes')"><div class="more-ic">📝</div><div><div class="more-t">Notizen</div><div class="more-s">6 aktive Notizen</div></div><div class="more-chev">›</div></div>
+        </div>
+      </div>
+
+      <!-- ══════════ COMPETITORS ══════════ -->
+      <div class="page" id="p-competitors">
+        <div class="ai-banner" style="padding:13px">
+          <div class="ai-top"><span>✨</span><span class="ai-title">Wettbewerbs-Analyse</span></div>
+          <div class="ai-body">Du bist weiter #1 in der Region. Hotel Am Hang hat Preise um Ø 40€ erhöht. Deine Position bleibt wettbewerbsfähig.</div>
+        </div>
+        <div class="kpi-scroll">
+          <div class="kpi"><div class="kpi-lbl">Rang Region</div><div class="kpi-val" style="color:var(--accent)">#1</div><div class="kpi-sub">von 12</div></div>
+          <div class="kpi"><div class="kpi-lbl">Preisvorteil</div><div class="kpi-val">+22<span>€</span></div><div class="kpi-sub">vs. #2</div></div>
+          <div class="kpi"><div class="kpi-lbl">Bewertung</div><div class="kpi-val">+0.1<span>★</span></div><div class="kpi-sub">4.9 vs 4.8</div></div>
+        </div>
+        <div class="section-title">Relevante Mitbewerber (4/2199 gefiltert)</div>
+        <div class="comp-card comp-self">
+          <div class="comp-top"><div class="comp-name" style="color:var(--accent)">⭐ Weihrerhof</div><span class="comp-rank" style="background:var(--accent-light);color:var(--accent)">#1</span></div>
+          <div class="comp-row"><span class="stars">★★★★★</span><strong>4.9</strong><span style="color:var(--text2)">137 Rez.</span></div>
+          <div class="comp-row">392–597€</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px"><span class="tag">Family</span><span class="tag">Trendy</span><span class="tag">Romantic</span></div>
+        </div>
+        <div class="comp-card">
+          <div class="comp-top"><div class="comp-name">Hotel Am Hang</div></div>
+          <div class="comp-row"><span class="stars">★★★★★</span><strong>4.8</strong><span style="color:var(--text2)">69 Rez.</span></div>
+          <div class="comp-row">299–667€ <span class="chip chip-a" style="font-size:9.5px">Preise ↑</span></div>
+        </div>
+        <div class="comp-card">
+          <div class="comp-top"><div class="comp-name">Hotel Rinner</div></div>
+          <div class="comp-row"><span class="stars">★★★★☆</span><strong>4.5</strong><span style="color:var(--text2)">94 Rez.</span></div>
+          <div class="comp-row">204–451€</div>
+        </div>
+        <div class="card">
+          <div class="ch"><div class="ct">📋 Neue Rezensionen</div></div>
+          <div class="cb">
+            <div class="al"><div class="al-ic r">⭐</div><div><div class="al-t">Hotel Rinner – 2★</div><div class="al-m">"Zimmer veraltet" · vor 3 Tagen</div></div><div class="al-r"><span class="sc sc-g">CHANCE</span></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════ RECRUITING ══════════ -->
+      <div class="page" id="p-recruiting">
+        <div class="ai-banner" style="padding:13px">
+          <div class="ai-top"><span>✨</span><span class="ai-title">KI-Recruiting</span></div>
+          <div class="ai-body">3 neue Bewerbungen heute – KI hat vorausgewertet: 1 sehr empfohlen, 1 akzeptabel, 1 nicht passend.</div>
+        </div>
+        <div class="stage-tabs">
+          <div class="stage-tab active">📥 Neu (3)</div>
+          <div class="stage-tab">📞 Eingeladen (2)</div>
+          <div class="stage-tab">🤝 Angebot (1)</div>
+          <div class="stage-tab">✅ Eingestellt (3)</div>
+        </div>
+        <div class="recruit-card">
+          <div class="rc-top"><div class="rc-name">Lena Huber</div><span class="chip chip-g">✨ EMPFOHLEN</span></div>
+          <div class="rc-role">Servicekraft / Restaurant</div>
+          <div class="score-row"><div class="score-bar"><div class="score-fill bar-g" style="width:88%"></div></div><span style="font-size:11px;font-weight:700;color:var(--green)">88%</span></div>
+          <div class="rc-meta">3 J. Erfahrung · DE, EN, IT</div>
+        </div>
+        <div class="recruit-card">
+          <div class="rc-top"><div class="rc-name">Marco Bauer</div><span class="chip chip-a">MÖGLICH</span></div>
+          <div class="rc-role">Rezeptionist</div>
+          <div class="score-row"><div class="score-bar"><div class="score-fill bar-a" style="width:62%"></div></div><span style="font-size:11px;font-weight:700;color:var(--amber)">62%</span></div>
+          <div class="rc-meta">1 J. Erfahrung · DE, EN</div>
+        </div>
+        <div class="recruit-card" style="opacity:.6">
+          <div class="rc-top"><div class="rc-name">Petra Schmidt</div><span class="chip chip-r">NICHT PASSEND</span></div>
+          <div class="rc-role">Köchin</div>
+          <div class="score-row"><div class="score-bar"><div class="score-fill bar-r" style="width:28%"></div></div><span style="font-size:11px;font-weight:700;color:var(--red)">28%</span></div>
+        </div>
+      </div>
+
+      <!-- ══════════ REPAIRS ══════════ -->
+      <div class="page" id="p-repairs">
+        <div class="kpi-scroll">
+          <div class="kpi"><div class="kpi-lbl">Offen</div><div class="kpi-val" style="color:var(--red)">2</div></div>
+          <div class="kpi"><div class="kpi-lbl">In Arbeit</div><div class="kpi-val" style="color:var(--amber)">1</div></div>
+          <div class="kpi"><div class="kpi-lbl">Woche erledigt</div><div class="kpi-val" style="color:var(--green)">3</div></div>
+        </div>
+        <div class="section-title">Offene Reparaturen</div>
+        <div class="rep">
+          <div class="rep-prio h"></div>
+          <div class="rep-ic" style="background:var(--red-bg)">🔥</div>
+          <div style="flex:1">
+            <div style="font-size:13.5px;font-weight:700">Heizung schwächelt</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:2px">Zi. 48 · Gast beschwert sich seit gestern</div>
+          </div>
+          <span class="sc sc-r">DRINGEND</span>
+        </div>
+        <div class="rep">
+          <div class="rep-prio m"></div>
+          <div class="rep-ic" style="background:var(--amber-bg)">🔧</div>
+          <div style="flex:1">
+            <div style="font-size:13.5px;font-weight:700">Fenstergriff lose</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:2px">Zi. 55 · Etage 2</div>
+          </div>
+          <span class="sc sc-a">IN ARBEIT</span>
+        </div>
+        <div class="card">
+          <div class="ch"><div class="ct">+ Neue Reparatur melden</div></div>
+          <div class="cb">
+            <div style="display:flex;flex-direction:column;gap:9px">
+              <input style="padding:10px 12px;border:1px solid var(--border);border-radius:9px;font-size:13.5px" placeholder="Beschreibung...">
+              <select style="padding:10px 12px;border:1px solid var(--border);border-radius:9px;font-size:13.5px;background:white"><option>Zimmer wählen...</option></select>
+              <button style="padding:11px;background:var(--accent);color:#fff;border:none;border-radius:9px;font-weight:600;font-size:13px">📷 Foto + Melden</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════ NOTES ══════════ -->
+      <div class="page" id="p-notes">
+        <div class="search-bar"><input placeholder="Notizen durchsuchen..."></div>
+        <div class="note-grid">
+          <div class="note-card" style="background:#FEF3C7">
+            <div class="note-title">Gast Wünsche VIP Zi. 44</div>
+            <div class="note-body">Hr. Brunner – allergisch gegen Nüsse. Kein Nussnougataufstrich. Fensterplatz. Stilles Wasser.</div>
+            <div class="note-meta">Klaus · vor 2 Std.</div>
+          </div>
+          <div class="note-card" style="background:#DCFCE7">
+            <div class="note-title">Lieferanten Kontakte</div>
+            <div class="note-body">Bäckerei Mayr: 0471-123456 · Fleischer Hofer: 0471-654321</div>
+            <div class="note-meta">Klaus · 15.08.2026</div>
+          </div>
+          <div class="note-card" style="background:#DBEAFE">
+            <div class="note-title">Renovierung Etage 2 – Herbst</div>
+            <div class="note-body">Zi. 55–61 im November. Termin 3.–21. Nov. Gäste umbuchen!</div>
+            <div class="note-meta">Klaus · 10.08.2026</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════ HANDBUCH ══════════ -->
+      <div class="page" id="p-handbuch">
+        <div class="search-bar"><input placeholder="Handbuch durchsuchen..."></div>
+        <div class="hb-item"><div class="hb-ic">🏨</div><div><div class="hb-t">Check-in & Check-out Ablauf</div><div class="hb-m">Rezeption · 01.08.2026</div></div><span class="chip chip-g" style="margin-left:auto">Aktuell</span></div>
+        <div class="hb-item"><div class="hb-ic">🧹</div><div><div class="hb-t">Reinigungsstandards</div><div class="hb-m">Housekeeping · 15.07.2026</div></div><span class="chip chip-g" style="margin-left:auto">Aktuell</span></div>
+        <div class="hb-item"><div class="hb-ic">🔥</div><div><div class="hb-t">Brandschutz & Evakuierung</div><div class="hb-m">Sicherheit · 10.01.2026</div></div><span class="chip chip-a" style="margin-left:auto">Prüfen</span></div>
+        <div class="hb-item"><div class="hb-ic">🍽</div><div><div class="hb-t">Allergen-Management</div><div class="hb-m">Restaurant · 20.06.2026</div></div><span class="chip chip-g" style="margin-left:auto">Aktuell</span></div>
+      </div>
+
+      <!-- ══════════ CHAT ══════════ -->
+      <div class="page" id="p-chat" style="margin:-16px;height:calc(100% + 16px)">
+        <div class="chat-page">
+          <div class="chat-quick">
+            <div class="qchip">📝 Übergabe schreiben</div>
+            <div class="qchip">⭐ Rezension beantworten</div>
+            <div class="qchip">📊 Budget-Analyse</div>
+            <div class="qchip">🔍 Recruiting-Hilfe</div>
+            <div class="qchip">📅 Dienstplan</div>
+          </div>
+          <div class="chat-messages">
+            <div class="msg ai">
+              <div class="msg-bubble">Guten Morgen, Klaus! 🌄 Kurze Zusammenfassung:<br><br>• ⚡ Zi. 45 & 51 Express bis 14:00<br>• ⭐ 1 unbeantwortete Rezension (5★)<br>• 👤 Zorah Urlaub – Frühstück Mo. 24.8 offen<br><br>Womit kann ich helfen?</div>
+              <div class="msg-time">09:00</div>
+            </div>
+            <div class="msg user">
+              <div class="msg-bubble">Schreib mir eine Antwort für Fam. Wagner</div>
+              <div class="msg-time">09:14</div>
+            </div>
+            <div class="msg ai">
+              <div class="msg-bubble">Gerne! Entwurf:<br><br><em>Liebe Familie Wagner, herzlichen Dank für Ihre wundervolle Bewertung! Es freut uns sehr, dass Sie sich bei uns wohlgefühlt haben...</em><br><br>Ton anpassen?</div>
+              <div class="msg-time">09:14</div>
+            </div>
+          </div>
+          <div class="chat-input-row">
+            <button class="mic-btn">🎙</button>
+            <input class="chat-input" placeholder="Frage stellen...">
+            <button class="chat-send">↑</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- FAB (contextual) -->
+    <button class="fab" id="fab" style="display:none">+</button>
+
+    <!-- ============ BOTTOM NAV ============ -->
+    <div class="bottomnav" id="bottomnav"></div>
+
+  </div>
+</div>
+</div>
+
+<script>
+const titles = {
+  dashboard:'Dashboard', housekeeping:'Housekeeping', todos:'Aufgaben & Checklisten',
+  handover:'Schichtübergaben', dienstplan:'Dienstplanung', budget:'Budget & Forecast',
+  competitors:'Mitbewerber', recruiting:'Recruiting', repairs:'Reparaturen',
+  notes:'Notizen', handbuch:'Handbücher', chat:'KI-Assistent', more:'Mehr'
+};
+let currentBottomTabs = ['dashboard','todos','housekeeping','chat','more'];
+
+function go(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const p = document.getElementById('p-'+id);
+  if(p) p.classList.add('active');
+
+  const isHome = id === 'dashboard';
+  document.getElementById('topbar-default').style.display = isHome ? 'flex' : 'none';
+  document.getElementById('topbar-sub').style.display = isHome ? 'none' : 'flex';
+  if(!isHome){ document.getElementById('sub-title').textContent = titles[id] || id; }
+
+  document.querySelectorAll('.bn-item').forEach(n=>n.classList.remove('active'));
+  if(currentBottomTabs.includes(id)){
+    document.querySelector(`.bn-item[data-tab="${id}"]`)?.classList.add('active');
+  }
+  document.getElementById('content').scrollTop = 0;
+}
+
+function openSheet(){ /* room detail placeholder for demo */ }
+
+/* ============ ROLE-BASED ACCESS (demo) ============ */
+const pageRoles = {
+  dashboard:    ['admin','management','reception','housekeeping','restaurant'],
+  chat:         ['admin','management','reception','housekeeping','restaurant'],
+  todos:        ['admin','management','reception','housekeeping','restaurant'],
+  handbuch:     ['admin','management','reception','housekeeping','restaurant'],
+  more:         ['admin','management','reception','housekeeping','restaurant'],
+  handover:     ['admin','management','reception','restaurant'],
+  notes:        ['admin','management','reception','restaurant'],
+  housekeeping: ['admin','management','housekeeping'],
+  repairs:      ['admin','management','housekeeping'],
+  dienstplan:   ['admin','management'],
+  budget:       ['admin','management'],
+  competitors:  ['admin','management'],
+  recruiting:   ['admin']
+};
+
+const roleProfiles = {
+  admin:        {first:'Klaus'},
+  management:   {first:'Klaus'},
+  reception:    {first:'Maria'},
+  housekeeping: {first:'Sabine'},
+  restaurant:   {first:'Luca'}
+};
+
+const bottomNavConfig = {
+  admin:        [['dashboard','🏠','Start'],['todos','✅','Aufgaben'],['housekeeping','🧹','Housek.'],['chat','✨','KI-Chat'],['more','⋯','Mehr']],
+  management:   [['dashboard','🏠','Start'],['todos','✅','Aufgaben'],['budget','📊','Budget'],['chat','✨','KI-Chat'],['more','⋯','Mehr']],
+  reception:    [['dashboard','🏠','Start'],['todos','✅','Aufgaben'],['handover','🤝','Übergabe'],['chat','✨','KI-Chat'],['more','⋯','Mehr']],
+  housekeeping: [['dashboard','🏠','Start'],['housekeeping','🧹','Zimmer'],['todos','✅','Aufgaben'],['repairs','🔧','Reparatur'],['chat','✨','KI-Chat']],
+  restaurant:   [['dashboard','🏠','Start'],['todos','✅','Aufgaben'],['handover','🤝','Übergabe'],['notes','📝','Notizen'],['chat','✨','KI-Chat']]
+};
+
+function renderBottomNav(role){
+  const cfg = bottomNavConfig[role];
+  currentBottomTabs = cfg.map(c=>c[0]);
+  document.getElementById('bottomnav').innerHTML = cfg.map(([id,icon,label])=>
+    `<button class="bn-item" onclick="go('${id}')" data-tab="${id}"><span class="bn-ic">${icon}</span><span class="bn-lbl">${label}</span></button>`
+  ).join('');
+}
+
+function setRole(role, chipEl){
+  // update role chip highlighting
+  document.querySelectorAll('.role-chip').forEach(c=>c.classList.remove('active'));
+  (chipEl || document.querySelector(`.role-chip[data-role="${role}"]`))?.classList.add('active');
+
+  // show/hide anything tagged with data-page based on allowed roles
+  document.querySelectorAll('[data-page]').forEach(el=>{
+    const allowed = pageRoles[el.getAttribute('data-page')];
+    el.style.display = (!allowed || allowed.includes(role)) ? '' : 'none';
+  });
+
+  // hide "Mehr" section headers whose items are all hidden
+  document.querySelectorAll('.section-title[data-section]').forEach(st=>{
+    let sib = st.nextElementSibling;
+    const anyVisible = sib && [...sib.querySelectorAll('[data-page]')].some(x=>x.style.display !== 'none');
+    st.style.display = anyVisible ? '' : 'none';
+    if(sib) sib.style.display = anyVisible ? '' : 'none';
+  });
+
+  // greeting name
+  const greetEl = document.querySelector('#topbar-default .tb-greeting');
+  if(greetEl) greetEl.textContent = 'Guten Morgen, ' + roleProfiles[role].first;
+
+  renderBottomNav(role);
+
+  // redirect away if the currently open page is not allowed for this role
+  const activeId = document.querySelector('.page.active')?.id?.replace('p-','');
+  const stillAllowed = !pageRoles[activeId] || pageRoles[activeId].includes(role);
+  if(!stillAllowed){
+    go('dashboard');
+  } else if(currentBottomTabs.includes(activeId)){
+    document.querySelectorAll('.bn-item').forEach(n=>n.classList.remove('active'));
+    document.querySelector(`.bn-item[data-tab="${activeId}"]`)?.classList.add('active');
+  }
+}
+
+setRole('admin');
+</script>
+</body>
+</html>
