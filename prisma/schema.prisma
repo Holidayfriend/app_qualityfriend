@@ -59,60 +59,66 @@ enum PaymentProvider {
 }
 
 model HotelTenant {
-  id               String        @id @default(uuid()) @db.Uuid
-  hotelNameEn      String        @map("hotel_name_en") @db.VarChar(180)
-  hotelNameDe      String        @map("hotel_name_de") @db.VarChar(180)
-  hotelNameIt      String        @map("hotel_name_it") @db.VarChar(180)
-  email            String        @db.VarChar(320)
-  logoUrl          String?       @map("logo_url") @db.VarChar(2048)
-  hotelLanguage    HotelLanguage @default(EN) @map("hotel_language")
-  isActive         Boolean       @default(true) @map("is_active")
-  dataProtectionEn String?       @map("data_protection_en") @db.Text
-  dataProtectionDe String?       @map("data_protection_de") @db.Text
-  dataProtectionIt String?       @map("data_protection_it") @db.Text
-  privacyPolicyEn  String?       @map("privacy_policy_en") @db.Text
-  privacyPolicyDe  String?       @map("privacy_policy_de") @db.Text
-  privacyPolicyIt  String?       @map("privacy_policy_it") @db.Text
-  companyName      String        @map("company_name") @db.VarChar(180)
-  streetAddress    String        @map("street_address") @db.VarChar(255)
-  postalCode       String        @map("postal_code") @db.VarChar(32)
-  city             String        @db.VarChar(120)
-  country          String        @db.VarChar(120)
-  contactPerson    String        @map("contact_person") @db.VarChar(180)
-  phoneNumber      String?       @map("phone_number") @db.VarChar(40)
-  vatId            String?       @map("vat_id") @db.VarChar(64)
-  tripadvisorId    String?       @map("tripadvisor_id") @db.VarChar(120)
-  subscriptionStatus SubscriptionStatus @default(PENDING) @map("subscription_status")
-  paypalSubscriptionId String?   @unique @map("paypal_subscription_id") @db.VarChar(128)
-  paypalPlanId     String?       @map("paypal_plan_id") @db.VarChar(128)
-  subscriptionStartedAt DateTime? @map("subscription_started_at") @db.Timestamptz(3)
-  subscriptionCurrentPeriodEnd DateTime? @map("subscription_current_period_end") @db.Timestamptz(3)
-  subscriptionCancelledAt DateTime? @map("subscription_cancelled_at") @db.Timestamptz(3)
-  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
-  users            User[]
-  departments      Department[]
-  teams            Team[]
-  auditLogs        AuditLog[]
-  rolePermissions  RoleModulePermission[]
-  subscriptions    Subscription[]
-  paymentEvents    PaymentEvent[]
-  couponRedemptions CouponRedemption[]
+  id                           String                 @id @default(uuid()) @db.Uuid
+  hotelNameEn                  String                 @map("hotel_name_en") @db.VarChar(180)
+  hotelNameDe                  String                 @map("hotel_name_de") @db.VarChar(180)
+  hotelNameIt                  String                 @map("hotel_name_it") @db.VarChar(180)
+  email                        String                 @db.VarChar(320)
+  logoUrl                      String?                @map("logo_url") @db.VarChar(2048)
+  hotelLanguage                HotelLanguage          @default(EN) @map("hotel_language")
+  isActive                     Boolean                @default(true) @map("is_active")
+  dataProtectionEn             String?                @map("data_protection_en") @db.Text
+  dataProtectionDe             String?                @map("data_protection_de") @db.Text
+  dataProtectionIt             String?                @map("data_protection_it") @db.Text
+  privacyPolicyEn              String?                @map("privacy_policy_en") @db.Text
+  privacyPolicyDe              String?                @map("privacy_policy_de") @db.Text
+  privacyPolicyIt              String?                @map("privacy_policy_it") @db.Text
+  companyName                  String                 @map("company_name") @db.VarChar(180)
+  streetAddress                String                 @map("street_address") @db.VarChar(255)
+  postalCode                   String                 @map("postal_code") @db.VarChar(32)
+  city                         String                 @db.VarChar(120)
+  country                      String                 @db.VarChar(120)
+  contactPerson                String                 @map("contact_person") @db.VarChar(180)
+  phoneNumber                  String?                @map("phone_number") @db.VarChar(40)
+  vatId                        String?                @map("vat_id") @db.VarChar(64)
+  tripadvisorId                String?                @map("tripadvisor_id") @db.VarChar(120)
+  activeMcp                    Boolean                @default(false) @map("active_mcp")
+  mcpHotelId                   String?                @map("mcp_hotel_id") @db.VarChar(128)
+  mcpUserEmail                 String?                @map("mcp_user_email") @db.VarChar(320)
+  mcpUserPassword              String?                @map("mcp_user_password") @db.VarChar(255)
+  mcpUserDepartment            String?                @map("mcp_user_department") @db.VarChar(128)
+  subscriptionStatus           SubscriptionStatus     @default(PENDING) @map("subscription_status")
+  paypalSubscriptionId         String?                @unique @map("paypal_subscription_id") @db.VarChar(128)
+  paypalPlanId                 String?                @map("paypal_plan_id") @db.VarChar(128)
+  subscriptionStartedAt        DateTime?              @map("subscription_started_at") @db.Timestamptz(3)
+  subscriptionCurrentPeriodEnd DateTime?              @map("subscription_current_period_end") @db.Timestamptz(3)
+  subscriptionCancelledAt      DateTime?              @map("subscription_cancelled_at") @db.Timestamptz(3)
+  createdAt                    DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                    DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  users                        User[]
+  departments                  Department[]
+  teams                        Team[]
+  auditLogs                    AuditLog[]
+  rolePermissions              RoleModulePermission[]
+  subscriptions                Subscription[]
+  paymentEvents                PaymentEvent[]
+  couponRedemptions            CouponRedemption[]
 
   @@index([isActive])
+  @@index([activeMcp])
   @@map("hotel_tenants")
 }
 
 model Coupon {
-  id              String   @id @default(uuid()) @db.Uuid
-  code            String   @unique @db.VarChar(64)
-  percentOff      Int      @map("percent_off")
-  maxRedemptions  Int?     @map("max_redemptions")
-  redemptionCount Int     @default(0) @map("redemption_count")
-  expiresAt       DateTime? @map("expires_at") @db.Timestamptz(3)
-  isActive        Boolean  @default(true) @map("is_active")
-  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id              String             @id @default(uuid()) @db.Uuid
+  code            String             @unique @db.VarChar(64)
+  percentOff      Int                @map("percent_off")
+  maxRedemptions  Int?               @map("max_redemptions")
+  redemptionCount Int                @default(0) @map("redemption_count")
+  expiresAt       DateTime?          @map("expires_at") @db.Timestamptz(3)
+  isActive        Boolean            @default(true) @map("is_active")
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
   redemptions     CouponRedemption[]
 
   @@index([isActive, expiresAt])
@@ -120,15 +126,15 @@ model Coupon {
 }
 
 model CouponRedemption {
-  id                   String   @id @default(uuid()) @db.Uuid
-  couponId             String   @map("coupon_id") @db.Uuid
-  hotelTenantId        String   @unique @map("hotel_tenant_id") @db.Uuid
-  originalAmount       Decimal  @map("original_amount") @db.Decimal(10, 2)
-  discountedAmount     Decimal  @map("discounted_amount") @db.Decimal(10, 2)
-  currencyCode         String   @default("EUR") @map("currency_code") @db.VarChar(3)
-  paypalSubscriptionId String?  @map("paypal_subscription_id") @db.VarChar(128)
-  redeemedAt           DateTime @default(now()) @map("redeemed_at") @db.Timestamptz(3)
-  coupon               Coupon   @relation(fields: [couponId], references: [id], onDelete: Restrict)
+  id                   String      @id @default(uuid()) @db.Uuid
+  couponId             String      @map("coupon_id") @db.Uuid
+  hotelTenantId        String      @unique @map("hotel_tenant_id") @db.Uuid
+  originalAmount       Decimal     @map("original_amount") @db.Decimal(10, 2)
+  discountedAmount     Decimal     @map("discounted_amount") @db.Decimal(10, 2)
+  currencyCode         String      @default("EUR") @map("currency_code") @db.VarChar(3)
+  paypalSubscriptionId String?     @map("paypal_subscription_id") @db.VarChar(128)
+  redeemedAt           DateTime    @default(now()) @map("redeemed_at") @db.Timestamptz(3)
+  coupon               Coupon      @relation(fields: [couponId], references: [id], onDelete: Restrict)
   hotelTenant          HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
 
   @@unique([couponId, hotelTenantId])
@@ -156,19 +162,19 @@ model Subscription {
 }
 
 model PaymentEvent {
-  id              String          @id @default(uuid()) @db.Uuid
-  provider        PaymentProvider @default(PAYPAL)
-  providerEventId String          @unique @map("provider_event_id") @db.VarChar(128)
-  eventType       String          @map("event_type") @db.VarChar(160)
-  providerTransactionId String?   @map("provider_transaction_id") @db.VarChar(128)
-  amount          Decimal?        @db.Decimal(12, 2)
-  currencyCode    String?         @map("currency_code") @db.VarChar(3)
-  transactionAt   DateTime?       @map("transaction_at") @db.Timestamptz(3)
-  hotelTenantId   String?         @map("hotel_tenant_id") @db.Uuid
-  payload         Json
-  processedAt     DateTime?       @map("processed_at") @db.Timestamptz(3)
-  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
-  hotelTenant     HotelTenant?    @relation(fields: [hotelTenantId], references: [id], onDelete: SetNull)
+  id                    String          @id @default(uuid()) @db.Uuid
+  provider              PaymentProvider @default(PAYPAL)
+  providerEventId       String          @unique @map("provider_event_id") @db.VarChar(128)
+  eventType             String          @map("event_type") @db.VarChar(160)
+  providerTransactionId String?         @map("provider_transaction_id") @db.VarChar(128)
+  amount                Decimal?        @db.Decimal(12, 2)
+  currencyCode          String?         @map("currency_code") @db.VarChar(3)
+  transactionAt         DateTime?       @map("transaction_at") @db.Timestamptz(3)
+  hotelTenantId         String?         @map("hotel_tenant_id") @db.Uuid
+  payload               Json
+  processedAt           DateTime?       @map("processed_at") @db.Timestamptz(3)
+  createdAt             DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  hotelTenant           HotelTenant?    @relation(fields: [hotelTenantId], references: [id], onDelete: SetNull)
 
   @@index([hotelTenantId, createdAt])
   @@index([eventType, createdAt])
@@ -178,52 +184,52 @@ model PaymentEvent {
 }
 
 model BillingConfiguration {
-  id                String   @id @db.VarChar(32)
-  provider          PaymentProvider @default(PAYPAL)
-  environment       String   @default("sandbox") @db.VarChar(16)
-  productId         String?  @map("product_id") @db.VarChar(128)
-  planId            String?  @map("plan_id") @db.VarChar(128)
-  productName       String   @default("QualityFriend Hotel Operations") @map("product_name") @db.VarChar(127)
-  planName          String   @default("QualityFriend Monthly") @map("plan_name") @db.VarChar(127)
-  currencyCode      String   @default("EUR") @map("currency_code") @db.VarChar(3)
-  monthlyPrice      Decimal  @default(39.00) @map("monthly_price") @db.Decimal(10, 2)
-  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id           String          @id @db.VarChar(32)
+  provider     PaymentProvider @default(PAYPAL)
+  environment  String          @default("sandbox") @db.VarChar(16)
+  productId    String?         @map("product_id") @db.VarChar(128)
+  planId       String?         @map("plan_id") @db.VarChar(128)
+  productName  String          @default("QualityFriend Hotel Operations") @map("product_name") @db.VarChar(127)
+  planName     String          @default("QualityFriend Monthly") @map("plan_name") @db.VarChar(127)
+  currencyCode String          @default("EUR") @map("currency_code") @db.VarChar(3)
+  monthlyPrice Decimal         @default(39.00) @map("monthly_price") @db.Decimal(10, 2)
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   @@map("billing_configurations")
 }
 
 model User {
-  id            String      @id @default(uuid()) @db.Uuid
-  hotelTenantId String      @map("hotel_tenant_id") @db.Uuid
-  firstName     String      @map("first_name") @db.VarChar(120)
-  lastName      String      @map("last_name") @db.VarChar(120)
-  email         String      @unique @db.VarChar(320)
-  passwordHash  String      @map("password_hash") @db.VarChar(255)
-  phoneNumber   String?     @map("phone_number") @db.VarChar(40)
-  language      HotelLanguage @default(EN) @map("language")
-  role          UserRole    @default(EMPLOYEE)
-  departmentId  String?     @map("department_id") @db.Uuid
-  isActive      Boolean     @default(true) @map("is_active")
-  isDeleted     Boolean     @default(false) @map("is_deleted")
-  deletedAt     DateTime?   @map("deleted_at") @db.Timestamptz(3)
-  lastLoginAt   DateTime?   @map("last_login_at") @db.Timestamptz(3)
-  lastSeenAt    DateTime?   @map("last_seen_at") @db.Timestamptz(3)
-  twoFactorEnabled Boolean  @default(false) @map("two_factor_enabled")
-  twoFactorSecret  String?  @map("two_factor_secret") @db.Text
-  twoFactorRecoveryCodes Json? @map("two_factor_recovery_codes")
-  twoFactorEnabledAt DateTime? @map("two_factor_enabled_at") @db.Timestamptz(3)
-  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
-  hotelTenant   HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
-  departmentsCreated Department[] @relation("DepartmentCreatedBy")
-  departmentsUpdated Department[] @relation("DepartmentUpdatedBy")
-  teamsCreated       Team[]       @relation("TeamCreatedBy")
-  teamsUpdated       Team[]       @relation("TeamUpdatedBy")
-  auditLogs          AuditLog[]
-  department         Department?  @relation("DepartmentMembers", fields: [departmentId], references: [id], onDelete: SetNull)
-  chatMessagesSent     ChatMessage[] @relation("ChatMessageSender")
-  chatMessagesReceived ChatMessage[] @relation("ChatMessageRecipient")
+  id                     String        @id @default(uuid()) @db.Uuid
+  hotelTenantId          String        @map("hotel_tenant_id") @db.Uuid
+  firstName              String        @map("first_name") @db.VarChar(120)
+  lastName               String        @map("last_name") @db.VarChar(120)
+  email                  String        @unique @db.VarChar(320)
+  passwordHash           String        @map("password_hash") @db.VarChar(255)
+  phoneNumber            String?       @map("phone_number") @db.VarChar(40)
+  language               HotelLanguage @default(EN) @map("language")
+  role                   UserRole      @default(EMPLOYEE)
+  departmentId           String?       @map("department_id") @db.Uuid
+  isActive               Boolean       @default(true) @map("is_active")
+  isDeleted              Boolean       @default(false) @map("is_deleted")
+  deletedAt              DateTime?     @map("deleted_at") @db.Timestamptz(3)
+  lastLoginAt            DateTime?     @map("last_login_at") @db.Timestamptz(3)
+  lastSeenAt             DateTime?     @map("last_seen_at") @db.Timestamptz(3)
+  twoFactorEnabled       Boolean       @default(false) @map("two_factor_enabled")
+  twoFactorSecret        String?       @map("two_factor_secret") @db.Text
+  twoFactorRecoveryCodes Json?         @map("two_factor_recovery_codes")
+  twoFactorEnabledAt     DateTime?     @map("two_factor_enabled_at") @db.Timestamptz(3)
+  createdAt              DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant            HotelTenant   @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+  departmentsCreated     Department[]  @relation("DepartmentCreatedBy")
+  departmentsUpdated     Department[]  @relation("DepartmentUpdatedBy")
+  teamsCreated           Team[]        @relation("TeamCreatedBy")
+  teamsUpdated           Team[]        @relation("TeamUpdatedBy")
+  auditLogs              AuditLog[]
+  department             Department?   @relation("DepartmentMembers", fields: [departmentId], references: [id], onDelete: SetNull)
+  chatMessagesSent       ChatMessage[] @relation("ChatMessageSender")
+  chatMessagesReceived   ChatMessage[] @relation("ChatMessageRecipient")
 
   @@index([hotelTenantId])
   @@index([hotelTenantId, isActive])
@@ -263,22 +269,22 @@ model ChatMessage {
 }
 
 model Department {
-  id            String      @id @default(uuid()) @db.Uuid
-  hotelTenantId String      @map("hotel_tenant_id") @db.Uuid
-  nameEn        String      @map("name_en") @db.VarChar(180)
-  nameDe        String      @map("name_de") @db.VarChar(180)
-  nameIt        String      @map("name_it") @db.VarChar(180)
-  isActive      Boolean     @default(true) @map("is_active")
-  isDeleted     Boolean     @default(false) @map("is_deleted")
-  deletedAt     DateTime?   @map("deleted_at") @db.Timestamptz(3)
-  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
-  hotelTenant   HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
-  createdById   String?     @map("created_by_id") @db.Uuid
-  updatedById   String?     @map("updated_by_id") @db.Uuid
-  createdBy     User?       @relation("DepartmentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedBy     User?       @relation("DepartmentUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  members       User[]      @relation("DepartmentMembers")
+  id                        String                     @id @default(uuid()) @db.Uuid
+  hotelTenantId             String                     @map("hotel_tenant_id") @db.Uuid
+  nameEn                    String                     @map("name_en") @db.VarChar(180)
+  nameDe                    String                     @map("name_de") @db.VarChar(180)
+  nameIt                    String                     @map("name_it") @db.VarChar(180)
+  isActive                  Boolean                    @default(true) @map("is_active")
+  isDeleted                 Boolean                    @default(false) @map("is_deleted")
+  deletedAt                 DateTime?                  @map("deleted_at") @db.Timestamptz(3)
+  createdAt                 DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                 DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant               HotelTenant                @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+  createdById               String?                    @map("created_by_id") @db.Uuid
+  updatedById               String?                    @map("updated_by_id") @db.Uuid
+  createdBy                 User?                      @relation("DepartmentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy                 User?                      @relation("DepartmentUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  members                   User[]                     @relation("DepartmentMembers")
   rolePermissionDepartments RolePermissionDepartment[]
 
   @@unique([hotelTenantId, nameEn])
@@ -334,20 +340,20 @@ model AuditLog {
 }
 
 model RoleModulePermission {
-  id              String          @id @default(uuid()) @db.Uuid
-  hotelTenantId   String          @map("hotel_tenant_id") @db.Uuid
+  id              String                     @id @default(uuid()) @db.Uuid
+  hotelTenantId   String                     @map("hotel_tenant_id") @db.Uuid
   role            UserRole
-  moduleKey       String          @map("module_key") @db.VarChar(80)
-  canView         Boolean         @default(false) @map("can_view")
-  canCreate       Boolean         @default(false) @map("can_create")
-  canUpdate       Boolean         @default(false) @map("can_update")
-  canChangeStatus Boolean         @default(false) @map("can_change_status")
-  canAssign       Boolean         @default(false) @map("can_assign")
-  canDelete       Boolean         @default(false) @map("can_delete")
-  scope           PermissionScope @default(OWN)
-  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
-  hotelTenant     HotelTenant     @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+  moduleKey       String                     @map("module_key") @db.VarChar(80)
+  canView         Boolean                    @default(false) @map("can_view")
+  canCreate       Boolean                    @default(false) @map("can_create")
+  canUpdate       Boolean                    @default(false) @map("can_update")
+  canChangeStatus Boolean                    @default(false) @map("can_change_status")
+  canAssign       Boolean                    @default(false) @map("can_assign")
+  canDelete       Boolean                    @default(false) @map("can_delete")
+  scope           PermissionScope            @default(OWN)
+  createdAt       DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant     HotelTenant                @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
   departments     RolePermissionDepartment[]
 
   @@unique([hotelTenantId, role, moduleKey])
@@ -367,13 +373,13 @@ model RolePermissionDepartment {
 }
 
 model RegistrationRateLimit {
-  id          String   @id @default(uuid()) @db.Uuid
-  keyHash     String   @map("key_hash") @db.VarChar(64)
-  windowStart DateTime @map("window_start") @db.Timestamptz(3)
-  requestCount Int     @default(1) @map("request_count")
-  expiresAt   DateTime @map("expires_at") @db.Timestamptz(3)
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id           String   @id @default(uuid()) @db.Uuid
+  keyHash      String   @map("key_hash") @db.VarChar(64)
+  windowStart  DateTime @map("window_start") @db.Timestamptz(3)
+  requestCount Int      @default(1) @map("request_count")
+  expiresAt    DateTime @map("expires_at") @db.Timestamptz(3)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   @@unique([keyHash, windowStart])
   @@index([expiresAt])

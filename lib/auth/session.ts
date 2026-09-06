@@ -4,6 +4,7 @@ import { prisma } from "../prisma";
 
 const cookieName = "qualityfriend_session";
 const challengeCookieName = "qualityfriend_2fa_challenge";
+const mcpCookieName = "qualityfriend_mcp_session";
 const maxAge = 60 * 60 * 24 * 7;
 
 function secret() {
@@ -20,10 +21,20 @@ export async function createSession(userId: string) {
   const payload = Buffer.from(JSON.stringify({ userId, expiresAt: Date.now() + maxAge * 1000 })).toString("base64url");
   const token = `${payload}.${signature(payload)}`;
   (await cookies()).set(cookieName, token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge });
+  try {
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { hotelTenant: { select: { activeMcp: true, mcpUserEmail: true, mcpUserPassword: true } } } });
+    const hotel = user?.hotelTenant;
+    if (hotel?.activeMcp && hotel.mcpUserEmail && hotel.mcpUserPassword) {
+      const { loginMcpUser } = await import("../mcp/client");
+      await setMcpSessionToken(await loginMcpUser(hotel.mcpUserEmail, hotel.mcpUserPassword));
+    }
+  } catch (error) { console.error("MCP sign-in failed during QualityFriend login", error); }
 }
 
+export async function setMcpSessionToken(token: string) { (await cookies()).set(mcpCookieName, token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge }); }
+
 export async function clearSession() {
-  const store = await cookies(); store.delete(cookieName); store.delete(challengeCookieName);
+  const store = await cookies(); store.delete(cookieName); store.delete(challengeCookieName); store.delete(mcpCookieName);
 }
 
 export async function createTwoFactorChallenge(userId: string) {
