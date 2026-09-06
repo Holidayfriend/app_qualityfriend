@@ -9,10 +9,10 @@ export class McpApiError extends Error {
 
 function baseUrl() { return (process.env.MCP_API_BASE_URL || defaultBaseUrl).replace(/\/$/, ""); }
 
-async function request(path: string, body: JsonObject, method = "POST", token?: string) {
+async function request(path: string, body: JsonObject | null, method = "POST", token?: string) {
   let response: Response;
   try {
-    response = await fetch(`${baseUrl()}${path}`, { method, headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(body), cache: "no-store", signal: AbortSignal.timeout(15_000) });
+    response = await fetch(`${baseUrl()}${path}`, { method, headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}), cache: "no-store", signal: AbortSignal.timeout(15_000) });
   } catch { throw new McpApiError("The MCP service could not be reached.", 502); }
   const data = (await response.json().catch(() => null)) as JsonObject | null;
   if (!response.ok) {
@@ -65,3 +65,9 @@ export async function createDefaultMcpServers(hotelId: string) {
   const servers = [{ name: "energy-mcp", args: ["src/mcp/servers/energy.ts"] }, { name: "brevo-mcp", args: ["src/mcp/servers/brevo.ts"] }, { name: "xml-mcp", args: ["src/mcp/servers/xml.ts"] }];
   await Promise.all(servers.map((server) => request("/mcp/servers", { ...server, transport: "stdio", command: "tsx", isActive: true, hotelId })));
 }
+
+export type McpProvider = "openai" | "deepseek" | "perplexity" | "brevo" | "claude";
+export async function getMcpProviderCredentials(token: string, hotelId: string, provider: McpProvider) { return request(`/hotels/${encodeURIComponent(hotelId)}/providers/${provider}/credentials`, null, "GET", token); }
+export async function setMcpProviderCredentials(token: string, hotelId: string, provider: McpProvider, apiKey: string, baseUrl: string, label: string) { return request(`/hotels/${encodeURIComponent(hotelId)}/providers/${provider}/credentials`, { apiKey, baseUrl, label }, "PUT", token); }
+export async function getMcpProviders(token: string, hotelId: string) { return request(`/hotels/${encodeURIComponent(hotelId)}/providers`, null, "GET", token) as unknown; }
+export async function setMcpProvider(token: string, hotelId: string, provider: Exclude<McpProvider, "brevo">, isEnabled: boolean, defaultModel: string) { return request(`/hotels/${encodeURIComponent(hotelId)}/providers/${provider}`, { isEnabled, defaultModel }, "PUT", token); }
