@@ -1,4 +1,55 @@
-import"server-only";import{NextResponse}from"next/server";import{getSessionUserId}from"../auth/session";import{recordAuditLog}from"../audit/audit-service";import{prisma}from"../prisma";
-export type RecyclableType="department"|"team"|"user";async function actor(){const id=await getSessionUserId();if(!id)return null;return prisma.user.findFirst({where:{id,isActive:true,isDeleted:false},select:{id:true,hotelTenantId:true}})}function item(type:RecyclableType,row:{id:string;deletedAt:Date|null;nameEn:string;nameDe:string;nameIt:string}){return{id:row.id,type,names:{en:row.nameEn,de:row.nameDe,it:row.nameIt},deletedAt:row.deletedAt}}
-export async function listDeletedItems(){const current=await actor();if(!current)return NextResponse.json({error:"UNAUTHENTICATED"},{status:401});const[departments,teams,users]=await Promise.all([prisma.department.findMany({where:{hotelTenantId:current.hotelTenantId,isDeleted:true},select:{id:true,nameEn:true,nameDe:true,nameIt:true,deletedAt:true}}),prisma.team.findMany({where:{hotelTenantId:current.hotelTenantId,isDeleted:true},select:{id:true,nameEn:true,nameDe:true,nameIt:true,deletedAt:true}}),prisma.user.findMany({where:{hotelTenantId:current.hotelTenantId,isDeleted:true},select:{id:true,firstName:true,lastName:true,deletedAt:true}})]);const all=[...departments.map(row=>item("department",row)),...teams.map(row=>item("team",row)),...users.map(row=>{const name=`${row.firstName} ${row.lastName}`;return item("user",{...row,nameEn:name,nameDe:name,nameIt:name})})];return NextResponse.json(all.sort((a,b)=>(b.deletedAt?.getTime()??0)-(a.deletedAt?.getTime()??0)))}
-export async function restoreDeletedItem(type:RecyclableType,id:string){const current=await actor();if(!current)return NextResponse.json({error:"UNAUTHENTICATED"},{status:401});const restored=await prisma.$transaction(async tx=>{let names:{en:string;de:string;it:string}|null=null;if(type==="department"){const row=await tx.department.findFirst({where:{id,hotelTenantId:current.hotelTenantId,isDeleted:true}});if(row){names={en:row.nameEn,de:row.nameDe,it:row.nameIt};await tx.department.update({where:{id},data:{isDeleted:false,isActive:true,deletedAt:null,updatedById:current.id}})}}else if(type==="team"){const row=await tx.team.findFirst({where:{id,hotelTenantId:current.hotelTenantId,isDeleted:true}});if(row){names={en:row.nameEn,de:row.nameDe,it:row.nameIt};await tx.team.update({where:{id},data:{isDeleted:false,isActive:true,deletedAt:null,updatedById:current.id}})}}else{const row=await tx.user.findFirst({where:{id,hotelTenantId:current.hotelTenantId,isDeleted:true}});if(row){const name=`${row.firstName} ${row.lastName}`;names={en:name,de:name,it:name};await tx.user.update({where:{id},data:{isDeleted:false,isActive:true,deletedAt:null}})}}if(!names)return null;await recordAuditLog(tx,{hotelTenantId:current.hotelTenantId,actorId:current.id,action:"RESTORE",entityType:type.toUpperCase(),entityId:id,changes:{after:names}});return names});return restored?NextResponse.json({success:true,item:{id,type,names:restored,deletedAt:null}}):NextResponse.json({error:"NOT_FOUND"},{status:404})}
+import "server-only";
+import { NextResponse } from "next/server";
+import { getSessionUserId } from "../auth/session";
+import { recordAuditLog } from "../audit/audit-service";
+import { createSyncedMcpDepartment, updateMcpDepartment } from "../mcp/client";
+import { getMcpDepartmentContext } from "../mcp/department-sync";
+import { prisma } from "../prisma";
+
+export type RecyclableType = "department" | "team" | "user";
+async function actor() { const id = await getSessionUserId(); if (!id) return null; return prisma.user.findFirst({ where: { id, isActive: true, isDeleted: false }, select: { id: true, hotelTenantId: true } }); }
+function item(type: RecyclableType, row: { id: string; deletedAt: Date | null; nameEn: string; nameDe: string; nameIt: string }) { return { id: row.id, type, names: { en: row.nameEn, de: row.nameDe, it: row.nameIt }, deletedAt: row.deletedAt }; }
+
+export async function listDeletedItems() {
+  const current = await actor(); if (!current) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
+  const [departments, teams, users] = await Promise.all([
+    prisma.department.findMany({ where: { hotelTenantId: current.hotelTenantId, isDeleted: true }, select: { id: true, nameEn: true, nameDe: true, nameIt: true, deletedAt: true } }),
+    prisma.team.findMany({ where: { hotelTenantId: current.hotelTenantId, isDeleted: true }, select: { id: true, nameEn: true, nameDe: true, nameIt: true, deletedAt: true } }),
+    prisma.user.findMany({ where: { hotelTenantId: current.hotelTenantId, isDeleted: true }, select: { id: true, firstName: true, lastName: true, deletedAt: true } }),
+  ]);
+  const all = [...departments.map((row) => item("department", row)), ...teams.map((row) => item("team", row)), ...users.map((row) => { const name = `${row.firstName} ${row.lastName}`; return item("user", { ...row, nameEn: name, nameDe: name, nameIt: name }); })];
+  return NextResponse.json(all.sort((a, b) => (b.deletedAt?.getTime() ?? 0) - (a.deletedAt?.getTime() ?? 0)));
+}
+
+export async function restoreDeletedItem(type: RecyclableType, id: string) {
+  const current = await actor(); if (!current) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
+  try {
+    const mcp = type === "department" ? await getMcpDepartmentContext(current.hotelTenantId) : null;
+    const restored = await prisma.$transaction(async (tx) => {
+      let names: { en: string; de: string; it: string } | null = null;
+      if (type === "department") {
+        const row = await tx.department.findFirst({ where: { id, hotelTenantId: current.hotelTenantId, isDeleted: true } });
+        if (row) {
+          names = { en: row.nameEn, de: row.nameDe, it: row.nameIt };
+          let mcpDepartmentId = row.mcpDepartmentId;
+          if (mcp) { if (mcpDepartmentId) await updateMcpDepartment(mcp.token, mcpDepartmentId, mcp.hotelId, row.nameEn, true); else mcpDepartmentId = await createSyncedMcpDepartment(mcp.token, mcp.hotelId, row.nameEn); }
+          await tx.department.update({ where: { id }, data: { isDeleted: false, isActive: true, deletedAt: null, updatedById: current.id, mcpDepartmentId } });
+        }
+      } else if (type === "team") {
+        const row = await tx.team.findFirst({ where: { id, hotelTenantId: current.hotelTenantId, isDeleted: true } });
+        if (row) { names = { en: row.nameEn, de: row.nameDe, it: row.nameIt }; await tx.team.update({ where: { id }, data: { isDeleted: false, isActive: true, deletedAt: null, updatedById: current.id } }); }
+      } else {
+        const row = await tx.user.findFirst({ where: { id, hotelTenantId: current.hotelTenantId, isDeleted: true } });
+        if (row) { const name = `${row.firstName} ${row.lastName}`; names = { en: name, de: name, it: name }; await tx.user.update({ where: { id }, data: { isDeleted: false, isActive: true, deletedAt: null } }); }
+      }
+      if (!names) return null;
+      await recordAuditLog(tx, { hotelTenantId: current.hotelTenantId, actorId: current.id, action: "RESTORE", entityType: type.toUpperCase(), entityId: id, changes: { after: names } });
+      return names;
+    }, { timeout: 20_000 });
+    return restored ? NextResponse.json({ success: true, item: { id, type, names: restored, deletedAt: null } }) : NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+  } catch (error) {
+    if (type !== "department") throw error;
+    console.error("MCP department restore synchronization failed", error);
+    return NextResponse.json({ error: "MCP_SYNC_FAILED", message: error instanceof Error ? error.message : "MCP department synchronization failed." }, { status: 502 });
+  }
+}

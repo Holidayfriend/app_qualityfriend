@@ -22,11 +22,16 @@ export async function createSession(userId: string) {
   const token = `${payload}.${signature(payload)}`;
   (await cookies()).set(cookieName, token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge });
   try {
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { hotelTenant: { select: { activeMcp: true, mcpUserEmail: true, mcpUserPassword: true } } } });
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { hotelTenantId: true, hotelTenant: { select: { activeMcp: true, mcpHotelId: true, mcpUserEmail: true, mcpUserPassword: true } } } });
     const hotel = user?.hotelTenant;
     if (hotel?.activeMcp && hotel.mcpUserEmail && hotel.mcpUserPassword) {
       const { loginMcpUser } = await import("../mcp/client");
-      await setMcpSessionToken(await loginMcpUser(hotel.mcpUserEmail, hotel.mcpUserPassword));
+      const mcpToken = await loginMcpUser(hotel.mcpUserEmail, hotel.mcpUserPassword);
+      if (hotel.mcpHotelId) {
+        const { syncMissingMcpDepartments } = await import("../mcp/department-sync");
+        await syncMissingMcpDepartments(user.hotelTenantId, hotel.mcpHotelId, mcpToken);
+      }
+      await setMcpSessionToken(mcpToken);
     }
   } catch (error) { console.error("MCP sign-in failed during QualityFriend login", error); }
 }

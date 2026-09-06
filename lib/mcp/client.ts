@@ -9,10 +9,10 @@ export class McpApiError extends Error {
 
 function baseUrl() { return (process.env.MCP_API_BASE_URL || defaultBaseUrl).replace(/\/$/, ""); }
 
-async function request(path: string, body: JsonObject, method = "POST") {
+async function request(path: string, body: JsonObject, method = "POST", token?: string) {
   let response: Response;
   try {
-    response = await fetch(`${baseUrl()}${path}`, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), cache: "no-store", signal: AbortSignal.timeout(15_000) });
+    response = await fetch(`${baseUrl()}${path}`, { method, headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(body), cache: "no-store", signal: AbortSignal.timeout(15_000) });
   } catch { throw new McpApiError("The MCP service could not be reached.", 502); }
   const data = (await response.json().catch(() => null)) as JsonObject | null;
   if (!response.ok) {
@@ -32,6 +32,8 @@ function requiredId(data: JsonObject, resource: string) {
 
 export async function createMcpHotel(name: string) { return requiredId(await request("/hotels", { name }), "hotel"); }
 export async function createMcpDepartment(hotelId: string) { return requiredId(await request("/departments", { hotelId, name: "Default", description: "Default department for hotel users", isActive: true }), "department"); }
+export async function createSyncedMcpDepartment(token: string, hotelId: string, name: string) { return requiredId(await request("/departments", { hotelId, name, description: `QualityFriend department: ${name}`, isActive: true }, "POST", token), "department"); }
+export async function updateMcpDepartment(token: string, departmentId: string, hotelId: string, name: string, isActive: boolean) { await request(`/departments/${encodeURIComponent(departmentId)}`, { hotelId, name, description: `QualityFriend department: ${name}`, isActive }, "PATCH", token); }
 export async function createMcpUser(email: string, password: string, hotelId: string, departmentId: string) { await request("/auth/register", { email, password, hotelId, userType: "author", departmentId }); }
 export async function loginMcpUser(email: string, password: string) { const data = await request("/auth/login", { email, password }); if (typeof data.token !== "string" || !data.token) throw new McpApiError("The MCP login response did not contain a token.", 502); return data.token; }
 

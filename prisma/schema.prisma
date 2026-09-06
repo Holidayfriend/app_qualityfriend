@@ -271,6 +271,7 @@ model ChatMessage {
 model Department {
   id                        String                     @id @default(uuid()) @db.Uuid
   hotelTenantId             String                     @map("hotel_tenant_id") @db.Uuid
+  mcpDepartmentId           String?                    @map("mcp_department_id") @db.VarChar(128)
   nameEn                    String                     @map("name_en") @db.VarChar(180)
   nameDe                    String                     @map("name_de") @db.VarChar(180)
   nameIt                    String                     @map("name_it") @db.VarChar(180)
@@ -290,6 +291,7 @@ model Department {
   @@unique([hotelTenantId, nameEn])
   @@index([hotelTenantId, isDeleted])
   @@index([hotelTenantId, isActive])
+  @@index([mcpDepartmentId])
   @@index([createdById])
   @@index([updatedById])
   @@map("departments")
