@@ -22,14 +22,16 @@ export async function createSession(userId: string) {
   const token = `${payload}.${signature(payload)}`;
   (await cookies()).set(cookieName, token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge });
   try {
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { hotelTenantId: true, hotelTenant: { select: { activeMcp: true, mcpHotelId: true, mcpUserEmail: true, mcpUserPassword: true } } } });
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { hotelTenantId: true, hotelTenant: { select: { activeMcp: true, mcpHotelId: true, mcpUserEmail: true, mcpUserPassword: true, mcpUserDepartment: true } } } });
     const hotel = user?.hotelTenant;
-    if (hotel?.activeMcp && hotel.mcpUserEmail && hotel.mcpUserPassword) {
+    if (user && hotel?.activeMcp && hotel.mcpUserEmail && hotel.mcpUserPassword) {
       const { loginMcpUser } = await import("../mcp/client");
       const mcpToken = await loginMcpUser(hotel.mcpUserEmail, hotel.mcpUserPassword);
       if (hotel.mcpHotelId) {
         const { syncMissingMcpDepartments } = await import("../mcp/department-sync");
         await syncMissingMcpDepartments(user.hotelTenantId, hotel.mcpHotelId, mcpToken);
+        const { syncMissingMcpUsers } = await import("../mcp/user-sync");
+        if (hotel.mcpUserDepartment) await syncMissingMcpUsers(user.hotelTenantId, { hotelId: hotel.mcpHotelId, defaultDepartmentId: hotel.mcpUserDepartment, token: mcpToken });
       }
       await setMcpSessionToken(mcpToken);
     }

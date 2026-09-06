@@ -4,6 +4,7 @@ import { getSessionUserId } from "../auth/session";
 import { recordAuditLog } from "../audit/audit-service";
 import { createSyncedMcpDepartment, updateMcpDepartment } from "../mcp/client";
 import { getMcpDepartmentContext } from "../mcp/department-sync";
+import { createRemoteUser, getMcpUserContext } from "../mcp/user-sync";
 import { prisma } from "../prisma";
 
 export type RecyclableType = "department" | "team" | "user";
@@ -25,6 +26,7 @@ export async function restoreDeletedItem(type: RecyclableType, id: string) {
   const current = await actor(); if (!current) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
   try {
     const mcp = type === "department" ? await getMcpDepartmentContext(current.hotelTenantId) : null;
+    const userMcp = type === "user" ? await getMcpUserContext(current.hotelTenantId) : null;
     const restored = await prisma.$transaction(async (tx) => {
       let names: { en: string; de: string; it: string } | null = null;
       if (type === "department") {
@@ -40,7 +42,7 @@ export async function restoreDeletedItem(type: RecyclableType, id: string) {
         if (row) { names = { en: row.nameEn, de: row.nameDe, it: row.nameIt }; await tx.team.update({ where: { id }, data: { isDeleted: false, isActive: true, deletedAt: null, updatedById: current.id } }); }
       } else {
         const row = await tx.user.findFirst({ where: { id, hotelTenantId: current.hotelTenantId, isDeleted: true } });
-        if (row) { const name = `${row.firstName} ${row.lastName}`; names = { en: name, de: name, it: name }; await tx.user.update({ where: { id }, data: { isDeleted: false, isActive: true, deletedAt: null } }); }
+        if (row) { const name = `${row.firstName} ${row.lastName}`; names = { en: name, de: name, it: name }; let remote: { id: string; password: string } | null = null; if (userMcp) remote = await createRemoteUser(userMcp, { email: row.email, role: row.role, isActive: true, departmentId: row.departmentId }); await tx.user.update({ where: { id }, data: { isDeleted: false, isActive: true, deletedAt: null, mcpUserId: remote?.id ?? row.mcpUserId, mcpUserPassword: remote?.password ?? row.mcpUserPassword } }); }
       }
       if (!names) return null;
       await recordAuditLog(tx, { hotelTenantId: current.hotelTenantId, actorId: current.id, action: "RESTORE", entityType: type.toUpperCase(), entityId: id, changes: { after: names } });
@@ -48,8 +50,8 @@ export async function restoreDeletedItem(type: RecyclableType, id: string) {
     }, { timeout: 20_000 });
     return restored ? NextResponse.json({ success: true, item: { id, type, names: restored, deletedAt: null } }) : NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
   } catch (error) {
-    if (type !== "department") throw error;
-    console.error("MCP department restore synchronization failed", error);
+    if (type === "team") throw error;
+    console.error("MCP restore synchronization failed", error);
     return NextResponse.json({ error: "MCP_SYNC_FAILED", message: error instanceof Error ? error.message : "MCP department synchronization failed." }, { status: 502 });
   }
 }

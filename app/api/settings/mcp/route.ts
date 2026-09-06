@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getSessionUserId, setMcpSessionToken } from "../../../../lib/auth/session";
 import { createDefaultMcpServers, createMcpDepartment, createMcpHotel, createMcpUser, loginMcpUser, McpApiError } from "../../../../lib/mcp/client";
 import { syncMissingMcpDepartments } from "../../../../lib/mcp/department-sync";
+import { syncMissingMcpUsers } from "../../../../lib/mcp/user-sync";
 import { prisma } from "../../../../lib/prisma";
 
 async function actor() { const id = await getSessionUserId(); if (!id) return null; return prisma.user.findFirst({ where: { id, isActive: true, isDeleted: false }, select: { id: true, role: true, hotelTenantId: true } }); }
@@ -22,6 +23,7 @@ export async function POST() {
     if (hotel.activeMcp && hotel.mcpHotelId && hotel.mcpUserEmail && hotel.mcpUserPassword) {
       const token = await loginMcpUser(hotel.mcpUserEmail, hotel.mcpUserPassword);
       await syncMissingMcpDepartments(hotel.id, hotel.mcpHotelId, token);
+      if (hotel.mcpUserDepartment) await syncMissingMcpUsers(hotel.id, { hotelId: hotel.mcpHotelId, defaultDepartmentId: hotel.mcpUserDepartment, token });
       await setMcpSessionToken(token);
       return NextResponse.json({ active: true, hotelId: hotel.mcpHotelId, userEmail: hotel.mcpUserEmail, departmentId: hotel.mcpUserDepartment });
     }
@@ -38,6 +40,7 @@ export async function POST() {
     const token = await loginMcpUser(email, password);
     await createDefaultMcpServers(mcpHotelId);
     await syncMissingMcpDepartments(hotel.id, mcpHotelId, token);
+    await syncMissingMcpUsers(hotel.id, { hotelId: mcpHotelId, defaultDepartmentId: departmentId, token });
     await prisma.hotelTenant.update({ where: { id: hotel.id }, data: { activeMcp: true } });
     await setMcpSessionToken(token);
     return NextResponse.json({ active: true, hotelId: mcpHotelId, userEmail: email, departmentId });
