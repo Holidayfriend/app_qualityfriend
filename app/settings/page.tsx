@@ -7,7 +7,7 @@ export default function SettingsPage(){const{dictionary,locale}=useI18n();const 
  useEffect(()=>{let active=true;fetch("/api/me").then(async r=>{if(!r.ok)return router.replace("/login");const data=await r.json();if(active)setAccess(data)}).catch(()=>router.replace("/login"));return()=>{active=false}},[router]);
  const sections:{title:string;wide?:boolean;items:Item[]}[]=[
   {title:`👤 ${s.usersTeams}`,items:[["👤",s.manageUsers,s.manageUsersDescription,"/settings/users","users"],["🏢",p.departmentsTeams,p.departmentsTeamsDescription,"/settings/departments","departmentTeams"],["🔑",s.roles,s.rolesDescription,"/settings/roles","roles"]]},
-  {title:`🧠 ${s.aiKnowledge}`,items:[["📚",s.knowledge,s.knowledgeDescription,"","mcp"],["🤖",s.training,s.trainingDescription,"","mcp"],["🔌",m.title,m.description,"/settings/mcp","mcp"]]},
+  {title:`🧠 ${s.aiKnowledge}`,items:[["📚",s.knowledge,s.knowledgeDescription,"/settings/knowledge","mcp"],["🤖",s.training,s.trainingDescription,"/settings/training","mcp"],["🔌",m.title,m.description,"/settings/mcp","mcp"]]},
   {title:`⚙️ ${s.general}`,wide:true,items:[["🌐",s.defaultLanguage,s.defaultLanguageDescription,"hotel-language","admin"],["🔐",s.twoFactor,s.twoFactorDescription,"/settings/two-factor","account"],["🗑️",s.recycleBin,s.recycleBinDescription,"/settings/recycle-bin","recycleBin"],["🔌",i.title,i.description,"/settings/integrations","admin"],["📋",s.activityLog,s.activityLogDescription,"/settings/activity-log","activityLog"]]},
  ];
  const allowed=(requirement:Requirement)=>requirement==="account"||access?.role==="ADMIN"||Boolean(access?.allowed_modules.includes(requirement));const visible=sections.map(section=>({...section,items:section.items.filter(item=>allowed(item[4]))})).filter(section=>section.items.length);
