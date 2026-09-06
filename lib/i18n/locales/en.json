@@ -346,5 +346,22 @@
   "mcpSettingsMessages": {
     "title": "MCP integrations",
     "description": "Connect and manage MCP services"
+  },
+  "integrationSettingsMessages": {
+    "title": "Integrations / API",
+    "settings": "Settings",
+    "description": "Integrations connect QualityFriend with other software for marketing, energy management, access control, and daily operations. Once connected, an integration can also be made available to the AI as a tool.",
+    "connected": "Connected",
+    "available": "Available integrations",
+    "connectedStatus": "Connected",
+    "aiEnabled": "Available to AI",
+    "enableAi": "Enable for AI",
+    "disableAi": "Remove AI access",
+    "connect": "Connect",
+    "empty": "No integrations connected yet.",
+    "connectedNotice": "{name} is now connected.",
+    "names": { "asa": "ASA PMS", "brevo": "Brevo", "energy": "Energy Management", "access": "Access Control" },
+    "categories": { "pms": "Property Management", "marketing": "Marketing / Email", "building": "Building technology", "security": "Security" },
+    "descriptions": { "asa": "Bookings, occupancy and guest data — already connected in production", "brevo": "Campaigns, newsletters and contact lists", "energy": "Room heating and cooling linked to occupancy", "access": "Smart locks and door-opening events" }
   }
 }

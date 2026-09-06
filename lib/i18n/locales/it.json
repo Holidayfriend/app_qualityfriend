@@ -346,5 +346,22 @@
   "mcpSettingsMessages": {
     "title": "Integrazioni MCP",
     "description": "Collega e gestisci i servizi MCP"
+  },
+  "integrationSettingsMessages": {
+    "title": "Integrazioni / API",
+    "settings": "Impostazioni",
+    "description": "Le integrazioni collegano QualityFriend ad altri software per marketing, gestione energetica, controllo accessi e operazioni quotidiane. Dopo il collegamento, un'integrazione può anche essere resa disponibile all'IA come strumento.",
+    "connected": "Già collegate",
+    "available": "Integrazioni disponibili",
+    "connectedStatus": "Collegata",
+    "aiEnabled": "Disponibile per l'IA",
+    "enableAi": "Abilita per l'IA",
+    "disableAi": "Rimuovi accesso IA",
+    "connect": "Collega",
+    "empty": "Nessuna integrazione ancora collegata.",
+    "connectedNotice": "{name} è stata collegata.",
+    "names": { "asa": "ASA PMS", "brevo": "Brevo", "energy": "Gestione energetica", "access": "Controllo accessi" },
+    "categories": { "pms": "Property Management", "marketing": "Marketing / E-mail", "building": "Tecnologia degli edifici", "security": "Sicurezza" },
+    "descriptions": { "asa": "Prenotazioni, occupazione e dati degli ospiti — già collegata in produzione", "brevo": "Campagne, newsletter e liste di contatti", "energy": "Riscaldamento e climatizzazione delle camere collegati all'occupazione", "access": "Serrature intelligenti ed eventi di apertura porte" }
   }
 }
