@@ -1,0 +1,255 @@
+# Developer Briefing: QualityFriend – AI Integration, Knowledge Platform, Roles & Mobile Redesign
+**Weihrerhof · Ritten, South Tyrol · August 2026**
+
+---
+
+## Context
+
+QualityFriend is Weihrerhof's internal hotel operations platform (PHP/MySQL on Hostinger). It covers Housekeeping, Handovers, To-Dos, Shift Planning, Budget & Forecast, Repairs, Recruiting, Manuals, and Notes.
+
+**ASA** is the PMS. Data from ASA (arrivals, departures, occupancy, housekeeping forecast) already flows into QualityFriend's database via existing API. **This means all relevant hotel data is already available – no middleware needed.**
+
+There are currently two native apps (Android & iOS) which exist because the web interface is not properly usable on mobile.
+
+---
+
+## Project Goals
+
+1. **Integrate Claude AI directly** into QualityFriend using the existing database as context
+2. **Build a Knowledge Platform** with AI chat as a new core module
+3. **Properly redesign the mobile experience** so the native apps can be retired
+
+Please provide your own time and cost estimates for each section.
+
+---
+
+## 1. AI Integration via Anthropic API
+
+### Setup (one-time)
+- Create API key at **console.anthropic.com** → store as `ANTHROPIC_API_KEY` environment variable on Hostinger
+- Recommended model: **claude-sonnet-4-5**
+- Build one reusable PHP helper function (all AI features call this):
+
+```php
+function askClaude(string $system, string $prompt): string {
+    $payload = [
+        'model'      => 'claude-sonnet-4-5',
+        'max_tokens' => 1024,
+        'system'     => $system,
+        'messages'   => [['role' => 'user', 'content' => $prompt]]
+    ];
+    $ch = curl_init('https://api.anthropic.com/v1/messages');
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST           => true,
+        CURLOPT_POSTFIELDS     => json_encode($payload),
+        CURLOPT_HTTPHEADER     => [
+            'Content-Type: application/json',
+            'x-api-key: ' . getenv('ANTHROPIC_API_KEY'),
+            'anthropic-version: 2023-06-01'
+        ]
+    ]);
+    $result = json_decode(curl_exec($ch), true);
+    curl_close($ch);
+    return $result['content'][0]['text'] ?? '';
+}
+```
+
+API cost is pay-as-you-go per token – no subscriptions.
+
+---
+
+### AI Features – Priority Order
+
+**① Dashboard Daily Briefing**
+Read today's ASA arrivals/departures, housekeeping statuses, and open urgent to-dos → Claude returns a 2–3 sentence German-language briefing displayed at the top of the dashboard. Staff immediately see what needs attention without scrolling through lists.
+
+**② Smart To-Do Prioritization**
+Pass all open tasks with due dates, departments, and today's occupancy → Claude returns the top 7 tasks for today with priority labels (Urgent / High / Medium / Low). Addresses the current problem of 300+ undifferentiated open items.
+
+**③ Shift Handover Generation**
+At end of shift, Claude reads completed tasks, room status changes, guest notes, and open repairs → generates a structured handover text pre-filled into the handover form. Staff review and submit.
+
+**④ Review Response Assistant**
+Pass a new TripAdvisor or Google review → Claude drafts a personalized response in the appropriate language (DE/IT/EN). Staff approve and post.
+
+**⑤ Budget Commentary**
+On the Budget & Forecast page, Claude adds a plain-language paragraph explaining actuals vs. budget and flagging anomalies.
+
+**⑥ Housekeeping Order Optimization**
+Read check-in times from ASA + current room statuses → Claude returns optimal cleaning sequence with time targets per room for the housekeeping team.
+
+**⑦ CV Pre-Screening**
+When a new application is uploaded (PDF), extract the text → Claude scores the candidate against stored job requirements and returns a match score + short summary.
+
+---
+
+## 2. Knowledge Platform with AI Chat (New Module)
+
+This is the highest long-term value addition to QualityFriend. The current Manuals module is a static document library – staff have to search and read documents themselves, which in practice rarely happens.
+
+**The idea:** Any staff member types a question in natural language and gets an instant, precise answer based on Weihrerhof's own documented procedures – without searching through documents.
+
+**Examples of what staff can ask:**
+- *"What is the exact procedure for a hot stone massage?"*
+- *"Which allergens are in tonight's dinner menu?"*
+- *"What do I do when a guest complains about noise at night?"*
+- *"How do I process an early check-in before 12:00?"*
+- *"What is the evacuation procedure in case of fire?"*
+
+**How it works:**
+1. Procedure documents are stored in QualityFriend as they are today
+2. When a staff member asks a question, the relevant document sections are retrieved from the DB and passed to Claude as context
+3. Claude answers in the language the staff member wrote in (DE/IT/EN), regardless of the language the source document is written in
+4. The answer references which document/section it came from
+
+**Why this matters:**
+- New staff onboard faster – ask questions instead of reading 50-page manuals
+- Experienced staff get instant answers under time pressure
+- Multilingual support for international staff at no extra cost
+- Documents in the system get actually used
+
+---
+
+## 3. Role-Based Access Control
+
+Currently there is basic role support (Klaus / Reception / Restaurant/Service) but it is not consistently applied. Staff see the full navigation regardless of department, which contributes to the clutter problem described elsewhere in this briefing.
+
+### Principle
+**Hide, don't just disable.** A staff member who has no reason to see Budget or Recruiting should not see a greyed-out module — it should not appear in their navigation at all. Disabled-but-visible only makes sense for "coming soon" states, not for day-to-day permission boundaries.
+
+### Two enforcement layers — both required
+1. **UI layer** — the module does not appear in the sidebar (desktop) / module grid / bottom navigation (mobile). This is what most of the effort goes into, and it's what the attached mockups demonstrate.
+2. **Server layer** — even if someone types the URL directly (e.g. `/de/budget`), PHP must check the user's role server-side and block access. UI hiding alone is cosmetic, not security. This also happens to fix the existing `/de/dienstplan` 404 routing bug as part of the same cleanup.
+
+### Suggested structure
+A single `role_modules` table drives both layers — one place to change permissions, no per-page hardcoding:
+
+```
+role            | module_key      | visible
+----------------|------------------|--------
+admin           | *                | true   (always full access)
+management      | budget           | true
+management      | recruiting       | false
+reception       | dienstplan       | false
+housekeeping    | housekeeping     | true
+housekeeping    | budget           | false
+restaurant      | handover         | true
+...
+```
+
+On login, the allowed module list for the user's role is loaded once and used to (a) render the correct navigation, and (b) gate every server-side route.
+
+### Suggested starting role matrix
+
+| Module | Admin | Management | Reception | Housekeeping | Restaurant |
+|---|---|---|---|---|---|
+| Dashboard, To-Dos, AI Chat, Manuals | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Handover, Notes | ✓ | ✓ | ✓ | – | ✓ |
+| Housekeeping, Repairs | ✓ | ✓ | – | ✓ | – |
+| Shift Planning, Budget, Competitors | ✓ | ✓ | – | – | – |
+| Recruiting | ✓ | – | – | – | – |
+
+This is a starting proposal, not a fixed spec — Klaus should confirm/adjust per department before implementation. Changing it later should be a data change in `role_modules`, never a code deploy.
+
+### Reference
+The attached mobile and desktop mockups (`weihrerhof-mobile.html`, `weihrerhof-system.html`) both include a working demo of this — a role switcher lets you toggle between Admin / Management / Reception / Housekeeping / Restaurant and see navigation, module grid, and bottom tab bar update live. Useful as a interaction reference, not as literal code to port.
+
+---
+
+## 4. Multi-Language UI (DE / IT / EN)
+
+This is a **different concern** from the Knowledge Platform's AI-translated answers (Section 2) — that's dynamic content, translated on the fly by Claude per question. This section is about the **static interface itself**: button labels, module names, form fields, system messages. Staff at Weihrerhof already work across German, Italian, and English (see recruiting notes for Lena Huber, Julia Mayer), so a UI locked to German is itself a usability barrier for part of the team.
+
+### Why not just use Claude for this too?
+Because it's the wrong tool for the job here. Static UI strings ("Save", "New Task", "Room ready") are fixed, repeated thousands of times a day, and need to render instantly with zero latency and zero API cost. Translating them once into a language file is simpler, faster, and more reliable than an AI call per label. Save the AI translation budget for genuinely dynamic content — guest notes, review responses, procedure answers — where the source text isn't known in advance.
+
+### Suggested approach
+- A translation file per language (`lang/de.php`, `lang/it.php`, `lang/en.php`), each returning a key → string array:
+```php
+// lang/de.php
+return [
+  'dashboard.title'   => 'Dashboard',
+  'todo.new'           => '+ Aufgabe',
+  'housekeeping.dirty' => 'Schmutzig',
+  // ...
+];
+```
+- One `t('key')` helper function loads the correct file based on the logged-in user's stored language preference and returns the string. Every hardcoded label in the templates gets swapped for `t('...')`.
+- Add a `language` column to the user table (`de` / `it` / `en`), settable in the user's profile, defaulting to `de`. The interface switches instantly on save — no reload of data, just re-rendered labels.
+- Date, number, and currency formatting should follow the selected language's convention (e.g. `1.234,56 €` for DE/IT vs `€1,234.56` for EN).
+
+### Honest effort note
+This only sounds trivial. The actual work is combing through every existing template and replacing every hardcoded German string with a translation key — for an app this size, that's the majority of the effort, not the `t()` helper itself. Doing it now, while other modules are already being touched for the redesign, is considerably cheaper than retrofitting it later once more templates exist. Worth scoping as its own line item rather than assuming it rides along "for free" with the redesign.
+
+---
+
+## 5. Mobile Redesign → Replace Native Apps
+
+### Current Situation (Honest Assessment)
+The existing mobile view is **not a proper responsive design.** It is the desktop layout compressed to fit a small screen, resulting in:
+- Module buttons too small to tap reliably
+- Data tables with 5+ columns unreadable at mobile font sizes
+- Touch targets well below the 44px minimum
+- Sidebar consuming screen space on every view
+
+The native apps exist precisely because the web UI on mobile is not usable. The goal is to fix this properly so both apps can be retired.
+
+### Goal
+A **Progressive Web App (PWA)** – one codebase, works excellently on desktop, tablet, and mobile. Can be installed to the home screen, supports push notifications, and works offline for key views.
+
+### What "Properly Done" Means Per Module
+
+**Dashboard:** Module buttons become a 2×4 tap grid with large icons and labels. Activity feed becomes full-width cards with large touch targets.
+
+**Housekeeping:** Room tiles scale to 3 per row on mobile. Tap a tile → full-screen room detail overlay with status change options.
+
+**To-Dos / Checklists:** Single-column card list. Swipe right to complete, swipe left to defer. No multi-column table on mobile.
+
+**Handover:** Form optimized for touch input. Voice-to-text input for notes.
+
+**Shift Plan:** Horizontal scroll week view or tap-to-day view. Current grid is desktop-only.
+
+**Budget:** KPI summary tiles first, chart below, full detail table behind a "Show detail" toggle. No horizontal scroll.
+
+**Knowledge Chat:** Mobile-first by nature – works identically on all screen sizes.
+
+### PWA Technical Requirements
+- `manifest.json` with app name, icons, theme color, `display: standalone`
+- Service Worker for offline caching of key views (housekeeping, to-dos, knowledge chat)
+- Web Push API for notifications (replaces native push from both apps)
+- All touch targets ≥ 44px
+- No horizontal scroll at 375px viewport width (iPhone SE baseline)
+- Tested on: Chrome Android + Safari iOS 16.4+
+
+> ⚠️ Do not retire the native apps until the PWA has passed a real-device usability test with actual hotel staff.
+
+---
+
+## 6. Questions to Clarify Before Starting
+
+1. Is ASA data stored in dedicated MySQL tables in the QualityFriend DB, or fetched live via ASA API on each request?
+2. Are TripAdvisor/Google reviews currently pulled into the DB automatically, or entered manually?
+3. Are the native apps WebView wrappers around the existing web app, or truly native (Swift/Kotlin)?
+4. Is cURL enabled on the Hostinger PHP installation? (Required for Anthropic API calls.)
+5. Are hotel procedure documents stored as plain text/HTML in the DB, or as uploaded PDFs?
+6. Does the current `role` field on the user table already distinguish Reception / Housekeeping / Restaurant, or is it just Admin vs. everyone else today?
+7. Which languages does staff actually need day-to-day — DE/IT/EN as assumed, or should any others (e.g. a specific seasonal-worker language) be included from the start?
+8. Are hotel procedure documents (Section 2) currently written in German only, or already in multiple languages?
+
+---
+
+## Summary of Work Packages
+
+| # | Work Package | Description |
+|---|---|---|
+| 1 | API setup + PHP helper | One-time setup, enables all AI features |
+| 2 | Dashboard briefing + smart to-dos | Highest immediate daily impact |
+| 3 | Shift handover generation | Saves time every shift, every day |
+| 4 | Review response assistant | Protects and builds online reputation |
+| 5 | Budget commentary + HK optimization | Management and operations insight |
+| 6 | CV pre-screening | Faster recruiting pipeline |
+| 7 | Knowledge Platform (AI chat) | Highest long-term staff value |
+| 8 | Proper mobile redesign + PWA | Replaces both native apps |
+| 9 | Role-based access control | Hide/gate modules per department, both UI and server-side |
+| 10 | Multi-language UI (DE/IT/EN etc.) | Translation-key system + per-user language setting |
