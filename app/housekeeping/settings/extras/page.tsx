@@ -1,0 +1,1 @@
+"use client"; import {HousekeepingSettingsPage} from "../../../../components/housekeeping/housekeeping-settings-page"; export default function Page(){return <HousekeepingSettingsPage section="extras"/>}

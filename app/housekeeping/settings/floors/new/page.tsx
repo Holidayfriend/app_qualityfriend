@@ -1,0 +1,6 @@
+"use client";
+import Link from "next/link";
+import {AppShell} from "../../../../../components/dashboard/app-shell";
+import {useI18n} from "../../../../../components/i18n/i18n-provider";
+import {housekeepingMessages} from "../../../../../lib/i18n/housekeeping-messages";
+export default function Page(){const{locale}=useI18n();const t=housekeepingMessages[locale];return <AppShell activeItem="housekeeping" pageTitle={t.housekeeping}><main className="p-4 sm:p-5 lg:p-7"><Link href="/housekeeping/settings/floors" className="mb-4 inline-flex text-[12.5px] font-semibold text-[var(--qf-text-muted)]">← {t.back}</Link><section className="max-w-[420px] overflow-hidden rounded-[10px] border border-[var(--qf-border)] bg-white shadow-[var(--qf-shadow)]"><header className="border-b border-[var(--qf-border)] px-5 py-[14px] text-[14px] font-bold">{t.floor}</header><form className="space-y-3 p-5" onSubmit={event=>event.preventDefault()}><label className="block text-[12px] font-semibold text-[var(--qf-text-muted)]"><span className="mb-[5px] block">{t.name}</span><input className="qf-field text-[13.5px]" placeholder="3"/></label><button className="min-h-[34px] rounded-[7px] bg-[var(--qf-accent)] px-[14px] text-[13px] font-semibold text-white">{t.save}</button></form></section></main></AppShell>}

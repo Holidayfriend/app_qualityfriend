@@ -109,6 +109,23 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
   line-height: 1;
 }
 
+/* Housekeeping follows the compact measurements in the approved client prototype. */
+.qf-housekeeping > div.space-y-5 > section:first-child { min-height: 0; }
+.qf-housekeeping > div.space-y-5 > div.grid > div:last-child > section:first-child > div:last-child { padding: 16px; }
+.qf-housekeeping > div.space-y-5 > div.grid > div:last-child > section:first-child button { height: auto; min-height: 32px; padding: 8px 4px; }
+.qf-housekeeping > div.space-y-5 > div.grid > div:last-child > section:last-child > div:last-child { padding: 16px; }
+.qf-housekeeping > div.space-y-5 > div.grid > div:last-child > section:last-child > div:last-child button { min-height: 0; padding: 9px 10px; font-size: 12px; line-height: 1.35; }
+.qf-housekeeping > div.space-y-5 > div.grid > div:last-child > section:last-child > header h2 { white-space: nowrap; }
+.qf-housekeeping > div.space-y-5 > div.grid > div:last-child > section:last-child > header button {
+  min-height: 32px;
+  flex-shrink: 0;
+  gap: 6px;
+  padding: 7px 10px;
+  white-space: nowrap;
+  font-size: 11.5px;
+  line-height: 1;
+}
+
 @media (max-width: 1023px) {
   .qf-mobile-nav ~ div > main { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
   .qf-mobile-nav ~ div > header > button[aria-label="Open menu"] { display: none; }

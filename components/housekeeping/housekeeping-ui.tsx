@@ -14,7 +14,7 @@ const statusColor:Record<RoomStatus,string>={dirty:"#dc2626",cleaning:"#d97706",
 
 export function HousekeepingUI({view,roomNumber="44"}:{view:HousekeepingView;roomNumber?:string}){
   const {locale}=useI18n(); const t=housekeepingMessages[locale];
-  return <AppShell activeItem="housekeeping" pageTitle={t.housekeeping}><main className="w-full p-4 pb-24 sm:p-5 lg:px-7 lg:py-6">
+  return <AppShell activeItem="housekeeping" pageTitle={t.housekeeping}><main className="qf-housekeeping w-full p-4 pb-24 sm:p-5 lg:px-7 lg:py-6">
     {view==="category-form"||view==="room-form"||view==="extra-form"||view==="room-detail"?<Back label={t.back}/>:<TopTabs active={view} t={t}/>} 
     {view==="board"?<Board t={t}/>:null}{view==="schedule"?<Schedule t={t}/>:null}{view==="settings"?<Settings t={t}/>:null}
     {view==="category-form"?<CategoryForm t={t}/>:null}{view==="room-form"?<RoomForm t={t}/>:null}{view==="extra-form"?<ExtraForm t={t}/>:null}{view==="room-detail"?<RoomDetail t={t} number={roomNumber}/>:null}
