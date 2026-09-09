@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { AppShell } from "../dashboard/app-shell";
 import { useI18n } from "../i18n/i18n-provider";
 import { housekeepingMessages } from "../../lib/i18n/housekeeping-messages";
@@ -14,12 +14,16 @@ const statusColor:Record<RoomStatus,string>={dirty:"#dc2626",cleaning:"#d97706",
 
 export function HousekeepingUI({view,roomNumber="44"}:{view:HousekeepingView;roomNumber?:string}){
   const {locale}=useI18n(); const t=housekeepingMessages[locale];
+  useAiAllocationPreview(view==="schedule"?t.aiSuggest:"");
   return <AppShell activeItem="housekeeping" pageTitle={t.housekeeping}><main className="qf-housekeeping w-full p-4 pb-24 sm:p-5 lg:px-7 lg:py-6">
     {view==="category-form"||view==="room-form"||view==="extra-form"||view==="room-detail"?<Back label={t.back}/>:<TopTabs active={view} t={t}/>} 
     {view==="board"?<Board t={t}/>:null}{view==="schedule"?<Schedule t={t}/>:null}{view==="settings"?<Settings t={t}/>:null}
     {view==="category-form"?<CategoryForm t={t}/>:null}{view==="room-form"?<RoomForm t={t}/>:null}{view==="extra-form"?<ExtraForm t={t}/>:null}{view==="room-detail"?<RoomDetail t={t} number={roomNumber}/>:null}
   </main></AppShell>;
 }
+
+function useAiAllocationPreview(buttonLabel:string){useEffect(()=>{if(!buttonLabel)return;const root=document.querySelector<HTMLElement>(".qf-housekeeping");if(!root)return;const handler=(event:Event)=>{const target=(event.target as HTMLElement).closest("button");if(!target||!target.textContent?.includes(buttonLabel))return;const employeeButtons=Array.from(root.querySelectorAll<HTMLButtonElement>("section:first-child > div > button"));const allocations=[null,{minutes:85,text:"Fenster Speisesaal/Finestre sala da pranzo, Balkone nass wischen und Spinnweben, Sauna"},{minutes:80,text:"Kuschelnest reinigen, Gänge/Corridoi (abstauben, Spinnweben, Fenster), Abfluss - Scarichi, Tennishütte - Casetta campo da Tennis"},{minutes:75,text:"Hausladele, Fenster-Finestre Pool/Kuschelnest, Fenster Stall/Finestre Stalla, Holzhütte - Casetta di legno"},null,{minutes:90,text:"Sistemare i mirocleaner/Miccleaner riordinare, Reinigung Sauna/Pulizia intensiva sauna prima delle camere"},null];employeeButtons.forEach((employee,index)=>{const allocation=allocations[index];if(!allocation)return;const minutes=employee.querySelector("small");if(minutes)minutes.textContent=`${allocation.minutes}/480 ${tMinute(root)}`;const fill=employee.querySelector<HTMLElement>("i > i");if(fill)fill.style.width=`${allocation.minutes/4.8}%`;let extra=employee.querySelector<HTMLElement>("[data-ai-extra]");if(!extra){extra=document.createElement("small");extra.dataset.aiExtra="true";extra.className="mt-0.5 block text-[11px] text-[var(--qf-accent)]";employee.appendChild(extra)}extra.textContent=`Extra: ${allocation.text}`});};root.addEventListener("click",handler);return()=>root.removeEventListener("click",handler)},[buttonLabel])}
+function tMinute(root:HTMLElement){return root.textContent?.includes("Min.")?"Min.":"min"}
 
 type T=(typeof housekeepingMessages)["en"];
 function TopTabs({active,t}:{active:HousekeepingView;t:T}){const tabs=[["board","/housekeeping","🧹",t.housekeeping],["schedule","/housekeeping/schedule","🗓️",t.dailyPlans],["settings","/housekeeping/settings","⚙️",t.settings]] as const;return <nav className="mb-[18px] flex gap-2 overflow-x-auto" aria-label={t.housekeeping}>{tabs.map(([id,href,icon,label])=><Link key={id} href={href} className={`inline-flex min-h-[42px] shrink-0 items-center gap-2 rounded-[8px] border px-[18px] py-[10px] text-[13px] font-semibold ${active===id?"border-[var(--qf-accent)] bg-[var(--qf-accent)] text-white":"border-[var(--qf-border)] bg-white text-[var(--qf-text-muted)] hover:border-[var(--qf-accent)]"}`}><span aria-hidden>{icon}</span>{label}</Link>)}</nav>}
