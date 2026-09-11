@@ -98,8 +98,8 @@
       "date": "Wednesday, 19 August 2026",
       "report": "Report",
       "addTask": "Add task",
-      "analysisTitle": "Daily analysis · Wednesday, 19 Aug",
-      "analysisBody": "10 arrivals and 6 departures today. Rooms 45 & 51 need express cleaning before 14:00. Breakfast cover is still unresolved. A new five-star Tripadvisor review is waiting for a reply.",
+      "analysisTitle": "AI daily analysis · Wednesday 19 Aug",
+      "analysisBody": "10 arrivals and 6 departures today. ⚡ Rooms 45 & 51 need express cleaning before 14:00. Zorah is off – breakfast cover is still unresolved. A new ⭐⭐⭐⭐⭐ TripAdvisor review from yesterday is waiting for a reply.",
       "discuss": "Discuss with AI",
       "occupancy": "Occupancy",
       "arrivals": "Arrivals / Departures",
@@ -126,11 +126,32 @@
       "cleaning": "Cleaning",
       "ready": "Ready",
       "inspected": "Inspected",
-      "hkNote": "Rooms 45 & 51 express priority until 14:00 · Room 50 no service",
+      "hkNote": "⚡ Rooms 45 & 51 express priority until 14:00 · 🚫 Room 50 no service",
       "onDuty": "On duty today",
       "roster": "Schedule",
       "teamSummary": "7 employees · 1 absent",
-      "vacation": "Vacation"
+      "vacation": "Vacation",
+      "activities": "Activities today",
+      "allTasks": "All tasks",
+      "fullView": "Full view",
+      "expressCleaning": "Express cleaning rooms 45 & 51",
+      "expressCleaningMeta": "Housekeeping · Due 14:00",
+      "reviewActivity": "TripAdvisor review unanswered",
+      "reviewActivityMeta": "Wagner family · 5 stars · yesterday",
+      "breakfastCover": "Breakfast cover for Zorah",
+      "breakfastCoverMeta": "Restaurant / tomorrow morning",
+      "tablePlan": "Service table plan updated",
+      "tablePlanMeta": "by Klaus · 7 guests 19:30",
+      "firstAid": "First-aid kit floor 1",
+      "firstAidMeta": "Periodic check · Klaus",
+      "restock": "Jam & honey stock reordered",
+      "restockMeta": "Klaus · Delivery tomorrow",
+      "urgentStatus": "URGENT",
+      "openStatus": "OPEN",
+      "doneStatus": "DONE",
+      "now": "now",
+      "oneHour": "1 hr.",
+      "twoHours": "2 hrs."
     },
     "settings": {
       "usersTeams": "Users & Teams",
@@ -360,8 +381,23 @@
     "connect": "Connect",
     "empty": "No integrations connected yet.",
     "connectedNotice": "{name} is now connected.",
-    "names": { "asa": "ASA PMS", "brevo": "Brevo", "energy": "Energy Management", "access": "Access Control" },
-    "categories": { "pms": "Property Management", "marketing": "Marketing / Email", "building": "Building technology", "security": "Security" },
-    "descriptions": { "asa": "Bookings, occupancy and guest data — already connected in production", "brevo": "Campaigns, newsletters and contact lists", "energy": "Room heating and cooling linked to occupancy", "access": "Smart locks and door-opening events" }
+    "names": {
+      "asa": "ASA PMS",
+      "brevo": "Brevo",
+      "energy": "Energy Management",
+      "access": "Access Control"
+    },
+    "categories": {
+      "pms": "Property Management",
+      "marketing": "Marketing / Email",
+      "building": "Building technology",
+      "security": "Security"
+    },
+    "descriptions": {
+      "asa": "Bookings, occupancy and guest data — already connected in production",
+      "brevo": "Campaigns, newsletters and contact lists",
+      "energy": "Room heating and cooling linked to occupancy",
+      "access": "Smart locks and door-opening events"
+    }
   }
 }

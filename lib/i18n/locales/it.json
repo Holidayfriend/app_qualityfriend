@@ -98,8 +98,8 @@
       "date": "Mercoledì, 19 agosto 2026",
       "report": "Segnala",
       "addTask": "Attività",
-      "analysisTitle": "Analisi giornaliera · Mercoledì 19 ago",
-      "analysisBody": "Oggi 10 arrivi e 6 partenze. Le camere 45 e 51 richiedono pulizia express prima delle 14:00. La sostituzione per la colazione non è ancora definita. Una nuova recensione Tripadvisor a cinque stelle attende risposta.",
+      "analysisTitle": "Analisi giornaliera IA · Mercoledì 19 ago",
+      "analysisBody": "Oggi 10 arrivi e 6 partenze. ⚡ Le camere 45 e 51 richiedono pulizia express prima delle 14:00. Zorah è in ferie – la sostituzione per la colazione non è ancora definita. Una nuova recensione ⭐⭐⭐⭐⭐ TripAdvisor di ieri attende risposta.",
       "discuss": "Parla con l'IA",
       "occupancy": "Occupazione",
       "arrivals": "Arrivi / Partenze",
@@ -126,11 +126,32 @@
       "cleaning": "In pulizia",
       "ready": "Pronte",
       "inspected": "Ispezionate",
-      "hkNote": "Camere 45 e 51 priorità express entro le 14:00 · Camera 50 nessun servizio",
+      "hkNote": "⚡ Camere 45 e 51 priorità express entro le 14:00 · 🚫 Camera 50 nessun servizio",
       "onDuty": "In servizio oggi",
       "roster": "Turni",
       "teamSummary": "7 dipendenti · 1 assente",
-      "vacation": "Ferie"
+      "vacation": "Ferie",
+      "activities": "Attività di oggi",
+      "allTasks": "Tutte le attività",
+      "fullView": "Vista completa",
+      "expressCleaning": "Pulizia express camere 45 e 51",
+      "expressCleaningMeta": "Housekeeping · Scadenza 14:00",
+      "reviewActivity": "Recensione TripAdvisor senza risposta",
+      "reviewActivityMeta": "Fam. Wagner · 5 stelle · ieri",
+      "breakfastCover": "Sostituzione di Zorah a colazione",
+      "breakfastCoverMeta": "Ristorante / domani mattina",
+      "tablePlan": "Piano tavoli del servizio aggiornato",
+      "tablePlanMeta": "di Klaus · 7 persone 19:30",
+      "firstAid": "Kit di pronto soccorso piano 1",
+      "firstAidMeta": "Controllo periodico · Klaus",
+      "restock": "Riordinata la scorta di marmellata e miele",
+      "restockMeta": "Klaus · Consegna domani",
+      "urgentStatus": "URGENTE",
+      "openStatus": "APERTO",
+      "doneStatus": "COMPLETATO",
+      "now": "ora",
+      "oneHour": "1 ora",
+      "twoHours": "2 ore"
     },
     "settings": {
       "usersTeams": "Utenti e team",
@@ -360,8 +381,23 @@
     "connect": "Collega",
     "empty": "Nessuna integrazione ancora collegata.",
     "connectedNotice": "{name} è stata collegata.",
-    "names": { "asa": "ASA PMS", "brevo": "Brevo", "energy": "Gestione energetica", "access": "Controllo accessi" },
-    "categories": { "pms": "Property Management", "marketing": "Marketing / E-mail", "building": "Tecnologia degli edifici", "security": "Sicurezza" },
-    "descriptions": { "asa": "Prenotazioni, occupazione e dati degli ospiti — già collegata in produzione", "brevo": "Campagne, newsletter e liste di contatti", "energy": "Riscaldamento e climatizzazione delle camere collegati all'occupazione", "access": "Serrature intelligenti ed eventi di apertura porte" }
+    "names": {
+      "asa": "ASA PMS",
+      "brevo": "Brevo",
+      "energy": "Gestione energetica",
+      "access": "Controllo accessi"
+    },
+    "categories": {
+      "pms": "Property Management",
+      "marketing": "Marketing / E-mail",
+      "building": "Tecnologia degli edifici",
+      "security": "Sicurezza"
+    },
+    "descriptions": {
+      "asa": "Prenotazioni, occupazione e dati degli ospiti — già collegata in produzione",
+      "brevo": "Campagne, newsletter e liste di contatti",
+      "energy": "Riscaldamento e climatizzazione delle camere collegati all'occupazione",
+      "access": "Serrature intelligenti ed eventi di apertura porte"
+    }
   }
 }

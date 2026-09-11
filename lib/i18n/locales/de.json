@@ -98,8 +98,8 @@
       "date": "Mittwoch, 19. August 2026",
       "report": "Melden",
       "addTask": "Aufgabe",
-      "analysisTitle": "Tagesanalyse · Mittwoch, 19. Aug",
-      "analysisBody": "Heute 10 Ankünfte und 6 Abgänge. Zimmer 45 & 51 brauchen Express-Reinigung vor 14:00. Die Frühstücksvertretung ist noch ungeregelt. Eine neue Fünf-Sterne-Tripadvisor-Rezension wartet auf Antwort.",
+      "analysisTitle": "KI-Tagesanalyse · Mittwoch 19. Aug",
+      "analysisBody": "Heute 10 Ankünfte, 6 Abgänge. ⚡ Zimmer 45 & 51 brauchen Express-Reinigung vor 14:00. Zorah hat frei – Frühstücksvertretung noch ungeregelt. Neue ⭐⭐⭐⭐⭐ TripAdvisor-Rezension von gestern wartet auf Antwort.",
       "discuss": "Mit KI besprechen",
       "occupancy": "Auslastung",
       "arrivals": "Ankünfte / Abgänge",
@@ -109,7 +109,7 @@
       "checkin": "Check-in ab 15:00 Uhr",
       "open": "3 offen",
       "express": "Express bis 14:00",
-      "reviews": "137 Bewertungen",
+      "reviews": "137 Reviews",
       "myTasks": "Meine Aufgaben heute",
       "showAll": "Alle anzeigen",
       "task1": "Tripadvisor-Rezension beantworten",
@@ -125,12 +125,33 @@
       "dirty": "Schmutzig",
       "cleaning": "Reinigung",
       "ready": "Bereit",
-      "inspected": "Inspiziert",
-      "hkNote": "Zi. 45 & 51 Express-Priorität bis 14:00 · Zi. 50 kein Service",
+      "inspected": "Insp.",
+      "hkNote": "⚡ Zi. 45 & 51 Express-Priorität bis 14:00 · 🚫 Zi. 50 kein Service",
       "onDuty": "Heute im Dienst",
       "roster": "Dienstplan",
-      "teamSummary": "7 Mitarbeiter · 1 abwesend",
-      "vacation": "Urlaub"
+      "teamSummary": "7 Mitarbeiter · 1 Abwesend",
+      "vacation": "Urlaub",
+      "activities": "Aktivitäten heute",
+      "allTasks": "Alle Aufgaben",
+      "fullView": "Vollansicht",
+      "expressCleaning": "Express-Reinigung Zi. 45 & 51",
+      "expressCleaningMeta": "Housekeeping · Fällig 14:00",
+      "reviewActivity": "TripAdvisor Rezension unbeantwortet",
+      "reviewActivityMeta": "Fam. Wagner · 5 Sterne · gestern",
+      "breakfastCover": "Frühstücksvertretung für Zorah",
+      "breakfastCoverMeta": "Restaurant / morgen früh",
+      "tablePlan": "Tischplan Service aktualisiert",
+      "tablePlanMeta": "von Klaus · 7 Pers. 19:30",
+      "firstAid": "Erste-Hilfe-Koffer Etage 1",
+      "firstAidMeta": "Periodische Kontrolle · Klaus",
+      "restock": "Lager Marmelade & Honig nachgeordert",
+      "restockMeta": "Klaus · Lieferung morgen",
+      "urgentStatus": "DRINGEND",
+      "openStatus": "OFFEN",
+      "doneStatus": "ERLEDIGT",
+      "now": "jetzt",
+      "oneHour": "1 Std.",
+      "twoHours": "2 Std."
     },
     "settings": {
       "usersTeams": "Benutzer & Teams",
@@ -360,8 +381,23 @@
     "connect": "Verbinden",
     "empty": "Noch keine Integrationen verbunden.",
     "connectedNotice": "{name} wurde verbunden.",
-    "names": { "asa": "ASA PMS", "brevo": "Brevo", "energy": "Energiemanagement", "access": "Zutrittssystem" },
-    "categories": { "pms": "Property Management", "marketing": "Marketing / E-Mail", "building": "Gebäudetechnik", "security": "Sicherheit" },
-    "descriptions": { "asa": "Buchungen, Belegung und Gästedaten — bereits produktiv angebunden", "brevo": "Kampagnen, Newsletter und Kontaktlisten", "energy": "Raumweise Heizung und Klima gekoppelt an den Belegungsstatus", "access": "Smarte Schlösser und Türöffnungs-Ereignisse" }
+    "names": {
+      "asa": "ASA PMS",
+      "brevo": "Brevo",
+      "energy": "Energiemanagement",
+      "access": "Zutrittssystem"
+    },
+    "categories": {
+      "pms": "Property Management",
+      "marketing": "Marketing / E-Mail",
+      "building": "Gebäudetechnik",
+      "security": "Sicherheit"
+    },
+    "descriptions": {
+      "asa": "Buchungen, Belegung und Gästedaten — bereits produktiv angebunden",
+      "brevo": "Kampagnen, Newsletter und Kontaktlisten",
+      "energy": "Raumweise Heizung und Klima gekoppelt an den Belegungsstatus",
+      "access": "Smarte Schlösser und Türöffnungs-Ereignisse"
+    }
   }
 }
