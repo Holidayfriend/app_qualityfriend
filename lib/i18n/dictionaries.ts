@@ -16,6 +16,7 @@ export const dictionaries = {
 export const housekeepingMessages = byLocale("housekeepingMessages");
 export type HousekeepingMessages = typeof housekeepingMessages.en;
 
+export const accountSettingsMessages = byLocale("accountSettingsMessages");
 export const requestMessages = byLocale("requestMessages");
 export const auditMessages = byLocale("auditMessages");
 export const settingsPageMessages = byLocale("settingsPageMessages");
