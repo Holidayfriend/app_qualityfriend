@@ -12,6 +12,249 @@ datasource db {
   provider = "postgresql"
 }
 
+// Step one: XML/stay foundation. Import matching must be verified against source XML.
+
+enum ImportRunStatus {
+  RUNNING
+  SUCCEEDED
+  PARTIAL
+  FAILED
+}
+
+enum ReservationStatus {
+  UNKNOWN
+  RESERVED
+  OCCUPIED
+  DEPARTED
+  CANCELLED
+  NO_SHOW
+}
+
+enum RoomCleanliness {
+  UNKNOWN
+  DIRTY
+  CLEANING
+  CLEAN
+  INSPECTED
+}
+
+model Floor {
+  id String @id @default(uuid()) @db.Uuid
+  hotelTenantId String @map("hotel_tenant_id") @db.Uuid
+  code String @db.VarChar(40)
+  nameEn String @map("name_en") @db.VarChar(180)
+  nameDe String? @map("name_de") @db.VarChar(180)
+  nameIt String? @map("name_it") @db.VarChar(180)
+  sortOrder Int @default(0) @map("sort_order")
+  isActive Boolean @default(true) @map("is_active")
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  roomRecords Room[]
+
+  @@unique([hotelTenantId, id])
+  @@unique([hotelTenantId, code])
+
+  @@map("floors")
+}
+
+model RoomCategory {
+  id String @id @default(uuid()) @db.Uuid
+  hotelTenantId String @map("hotel_tenant_id") @db.Uuid
+  nameEn String @map("name_en") @db.VarChar(180)
+  nameDe String? @map("name_de") @db.VarChar(180)
+  nameIt String? @map("name_it") @db.VarChar(180)
+  expressMinutes Int? @map("express_minutes")
+  normalMinutes Int? @map("normal_minutes")
+  departureMinutes Int? @map("departure_minutes")
+  finalMinutes Int? @map("final_minutes")
+  isActive Boolean @default(true) @map("is_active")
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  roomRecords Room[]
+
+  @@unique([hotelTenantId, id])
+  @@unique([hotelTenantId, nameEn])
+
+  @@map("room_categories")
+}
+
+model Room {
+  id String @id @default(uuid()) @db.Uuid
+  hotelTenantId String @map("hotel_tenant_id") @db.Uuid
+  number String @db.VarChar(40)
+  nameEn String? @map("name_en") @db.VarChar(180)
+  nameDe String? @map("name_de") @db.VarChar(180)
+  nameIt String? @map("name_it") @db.VarChar(180)
+  floorId String? @map("floor_id") @db.Uuid
+  categoryId String? @map("category_id") @db.Uuid
+  isActive Boolean @default(true) @map("is_active")
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  floor Floor? @relation(fields: [hotelTenantId, floorId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  category RoomCategory? @relation(fields: [hotelTenantId, categoryId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  reservationRoomStayRecords ReservationRoomStay[]
+  roomOperationalStateRecords RoomOperationalState[]
+
+  @@unique([hotelTenantId, id])
+  @@unique([hotelTenantId, number])
+  @@index([hotelTenantId, floorId])
+  @@index([hotelTenantId, categoryId])
+  @@map("rooms")
+}
+
+model HotelImportSource {
+  id String @id @default(uuid()) @db.Uuid
+  hotelTenantId String @map("hotel_tenant_id") @db.Uuid
+  provider String @default("ASA_XML") @db.VarChar(80)
+  sourceKey String @map("source_key") @db.VarChar(180)
+  lastSuccessfulAt DateTime? @map("last_successful_at") @db.Timestamptz(3)
+  isActive Boolean @default(true) @map("is_active")
+  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  importRunRecords ImportRun[]
+  reservationRecords Reservation[]
+
+  @@unique([hotelTenantId, id])
+  @@unique([hotelTenantId, provider, sourceKey])
+
+  @@map("hotel_import_sources")
+}
+
+model ImportRun {
+  id String @id @default(uuid()) @db.Uuid
+  hotelTenantId String @map("hotel_tenant_id") @db.Uuid
+  sourceId String @map("source_id") @db.Uuid
+  status ImportRunStatus @default(RUNNING)
+  startedAt DateTime @default(now()) @map("started_at") @db.Timestamptz(3)
+  finishedAt DateTime? @map("finished_at") @db.Timestamptz(3)
+  checksum String? @db.VarChar(64)
+  recordsRead Int @default(0) @map("records_read")
+  recordsCreated Int @default(0) @map("records_created")
+  recordsUpdated Int @default(0) @map("records_updated")
+  recordsRejected Int @default(0) @map("records_rejected")
+  errorSummary String? @map("error_summary") @db.Text
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  source HotelImportSource @relation(fields: [hotelTenantId, sourceId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([hotelTenantId, id])
+  @@index([hotelTenantId, sourceId, startedAt])
+  @@map("import_runs")
+}
+
+model Reservation {
+  id String @id @default(uuid()) @db.Uuid
+  hotelTenantId String @map("hotel_tenant_id") @db.Uuid
+  sourceId String? @map("source_id") @db.Uuid
+  externalId String? @map("external_id") @db.VarChar(255)
+  sourceStatus String? @map("source_status") @db.VarChar(80)
+  status ReservationStatus @default(UNKNOWN)
+  bookingGroup String? @map("booking_group") @db.VarChar(255)
+  offer String? @db.Text
+  board String? @db.VarChar(120)
+  lastSeenAt DateTime? @map("last_seen_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  source HotelImportSource? @relation(fields: [hotelTenantId, sourceId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  reservationRoomStayRecords ReservationRoomStay[]
+
+  @@unique([hotelTenantId, id])
+  @@unique([hotelTenantId, sourceId, externalId])
+  @@index([hotelTenantId, status])
+  @@map("reservations")
+}
+
+model ReservationRoomStay {
+  id String @id @default(uuid()) @db.Uuid
+  hotelTenantId String @map("hotel_tenant_id") @db.Uuid
+  reservationId String @map("reservation_id") @db.Uuid
+  roomId String @map("room_id") @db.Uuid
+  sourceSegmentId String? @map("source_segment_id") @db.VarChar(255)
+  arrivalDate DateTime @map("arrival_date") @db.Date
+  departureDate DateTime @map("departure_date") @db.Date
+  checkedInAt DateTime? @map("checked_in_at") @db.Timestamptz(3)
+  checkedOutAt DateTime? @map("checked_out_at") @db.Timestamptz(3)
+  sourceStatus String? @map("source_status") @db.VarChar(80)
+  adultCount Int? @map("adult_count")
+  childCount Int? @map("child_count")
+  childK1Count Int? @map("child_k1_count")
+  childK2Count Int? @map("child_k2_count")
+  childK3Count Int? @map("child_k3_count")
+  serviceRemarks String? @map("service_remarks") @db.Text
+  sourceFromRoomNumber String? @map("source_from_room_number") @db.VarChar(40)
+  sourceToRoomNumber String? @map("source_to_room_number") @db.VarChar(40)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  reservation Reservation @relation(fields: [hotelTenantId, reservationId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  room Room @relation(fields: [hotelTenantId, roomId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  reservationGuestRecords ReservationGuest[]
+
+  @@unique([hotelTenantId, id])
+  @@unique([hotelTenantId, reservationId, sourceSegmentId])
+  @@index([hotelTenantId, arrivalDate])
+  @@index([hotelTenantId, departureDate])
+  @@index([hotelTenantId, roomId, arrivalDate])
+  @@map("reservation_room_stays")
+}
+
+model ReservationGuest {
+  id String @id @default(uuid()) @db.Uuid
+  hotelTenantId String @map("hotel_tenant_id") @db.Uuid
+  roomStayId String @map("room_stay_id") @db.Uuid
+  sourceGuestId String? @map("source_guest_id") @db.VarChar(255)
+  name String @db.VarChar(255)
+  dateOfBirth DateTime? @map("date_of_birth") @db.Date
+  language String? @db.VarChar(40)
+  vip Boolean?
+  previousStayCount Int? @map("previous_stay_count")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  roomStay ReservationRoomStay @relation(fields: [hotelTenantId, roomStayId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([hotelTenantId, id])
+  @@unique([hotelTenantId, roomStayId, sourceGuestId])
+
+  @@map("reservation_guests")
+}
+
+model RoomOperationalState {
+  id String @id @default(uuid()) @db.Uuid
+  hotelTenantId String @map("hotel_tenant_id") @db.Uuid
+  roomId String @map("room_id") @db.Uuid
+  cleanliness RoomCleanliness @default(UNKNOWN)
+  doNotDisturb Boolean @default(false) @map("do_not_disturb")
+  noService Boolean @default(false) @map("no_service")
+  doNotDisturbUntil DateTime? @map("do_not_disturb_until") @db.Timestamptz(3)
+  noServiceUntil DateTime? @map("no_service_until") @db.Timestamptz(3)
+  isExpress Boolean @default(false) @map("is_express")
+  expressDeadline DateTime? @map("express_deadline") @db.Timestamptz(3)
+  lastCleanedAt DateTime? @map("last_cleaned_at") @db.Timestamptz(3)
+  lastInspectedAt DateTime? @map("last_inspected_at") @db.Timestamptz(3)
+  version Int @default(1)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  room Room @relation(fields: [hotelTenantId, roomId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([hotelTenantId, id])
+  @@unique([hotelTenantId, roomId])
+  @@index([hotelTenantId, cleanliness])
+  @@map("room_operational_states")
+}
+
+
 model SuperAdmin {
   id           String    @id @default(uuid()) @db.Uuid
   name         String    @db.VarChar(120)
@@ -59,6 +302,17 @@ enum PaymentProvider {
 }
 
 model HotelTenant {
+  // Configure before resolving hotel-local operational dates; no guessed default.
+  timeZone String? @map("time_zone") @db.VarChar(80)
+  floorRecords Floor[]
+  roomCategoryRecords RoomCategory[]
+  roomRecords Room[]
+  hotelImportSourceRecords HotelImportSource[]
+  importRunRecords ImportRun[]
+  reservationRecords Reservation[]
+  reservationRoomStayRecords ReservationRoomStay[]
+  reservationGuestRecords ReservationGuest[]
+  roomOperationalStateRecords RoomOperationalState[]
   id                           String                 @id @default(uuid()) @db.Uuid
   hotelNameEn                  String                 @map("hotel_name_en") @db.VarChar(180)
   hotelNameDe                  String                 @map("hotel_name_de") @db.VarChar(180)
