@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { HousekeepingMessages } from "../../lib/i18n/housekeeping-messages";
+import type { HousekeepingMessages } from "../../lib/i18n/dictionaries";
 import {categories,extraJobs,rooms} from "../../lib/housekeeping/preview-data";
 
 const action="inline-flex min-h-[34px] items-center rounded-[7px] bg-[var(--qf-accent)] px-[14px] text-[12px] font-semibold text-white";

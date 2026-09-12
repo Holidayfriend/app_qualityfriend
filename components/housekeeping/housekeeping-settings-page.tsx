@@ -3,7 +3,7 @@
 import Link from "next/link";
 import {AppShell} from "../dashboard/app-shell";
 import {useI18n} from "../i18n/i18n-provider";
-import {housekeepingMessages} from "../../lib/i18n/housekeeping-messages";
+import {housekeepingMessages} from "../../lib/i18n/dictionaries";
 import {HousekeepingSettingsNav,type HousekeepingSettingsSection} from "./settings-nav";
 import {CategoriesSettings,ExtraJobsSettings,FloorsSettings,RoomsSettings} from "./settings-sections";
 

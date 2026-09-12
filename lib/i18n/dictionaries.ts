@@ -13,6 +13,9 @@ export const dictionaries = {
   it: it.dictionary,
 } as const;
 
+export const housekeepingMessages = byLocale("housekeepingMessages");
+export type HousekeepingMessages = typeof housekeepingMessages.en;
+
 export const requestMessages = byLocale("requestMessages");
 export const auditMessages = byLocale("auditMessages");
 export const settingsPageMessages = byLocale("settingsPageMessages");

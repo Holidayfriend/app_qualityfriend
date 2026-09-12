@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { HousekeepingMessages } from "../../lib/i18n/housekeeping-messages";
+import type { HousekeepingMessages } from "../../lib/i18n/dictionaries";
 
 export type HousekeepingSettingsSection="floors"|"categories"|"rooms"|"extras";
 
