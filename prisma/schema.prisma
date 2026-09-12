@@ -106,8 +106,39 @@ model HotelTenant {
 
   @@index([isActive])
   @@index([activeMcp])
+  competitors Competitor[]
+
   @@map("hotel_tenants")
 }
+
+model Competitor {
+  id                  String      @id @default(uuid()) @db.Uuid
+  hotelTenantId       String      @map("hotel_tenant_id") @db.Uuid
+  locationKey         String      @map("location_key") @db.VarChar(120)
+  externalKey         String      @map("external_key") @db.VarChar(120)
+  name                String      @db.Text
+  accommodationType   String?     @map("accommodation_type") @db.Text
+  url                 String?     @db.Text
+  rating              Float?
+  reviewCount         Int?        @map("review_count")
+  minPrice            Decimal?    @map("min_price") @db.Decimal(14, 2)
+  maxPrice            Decimal?    @map("max_price") @db.Decimal(14, 2)
+  latitude            Float?
+  longitude           Float?
+  image               String?     @db.Text
+  mentions            Json        @default("[]")
+  merchandisingLabels Json        @default("[]") @map("merchandising_labels")
+  rawPayload          Json        @map("raw_payload")
+  lastFetchedAt       DateTime    @map("last_fetched_at") @db.Timestamptz(3)
+  createdAt           DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant         HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+
+  @@unique([hotelTenantId, locationKey, externalKey])
+  @@index([hotelTenantId, locationKey, name])
+  @@map("competitors")
+}
+
 
 model Coupon {
   id              String             @id @default(uuid()) @db.Uuid

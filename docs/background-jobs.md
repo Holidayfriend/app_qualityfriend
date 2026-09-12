@@ -88,5 +88,6 @@ Do not use local source/dependency bind mounts in production. Start/update the
 worker with the app on every deployment. Docker sends SIGTERM on shutdown; the
 worker waits up to 30 seconds for active work, then unfinished jobs can be retried.
 
-Tripadvisor fetching and the competitors Refresh button are not connected yet.
-This provides the queue/worker foundation for that integration.
+The [competitor backend](competitor-backend.md) now provides refresh dispatch,
+Xotelo fetching, database upserts, and address jobs. The existing UI Refresh
+button is unchanged pending data review.
