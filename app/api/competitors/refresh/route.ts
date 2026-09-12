@@ -5,7 +5,10 @@ export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   const origin = request.headers.get("origin");
-  if (request.headers.get("sec-fetch-site") === "cross-site" || (origin && origin !== new URL(request.url).origin)) {
+  const requestHosts = [request.headers.get("host"), request.headers.get("x-forwarded-host")].filter(Boolean);
+  let originHost: string | null = null;
+  try { originHost = origin ? new URL(origin).host : null; } catch {}
+  if (origin && (!originHost || !requestHosts.includes(originHost))) {
     return Response.json({ error: "FORBIDDEN_ORIGIN" }, { status: 403 });
   }
   const actor = await competitorActor();
