@@ -529,7 +529,7 @@
     "required": "Bitte füllen Sie alle Pflichtfelder aus.",
     "exists": "Diese E-Mail wird bereits verwendet.",
     "error": "Änderungen konnten nicht gespeichert werden.",
-    "asaXmlName": "ASA XML NAME",
+    "asaXmlName": "Houskeeping ASA XML",
     "invalidAsaXmlName": "Geben Sie nur einen Dateinamen ein (maximal 255 Zeichen), ohne Ordnerpfad oder URL."
   }
 }

@@ -529,7 +529,7 @@
     "required": "Please complete all required fields.",
     "exists": "This email is already used.",
     "error": "Could not save the changes.",
-    "asaXmlName": "ASA XML NAME",
+    "asaXmlName": "Houskeeping ASA XML",
     "invalidAsaXmlName": "Enter a filename only (maximum 255 characters), without a folder path or URL."
   }
 }
