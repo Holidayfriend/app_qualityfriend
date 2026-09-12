@@ -531,5 +531,17 @@
     "error": "Could not save the changes.",
     "asaXmlName": "Houskeeping ASA XML",
     "invalidAsaXmlName": "Enter a filename only (maximum 255 characters), without a folder path or URL."
+  },
+  "housekeepingRefreshMessages": {
+    "missing": "Add the Houskeeping ASA XML name in Hotel Settings first.",
+    "invalid": "The ASA XML name must be a filename without a folder path.",
+    "notFound": "The configured XML file was not found in public/ASA.",
+    "ready": "XML file found. The job will be dispatched once dispatch is implemented.",
+    "failed": "Could not check the XML file. Please try again.",
+    "forbidden": "You do not have permission to refresh housekeeping.",
+    "unauthenticated": "Please sign in again."
+  },
+  "toastMessages": {
+    "dismiss": "Dismiss notification"
   }
 }

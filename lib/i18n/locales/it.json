@@ -531,5 +531,17 @@
     "error": "Impossibile salvare le modifiche.",
     "asaXmlName": "Houskeeping ASA XML",
     "invalidAsaXmlName": "Inserisci solo il nome del file (massimo 255 caratteri), senza percorso o URL."
+  },
+  "housekeepingRefreshMessages": {
+    "missing": "Inserisci prima il nome Houskeeping ASA XML nelle impostazioni hotel.",
+    "invalid": "Il nome ASA XML deve essere un nome file senza percorso.",
+    "notFound": "Il file XML configurato non ? stato trovato in public/ASA.",
+    "ready": "File XML trovato. Il processo verr? avviato quando la funzione sar? implementata.",
+    "failed": "Impossibile verificare il file XML. Riprova.",
+    "forbidden": "Non hai il permesso di aggiornare Housekeeping.",
+    "unauthenticated": "Accedi nuovamente."
+  },
+  "toastMessages": {
+    "dismiss": "Chiudi notifica"
   }
 }

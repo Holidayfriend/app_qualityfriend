@@ -42,3 +42,6 @@ function byLocale<Key extends CatalogKey>(key: Key) {
     it: catalogs.it[key],
   } as const;
 }
+
+export const housekeepingRefreshMessages = byLocale("housekeepingRefreshMessages");
+export const toastMessages = byLocale("toastMessages");
