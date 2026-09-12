@@ -61,6 +61,30 @@ services:
     networks:
       - qualityfriend
 
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: qualityfriend-worker
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 45s
+    command: ["./node_modules/.bin/tsx", "scripts/worker.ts"]
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER:-qualityfriend}:${POSTGRES_PASSWORD:-qualityfriend_local_password}@postgres:5432/${POSTGRES_DB:-qualityfriend_dev}
+    volumes:
+      - .:/app
+      - worker_node_modules:/app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    networks:
+      - qualityfriend
+
   admin:
     build:
       context: ../admin_qualityfriend
@@ -94,6 +118,7 @@ services:
 volumes:
   qualityfriend_postgres_data:
   app_node_modules:
+  worker_node_modules:
   app_next_cache:
   admin_node_modules:
   admin_next_cache:
