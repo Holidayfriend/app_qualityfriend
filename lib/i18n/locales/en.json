@@ -536,12 +536,20 @@
     "missing": "Add the Houskeeping ASA XML name in Hotel Settings first.",
     "invalid": "The ASA XML name must be a filename without a folder path.",
     "notFound": "The configured XML file was not found in public/ASA.",
-    "ready": "XML file found. The job will be dispatched once dispatch is implemented.",
+    "ready": "Housekeeping import job dispatched. You will receive a notification when it finishes.",
     "failed": "Could not check the XML file. Please try again.",
     "forbidden": "You do not have permission to refresh housekeeping.",
-    "unauthenticated": "Please sign in again."
+    "unauthenticated": "Please sign in again.",
+    "pending": "A housekeeping import is already queued or running."
   },
   "toastMessages": {
     "dismiss": "Dismiss notification"
+  },
+  "notificationMessages": {
+    "title": "Notifications",
+    "empty": "No notifications yet.",
+    "loading": "Loading notifications...",
+    "failed": "Could not load notifications.",
+    "unread": "Unread"
   }
 }

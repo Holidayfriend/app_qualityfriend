@@ -1,6 +1,7 @@
 import { PgBoss } from "pg-boss";
 
-export const queues = { smoke: "qualityfriend-smoke", competitors: "competitors-refresh" } as const;
+export const queues = { smoke: "qualityfriend-smoke", competitors: "competitors-refresh", housekeeping: "housekeeping-import", housekeepingFailed: "housekeeping-import-failed" } as const;
+export type HousekeepingImportJob = { hotelTenantId: string; actorId: string; xmlName: string; runId: string; sourceId: string };
 export type SmokeJob = { message: string };
 export type CompetitorRefreshJob = { hotelTenantId: string; locationKey: string };
 
@@ -13,6 +14,11 @@ export function createJobQueue(worker = false) {
 }
 
 export async function initializeQueues(boss: PgBoss) {
+  await boss.createQueue(queues.housekeepingFailed, { retryLimit: 5, retryDelay: 30, retryBackoff: true, expireInSeconds: 300 });
+  await boss.createQueue(queues.housekeeping, {
+    policy: "exclusive", retryLimit: 2, retryDelay: 30, retryBackoff: true,
+    expireInSeconds: 1800, deleteAfterSeconds: 7 * 24 * 60 * 60, deadLetter: queues.housekeepingFailed,
+  });
   await boss.createQueue(queues.competitors, {
     policy: "exclusive", retryLimit: 3, retryDelay: 30, retryBackoff: true,
     expireInSeconds: 1800, deleteAfterSeconds: 7 * 24 * 60 * 60,

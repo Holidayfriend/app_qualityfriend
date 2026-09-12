@@ -536,12 +536,20 @@
     "missing": "Tragen Sie zuerst den Houskeeping ASA XML-Namen in den Hoteleinstellungen ein.",
     "invalid": "Der ASA XML-Name muss ein Dateiname ohne Ordnerpfad sein.",
     "notFound": "Die konfigurierte XML-Datei wurde in public/ASA nicht gefunden.",
-    "ready": "XML-Datei gefunden. Der Auftrag wird versendet, sobald die Verarbeitung implementiert ist.",
+    "ready": "Housekeeping-Import gestartet. Sie erhalten nach Abschluss eine Benachrichtigung.",
     "failed": "Die XML-Datei konnte nicht gepr?ft werden. Bitte versuchen Sie es erneut.",
     "forbidden": "Sie d?rfen Housekeeping nicht aktualisieren.",
-    "unauthenticated": "Bitte melden Sie sich erneut an."
+    "unauthenticated": "Bitte melden Sie sich erneut an.",
+    "pending": "Ein Housekeeping-Import wartet bereits oder wird ausgef?hrt."
   },
   "toastMessages": {
     "dismiss": "Benachrichtigung schlie?en"
+  },
+  "notificationMessages": {
+    "title": "Benachrichtigungen",
+    "empty": "Noch keine Benachrichtigungen.",
+    "loading": "Benachrichtigungen werden geladen...",
+    "failed": "Benachrichtigungen konnten nicht geladen werden.",
+    "unread": "Ungelesen"
   }
 }

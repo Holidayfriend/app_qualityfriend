@@ -43,9 +43,9 @@ function Board({t}:{t:T}){
     try{
       const response=await fetch("/api/housekeeping/refresh",{method:"POST"});
       const body=await response.json();
-      if(response.ok&&body.status==="ready")showToast({message:copy.ready,tone:"success"});
+      if(response.status===202&&body.status==="queued")showToast({message:copy.ready,tone:"success"});
       else{
-        const errors:Record<string,string>={ASA_XML_NAME_REQUIRED:copy.missing,INVALID_ASA_XML_NAME:copy.invalid,ASA_XML_NOT_FOUND:copy.notFound,UNAUTHENTICATED:copy.unauthenticated,FORBIDDEN:copy.forbidden};
+        const errors:Record<string,string>={ASA_XML_NAME_REQUIRED:copy.missing,INVALID_ASA_XML_NAME:copy.invalid,ASA_XML_NOT_FOUND:copy.notFound,UNAUTHENTICATED:copy.unauthenticated,FORBIDDEN:copy.forbidden,REFRESH_ALREADY_PENDING:copy.pending};
         showToast({message:errors[body.error]??copy.failed,tone:"error"});
       }
     }catch{showToast({message:copy.failed,tone:"error"})}

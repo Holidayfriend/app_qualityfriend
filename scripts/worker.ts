@@ -1,6 +1,8 @@
 import "dotenv/config";
 import { Pool } from "pg";
 import { refreshCompetitors } from "../lib/competitors/jobs";
+import { importHousekeeping, recordImportFailure, importFailureReason } from "../lib/housekeeping/import-job";
+import type { HousekeepingImportJob } from "../lib/jobs/queue";
 import { createJobQueue, initializeQueues, queues, type SmokeJob, type CompetitorRefreshJob } from "../lib/jobs/queue";
 
 const boss = createJobQueue(true);
@@ -18,6 +20,23 @@ async function shutdown() {
 async function main() {
   await boss.start();
   await initializeQueues(boss);
+  // Includes terminal queue failures/timeouts that never reached the handler's catch block.
+  await boss.work<HousekeepingImportJob>(queues.housekeepingFailed, async ([job]) => {
+    await recordImportFailure(pool, job.data, true);
+  });
+  await boss.work<HousekeepingImportJob, unknown, { includeMetadata: true }>(queues.housekeeping, { includeMetadata: true }, async ([job]) => {
+    try {
+      const result = await importHousekeeping(pool, job.data, job.signal);
+      console.log(`[worker] Housekeeping import ${job.id} completed`, result);
+      return result;
+    } catch (error) {
+      // Do not log guest data or SQL parameter values.
+      const reason = importFailureReason(error);
+      console.error(`[worker] Housekeeping import ${job.id} attempt ${job.retryCount + 1} failed: ${reason}`);
+      await recordImportFailure(pool, job.data, job.retryCount >= job.retryLimit, reason);
+      throw new Error(reason);
+    }
+  });
   await boss.work<CompetitorRefreshJob>(queues.competitors, async ([job]) => {
     try {
       const result = await refreshCompetitors(pool, job.data);

@@ -536,12 +536,20 @@
     "missing": "Inserisci prima il nome Houskeeping ASA XML nelle impostazioni hotel.",
     "invalid": "Il nome ASA XML deve essere un nome file senza percorso.",
     "notFound": "Il file XML configurato non ? stato trovato in public/ASA.",
-    "ready": "File XML trovato. Il processo verr? avviato quando la funzione sar? implementata.",
+    "ready": "Importazione Housekeeping avviata. Riceverai una notifica al termine.",
     "failed": "Impossibile verificare il file XML. Riprova.",
     "forbidden": "Non hai il permesso di aggiornare Housekeeping.",
-    "unauthenticated": "Accedi nuovamente."
+    "unauthenticated": "Accedi nuovamente.",
+    "pending": "Un?importazione Housekeeping ? gi? in coda o in esecuzione."
   },
   "toastMessages": {
     "dismiss": "Chiudi notifica"
+  },
+  "notificationMessages": {
+    "title": "Notifiche",
+    "empty": "Nessuna notifica.",
+    "loading": "Caricamento notifiche...",
+    "failed": "Impossibile caricare le notifiche.",
+    "unread": "Non letta"
   }
 }

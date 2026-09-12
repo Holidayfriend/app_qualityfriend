@@ -1,0 +1,45 @@
+import { prisma } from "../../../lib/prisma";
+import { getSessionUserId } from "../../../lib/auth/session";
+import { accessibleModules } from "../../../lib/auth/module-access";
+import { hasTrustedOrigin } from "../../../lib/security/request-origin";
+
+async function context() {
+  const id = await getSessionUserId();
+  if (!id) return null;
+  const user = await prisma.user.findFirst({ where: { id, isActive: true, isDeleted: false, hotelTenant: { isActive: true, subscriptionStatus: { in: ["ACTIVE", "COMPED"] } } }, select: { id: true, hotelTenantId: true, role: true } });
+  if (!user) return null;
+  const modules = await accessibleModules({ id: user.id, hotel_tenant_id: user.hotelTenantId, role: user.role });
+  const fullAccess = user.role === "ADMIN" ? modules : (await prisma.roleModulePermission.findMany({ where: {
+    hotelTenantId: user.hotelTenantId, role: user.role, canView: true, scope: "ALL",
+  }, select: { moduleKey: true } })).map(item => item.moduleKey);
+  return { user, where: { hotelTenantId: user.hotelTenantId, recipientId: user.id, moduleKey: { in: modules },
+    OR: [{ requiredScope: "OWN" as const }, { requiredScope: "ALL" as const, moduleKey: { in: fullAccess } }],
+  } };
+}
+
+export async function GET(request: Request) {
+  const current = await context();
+  if (!current) return Response.json({ error: "UNAUTHENTICATED" }, { status: 401 });
+  const language = new URL(request.url).searchParams.get("locale");
+  const locale = language === "de" || language === "it" ? language : "en";
+  const [items, unreadCount] = await Promise.all([
+    prisma.notification.findMany({ where: current.where, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 30 }),
+    prisma.notification.count({ where: { ...current.where, readAt: null } }),
+  ]);
+  return Response.json({ unreadCount, notifications: items.map(item => ({ id: item.id, icon: item.icon, destination: item.destination,
+    title: locale === "de" ? item.titleDe : locale === "it" ? item.titleIt : item.titleEn,
+    detail: locale === "de" ? item.bodyDe : locale === "it" ? item.bodyIt : item.bodyEn,
+    read: item.readAt !== null, createdAt: item.createdAt })) }, { headers: { "Cache-Control": "no-store" } });
+}
+
+export async function PATCH(request: Request) {
+  if (!hasTrustedOrigin(request)) return Response.json({ error: "FORBIDDEN_ORIGIN" }, { status: 403 });
+  const current = await context();
+  if (!current) return Response.json({ error: "UNAUTHENTICATED" }, { status: 401 });
+  const body = await request.json().catch(() => null);
+  if (typeof body?.id !== "string" || !/^[0-9a-f-]{36}$/i.test(body.id)) return Response.json({ error: "INVALID_ID" }, { status: 400 });
+  const found = await prisma.notification.findFirst({ where: { ...current.where, id: body.id }, select: { id: true } });
+  if (!found) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
+  await prisma.notification.updateMany({ where: { ...current.where, id: body.id, readAt: null }, data: { readAt: new Date() } });
+  return Response.json({ success: true });
+}

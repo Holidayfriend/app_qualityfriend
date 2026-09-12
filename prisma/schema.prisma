@@ -15,6 +15,7 @@ datasource db {
 // Step one: XML/stay foundation. Import matching must be verified against source XML.
 
 enum ImportRunStatus {
+  QUEUED
   RUNNING
   SUCCEEDED
   PARTIAL
@@ -152,6 +153,7 @@ model ImportRun {
 }
 
 model Reservation {
+  sourcePresent Boolean @default(true) @map("source_present")
   id String @id @default(uuid()) @db.Uuid
   hotelTenantId String @map("hotel_tenant_id") @db.Uuid
   sourceId String? @map("source_id") @db.Uuid
@@ -302,6 +304,7 @@ enum PaymentProvider {
 }
 
 model HotelTenant {
+  notifications Notification[]
   asaXmlName String? @map("asa_xml_name") @db.VarChar(255)
   // Configure before resolving hotel-local operational dates; no guessed default.
   timeZone String? @map("time_zone") @db.VarChar(80)
@@ -486,6 +489,7 @@ model BillingConfiguration {
 }
 
 model User {
+  notifications Notification[]
   id                     String        @id @default(uuid()) @db.Uuid
   hotelTenantId          String        @map("hotel_tenant_id") @db.Uuid
   mcpUserId              String?       @map("mcp_user_id") @db.VarChar(128)
@@ -526,6 +530,31 @@ model User {
   @@index([departmentId])
   @@index([mcpUserId])
   @@map("users")
+  @@unique([hotelTenantId, id])
+}
+
+model Notification {
+  requiredScope PermissionScope @default(OWN) @map("required_scope")
+  id String @id @default(uuid()) @db.Uuid
+  hotelTenantId String @map("hotel_tenant_id") @db.Uuid
+  recipientId String @map("recipient_id") @db.Uuid
+  moduleKey String @map("module_key") @db.VarChar(80)
+  eventKey String @map("event_key") @db.VarChar(180)
+  icon String @db.VarChar(40)
+  destination String @db.VarChar(255)
+  titleEn String @map("title_en") @db.Text
+  titleDe String @map("title_de") @db.Text
+  titleIt String @map("title_it") @db.Text
+  bodyEn String @map("body_en") @db.Text
+  bodyDe String @map("body_de") @db.Text
+  bodyIt String @map("body_it") @db.Text
+  readAt DateTime? @map("read_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  hotelTenant HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict)
+  recipient User @relation(fields: [hotelTenantId, recipientId], references: [hotelTenantId, id], onDelete: Restrict)
+  @@unique([hotelTenantId, recipientId, eventKey])
+  @@index([hotelTenantId, recipientId, readAt, createdAt])
+  @@map("notifications")
 }
 
 enum ChatMessageType {

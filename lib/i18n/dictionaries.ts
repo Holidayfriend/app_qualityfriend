@@ -45,3 +45,5 @@ function byLocale<Key extends CatalogKey>(key: Key) {
 
 export const housekeepingRefreshMessages = byLocale("housekeepingRefreshMessages");
 export const toastMessages = byLocale("toastMessages");
+
+export const notificationMessages = byLocale("notificationMessages");
