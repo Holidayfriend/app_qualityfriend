@@ -33,6 +33,7 @@ services:
     environment:
       NODE_ENV: development
       DATABASE_URL: postgresql://${POSTGRES_USER:-qualityfriend}:${POSTGRES_PASSWORD:-qualityfriend_local_password}@postgres:5432/${POSTGRES_DB:-qualityfriend_dev}
+      XOTELO_RAPIDAPI_KEY: ${XOTELO_RAPIDAPI_KEY:-}
       AUTH_SECRET: ${AUTH_SECRET:-qualityfriend_local_development_session_secret}
       TOTP_ENCRYPTION_KEY: ${TOTP_ENCRYPTION_KEY:-qualityfriend_local_development_totp_encryption_secret}
       PAYPAL_ENVIRONMENT: ${PAYPAL_ENVIRONMENT:-sandbox}
@@ -73,6 +74,7 @@ services:
     environment:
       NODE_ENV: development
       DATABASE_URL: postgresql://${POSTGRES_USER:-qualityfriend}:${POSTGRES_PASSWORD:-qualityfriend_local_password}@postgres:5432/${POSTGRES_DB:-qualityfriend_dev}
+      XOTELO_RAPIDAPI_KEY: ${XOTELO_RAPIDAPI_KEY:-}
     volumes:
       - .:/app
       - worker_node_modules:/app/node_modules

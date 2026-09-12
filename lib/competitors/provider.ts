@@ -31,12 +31,21 @@ export function normalizeCompetitor(value: unknown) {
 }
 
 export async function fetchCompetitors(locationKey: string, fetcher: typeof fetch = fetch) {
+  const rapidApiKey = process.env.XOTELO_RAPIDAPI_KEY?.trim();
+  const baseUrl = rapidApiKey
+    ? "https://xotelo-hotel-prices.p.rapidapi.com/api/list"
+    : "https://data.xotelo.com/api/list";
+  const headers: Record<string, string> = { "User-Agent": "QualityFriend/1.0", Accept: "application/json" };
+  if (rapidApiKey) {
+    headers["X-RapidAPI-Key"] = rapidApiKey;
+    headers["X-RapidAPI-Host"] = "xotelo-hotel-prices.p.rapidapi.com";
+  }
   const records = new Map<string, ReturnType<typeof normalizeCompetitor>>();
   let fetched = 0;
   for (let offset = 0; offset < 2500; offset += 50) {
-    const url = new URL("https://data.xotelo.com/api/list");
+    const url = new URL(baseUrl);
     url.search = new URLSearchParams({ location_key: locationKey, offset: String(offset), limit: "50", sort: "best_value" }).toString();
-    const response = await fetcher(url, { signal: AbortSignal.timeout(20_000), headers: { "User-Agent": "QualityFriend/1.0", Accept: "application/json" } });
+    const response = await fetcher(url, { signal: AbortSignal.timeout(20_000), headers });
     if (!response.ok) throw new Error(`Xotelo request failed (HTTP ${response.status}).`);
     const data = object(await response.json());
     if (data.error) {
