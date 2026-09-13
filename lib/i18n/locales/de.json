@@ -415,6 +415,8 @@
     "cleaning": "In Reinigung",
     "clean": "Sauber",
     "inspected": "Inspiziert",
+    "inspectionInProgress": "Kontrolle läuft",
+    "noCleaningDesired": "Keine Reinigung gewünscht",
     "occupied": "Belegt",
     "express": "Express",
     "dnd": "Bitte nicht stören",

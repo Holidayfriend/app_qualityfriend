@@ -1,8 +1,8 @@
-export type RoomStatus = "dirty" | "cleaning" | "clean" | "inspected";
+export type RoomStatus = "dirty" | "cleaning" | "clean" | "inspected" | "unassigned" | "inspectionInProgress" | "noCleaningDesired";
 export type Room = { number:string; floor:string; category:string; status:RoomStatus; occupied?:boolean; express?:boolean; dnd?:boolean; noService?:boolean; cleaner?:string; arrival?:string; departure?:string; guest?:string; language?:string; remark?:string };
 
 export const rooms: Room[] = [
-  {number:"42",floor:"1",category:"Deluxe double room",status:"clean",occupied:true,guest:"Wagner family",language:"DE",arrival:"18 Aug 2026",departure:"25 Aug 2026"},
+  {number:"42",floor:"1",category:"Deluxe double room",status:"unassigned",occupied:true,guest:"Wagner family",language:"DE",arrival:"18 Aug 2026",departure:"25 Aug 2026"},
   {number:"43",floor:"1",category:"Comfort double room",status:"inspected",cleaner:"Rebecca",departure:"Today, checked out",guest:"Egger family"},
   {number:"44",floor:"1",category:"Deluxe double room",status:"cleaning",occupied:true,cleaner:"Rebecca",guest:"Mr Brunner",language:"DE",remark:"Nut allergy",arrival:"15 Aug 2026",departure:"22 Aug 2026"},
   {number:"45",floor:"1",category:"Lake-view suite",status:"dirty",express:true,cleaner:"Sabine Moser",arrival:"Today, 14:00"},
@@ -13,10 +13,10 @@ export const rooms: Room[] = [
   {number:"51",floor:"1",category:"Lake-view suite",status:"dirty",express:true,cleaner:"Sabine Moser",departure:"Today, checked out"},
   {number:"52",floor:"1",category:"Comfort double room",status:"clean"},
   {number:"55",floor:"2",category:"Deluxe double room",status:"inspected",cleaner:"Housekeeping 2"},
-  {number:"56",floor:"2",category:"Comfort double room",status:"clean"},
+  {number:"56",floor:"2",category:"Comfort double room",status:"inspectionInProgress"},
   {number:"57",floor:"2",category:"Deluxe double room",status:"clean",occupied:true,guest:"Jendrike Cart",language:"DE"},
   {number:"58",floor:"2",category:"Comfort double room",status:"clean",cleaner:"Housekeeping 2"},
-  {number:"60",floor:"2",category:"Single room",status:"inspected",arrival:"Today, 16:00",guest:"Mr Plattner"},
+  {number:"60",floor:"2",category:"Single room",status:"noCleaningDesired",noService:true,arrival:"Today, 16:00",guest:"Mr Plattner"},
   {number:"61",floor:"2",category:"Single room",status:"clean",occupied:true,arrival:"Today, checked in",guest:"Mr Toifl",language:"DE"},
 ];
 export const cleaners=[{name:"Rebecca",minutes:120,rooms:["43","44","45","48"]},{name:"Solav",minutes:0,rooms:[]},{name:"Ameen",minutes:0,rooms:[]},{name:"Housekeeping1",minutes:0,rooms:[]},{name:"Housekeeping2",minutes:135,rooms:["55","58"],extra:"Fenster Parterre/Finestre pianterreno"},{name:"Jana",minutes:0,rooms:[]},{name:"Sabine Moser",minutes:45,rooms:[]}];
