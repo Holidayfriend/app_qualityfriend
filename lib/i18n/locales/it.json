@@ -546,6 +546,11 @@
     "dismiss": "Chiudi notifica"
   },
   "notificationMessages": {
+    "seeAll": "Vedi tutte",
+    "previous": "Precedente",
+    "next": "Successiva",
+    "pageOf": "Pagina {page} di {total}",
+    "pagination": "Pagine delle notifiche",
     "title": "Notifiche",
     "empty": "Nessuna notifica.",
     "loading": "Caricamento notifiche...",

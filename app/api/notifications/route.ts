@@ -20,13 +20,23 @@ async function context() {
 export async function GET(request: Request) {
   const current = await context();
   if (!current) return Response.json({ error: "UNAUTHENTICATED" }, { status: 401 });
-  const language = new URL(request.url).searchParams.get("locale");
+  const params = new URL(request.url).searchParams;
+  const language = params.get("locale");
   const locale = language === "de" || language === "it" ? language : "en";
-  const [items, unreadCount] = await Promise.all([
-    prisma.notification.findMany({ where: current.where, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 30 }),
+  const pageSize = params.get("limit") === "5" ? 5 : 20;
+  const requestedPage = Number(params.get("page") ?? "1");
+  if (!Number.isSafeInteger(requestedPage) || requestedPage < 1) {
+    return Response.json({ error: "INVALID_PAGE" }, { status: 400 });
+  }
+  const [totalCount, unreadCount] = await Promise.all([
+    prisma.notification.count({ where: current.where }),
     prisma.notification.count({ where: { ...current.where, readAt: null } }),
   ]);
-  return Response.json({ unreadCount, notifications: items.map(item => ({ id: item.id, icon: item.icon, destination: item.destination,
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const page = Math.min(requestedPage, totalPages);
+  const items = await prisma.notification.findMany({ where: current.where,
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: pageSize, skip: (page - 1) * pageSize });
+  return Response.json({ unreadCount, totalCount, totalPages, page, pageSize, notifications: items.map(item => ({ id: item.id, icon: item.icon, destination: item.destination,
     title: locale === "de" ? item.titleDe : locale === "it" ? item.titleIt : item.titleEn,
     detail: locale === "de" ? item.bodyDe : locale === "it" ? item.bodyIt : item.bodyEn,
     read: item.readAt !== null, createdAt: item.createdAt })) }, { headers: { "Cache-Control": "no-store" } });

@@ -546,6 +546,11 @@
     "dismiss": "Benachrichtigung schlie?en"
   },
   "notificationMessages": {
+    "seeAll": "Alle anzeigen",
+    "previous": "Zur?ck",
+    "next": "Weiter",
+    "pageOf": "Seite {page} von {total}",
+    "pagination": "Benachrichtigungsseiten",
     "title": "Benachrichtigungen",
     "empty": "Noch keine Benachrichtigungen.",
     "loading": "Benachrichtigungen werden geladen...",

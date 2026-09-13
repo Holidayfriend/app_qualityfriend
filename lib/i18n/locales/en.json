@@ -546,6 +546,11 @@
     "dismiss": "Dismiss notification"
   },
   "notificationMessages": {
+    "seeAll": "See all",
+    "previous": "Previous",
+    "next": "Next",
+    "pageOf": "Page {page} of {total}",
+    "pagination": "Notification pages",
     "title": "Notifications",
     "empty": "No notifications yet.",
     "loading": "Loading notifications...",
