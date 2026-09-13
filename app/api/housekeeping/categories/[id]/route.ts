@@ -1,3 +1,5 @@
+import { recordAuditLog } from "../../../../../lib/audit/audit-service";
+import { categoryAuditSnapshot } from "../../../../../lib/housekeeping/settings-audit";
 import { accessibleModules } from "../../../../../lib/auth/module-access";
 import { getSessionUserId } from "../../../../../lib/auth/session";
 import { prisma } from "../../../../../lib/prisma";
@@ -40,6 +42,14 @@ export async function PATCH(request: Request, context: Context) {
   const cleaningFrequency = body?.cleaningFrequency, linenFrequency = body?.linenFrequency;
   if (!name || name.length > 180 || ![expressMinutes, normalMinutes, departureMinutes, finalMinutes].every(validMinutes) || !frequencies.has(cleaningFrequency as Frequency) || !frequencies.has(linenFrequency as Frequency)) return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
   const translatedName = activeLocale === "en" ? { nameEn: name } : activeLocale === "de" ? { nameDe: name } : { nameIt: name };
-  const updated = await prisma.roomCategory.updateMany({ where: { id, hotelTenantId: user.hotelTenantId, isActive: true, archivedAt: null }, data: { ...translatedName, expressMinutes: expressMinutes as number | null, normalMinutes: normalMinutes as number | null, departureMinutes: departureMinutes as number | null, finalMinutes: finalMinutes as number | null, cleaningFrequency: cleaningFrequency as Frequency, linenFrequency: linenFrequency as Frequency } });
-  return updated.count ? Response.json({ success: true }) : Response.json({ error: "NOT_FOUND" }, { status: 404 });
+  const updated = await prisma.$transaction(async tx => {
+    await tx.$queryRaw`SELECT id FROM room_categories WHERE id = ${id}::uuid AND hotel_tenant_id = ${user.hotelTenantId}::uuid FOR UPDATE`;
+    const where = { id, hotelTenantId: user.hotelTenantId, isActive: true, archivedAt: null };
+    const before = await tx.roomCategory.findFirst({ where });
+    if (!before) return false;
+    const after = await tx.roomCategory.update({ where, data: { ...translatedName, expressMinutes: expressMinutes as number | null, normalMinutes: normalMinutes as number | null, departureMinutes: departureMinutes as number | null, finalMinutes: finalMinutes as number | null, cleaningFrequency: cleaningFrequency as Frequency, linenFrequency: linenFrequency as Frequency } });
+    await recordAuditLog(tx, { hotelTenantId: user.hotelTenantId, actorId: user.id, action: "UPDATE", entityType: "ROOM_CATEGORY", entityId: id, changes: { before: categoryAuditSnapshot(before), after: categoryAuditSnapshot(after) } });
+    return true;
+  });
+  return updated ? Response.json({ success: true }) : Response.json({ error: "NOT_FOUND" }, { status: 404 });
 }

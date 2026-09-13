@@ -4,6 +4,9 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { HousekeepingMessages, Locale } from "../../lib/i18n/dictionaries";
 
+import { BrandLoader } from "../ui/brand-loader";
+import { requestMessages } from "../../lib/i18n/dictionaries";
+
 type Category = {
   id: string;
   name: string;
@@ -14,6 +17,7 @@ type Category = {
 };
 
 export function DatabaseCategoriesSettings({ t, locale }: { t: HousekeepingMessages; locale: Locale }) {
+  const [loadedLocale, setLoadedLocale] = useState<Locale | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
 
   useEffect(() => {
@@ -25,10 +29,13 @@ export function DatabaseCategoriesSettings({ t, locale }: { t: HousekeepingMessa
         return response.json() as Promise<{ categories: Category[] }>;
       })
       .then((data) => { if (active) setCategories(data.categories); })
-      .catch(() => { if (active) setCategories([]); });
+      .catch(() => { if (active) setCategories([]); })
+      .finally(() => { if (active) setLoadedLocale(locale); });
 
     return () => { active = false; };
   }, [locale]);
+
+  if (loadedLocale !== locale) return <BrandLoader label={requestMessages[locale].loading} />;
 
   return <>
     <div className="mb-[10px] flex justify-end"><Link href="/housekeeping/settings/categories/new" className="inline-flex min-h-[34px] items-center rounded-[7px] bg-[var(--qf-accent)] px-[14px] text-[12px] font-semibold text-white">+ {t.addCategory}</Link></div>

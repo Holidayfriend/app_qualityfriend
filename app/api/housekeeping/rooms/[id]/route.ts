@@ -1,3 +1,5 @@
+import { recordAuditLog } from "../../../../../lib/audit/audit-service";
+import { roomAuditSnapshot } from "../../../../../lib/housekeeping/settings-audit";
 import { accessibleModules } from "../../../../../lib/auth/module-access";
 import { getSessionUserId } from "../../../../../lib/auth/session";
 import { prisma } from "../../../../../lib/prisma";
@@ -36,6 +38,16 @@ export async function PATCH(request: Request, context: Context) {
   if (duplicate) return Response.json({ error: "ROOM_NUMBER_EXISTS" }, { status: 409 });
   const translation = activeLocale === "de" ? { nameDe: name } : activeLocale === "it" ? { nameIt: name } : { nameEn: name };
   const checklist = activeLocale === "de" ? { roomChecksDe: roomChecks, arrivalChecksDe: arrivalChecks } : activeLocale === "it" ? { roomChecksIt: roomChecks, arrivalChecksIt: arrivalChecks } : { roomChecksEn: roomChecks, arrivalChecksEn: arrivalChecks };
-  await prisma.$transaction([prisma.room.update({ where: { id }, data: { number, categoryId, floorId, ...translation } }), prisma.roomChecklistTemplate.upsert({ where: { roomId: id }, update: checklist, create: { hotelTenantId: user.hotelTenantId, roomId: id, roomChecksEn: activeLocale === "en" ? roomChecks : [], roomChecksDe: activeLocale === "de" ? roomChecks : [], roomChecksIt: activeLocale === "it" ? roomChecks : [], arrivalChecksEn: activeLocale === "en" ? arrivalChecks : [], arrivalChecksDe: activeLocale === "de" ? arrivalChecks : [], arrivalChecksIt: activeLocale === "it" ? arrivalChecks : [] } })]);
+  const updated = await prisma.$transaction(async tx => {
+    await tx.$queryRaw`SELECT id FROM rooms WHERE id = ${id}::uuid AND hotel_tenant_id = ${user.hotelTenantId}::uuid FOR UPDATE`;
+    const where = { id, hotelTenantId: user.hotelTenantId, isActive: true, archivedAt: null };
+    const before = await tx.room.findFirst({ where, include: { checklistTemplate: true } });
+    if (!before) return false;
+    const after = await tx.room.update({ where, data: { number, categoryId, floorId, ...translation } });
+    const afterChecklist = await tx.roomChecklistTemplate.upsert({ where: { roomId: id }, update: checklist, create: { hotelTenantId: user.hotelTenantId, roomId: id, roomChecksEn: activeLocale === "en" ? roomChecks : [], roomChecksDe: activeLocale === "de" ? roomChecks : [], roomChecksIt: activeLocale === "it" ? roomChecks : [], arrivalChecksEn: activeLocale === "en" ? arrivalChecks : [], arrivalChecksDe: activeLocale === "de" ? arrivalChecks : [], arrivalChecksIt: activeLocale === "it" ? arrivalChecks : [] } });
+    await recordAuditLog(tx, { hotelTenantId: user.hotelTenantId, actorId: user.id, action: "UPDATE", entityType: "ROOM", entityId: id, changes: { before: roomAuditSnapshot(before, before.checklistTemplate), after: roomAuditSnapshot(after, afterChecklist) } });
+    return true;
+  });
+  if (!updated) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
   return Response.json({ success: true });
 }

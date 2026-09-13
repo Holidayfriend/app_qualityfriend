@@ -1,3 +1,5 @@
+import { recordAuditLog } from "../../../../lib/audit/audit-service";
+import { categoryAuditSnapshot } from "../../../../lib/housekeeping/settings-audit";
 import { accessibleModules } from "../../../../lib/auth/module-access";
 import { getSessionUserId } from "../../../../lib/auth/session";
 import { prisma } from "../../../../lib/prisma";
@@ -35,6 +37,10 @@ export async function POST(request: Request) {
   const expressMinutes = body?.expressMinutes, normalMinutes = body?.normalMinutes, departureMinutes = body?.departureMinutes, finalMinutes = body?.finalMinutes;
   const cleaningFrequency = body?.cleaningFrequency, linenFrequency = body?.linenFrequency;
   if (!name || name.length > 180 || ![expressMinutes, normalMinutes, departureMinutes, finalMinutes].every(validMinutes) || !frequencies.has(cleaningFrequency as Frequency) || !frequencies.has(linenFrequency as Frequency)) return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
-  const category = await prisma.roomCategory.create({ data: { hotelTenantId: user.hotelTenantId, nameEn: name, nameDe: activeLocale === "de" ? name : null, nameIt: activeLocale === "it" ? name : null, expressMinutes: expressMinutes as number | null, normalMinutes: normalMinutes as number | null, departureMinutes: departureMinutes as number | null, finalMinutes: finalMinutes as number | null, cleaningFrequency: cleaningFrequency as Frequency, linenFrequency: linenFrequency as Frequency } });
+  const category = await prisma.$transaction(async tx => {
+    const created = await tx.roomCategory.create({ data: { hotelTenantId: user.hotelTenantId, nameEn: name, nameDe: activeLocale === "de" ? name : null, nameIt: activeLocale === "it" ? name : null, expressMinutes: expressMinutes as number | null, normalMinutes: normalMinutes as number | null, departureMinutes: departureMinutes as number | null, finalMinutes: finalMinutes as number | null, cleaningFrequency: cleaningFrequency as Frequency, linenFrequency: linenFrequency as Frequency } });
+    await recordAuditLog(tx, { hotelTenantId: user.hotelTenantId, actorId: user.id, action: "CREATE", entityType: "ROOM_CATEGORY", entityId: created.id, changes: { after: categoryAuditSnapshot(created) } });
+    return created;
+  });
   return Response.json({ id: category.id }, { status: 201 });
 }

@@ -30,9 +30,9 @@ function localizedName(value: unknown, locale: Locale) {
 function descriptions(actor: string, entry: AuditEntry) {
   const changes = entry.changes && typeof entry.changes === "object" ? entry.changes as Record<string, unknown> : {};
   const entityNames = {
-    en: { DEPARTMENT: "department", TEAM: "team", HOTEL: "hotel", USER: "user", EXTRA_JOB: "extra job" },
-    de: { DEPARTMENT: "Abteilung", TEAM: "Team", HOTEL: "Hotel", USER: "Benutzer", EXTRA_JOB: "Zusatzaufgabe" },
-    it: { DEPARTMENT: "reparto", TEAM: "team", HOTEL: "hotel", USER: "utente", EXTRA_JOB: "lavoro aggiuntivo" },
+    en: { DEPARTMENT: "department", TEAM: "team", HOTEL: "hotel", USER: "user", EXTRA_JOB: "extra job", FLOOR: "floor", ROOM_CATEGORY: "room category", ROOM: "room" },
+    de: { DEPARTMENT: "Abteilung", TEAM: "Team", HOTEL: "Hotel", USER: "Benutzer", EXTRA_JOB: "Zusatzaufgabe", FLOOR: "Etage", ROOM_CATEGORY: "Zimmerkategorie", ROOM: "Zimmer" },
+    it: { DEPARTMENT: "reparto", TEAM: "team", HOTEL: "hotel", USER: "utente", EXTRA_JOB: "lavoro aggiuntivo", FLOOR: "piano", ROOM_CATEGORY: "categoria camera", ROOM: "camera" },
   } as const;
   const result = {} as Record<Locale, string>;
   for (const locale of ["en", "de", "it"] as const) {
