@@ -50,7 +50,9 @@ export async function GET(request: Request) {
             arrivalDate: { lte: day }, departureDate: { gte: day },
             reservation: { sourcePresent: true, status: { notIn: ["CANCELLED", "NO_SHOW"] } },
           }, orderBy: { arrivalDate: "asc" }, select: { arrivalDate: true, departureDate: true, sourceStatus: true, serviceRemarks: true,
-            sourceFromRoomNumber: true, sourceToRoomNumber: true },
+            sourceFromRoomNumber: true, sourceToRoomNumber: true,
+            reservationGuestRecords: { orderBy: { name: "asc" }, select: { name: true } },
+          },
           },
         },
       } },
@@ -60,6 +62,8 @@ export async function GET(request: Request) {
       rooms: floor.roomRecords.map((room) => {
         const stays = room.reservationRoomStayRecords;
         const primaryStay = stays[stays.length - 1];
+        const arrivalStay = stays.findLast((stay) => stay.arrivalDate.getTime() === day.getTime());
+        const departureStay = stays.find((stay) => stay.departureDate.getTime() === day.getTime());
         return { id: room.id, number: room.number, status: "clean" as const,
           arrival: stays.some((stay) => stay.arrivalDate.getTime() === day.getTime()),
           departure: stays.some((stay) => stay.departureDate.getTime() === day.getTime()),
@@ -68,6 +72,8 @@ export async function GET(request: Request) {
           fromRooms: [...new Set(stays.filter((stay) => stay.arrivalDate.getTime() === day.getTime()).map((stay) => stay.sourceFromRoomNumber).filter((value): value is string => Boolean(value)))],
           toRooms: [...new Set(stays.filter((stay) => stay.departureDate.getTime() === day.getTime()).map((stay) => stay.sourceToRoomNumber).filter((value): value is string => Boolean(value)))],
           hasReservationNote: Boolean(primaryStay?.serviceRemarks?.trim()),
+          arrivalGuestNames: arrivalStay?.reservationGuestRecords.map((guest) => guest.name) ?? [],
+          departureGuestNames: departureStay?.reservationGuestRecords.map((guest) => guest.name) ?? [],
         };
       }),
     })) }, { headers: { "Cache-Control": "no-store" } });
