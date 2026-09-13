@@ -17,6 +17,15 @@ export async function GET(request: Request) {
   if (!user) return Response.json({ error: "UNAUTHENTICATED" }, { status: 401 });
   if (!(await accessibleModules({ id: user.id, hotel_tenant_id: user.hotelTenantId, role: user.role })).includes("housekeeping")) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
 
+  if (new URL(request.url).searchParams.get("summary") === "1") {
+    const where = { hotelTenantId: user.hotelTenantId, isActive: true, archivedAt: null };
+    const [totalRooms, totalFloors] = await Promise.all([
+      prisma.room.count({ where }),
+      prisma.floor.count({ where }),
+    ]);
+    return Response.json({ totalRooms, totalFloors }, { headers: { "Cache-Control": "no-store" } });
+  }
+
   const activeLocale = locale(new URL(request.url).searchParams.get("locale"));
   if (new URL(request.url).searchParams.get("form") === "1") {
     const [categories, floors] = await Promise.all([

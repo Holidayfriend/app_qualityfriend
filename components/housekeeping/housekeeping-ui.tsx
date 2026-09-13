@@ -37,6 +37,21 @@ function Board({t}:{t:T}){
   const copy=housekeepingRefreshMessages[locale];
   const showToast=useToast();
   const [refreshing,setRefreshing]=useState(false);
+  const [roomSummary,setRoomSummary]=useState<{totalRooms:number;totalFloors:number}|null>(null);
+  useEffect(()=>{
+    const controller=new AbortController();
+    async function loadRoomSummary(){
+      try{
+        const response=await fetch("/api/housekeeping/rooms?summary=1",{cache:"no-store",signal:controller.signal});
+        if(!response.ok)return;
+        const body=await response.json();
+        if(!controller.signal.aborted)setRoomSummary(body);
+      }catch{ /* Retain the last known counts if the request fails. */ }
+    }
+    void loadRoomSummary();
+    const interval=window.setInterval(()=>void loadRoomSummary(),10000);
+    return()=>{controller.abort();window.clearInterval(interval)};
+  },[]);
   const [lastImport,setLastImport]=useState<string|null|undefined>(undefined);
   useEffect(()=>{
     const controller=new AbortController();
@@ -67,7 +82,7 @@ function Board({t}:{t:T}){
     finally{setRefreshing(false)}
   }
   return <div className="space-y-4">
-  <section className="grid grid-cols-2 gap-[18px]"><Kpi label={t.totalRooms} value="16" sub={t.floorsHouse}/><Kpi label={t.expressPriority} value="2" sub={t.dueAt} danger/></section>
+  <section className="grid grid-cols-2 gap-[18px]"><Kpi label={t.totalRooms} value={roomSummary?new Intl.NumberFormat(locale).format(roomSummary.totalRooms):"?"} sub={roomSummary?`${new Intl.NumberFormat(locale).format(roomSummary.totalFloors)} ${roomSummary.totalFloors===1?t.floor:t.floors}`:""}/><Kpi label={t.expressPriority} value="2" sub={t.dueAt} danger/></section>
   <section className={card}><Head action={<div className="flex flex-col items-end gap-2"><div className="flex shrink-0 items-center gap-2"><button type="button" onClick={()=>void refresh()} disabled={refreshing} aria-busy={refreshing} className={`${button} border-[var(--qf-border)] bg-white disabled:cursor-wait disabled:opacity-60`} title={t.refresh} aria-label={t.refresh}><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 7v5h-5"/><path d="M4 17v-5h5"/><path d="M6.1 7a7 7 0 0 1 11.55-2.1L20 8M4 16l2.35 3.1A7 7 0 0 0 17.9 17"/></svg><span className="hidden sm:inline">{t.refresh}</span></button><button onClick={()=>window.print()} className={`${button} border-[var(--qf-border)] bg-white`} title={t.print}><span aria-hidden>🖨️</span><span className="hidden sm:inline">{t.print}</span></button></div>{lastImport!==undefined?<p className="text-right text-[11px] font-normal text-[var(--qf-text-muted)]">{copy.lastImport}: {lastImport?<time dateTime={lastImport}>{new Intl.DateTimeFormat(locale,{dateStyle:"medium",timeStyle:"short"}).format(new Date(lastImport))}</time>:copy.neverImported}</p>:null}</div>}>🧹 {t.roomOverview} · 19 Aug 2026</Head><div className="px-5 py-4"><Legend t={t}/>{["1","2"].map(floor=><div key={floor} className="mb-4"><h3 className="mb-2 text-[11.5px] font-semibold uppercase tracking-[.5px] text-[var(--qf-text-light)]">{t.floor} {floor}</h3><div className="flex flex-wrap gap-2">{rooms.filter(r=>r.floor===floor).map(r=><RoomTile key={r.number} room={r}/>)}</div></div>)}<p className="mt-5 border-t border-[var(--qf-border)] pt-4 text-[13px] text-[var(--qf-text-muted)]">⚡ {t.expressNote}</p></div></section>
   <section className={card}><Head>🛬🛫 {t.arrivalsDepartures}</Head><div className="px-5 py-3"><MovementGroup icon="🛬" label={t.arrivals}><Movement icon="🛬" tone="blue" title={`${t.room} 46 · Fam. Resch`} meta={`${t.expectedAt} 15:00`}/><Movement icon="🛬" tone="blue" title={`${t.room} 60 · Hr. Plattner`} meta={`${t.expectedAt} 16:00`}/><Movement icon="🛬" tone="green" title={`${t.room} 61 · Hr. Toifl`} meta={t.checkedIn}/></MovementGroup><MovementGroup icon="🛫" label={t.departures}><Movement icon="🛫" tone="green" title={`${t.room} 43 · Fam. Egger`} meta={t.checkedOut}/><Movement icon="🛫" tone="green" title={`${t.room} 51 · Hr. Steger`} meta={t.checkedOut}/></MovementGroup></div></section><section className={card}><Head>{t.extraToday}</Head><div className="px-5 py-4"><Movement icon="🧹" tone="amber" title="Housekeeping2" meta="Fenster Parterre/Finestre pianterreno"/></div></section>
   </div>}
