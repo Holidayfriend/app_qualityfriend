@@ -18,6 +18,7 @@ async function actor() {
 
 function locale(value: unknown): Locale { return value === "de" || value === "it" ? value : "en"; }
 function validMinutes(value: unknown) { return value === null || typeof value === "number" && Number.isInteger(value) && value >= 0; }
+function weekdays(value: unknown) { return Array.isArray(value) && value.every((day) => Number.isInteger(day) && day >= 1 && day <= 7) && new Set(value).size === value.length ? value as number[] : null; }
 
 export async function GET(request: Request) {
   const user = await actor();
@@ -35,10 +36,11 @@ export async function POST(request: Request) {
   const name = typeof body?.name === "string" ? body.name.trim() : "";
   const activeLocale = locale(body?.locale);
   const expressMinutes = body?.expressMinutes, normalMinutes = body?.normalMinutes, departureMinutes = body?.departureMinutes, finalMinutes = body?.finalMinutes;
-  const cleaningFrequency = body?.cleaningFrequency, linenFrequency = body?.linenFrequency;
-  if (!name || name.length > 180 || ![expressMinutes, normalMinutes, departureMinutes, finalMinutes].every(validMinutes) || !frequencies.has(cleaningFrequency as Frequency) || !frequencies.has(linenFrequency as Frequency)) return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
+  const cleaningFrequency = body?.cleaningFrequency, linenFrequency = body?.linenFrequency, selectedWeekdays = weekdays(body?.cleaningWeekdays);
+  if (!name || name.length > 180 || ![expressMinutes, normalMinutes, departureMinutes, finalMinutes].every(validMinutes) || !frequencies.has(cleaningFrequency as Frequency) || !frequencies.has(linenFrequency as Frequency) || selectedWeekdays === null || cleaningFrequency === "ON_REQUEST" && selectedWeekdays.length === 0) return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
+  const cleaningWeekdays = cleaningFrequency === "ON_REQUEST" ? [...selectedWeekdays].sort((a, b) => a - b) : [];
   const category = await prisma.$transaction(async tx => {
-    const created = await tx.roomCategory.create({ data: { hotelTenantId: user.hotelTenantId, nameEn: name, nameDe: activeLocale === "de" ? name : null, nameIt: activeLocale === "it" ? name : null, expressMinutes: expressMinutes as number | null, normalMinutes: normalMinutes as number | null, departureMinutes: departureMinutes as number | null, finalMinutes: finalMinutes as number | null, cleaningFrequency: cleaningFrequency as Frequency, linenFrequency: linenFrequency as Frequency } });
+    const created = await tx.roomCategory.create({ data: { hotelTenantId: user.hotelTenantId, nameEn: name, nameDe: activeLocale === "de" ? name : null, nameIt: activeLocale === "it" ? name : null, expressMinutes: expressMinutes as number | null, normalMinutes: normalMinutes as number | null, departureMinutes: departureMinutes as number | null, finalMinutes: finalMinutes as number | null, cleaningFrequency: cleaningFrequency as Frequency, cleaningWeekdays, linenFrequency: linenFrequency as Frequency } });
     await recordAuditLog(tx, { hotelTenantId: user.hotelTenantId, actorId: user.id, action: "CREATE", entityType: "ROOM_CATEGORY", entityId: created.id, changes: { after: categoryAuditSnapshot(created) } });
     return created;
   });
