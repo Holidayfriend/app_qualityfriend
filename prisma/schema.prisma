@@ -70,6 +70,8 @@ model RoomCategory {
   normalMinutes Int? @map("normal_minutes")
   departureMinutes Int? @map("departure_minutes")
   finalMinutes Int? @map("final_minutes")
+  cleaningFrequency String? @map("cleaning_frequency") @db.VarChar(30)
+  linenFrequency String? @map("linen_frequency") @db.VarChar(30)
   isActive Boolean @default(true) @map("is_active")
   archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
