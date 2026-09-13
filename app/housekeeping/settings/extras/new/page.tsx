@@ -1,1 +1,4 @@
-"use client"; import {HousekeepingUI} from "../../../../../components/housekeeping/housekeeping-ui"; export default function Page(){return <HousekeepingUI view="extra-form"/>}
+import { Suspense } from "react";
+import { ExtraJobEditor } from "../../../../../components/housekeeping/extra-job-editor";
+
+export default function Page() { return <Suspense><ExtraJobEditor /></Suspense>; }

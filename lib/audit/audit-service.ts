@@ -30,15 +30,22 @@ function localizedName(value: unknown, locale: Locale) {
 function descriptions(actor: string, entry: AuditEntry) {
   const changes = entry.changes && typeof entry.changes === "object" ? entry.changes as Record<string, unknown> : {};
   const entityNames = {
-    en: { DEPARTMENT: "department", TEAM: "team", HOTEL: "hotel", USER: "user" },
-    de: { DEPARTMENT: "Abteilung", TEAM: "Team", HOTEL: "Hotel", USER: "Benutzer" },
-    it: { DEPARTMENT: "reparto", TEAM: "team", HOTEL: "hotel", USER: "utente" },
+    en: { DEPARTMENT: "department", TEAM: "team", HOTEL: "hotel", USER: "user", EXTRA_JOB: "extra job" },
+    de: { DEPARTMENT: "Abteilung", TEAM: "Team", HOTEL: "Hotel", USER: "Benutzer", EXTRA_JOB: "Zusatzaufgabe" },
+    it: { DEPARTMENT: "reparto", TEAM: "team", HOTEL: "hotel", USER: "utente", EXTRA_JOB: "lavoro aggiuntivo" },
   } as const;
   const result = {} as Record<Locale, string>;
   for (const locale of ["en", "de", "it"] as const) {
     const entity = entityNames[locale][entry.entityType as keyof typeof entityNames.en] ?? entry.entityType.toLowerCase();
-    const before = localizedName(changes.before, locale);
-    const after = localizedName(changes.after, locale);
+    const label = (value: unknown) => {
+      if (entry.entityType !== "EXTRA_JOB" || !value || typeof value !== "object") return localizedName(value, locale);
+      const snapshot = value as Record<string, unknown>;
+      const editedLocale = changes.locale === "de" || changes.locale === "it" ? changes.locale : "en";
+      const name = localizedName(value, locale) || localizedName(value, editedLocale);
+      return `${name} (${snapshot.minutes} min)`;
+    };
+    const before = label(changes.before);
+    const after = label(changes.after);
     if (entry.action === "CREATE") result[locale] = locale === "de" ? `${actor} hat ${entity} „${after}“ erstellt` : locale === "it" ? `${actor} ha creato ${entity} “${after}”` : `${actor} created new ${entity} “${after}”`;
     else if (entry.action === "UPDATE") result[locale] = locale === "de" ? `${actor} hat ${entity} von „${before}“ zu „${after}“ aktualisiert` : locale === "it" ? `${actor} ha aggiornato ${entity} da “${before}” a “${after}”` : `${actor} updated ${entity} “${after}” from “${before}”`;
     else if (entry.action === "DELETE") result[locale] = locale === "de" ? `${actor} hat ${entity} „${before}“ gelöscht` : locale === "it" ? `${actor} ha eliminato ${entity} “${before}”` : `${actor} deleted ${entity} “${before}”`;
