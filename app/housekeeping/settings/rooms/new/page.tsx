@@ -1,1 +1,3 @@
-"use client"; import {HousekeepingUI} from "../../../../../components/housekeeping/housekeeping-ui"; export default function Page(){return <HousekeepingUI view="room-form"/>}
+import { RoomEditor } from "../../../../../components/housekeeping/room-editor";
+
+export default function Page() { return <RoomEditor />; }

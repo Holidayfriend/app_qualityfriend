@@ -103,12 +103,32 @@ model Room {
   category RoomCategory? @relation(fields: [hotelTenantId, categoryId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
   reservationRoomStayRecords ReservationRoomStay[]
   roomOperationalStateRecords RoomOperationalState[]
+  checklistTemplate RoomChecklistTemplate?
 
   @@unique([hotelTenantId, id])
   @@unique([hotelTenantId, number])
   @@index([hotelTenantId, floorId])
   @@index([hotelTenantId, categoryId])
   @@map("rooms")
+}
+
+model RoomChecklistTemplate {
+  id String @id @default(uuid()) @db.Uuid
+  hotelTenantId String @map("hotel_tenant_id") @db.Uuid
+  roomId String @unique @map("room_id") @db.Uuid
+  roomChecksEn Json @map("room_checks_en") @db.JsonB
+  roomChecksDe Json @map("room_checks_de") @db.JsonB
+  roomChecksIt Json @map("room_checks_it") @db.JsonB
+  arrivalChecksEn Json @map("arrival_checks_en") @db.JsonB
+  arrivalChecksDe Json @map("arrival_checks_de") @db.JsonB
+  arrivalChecksIt Json @map("arrival_checks_it") @db.JsonB
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([hotelTenantId, id])
+  @@map("room_checklist_templates")
 }
 
 model HotelImportSource {
@@ -319,6 +339,7 @@ model HotelTenant {
   reservationRoomStayRecords ReservationRoomStay[]
   reservationGuestRecords ReservationGuest[]
   roomOperationalStateRecords RoomOperationalState[]
+  roomChecklistTemplateRecords RoomChecklistTemplate[]
   id                           String                 @id @default(uuid()) @db.Uuid
   hotelNameEn                  String                 @map("hotel_name_en") @db.VarChar(180)
   hotelNameDe                  String                 @map("hotel_name_de") @db.VarChar(180)
