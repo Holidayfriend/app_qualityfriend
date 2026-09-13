@@ -15,6 +15,16 @@ function localDate(timeZone: string) {
   return `${value.year}-${value.month}-${value.day}`;
 }
 function utcDate(value: string) { return new Date(`${value}T00:00:00.000Z`); }
+function strings(value: unknown) { return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : []; }
+function dateOnly(value: Date) { return value.toISOString().slice(0, 10); }
+function birthdayDuringStay(dateOfBirth: Date | null, arrival: Date, departure: Date) {
+  if (!dateOfBirth) return false;
+  for (let year = arrival.getUTCFullYear(); year <= departure.getUTCFullYear(); year++) {
+    const birthday = new Date(Date.UTC(year, dateOfBirth.getUTCMonth(), dateOfBirth.getUTCDate()));
+    if (birthday >= arrival && birthday <= departure) return true;
+  }
+  return false;
+}
 
 export async function GET(request: Request) {
   const id = await getSessionUserId();
@@ -33,6 +43,54 @@ export async function GET(request: Request) {
   }
 
   const activeLocale = locale(new URL(request.url).searchParams.get("locale"));
+  const detailNumber = new URL(request.url).searchParams.get("detail")?.trim();
+  if (detailNumber) {
+    const configuredZone = user.hotelTenant.timeZone?.trim() || "UTC";
+    let date: string;
+    try { date = localDate(configuredZone); } catch { return Response.json({ error: "INVALID_HOTEL_TIME_ZONE" }, { status: 500 }); }
+    const day = utcDate(date);
+    const room = await prisma.room.findFirst({
+      where: { hotelTenantId: user.hotelTenantId, number: detailNumber, isActive: true, archivedAt: null },
+      select: {
+        id: true, number: true, nameEn: true, nameDe: true, nameIt: true,
+        category: { select: { nameEn: true, nameDe: true, nameIt: true } },
+        floor: { select: { code: true, nameEn: true, nameDe: true, nameIt: true } },
+        checklistTemplate: true,
+        roomOperationalStateRecords: { take: 1, select: { cleanliness: true, doNotDisturb: true, noService: true, isExpress: true, lastCleanedAt: true, lastInspectedAt: true } },
+        reservationRoomStayRecords: {
+          where: { arrivalDate: { lte: day }, departureDate: { gte: day }, reservation: { sourcePresent: true, status: { notIn: ["CANCELLED", "NO_SHOW"] } } },
+          orderBy: { arrivalDate: "asc" },
+          select: { arrivalDate: true, departureDate: true, sourceStatus: true, adultCount: true, childCount: true, childK1Count: true, childK2Count: true, childK3Count: true, serviceRemarks: true, sourceFromRoomNumber: true, sourceToRoomNumber: true,
+            reservation: { select: { bookingGroup: true, offer: true, board: true } },
+            reservationGuestRecords: { orderBy: { name: "asc" }, select: { name: true, dateOfBirth: true, language: true, vip: true, previousStayCount: true } },
+          },
+        },
+      },
+    });
+    if (!room) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
+    const stay = room.reservationRoomStayRecords[room.reservationRoomStayRecords.length - 1];
+    const checklist = room.checklistTemplate;
+    const roomChecks = activeLocale === "de" ? strings(checklist?.roomChecksDe) : activeLocale === "it" ? strings(checklist?.roomChecksIt) : strings(checklist?.roomChecksEn);
+    const arrivalChecks = activeLocale === "de" ? strings(checklist?.arrivalChecksDe) : activeLocale === "it" ? strings(checklist?.arrivalChecksIt) : strings(checklist?.arrivalChecksEn);
+    const state = room.roomOperationalStateRecords[0];
+    const status = ({ UNKNOWN: "unassigned", DIRTY: "dirty", CLEANING: "cleaning", CLEAN: "clean", INSPECTED: "inspected" } as const)[state?.cleanliness ?? "UNKNOWN"];
+    return Response.json({ room: {
+      id: room.id, number: room.number, name: translatedName(room, activeLocale),
+      category: room.category ? translatedName(room.category, activeLocale) : null,
+      floor: room.floor ? translatedName(room.floor, activeLocale) || room.floor.code : null,
+      status, doNotDisturb: state?.doNotDisturb ?? false, noService: state?.noService ?? false, isExpress: state?.isExpress ?? false,
+      lastCleanedAt: state?.lastCleanedAt ?? null, lastInspectedAt: state?.lastInspectedAt ?? null,
+      isArrivalToday: stay?.arrivalDate.getTime() === day.getTime(), checks: stay?.arrivalDate.getTime() === day.getTime() ? arrivalChecks : roomChecks,
+      reservation: stay ? {
+        arrival: dateOnly(stay.arrivalDate), departure: dateOnly(stay.departureDate), days: Math.round((stay.departureDate.getTime() - stay.arrivalDate.getTime()) / 86400000),
+        sourceStatus: stay.sourceStatus, adults: stay.adultCount, children: stay.childCount, childK1: stay.childK1Count, childK2: stay.childK2Count, childK3: stay.childK3Count,
+        bookingGroup: stay.reservation.bookingGroup, offer: stay.reservation.offer, board: stay.reservation.board, note: stay.serviceRemarks,
+        fromRoom: stay.sourceFromRoomNumber, toRoom: stay.sourceToRoomNumber,
+        guests: stay.reservationGuestRecords.map((guest) => ({ name: guest.name, dateOfBirth: guest.dateOfBirth ? dateOnly(guest.dateOfBirth) : null, language: guest.language, vip: guest.vip, previousStays: guest.previousStayCount })),
+        birthdays: stay.reservationGuestRecords.filter((guest) => birthdayDuringStay(guest.dateOfBirth, stay.arrivalDate, stay.departureDate)).map((guest) => ({ name: guest.name, dateOfBirth: dateOnly(guest.dateOfBirth!) })),
+      } : null,
+    } }, { headers: { "Cache-Control": "no-store" } });
+  }
   if (new URL(request.url).searchParams.get("board") === "1") {
     const configuredZone = user.hotelTenant.timeZone?.trim() || "UTC";
     let date: string;
