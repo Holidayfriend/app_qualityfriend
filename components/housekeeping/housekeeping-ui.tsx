@@ -5,6 +5,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { AppShell } from "../dashboard/app-shell";
 import { useI18n } from "../i18n/i18n-provider";
 import { useToast } from "../ui/toast-provider";
+import { BrandLoader } from "../ui/brand-loader";
 import { housekeepingMessages, housekeepingRefreshMessages } from "../../lib/i18n/dictionaries";
 import { categories, cleaners, extraJobs, rooms, type RoomStatus } from "../../lib/housekeeping/preview-data";
 
@@ -41,6 +42,8 @@ function Board({t}:{t:T}){
   const copy=housekeepingRefreshMessages[locale];
   const showToast=useToast();
   const [refreshing,setRefreshing]=useState(false);
+  const [summaryLoading,setSummaryLoading]=useState(true);
+  const [boardLoading,setBoardLoading]=useState(true);
   const [roomSummary,setRoomSummary]=useState<{totalRooms:number;totalFloors:number}|null>(null);
   const [boardData,setBoardData]=useState<BoardData|null>(null);
   useEffect(()=>{
@@ -52,6 +55,7 @@ function Board({t}:{t:T}){
         const body=await response.json();
         if(!controller.signal.aborted)setRoomSummary(body);
       }catch{ /* Retain the last known counts if the request fails. */ }
+      finally{if(!controller.signal.aborted)setSummaryLoading(false)}
     }
     void loadRoomSummary();
     const interval=window.setInterval(()=>void loadRoomSummary(),10000);
@@ -66,6 +70,7 @@ function Board({t}:{t:T}){
         const body=await response.json() as BoardData;
         if(!controller.signal.aborted)setBoardData(body);
       }catch{ /* Keep the latest room board on transient failures. */ }
+      finally{if(!controller.signal.aborted)setBoardLoading(false)}
     }
     void loadBoard();
     const interval=window.setInterval(()=>void loadBoard(),10000);
@@ -103,7 +108,9 @@ function Board({t}:{t:T}){
   const boardRooms=boardData?.floors.flatMap(floor=>floor.rooms)??[];
   const arrivals=boardRooms.filter(room=>room.arrival);
   const departures=boardRooms.filter(room=>room.departure);
+  if(summaryLoading||boardLoading)return <BrandLoader label={t.loading}/>;
   return <div className="space-y-4">
+  {refreshing?<BrandLoader label={t.loading} overlay/>:null}
   <section className="grid grid-cols-2 gap-[18px]"><Kpi label={t.totalRooms} value={roomSummary?new Intl.NumberFormat(locale).format(roomSummary.totalRooms):"?"} sub={roomSummary?`${new Intl.NumberFormat(locale).format(roomSummary.totalFloors)} ${roomSummary.totalFloors===1?t.floor:t.floors}`:""}/><Kpi label={t.expressPriority} value="2" sub={t.dueAt} danger/></section>
   <section className={card}><Head action={<div className="flex flex-col items-end gap-2"><div className="flex shrink-0 items-center gap-2"><button type="button" onClick={()=>void refresh()} disabled={refreshing} aria-busy={refreshing} className={`${button} border-[var(--qf-border)] bg-white disabled:cursor-wait disabled:opacity-60`} title={t.refresh} aria-label={t.refresh}><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 7v5h-5"/><path d="M4 17v-5h5"/><path d="M6.1 7a7 7 0 0 1 11.55-2.1L20 8M4 16l2.35 3.1A7 7 0 0 0 17.9 17"/></svg><span className="hidden sm:inline">{t.refresh}</span></button><button onClick={()=>window.print()} className={`${button} border-[var(--qf-border)] bg-white`} title={t.print}><span aria-hidden>🖨️</span><span className="hidden sm:inline">{t.print}</span></button></div>{lastImport!==undefined?<p className="text-right text-[11px] font-normal text-[var(--qf-text-muted)]">{copy.lastImport}: {lastImport?<time dateTime={lastImport}>{new Intl.DateTimeFormat(locale,{dateStyle:"medium",timeStyle:"short"}).format(new Date(lastImport))}</time>:copy.neverImported}</p>:null}</div>}>🧹 {t.roomOverview}{boardData?` · ${new Intl.DateTimeFormat(locale,{dateStyle:"medium",timeZone:"UTC"}).format(new Date(`${boardData.date}T00:00:00.000Z`))}`:""}</Head><div className="px-5 py-4"><Legend t={t}/>{boardData?.floors.map(floor=><div key={floor.id} className="mb-4"><h3 className="mb-2 text-[11.5px] font-semibold uppercase tracking-[.5px] text-[var(--qf-text-light)]">{floor.name}</h3><div className="flex flex-wrap gap-2">{floor.rooms.map(room=><RoomTile key={room.id} room={room} t={t}/>)}</div></div>)}<p className="mt-5 border-t border-[var(--qf-border)] pt-4 text-[13px] text-[var(--qf-text-muted)]">⚡ {t.expressNote}</p></div></section>
   <section className={card}><Head>🛬🛫 {t.arrivalsDepartures}</Head><div className="px-5 py-3"><MovementGroup icon="🛬" label={t.arrivals}>{arrivals.length?arrivals.map(room=><Movement key={room.id} icon="🛬" tone={room.checkedIn?"green":"blue"} title={`${t.room} ${room.number}${room.arrivalGuestNames.length?` · ${room.arrivalGuestNames.join(", ")}`:""}`} meta={room.checkedIn?t.checkedIn:t.arrivalToday}/>):<EmptyMovement text={t.none}/>}</MovementGroup><MovementGroup icon="🛫" label={t.departures}>{departures.length?departures.map(room=><Movement key={room.id} icon="🛫" tone={room.checkedOut?"green":"blue"} title={`${t.room} ${room.number}${room.departureGuestNames.length?` · ${room.departureGuestNames.join(", ")}`:""}`} meta={room.checkedOut?t.checkedOut:t.departureToday}/>):<EmptyMovement text={t.none}/>}</MovementGroup></div></section><section className={card}><Head>{t.extraToday}</Head><div className="px-5 py-4"><Movement icon="🧹" tone="amber" title="Housekeeping2" meta="Fenster Parterre/Finestre pianterreno"/></div></section>
