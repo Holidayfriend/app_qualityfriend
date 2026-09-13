@@ -533,6 +533,8 @@
     "invalidAsaXmlName": "Enter a filename only (maximum 255 characters), without a folder path or URL."
   },
   "housekeepingRefreshMessages": {
+    "lastImport": "Last successful import",
+    "neverImported": "No successful import yet",
     "missing": "Add the Houskeeping ASA XML name in Hotel Settings first.",
     "invalid": "The ASA XML name must be a filename without a folder path.",
     "notFound": "The configured XML file was not found in public/ASA.",
