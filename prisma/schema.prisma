@@ -49,8 +49,10 @@ model ExtraJob {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
   hotelTenant HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  scheduleAssignmentRecords HousekeepingExtraJobAssignment[]
 
   @@index([hotelTenantId])
+  @@unique([hotelTenantId, id])
   @@map("extra_jobs")
 }
 
@@ -119,6 +121,7 @@ model Room {
   reservationRoomStayRecords ReservationRoomStay[]
   roomOperationalStateRecords RoomOperationalState[]
   checklistTemplate RoomChecklistTemplate?
+  housekeepingScheduleAssignmentRecords HousekeepingRoomAssignment[]
 
   @@unique([hotelTenantId, id])
   @@unique([hotelTenantId, number])
@@ -293,6 +296,44 @@ model RoomOperationalState {
   @@map("room_operational_states")
 }
 
+model HousekeepingRoomAssignment {
+  id String @id @default(uuid()) @db.Uuid
+  hotelTenantId String @map("hotel_tenant_id") @db.Uuid
+  workDate DateTime @map("work_date") @db.Date
+  roomId String @map("room_id") @db.Uuid
+  assignedToId String @map("assigned_to_id") @db.Uuid
+  plannedMinutes Int @map("planned_minutes")
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  room Room @relation(fields: [hotelTenantId, roomId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  assignedTo User @relation("HousekeepingRoomAssignee", fields: [hotelTenantId, assignedToId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([hotelTenantId, workDate, roomId])
+  @@index([hotelTenantId, workDate, assignedToId])
+  @@map("housekeeping_room_assignments")
+}
+
+model HousekeepingExtraJobAssignment {
+  id String @id @default(uuid()) @db.Uuid
+  hotelTenantId String @map("hotel_tenant_id") @db.Uuid
+  workDate DateTime @map("work_date") @db.Date
+  extraJobId String @map("extra_job_id") @db.Uuid
+  assignedToId String @map("assigned_to_id") @db.Uuid
+  plannedMinutes Int @map("planned_minutes")
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  extraJob ExtraJob @relation(fields: [hotelTenantId, extraJobId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  assignedTo User @relation("HousekeepingExtraJobAssignee", fields: [hotelTenantId, assignedToId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([hotelTenantId, workDate, extraJobId, assignedToId])
+  @@index([hotelTenantId, workDate, assignedToId])
+  @@map("housekeeping_extra_job_assignments")
+}
+
 
 model SuperAdmin {
   id           String    @id @default(uuid()) @db.Uuid
@@ -355,6 +396,8 @@ model HotelTenant {
   reservationGuestRecords ReservationGuest[]
   roomOperationalStateRecords RoomOperationalState[]
   roomChecklistTemplateRecords RoomChecklistTemplate[]
+  housekeepingRoomAssignmentRecords HousekeepingRoomAssignment[]
+  housekeepingExtraJobAssignmentRecords HousekeepingExtraJobAssignment[]
   id                           String                 @id @default(uuid()) @db.Uuid
   hotelNameEn                  String                 @map("hotel_name_en") @db.VarChar(180)
   hotelNameDe                  String                 @map("hotel_name_de") @db.VarChar(180)
@@ -561,6 +604,8 @@ model User {
   department             Department?   @relation("DepartmentMembers", fields: [departmentId], references: [id], onDelete: SetNull)
   chatMessagesSent       ChatMessage[] @relation("ChatMessageSender")
   chatMessagesReceived   ChatMessage[] @relation("ChatMessageRecipient")
+  housekeepingRoomAssignmentRecords HousekeepingRoomAssignment[] @relation("HousekeepingRoomAssignee")
+  housekeepingExtraJobAssignmentRecords HousekeepingExtraJobAssignment[] @relation("HousekeepingExtraJobAssignee")
 
   @@index([hotelTenantId])
   @@index([hotelTenantId, isActive])
