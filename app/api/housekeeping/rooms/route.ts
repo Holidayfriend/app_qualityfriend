@@ -9,11 +9,17 @@ function locale(value: string | null): Locale { return value === "de" || value =
 function translatedName(item: { nameEn: string | null; nameDe: string | null; nameIt: string | null }, activeLocale: Locale) {
   return activeLocale === "de" ? item.nameDe || item.nameEn : activeLocale === "it" ? item.nameIt || item.nameEn : item.nameEn;
 }
+function localDate(timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts();
+  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${value.year}-${value.month}-${value.day}`;
+}
+function utcDate(value: string) { return new Date(`${value}T00:00:00.000Z`); }
 
 export async function GET(request: Request) {
   const id = await getSessionUserId();
   if (!id) return Response.json({ error: "UNAUTHENTICATED" }, { status: 401 });
-  const user = await prisma.user.findFirst({ where: { id, isActive: true, isDeleted: false }, select: { id: true, hotelTenantId: true, role: true } });
+  const user = await prisma.user.findFirst({ where: { id, isActive: true, isDeleted: false }, select: { id: true, hotelTenantId: true, role: true, hotelTenant: { select: { timeZone: true } } } });
   if (!user) return Response.json({ error: "UNAUTHENTICATED" }, { status: 401 });
   if (!(await accessibleModules({ id: user.id, hotel_tenant_id: user.hotelTenantId, role: user.role })).includes("housekeeping")) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
 
@@ -27,6 +33,45 @@ export async function GET(request: Request) {
   }
 
   const activeLocale = locale(new URL(request.url).searchParams.get("locale"));
+  if (new URL(request.url).searchParams.get("board") === "1") {
+    const configuredZone = user.hotelTenant.timeZone?.trim() || "UTC";
+    let date: string;
+    try { date = localDate(configuredZone); } catch { return Response.json({ error: "INVALID_HOTEL_TIME_ZONE" }, { status: 500 }); }
+    const day = utcDate(date);
+    const floors = await prisma.floor.findMany({
+      where: { hotelTenantId: user.hotelTenantId, isActive: true, archivedAt: null },
+      orderBy: [{ sortOrder: "asc" }, { code: "asc" }],
+      select: { id: true, code: true, nameEn: true, nameDe: true, nameIt: true, roomRecords: {
+        where: { isActive: true, archivedAt: null, reservationRoomStayRecords: { some: {
+          arrivalDate: { lte: day }, departureDate: { gte: day },
+          reservation: { sourcePresent: true, status: { notIn: ["CANCELLED", "NO_SHOW"] } },
+        } } }, orderBy: { number: "asc" }, select: {
+          id: true, number: true, reservationRoomStayRecords: { where: {
+            arrivalDate: { lte: day }, departureDate: { gte: day },
+            reservation: { sourcePresent: true, status: { notIn: ["CANCELLED", "NO_SHOW"] } },
+          }, orderBy: { arrivalDate: "asc" }, select: { arrivalDate: true, departureDate: true, sourceStatus: true, serviceRemarks: true,
+            sourceFromRoomNumber: true, sourceToRoomNumber: true },
+          },
+        },
+      } },
+    });
+    return Response.json({ date, timeZone: configuredZone, floors: floors.map((floor) => ({
+      id: floor.id, code: floor.code, name: translatedName(floor, activeLocale) || floor.code,
+      rooms: floor.roomRecords.map((room) => {
+        const stays = room.reservationRoomStayRecords;
+        const primaryStay = stays[stays.length - 1];
+        return { id: room.id, number: room.number, status: "clean" as const,
+          arrival: stays.some((stay) => stay.arrivalDate.getTime() === day.getTime()),
+          departure: stays.some((stay) => stay.departureDate.getTime() === day.getTime()),
+          checkedIn: stays.some((stay) => stay.sourceStatus === "occupied"),
+          checkedOut: stays.some((stay) => stay.sourceStatus === "departed"),
+          fromRooms: [...new Set(stays.filter((stay) => stay.arrivalDate.getTime() === day.getTime()).map((stay) => stay.sourceFromRoomNumber).filter((value): value is string => Boolean(value)))],
+          toRooms: [...new Set(stays.filter((stay) => stay.departureDate.getTime() === day.getTime()).map((stay) => stay.sourceToRoomNumber).filter((value): value is string => Boolean(value)))],
+          hasReservationNote: Boolean(primaryStay?.serviceRemarks?.trim()),
+        };
+      }),
+    })) }, { headers: { "Cache-Control": "no-store" } });
+  }
   if (new URL(request.url).searchParams.get("form") === "1") {
     const [categories, floors] = await Promise.all([
       prisma.roomCategory.findMany({ where: { hotelTenantId: user.hotelTenantId, isActive: true, archivedAt: null }, orderBy: { nameEn: "asc" }, select: { id: true, nameEn: true, nameDe: true, nameIt: true } }),
