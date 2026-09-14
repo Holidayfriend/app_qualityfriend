@@ -346,6 +346,9 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 .qf-dashboard .quiz-avatar { width:200px;height:200px;max-width:200px;border-radius:50%;object-fit:cover;border:1px solid var(--accent) }
 .qf-dashboard .quiz-voice audio { width:100%;max-width:280px;height:32px }
 .qf-dashboard .quiz-cols { display:grid;grid-template-columns:1fr 1fr;gap:12px;text-align:center }
+.qf-dashboard .quiz-funnel-footer { margin-top:28px;padding:18px 8px 8px;text-align:center;font-size:13px;line-height:1.7;color:var(--text3) }
+.qf-dashboard .quiz-funnel-footer a { color:var(--text3);text-decoration:none }
+.qf-dashboard .quiz-funnel-footer a:hover { color:var(--accent);text-decoration:underline }
 .qf-dashboard .quiz-col { min-height:72px;padding:4px;border-radius:10px;border:1px dashed transparent }
 .qf-dashboard .quiz-col.drop-over { border-color:var(--accent);background:var(--accent-light) }
 .qf-dashboard .quiz-col-empty { border:1.5px dashed var(--border);border-radius:8px;padding:18px 8px;color:var(--text3);font-size:12px }

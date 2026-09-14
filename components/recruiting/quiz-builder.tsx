@@ -9,6 +9,8 @@ type T = RecruitingMessages;
 export const QUIZ_IMAGE_PLACEHOLDER = "/recruiting/image-placeholder.png";
 export const QUIZ_FUNNEL1 = "/recruiting/funnel1.png";
 export const QUIZ_FUNNEL2 = "/recruiting/funnel2.png";
+export const QUIZ_FUNNEL3 = "/recruiting/funnel3.png";
+export const QUIZ_FUNNEL4 = "/recruiting/funnel4.png";
 export const QUIZ_DUMMY = "/recruiting/dummy.png";
 export const QUIZ_VOICE_AVATAR = "/recruiting/colleagues3.png";
 export const QUIZ_VOICE_SAMPLE = "/recruiting/voice-sample.mp3";
@@ -185,8 +187,8 @@ function body(text: string, fontSize = 14): QuizElement {
 function btn(text: string, nextPageId: string): QuizElement {
   return blank({ type: "button", text, nextPageId });
 }
-function pic(src: string): QuizElement {
-  return blank({ type: "image", src });
+function pic(src: string, width = 80): QuizElement {
+  return blank({ type: "image", src, width });
 }
 function voice(avatar = QUIZ_VOICE_AVATAR): QuizElement {
   return blank({ type: "audio", src: QUIZ_VOICE_SAMPLE, avatarSrc: avatar });
@@ -202,7 +204,7 @@ function multi(options: QuizChoice[]): QuizElement {
 }
 /** Two side-by-side sections; every item inside is its own element (icon / title / text …). */
 function cols(columns: QuizElement[][]): QuizElement {
-  return blank({ type: "columns", columns: [columns[0] ?? [], columns[1] ?? []], align: "center" });
+  return blank({ type: "columns", columns: columns.length ? columns.map((column) => column) : [[], []], align: "center" });
 }
 function quote(text: string): QuizElement {
   return blank({ type: "quote", text, src: QUIZ_VOICE_SAMPLE, avatarSrc: QUIZ_VOICE_AVATAR });
@@ -249,6 +251,25 @@ export function createDefaultQuiz(t: T): QuizPage[] {
         body(t.companyStory),
         body(t.yourTasks),
         hdr(t.everydayWork, 40),
+        cols([
+          [ic("🏠", 45), hdr(t.taskMontage, 17), body(t.taskMontageText)],
+          [ic("🚗", 45), hdr(t.taskDelivery, 17), body(t.taskDeliveryText)],
+        ]),
+        cols([
+          [ic("📄", 45), hdr(t.taskQuality, 17), body(t.taskQualityText)],
+          [ic("📞", 45), hdr(t.taskTalks, 17), body(t.taskTalksText)],
+        ]),
+        cols([
+          [pic(QUIZ_FUNNEL3, 100)],
+          [pic(QUIZ_FUNNEL4, 100)],
+        ]),
+        body(t.nextSteps),
+        hdr(t.dreamJobTitle, 40),
+        cols([
+          [hdr("1.", 40), hdr(t.step1Title, 17), body(t.step1Text, 10)],
+          [hdr("2.", 40), hdr(t.step2Title, 17), body(t.step2Text, 10)],
+          [hdr("3.", 40), hdr(t.step3Title, 17), body(t.step3Text, 10)],
+        ]),
       ],
     },
     {
@@ -1208,8 +1229,8 @@ export function QuizCanvasCard({ t, pages, setPages, activePageId, setActivePage
                   >
                     {props.toolbar}
                     {element.type === "columns" ? (
-                      <div className="quiz-cols">
-                        {[element.columns[0] ?? [], element.columns[1] ?? []].map((column, col) => {
+                      <div className="quiz-cols" style={{ gridTemplateColumns: `repeat(${Math.max(element.columns.length, 1)}, minmax(0, 1fr))` }}>
+                        {(element.columns.length ? element.columns : [[], []]).map((column, col) => {
                           const endOfCol: NestLoc = { parentId: element.id, col, index: column.length };
                           return (
                             <div
@@ -1259,6 +1280,16 @@ export function QuizCanvasCard({ t, pages, setPages, activePageId, setActivePage
               );
             })}
             {count ? <div className={`quiz-insert ${sameLoc(dropAt, endLoc) ? "show" : ""}`} /> : null}
+          </div>
+          <div className="quiz-funnel-footer">
+            <div>
+              <a href="https://qualityfriend.solutions/" target="_blank" rel="noreferrer">{t.impressum}</a>
+              {" | "}
+              <a href="https://qualityfriend.solutions/" target="_blank" rel="noreferrer">{t.dataPolicy}</a>
+            </div>
+            <div>
+              <a href="https://qualityfriend.solutions/" target="_blank" rel="noreferrer">{t.byQualityfriend}</a>
+            </div>
           </div>
         </div>
         <div style={{ marginTop: 14, display: "flex", gap: 10 }}>
