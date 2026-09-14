@@ -17,6 +17,11 @@ function localDate(timeZone: string) {
 function utcDate(value: string) { return new Date(`${value}T00:00:00.000Z`); }
 function strings(value: unknown) { return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : []; }
 function dateOnly(value: Date) { return value.toISOString().slice(0, 10); }
+async function housekeepingUsers(hotelTenantId: string) {
+  const users = await prisma.user.findMany({ where: { hotelTenantId, isActive: true, isDeleted: false }, orderBy: [{ firstName: "asc" }, { lastName: "asc" }], select: { id: true, firstName: true, lastName: true, role: true } });
+  const access = await Promise.all(users.map(async (employee) => ({ employee, allowed: (await accessibleModules({ id: employee.id, hotel_tenant_id: hotelTenantId, role: employee.role })).includes("housekeeping") })));
+  return access.filter((entry) => entry.allowed).map(({ employee }) => ({ id: employee.id, name: `${employee.firstName} ${employee.lastName}`.trim() }));
+}
 function birthdayDuringStay(dateOfBirth: Date | null, arrival: Date, departure: Date) {
   if (!dateOfBirth) return false;
   for (let year = arrival.getUTCFullYear(); year <= departure.getUTCFullYear(); year++) {
@@ -74,13 +79,21 @@ export async function GET(request: Request) {
     const arrivalChecks = activeLocale === "de" ? strings(checklist?.arrivalChecksDe) : activeLocale === "it" ? strings(checklist?.arrivalChecksIt) : strings(checklist?.arrivalChecksEn);
     const state = room.roomOperationalStateRecords[0];
     const status = ({ UNKNOWN: "unassigned", DIRTY: "dirty", CLEANING: "cleaning", CLEAN: "clean", INSPECTED: "inspected" } as const)[state?.cleanliness ?? "UNKNOWN"];
+    const [cleaners, assignment] = await Promise.all([
+      housekeepingUsers(user.hotelTenantId),
+      prisma.housekeepingRoomAssignment.findFirst({
+        where: { hotelTenantId: user.hotelTenantId, roomId: room.id, workDate: day },
+        select: { assignedToId: true },
+      }),
+    ]);
     return Response.json({ room: {
       id: room.id, number: room.number, name: translatedName(room, activeLocale),
       category: room.category ? translatedName(room.category, activeLocale) : null,
       floor: room.floor ? translatedName(room.floor, activeLocale) || room.floor.code : null,
       status, doNotDisturb: state?.doNotDisturb ?? false, noService: state?.noService ?? false, isExpress: state?.isExpress ?? false,
       lastCleanedAt: state?.lastCleanedAt ?? null, lastInspectedAt: state?.lastInspectedAt ?? null,
-      isArrivalToday: stay?.arrivalDate.getTime() === day.getTime(), checks: stay?.arrivalDate.getTime() === day.getTime() ? arrivalChecks : roomChecks,
+      isArrivalToday: stay?.arrivalDate.getTime() === day.getTime(), roomChecks, arrivalChecks, cleaners,
+      assignedCleanerId: assignment?.assignedToId ?? null,
       reservation: stay ? {
         arrival: dateOnly(stay.arrivalDate), departure: dateOnly(stay.departureDate), days: Math.round((stay.departureDate.getTime() - stay.arrivalDate.getTime()) / 86400000),
         sourceStatus: stay.sourceStatus, adults: stay.adultCount, children: stay.childCount, childK1: stay.childK1Count, childK2: stay.childK2Count, childK3: stay.childK3Count,

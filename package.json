@@ -11,7 +11,8 @@
     "jobs:smoke": "tsx scripts/jobs-smoke.ts",
     "test:competitors": "tsx --test tests/competitors.test.ts",
     "competitors:refresh": "tsx scripts/competitors-refresh.ts",
-    "test:housekeeping": "tsx --test tests/housekeeping-asa-file.test.ts tests/housekeeping-import.test.ts"
+    "housekeeping:daily": "tsx scripts/housekeeping-daily.ts",
+    "test:housekeeping": "tsx --test tests/housekeeping-asa-file.test.ts tests/housekeeping-import.test.ts tests/housekeeping-daily-plan.test.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",

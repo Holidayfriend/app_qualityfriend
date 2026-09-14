@@ -2,9 +2,10 @@ import { Prisma } from "../../../../app/generated/prisma/client";
 import { accessibleModules } from "../../../../lib/auth/module-access";
 import { getSessionUserId } from "../../../../lib/auth/session";
 import { prisma } from "../../../../lib/prisma";
+import { cleaningPlan } from "../../../../lib/housekeeping/daily-plan";
 
 type Locale = "en" | "de" | "it";
-type AssignmentRow = { id: string; assigned_to_id: string; item_id: string; planned_minutes: number; completed_at: Date | null };
+type AssignmentRow = { id: string; assigned_to_id: string | null; item_id: string; planned_minutes: number; completed_at: Date | null };
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const locale = (value: string | null): Locale => value === "de" || value === "it" ? value : "en";
 const translated = (activeLocale: Locale, item: { descriptionEn: string; descriptionDe: string; descriptionIt: string }) => activeLocale === "de" ? item.descriptionDe || item.descriptionEn : activeLocale === "it" ? item.descriptionIt || item.descriptionEn : item.descriptionEn;
@@ -64,29 +65,45 @@ export async function GET(request: Request) {
 export async function PUT(request: Request) {
   const user = await actor();
   if (!user) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
-  const body = await request.json().catch(() => null) as { employeeId?: unknown; roomIds?: unknown; extraJobIds?: unknown } | null;
-  const employeeId = typeof body?.employeeId === "string" ? body.employeeId : "";
-  const roomIds = Array.isArray(body?.roomIds) && body.roomIds.every((id) => typeof id === "string" && uuid.test(id)) ? [...new Set(body.roomIds as string[])] : null;
-  const extraJobIds = Array.isArray(body?.extraJobIds) && body.extraJobIds.every((id) => typeof id === "string" && uuid.test(id)) ? [...new Set(body.extraJobIds as string[])] : null;
-  if (!uuid.test(employeeId) || !roomIds || !extraJobIds) return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
-  const eligibleUsers = await housekeepingUsers(user.hotelTenantId);
-  if (!eligibleUsers.some((employee) => employee.id === employeeId)) return Response.json({ error: "INVALID_EMPLOYEE" }, { status: 400 });
-  const timeZone = user.hotelTenant.timeZone?.trim() || "UTC";
+  const body = await request.json().catch(() => null) as { employeeId?: unknown; itemId?: unknown; itemType?: unknown; mode?: unknown; assigned?: unknown } | null;
+  const employeeId = typeof body?.employeeId === "string" ? body.employeeId : "", itemId = typeof body?.itemId === "string" ? body.itemId : "";
+  const itemType = body?.itemType === "room" || body?.itemType === "extra" ? body.itemType : null;
+  const mode = body?.mode === "PERMANENT" || body?.mode === "TODAY_ONLY" ? body.mode : null;
+  if (!uuid.test(employeeId) || !uuid.test(itemId) || !itemType || !mode || typeof body?.assigned !== "boolean") return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
+  if (!(await housekeepingUsers(user.hotelTenantId)).some((employee) => employee.id === employeeId)) return Response.json({ error: "INVALID_EMPLOYEE" }, { status: 400 });
   let date: string;
-  try { date = hotelDate(timeZone); } catch { return Response.json({ error: "INVALID_HOTEL_TIME_ZONE" }, { status: 500 }); }
+  try { date = hotelDate(user.hotelTenant.timeZone?.trim() || "UTC"); } catch { return Response.json({ error: "INVALID_HOTEL_TIME_ZONE" }, { status: 500 }); }
   const day = asDate(date);
-  const [rooms, extras] = await Promise.all([
-    prisma.room.findMany({ where: { id: { in: roomIds }, hotelTenantId: user.hotelTenantId, isActive: true, archivedAt: null, reservationRoomStayRecords: { some: { arrivalDate: { lte: day }, departureDate: { gte: day }, reservation: { sourcePresent: true, status: { notIn: ["CANCELLED", "NO_SHOW"] } } } } }, select: { id: true, category: { select: { normalMinutes: true } } } }),
-    prisma.extraJob.findMany({ where: { id: { in: extraJobIds }, hotelTenantId: user.hotelTenantId }, select: { id: true, minutes: true } }),
-  ]);
-  if (rooms.length !== roomIds.length || extras.length !== extraJobIds.length) return Response.json({ error: "INVALID_ASSIGNMENT_ITEM" }, { status: 400 });
   try {
-    await prisma.$transaction(async (tx) => {
-      await tx.$executeRaw`DELETE FROM housekeeping_room_assignments WHERE hotel_tenant_id=${user.hotelTenantId}::uuid AND work_date=${date}::date AND assigned_to_id=${employeeId}::uuid`;
-      await tx.$executeRaw`DELETE FROM housekeeping_extra_job_assignments WHERE hotel_tenant_id=${user.hotelTenantId}::uuid AND work_date=${date}::date AND assigned_to_id=${employeeId}::uuid`;
-      for (const room of rooms) await tx.$executeRaw`INSERT INTO housekeeping_room_assignments (id,hotel_tenant_id,work_date,room_id,assigned_to_id,planned_minutes,updated_at) VALUES (${crypto.randomUUID()}::uuid,${user.hotelTenantId}::uuid,${date}::date,${room.id}::uuid,${employeeId}::uuid,${room.category?.normalMinutes ?? 0},NOW())`;
-      for (const extra of extras) await tx.$executeRaw`INSERT INTO housekeeping_extra_job_assignments (id,hotel_tenant_id,work_date,extra_job_id,assigned_to_id,planned_minutes,updated_at) VALUES (${crypto.randomUUID()}::uuid,${user.hotelTenantId}::uuid,${date}::date,${extra.id}::uuid,${employeeId}::uuid,${extra.minutes},NOW())`;
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    if (itemType === "room") {
+      const room = await prisma.room.findFirst({ where: { id: itemId, hotelTenantId: user.hotelTenantId, isActive: true, archivedAt: null }, select: { id: true, category: { select: { normalMinutes: true, expressMinutes: true, departureMinutes: true, cleaningFrequency: true, cleaningWeekdays: true } }, reservationRoomStayRecords: { where: { arrivalDate: { lte: day }, departureDate: { gte: day }, reservation: { sourcePresent: true, status: { notIn: ["CANCELLED", "NO_SHOW"] } } }, orderBy: { arrivalDate: "desc" }, take: 1, select: { id: true, arrivalDate: true, departureDate: true } } } });
+      const stay = room?.reservationRoomStayRecords[0];
+      if (!room || !stay) return Response.json({ error: "INVALID_ASSIGNMENT_ITEM" }, { status: 400 });
+      const category = room.category;
+      const plan = cleaningPlan({ arrival_date: stay.arrivalDate.toISOString().slice(0, 10), departure_date: stay.departureDate.toISOString().slice(0, 10), normal_minutes: category?.normalMinutes ?? null, express_minutes: category?.expressMinutes ?? null, departure_minutes: category?.departureMinutes ?? null, cleaning_frequency: category?.cleaningFrequency ?? null, cleaning_weekdays: category?.cleaningWeekdays ?? [] }, date);
+      await prisma.$transaction(async (tx) => {
+        if (body.assigned) {
+          if (mode === "PERMANENT") await tx.$executeRaw`INSERT INTO housekeeping_permanent_room_assignments (id,hotel_tenant_id,room_id,assigned_to_id,updated_at) VALUES (${crypto.randomUUID()}::uuid,${user.hotelTenantId}::uuid,${itemId}::uuid,${employeeId}::uuid,NOW()) ON CONFLICT (hotel_tenant_id,room_id) DO UPDATE SET assigned_to_id=EXCLUDED.assigned_to_id,updated_at=NOW()`;
+          await tx.$executeRaw`INSERT INTO housekeeping_room_assignments (id,hotel_tenant_id,work_date,room_id,assigned_to_id,reservation_stay_id,cleaning_type,assignment_origin,planned_minutes,updated_at) VALUES (${crypto.randomUUID()}::uuid,${user.hotelTenantId}::uuid,${date}::date,${itemId}::uuid,${employeeId}::uuid,${stay.id}::uuid,${plan.type}::"HousekeepingCleaningType",${mode}::"HousekeepingAssignmentOrigin",${plan.minutes},NOW()) ON CONFLICT (hotel_tenant_id,work_date,room_id) DO UPDATE SET assigned_to_id=EXCLUDED.assigned_to_id,assignment_origin=EXCLUDED.assignment_origin,reservation_stay_id=EXCLUDED.reservation_stay_id,cleaning_type=EXCLUDED.cleaning_type,planned_minutes=EXCLUDED.planned_minutes,updated_at=NOW()`;
+        } else {
+          if (mode === "PERMANENT") await tx.$executeRaw`DELETE FROM housekeeping_permanent_room_assignments WHERE hotel_tenant_id=${user.hotelTenantId}::uuid AND room_id=${itemId}::uuid AND assigned_to_id=${employeeId}::uuid`;
+          await tx.$executeRaw`UPDATE housekeeping_room_assignments SET assigned_to_id=NULL,assignment_origin='TODAY_ONLY',updated_at=NOW() WHERE hotel_tenant_id=${user.hotelTenantId}::uuid AND work_date=${date}::date AND room_id=${itemId}::uuid AND assigned_to_id=${employeeId}::uuid AND completed_at IS NULL`;
+        }
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    } else {
+      const extra = await prisma.extraJob.findFirst({ where: { id: itemId, hotelTenantId: user.hotelTenantId }, select: { id: true, minutes: true, descriptionEn: true, descriptionDe: true, descriptionIt: true } });
+      if (!extra) return Response.json({ error: "INVALID_ASSIGNMENT_ITEM" }, { status: 400 });
+      const description = extra.descriptionEn || extra.descriptionDe || extra.descriptionIt;
+      await prisma.$transaction(async (tx) => {
+        if (body.assigned) {
+          if (mode === "PERMANENT") await tx.$executeRaw`INSERT INTO housekeeping_permanent_extra_job_assignments (id,hotel_tenant_id,extra_job_id,assigned_to_id,updated_at) VALUES (${crypto.randomUUID()}::uuid,${user.hotelTenantId}::uuid,${itemId}::uuid,${employeeId}::uuid,NOW()) ON CONFLICT (hotel_tenant_id,extra_job_id,assigned_to_id) DO NOTHING`;
+          await tx.$executeRaw`INSERT INTO housekeeping_extra_job_assignments (id,hotel_tenant_id,work_date,extra_job_id,assigned_to_id,planned_minutes,assignment_origin,description_snapshot,updated_at) VALUES (${crypto.randomUUID()}::uuid,${user.hotelTenantId}::uuid,${date}::date,${itemId}::uuid,${employeeId}::uuid,${extra.minutes},${mode}::"HousekeepingAssignmentOrigin",${description},NOW()) ON CONFLICT (hotel_tenant_id,work_date,extra_job_id,assigned_to_id) DO UPDATE SET assignment_origin=EXCLUDED.assignment_origin,planned_minutes=EXCLUDED.planned_minutes,description_snapshot=EXCLUDED.description_snapshot,updated_at=NOW()`;
+        } else {
+          if (mode === "PERMANENT") await tx.$executeRaw`DELETE FROM housekeeping_permanent_extra_job_assignments WHERE hotel_tenant_id=${user.hotelTenantId}::uuid AND extra_job_id=${itemId}::uuid AND assigned_to_id=${employeeId}::uuid`;
+          await tx.$executeRaw`DELETE FROM housekeeping_extra_job_assignments WHERE hotel_tenant_id=${user.hotelTenantId}::uuid AND work_date=${date}::date AND extra_job_id=${itemId}::uuid AND assigned_to_id=${employeeId}::uuid AND completed_at IS NULL`;
+        }
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    }
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return Response.json({ error: "ROOM_ALREADY_ASSIGNED" }, { status: 409 });
     throw error;
