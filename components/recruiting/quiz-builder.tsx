@@ -330,6 +330,11 @@ export function createDefaultQuiz(t: T): QuizPage[] {
         hdr(t.q4Prompt, 24),
         createElement("area", t),
         btn(t.toNextQuestion, "q5"),
+        cols([
+          [hdr(t.statEmployees, 35), hdr(t.statEmployeesLabel, 17)],
+          [hdr(t.statEvents, 35), hdr(t.statEventsLabel, 17)],
+          [hdr(t.statSolidarity, 40), hdr(t.statSolidarityLabel, 17)],
+        ]),
       ],
     },
     {
