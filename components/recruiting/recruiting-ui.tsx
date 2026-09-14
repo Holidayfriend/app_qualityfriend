@@ -136,6 +136,9 @@ function JobCreate({ t, locale }: { t: T; locale: Locale }) {
   const [start, setStart] = useState("");
   const [notes, setNotes] = useState("");
   const [description, setDescription] = useState("");
+  const [autoMessage, setAutoMessage] = useState("");
+  const [location, setLocation] = useState("");
+  const [cvRequired, setCvRequired] = useState(false);
   const [langs, setLangs] = useState<Record<Locale, boolean>>({ de: true, en: false, it: false });
   const [previewLang, setPreviewLang] = useState<Locale>(locale);
   const [generated, setGenerated] = useState(false);
@@ -152,7 +155,7 @@ function JobCreate({ t, locale }: { t: T; locale: Locale }) {
   }
   function save(status: JobStatus) {
     if (!title.trim()) return;
-    setJobs([{ id: `job_${Date.now()}`, title: title.trim(), dept, type, start: start.trim() || t.immediately, notes, description: sanitizeJobHtml(description), status, langs: (["de", "en", "it"] as Locale[]).filter((lang) => langs[lang]), clicks: 0, apps: 0, conv: "–" }, ...jobs]);
+    setJobs([{ id: `job_${Date.now()}`, title: title.trim(), dept, type, start: start.trim() || t.immediately, notes, description: sanitizeJobHtml(description), autoMessage: sanitizeJobHtml(autoMessage), location: location.trim(), cvRequired, status, langs: (["de", "en", "it"] as Locale[]).filter((lang) => langs[lang]), clicks: 0, apps: 0, conv: "–" }, ...jobs]);
     alert(status === "active" ? t.published : t.savedDraft);
     router.push("/recruiting/jobs");
   }
@@ -187,6 +190,15 @@ function JobCreate({ t, locale }: { t: T; locale: Locale }) {
               <span className="field-lbl">{t.jobDescription}</span>
               <RichTextEditor value={description} onChange={setDescription} placeholder={t.jobDescriptionPlaceholder} locale={locale} />
             </div>
+            <label><span className="field-lbl">{t.location}</span><input className="field-input" value={location} onChange={(event) => setLocation(event.target.value)} placeholder={t.locationPlaceholder} /></label>
+            <div>
+              <span className="field-lbl">{t.autoMessage}</span>
+              <RichTextEditor value={autoMessage} onChange={setAutoMessage} placeholder={t.autoMessagePlaceholder} locale={locale} />
+            </div>
+            <label className="quiz-check">
+              <input type="checkbox" checked={cvRequired} onChange={(event) => setCvRequired(event.target.checked)} />
+              {t.cvRequired}
+            </label>
             <div>
               <span className="field-lbl">{t.listingLanguages}</span>
               <div style={{ display: "flex", gap: 14 }}>
@@ -224,9 +236,9 @@ function JobCreate({ t, locale }: { t: T; locale: Locale }) {
           {generated ? <>
             <div style={{ fontSize: 11, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 6 }}>{t.formFormat} · {t.preview}</div>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>{title || t.newPosition}</div>
-            <div style={{ fontSize: 12.5, color: "var(--text2)", marginBottom: 14 }}>{typeLabel} · {t.depts[dept]} · {t.startLabel}: {start || t.immediately}</div>
+            <div style={{ fontSize: 12.5, color: "var(--text2)", marginBottom: 14 }}>{typeLabel} · {t.depts[dept]}{location.trim() ? ` · ${location.trim()}` : ""} · {t.startLabel}: {start || t.immediately}</div>
             <div className="job-desc-preview" style={{ background: "var(--bg)", borderRadius: 8, padding: 14, marginBottom: 12, fontSize: 13, lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: sanitizeJobHtml(htmlToPlain(description) ? description : defaultDescription()) }} />
-            {[t.formFields1, fill(t.formFields2, { dept: t.depts[dept] }), t.formFields3].map((line) => <div className="doc-row" style={{ padding: "8px 12px" }} key={line}><div className="doc-name">{line}</div></div>)}
+            {[t.formFields1, fill(t.formFields2, { dept: t.depts[dept] }), cvRequired ? t.formFields3Required : t.formFields3].map((line) => <div className="doc-row" style={{ padding: "8px 12px" }} key={line}><div className="doc-name">{line}</div></div>)}
             <div style={{ marginTop: 14, display: "flex", gap: 10 }}>
               <button type="button" className="btn btn-primary" onClick={() => save("active")}>{t.publish}</button>
               <button type="button" className="btn btn-ghost" onClick={() => save("draft")}>{t.saveDraft}</button>
@@ -254,7 +266,7 @@ function JobQuiz({ t, locale }: { t: T; locale: Locale }) {
     setPagesByLang({ ...pagesByLang, [locale]: pages });
   }
   function save(status: JobStatus) {
-    setJobs([{ id: `job_${Date.now()}`, title: t.quizName, dept: "reception", type: "fullOrPart", start: t.immediately, notes: "", description: "", status, langs: [locale], clicks: 0, apps: 0, conv: "–" }, ...jobs]);
+    setJobs([{ id: `job_${Date.now()}`, title: t.quizName, dept: "reception", type: "fullOrPart", start: t.immediately, notes: "", description: "", autoMessage: "", location: "", cvRequired: false, status, langs: [locale], clicks: 0, apps: 0, conv: "–" }, ...jobs]);
     alert(status === "active" ? t.published : t.savedDraft);
     router.push("/recruiting/jobs");
   }
