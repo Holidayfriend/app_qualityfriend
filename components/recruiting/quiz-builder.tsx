@@ -348,6 +348,16 @@ export function createDefaultQuiz(t: T): QuizPage[] {
           opt(t.start12months, "🗓️", "q6"),
           opt(t.start2plus, "⏳", "q6"),
         ]),
+        body(t.getStartedImmediately),
+        hdr(t.inductionTitle, 40),
+        cols([
+          [ic("👤+", 35), hdr(t.inductionContact, 17), body(t.inductionContactText)],
+          [ic("🎥", 35), hdr(t.inductionPortal, 17), body(t.inductionPortalText)],
+        ]),
+        cols([
+          [ic("💬", 35), hdr(t.inductionFeedback, 17), body(t.inductionFeedbackText)],
+          [ic("🚚", 35), hdr(t.inductionQuick, 17), body(t.inductionQuickText)],
+        ]),
       ],
     },
     {
@@ -983,15 +993,17 @@ function IdeasForm({ t, pages, element, onChange }: { t: T; pages: QuizPage[]; e
         <Prop title={element.type === "single" ? t.elSingle : t.elMulti}>
           {element.options.map((option, index) => (
             <div key={option.id} className="quiz-opt-edit">
-              <IconPicker t={t} compact value={option.icon} onChange={(icon) => patchOption(index, { icon })} />
-              <input className="field-input" value={option.label} onChange={(event) => patchOption(index, { label: event.target.value })} />
+              <div className="quiz-opt-edit-top">
+                <IconPicker t={t} compact value={option.icon} onChange={(icon) => patchOption(index, { icon })} />
+                <input className="field-input" value={option.label} onChange={(event) => patchOption(index, { label: event.target.value })} />
+                <button type="button" className="icon-btn danger" title={t.removeOption} aria-label={t.removeOption} onClick={() => onChange({ options: element.options.filter((_, i) => i !== index) })}>✕</button>
+              </div>
               {element.type === "single" ? (
-                <select className="field-select" style={{ maxWidth: 110 }} value={option.nextPageId} onChange={(event) => patchOption(index, { nextPageId: event.target.value })}>
+                <select className="field-select" value={option.nextPageId} onChange={(event) => patchOption(index, { nextPageId: event.target.value })}>
                   <option value="">{t.nextPage}</option>
                   {pageOptions}
                 </select>
               ) : null}
-              <button type="button" className="icon-btn danger" title={t.removeOption} aria-label={t.removeOption} onClick={() => onChange({ options: element.options.filter((_, i) => i !== index) })}>✕</button>
             </div>
           ))}
           <button type="button" className="btn btn-ghost" onClick={() => onChange({ options: [...element.options, { id: uid("opt"), label: t.newOption, icon: "➕", nextPageId: "" }] })}>{t.addOption}</button>
