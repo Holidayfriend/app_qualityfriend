@@ -336,8 +336,10 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 .qf-dashboard .quiz-page.active { font-weight:700;background:#f9f9f9;border:0 }
 .qf-dashboard .quiz-page-name { width:100%;border:0;background:transparent;font-size:13px;color:inherit;outline:none;font-weight:inherit;cursor:text;text-align:left }
 .qf-dashboard .quiz-funnel { font-family:Arial,sans-serif;color:#1c2233 }
-.qf-dashboard .quiz-logo { display:flex;justify-content:center;align-items:center;padding:13px 13px 8px;width:100% }
-.qf-dashboard .quiz-logo img { display:block;margin:0 auto;max-width:200px;max-height:72px;object-fit:contain }
+.qf-dashboard .quiz-logo { display:flex;justify-content:center;align-items:center;padding:13px 13px 8px;width:100%;position:relative;cursor:pointer;border:1px solid transparent;border-radius:10px;margin:4px 8px 0;width:auto }
+.qf-dashboard .quiz-logo:hover { border-color:var(--border);background:#fafaf8 }
+.qf-dashboard .quiz-logo.selected { border-color:var(--accent);background:var(--accent-light) }
+.qf-dashboard .quiz-logo img { display:block;max-height:72px;object-fit:contain }
 .qf-dashboard .quiz-copy { line-height:1.45 }
 .qf-dashboard .quiz-cta { font-size:19px;font-weight:600;border:0;border-radius:50px;padding:10px 22px;background:var(--accent);color:#fff;cursor:pointer;font-family:Arial,sans-serif }
 .qf-dashboard .quiz-img { width:80%;max-width:80%;height:auto;max-height:none;object-fit:contain;display:block;margin:8px auto;border-radius:0 }
@@ -457,6 +459,9 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 .qf-dashboard .quiz-icon-picker.compact .quiz-icon-current-glyph { width:36px;height:36px;font-size:22px }
 .qf-dashboard .quiz-icon-picker.compact { position:relative }
 .qf-dashboard .quiz-icon-picker.compact .quiz-icon-panel { position:absolute;left:0;top:46px;z-index:6;width:260px;box-shadow:var(--sh) }
+.qf-dashboard .quiz-text-emoji { display:flex;flex-direction:column;gap:8px }
+.qf-dashboard .quiz-emoji-btn { width:44px;height:36px;border:0;border-radius:8px;background:#17a2b8;color:#fff;font-size:20px;line-height:1;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center }
+.qf-dashboard .quiz-emoji-btn:hover,.qf-dashboard .quiz-emoji-btn.open { background:#138496 }
 .qf-dashboard .quiz-icon-panel { border:1px solid var(--border);border-radius:10px;padding:10px;background:#fafaf8;max-height:340px;overflow:auto;display:flex;flex-direction:column;gap:8px }
 .qf-dashboard .quiz-icon-cats { display:flex;flex-wrap:wrap;gap:4px }
 .qf-dashboard .quiz-icon-cat { border:1px solid var(--border);border-radius:999px;padding:4px 8px;background:#fff;font-size:11px;font-weight:600;color:var(--text2);cursor:pointer;font-family:inherit }

@@ -12,6 +12,8 @@ export const QUIZ_FUNNEL2 = "/recruiting/funnel2.png";
 export const QUIZ_DUMMY = "/recruiting/dummy.png";
 export const QUIZ_VOICE_AVATAR = "/recruiting/colleagues3.png";
 export const QUIZ_VOICE_SAMPLE = "/recruiting/voice-sample.mp3";
+export const QUIZ_LOGO = "/recruiting/logo-icon.png";
+export const LOGO_ID = "quiz-logo";
 
 export type QuizElementType =
   | "text" | "text_small" | "text_header" | "icons" | "button" | "image" | "audio"
@@ -58,6 +60,7 @@ export type QuizPage = {
   name: string;
   locked?: boolean;
   elements: QuizElement[];
+  logo: QuizElement;
 };
 
 const PALETTE: Array<{ type: QuizElementType; icon: string; label: (t: T) => string }> = [
@@ -203,6 +206,10 @@ function cols(columns: QuizElement[][]): QuizElement {
 }
 function quote(text: string): QuizElement {
   return blank({ type: "quote", text, src: QUIZ_VOICE_SAMPLE, avatarSrc: QUIZ_VOICE_AVATAR });
+}
+
+function defaultLogo(): QuizElement {
+  return blank({ id: LOGO_ID, type: "image", src: QUIZ_LOGO, align: "center", width: 28 });
 }
 
 export function createDefaultQuiz(t: T): QuizPage[] {
@@ -354,7 +361,7 @@ export function createDefaultQuiz(t: T): QuizPage[] {
         blank({ type: "text_header", text: t.disqualifySteps, fontSize: 14 }),
       ],
     },
-  ];
+  ].map((item) => ({ ...item, logo: defaultLogo() }));
 }
 
 /* ------------------------------------------------------------------ */
@@ -463,7 +470,7 @@ export function QuizToolsCard(props: BuilderProps) {
   const [panel, setPanel] = useState<"pages" | "editor">("pages");
   const [tab, setTab] = useState<"ideas" | "elements">("ideas");
   const page = pages.find((item) => item.id === activePageId) ?? pages[0];
-  const selected = findElement(page?.elements ?? [], selectedId);
+  const selected = selectedId === LOGO_ID && page ? page.logo : findElement(page?.elements ?? [], selectedId);
 
   // Selecting an element on the canvas opens its inspector (like the reference builder);
   // clearing the selection (delete / click on empty canvas) while inspecting returns to the pages list.
@@ -484,7 +491,7 @@ export function QuizToolsCard(props: BuilderProps) {
   }
   function addPage() {
     const id = uid("page");
-    setPages([...pages.filter((item) => !item.locked), { id, name: t.newPage, elements: [createElement("text_header", t)] }, ...pages.filter((item) => item.locked)]);
+    setPages([...pages.filter((item) => !item.locked), { id, name: t.newPage, logo: { ...(page.logo ?? defaultLogo()), id: LOGO_ID }, elements: [createElement("text_header", t)] }, ...pages.filter((item) => item.locked)]);
     setActivePageId(id);
     setSelectedId(null);
   }
@@ -500,6 +507,12 @@ export function QuizToolsCard(props: BuilderProps) {
   }
   function patchElement(patch: Partial<QuizElement>) {
     if (!selected) return;
+    if (selected.id === LOGO_ID) {
+      const nextLogo = { ...(page.logo ?? defaultLogo()), ...patch, id: LOGO_ID, type: "image" as const };
+      if (!nextLogo.src || nextLogo.src === QUIZ_IMAGE_PLACEHOLDER) nextLogo.src = QUIZ_LOGO;
+      setPages(pages.map((item) => ({ ...item, logo: { ...nextLogo } })));
+      return;
+    }
     updateElements(mapElement(page.elements, selected.id, (el) => ({ ...el, ...patch })));
   }
   function addElement(type: QuizElementType) {
@@ -554,12 +567,14 @@ export function QuizToolsCard(props: BuilderProps) {
             <ElementPalette t={t} onAdd={addElement} />
           ) : selected ? (
             <>
-              <div className="quiz-panel-title">{elementLabel(selected.type, t)}</div>
+              <div className="quiz-panel-title">{selected.id === LOGO_ID ? t.logo : elementLabel(selected.type, t)}</div>
               <IdeasForm t={t} pages={pages} element={selected} onChange={patchElement} />
+              {selected.id === LOGO_ID ? null : (
               <div className="quiz-prop quiz-prop-actions">
                 <button type="button" className="btn btn-ghost" onClick={duplicateSelected}>⧉ {t.duplicateEl}</button>
                 <button type="button" className="btn btn-ghost quiz-danger" onClick={removeSelected}>🗑 {t.deleteEl}</button>
               </div>
+              )}
             </>
           ) : (
             <div style={{ fontSize: 12.5, color: "var(--text3)", padding: "8px 0" }}>{t.ideasEmpty}</div>
@@ -751,19 +766,23 @@ function iconCatLabel(cat: JobIconCat, t: T) {
   return t.iconCatMore;
 }
 
-function IconPicker({ t, value, onChange, compact = false }: { t: T; value: string; onChange: (icon: string) => void; compact?: boolean }) {
-  const [open, setOpen] = useState(!compact);
+function IconPicker({ t, value, onChange, compact = false, insert = false }: { t: T; value: string; onChange: (icon: string) => void; compact?: boolean; insert?: boolean }) {
+  const [open, setOpen] = useState(!compact && !insert);
   const [query, setQuery] = useState("");
-  const [cat, setCat] = useState<JobIconCat | "all">("all");
+  const [cat, setCat] = useState<JobIconCat | "all">(insert ? "people" : "all");
   const needle = query.trim().toLowerCase();
   const icons = (cat === "all" ? allJobIcons() : JOB_ICONS[cat]).filter((item) => !needle || item.tags.includes(needle) || item.glyph === needle);
 
   return (
-    <div className={`quiz-icon-picker ${compact ? "compact" : ""}`}>
-      <button type="button" className="quiz-icon-current" title={t.pickIcon} onClick={() => setOpen((on) => !on)}>
-        <span className="quiz-icon-current-glyph">{value || "😊"}</span>
-        {compact ? null : <span>{t.pickIcon}</span>}
-      </button>
+    <div className={`quiz-icon-picker ${compact ? "compact" : ""} ${insert ? "insert" : ""}`}>
+      {insert ? (
+        <button type="button" className={`quiz-emoji-btn ${open ? "open" : ""}`} title={t.emoji} aria-label={t.emoji} onClick={() => setOpen((on) => !on)}>😀</button>
+      ) : (
+        <button type="button" className="quiz-icon-current" title={t.pickIcon} onClick={() => setOpen((on) => !on)}>
+          <span className="quiz-icon-current-glyph">{value || "😊"}</span>
+          {compact ? null : <span>{t.pickIcon}</span>}
+        </button>
+      )}
       {open ? (
         <div className="quiz-icon-panel">
           <input className="field-input" value={query} placeholder={t.searchIcons} onChange={(event) => setQuery(event.target.value)} />
@@ -779,7 +798,7 @@ function IconPicker({ t, value, onChange, compact = false }: { t: T; value: stri
                 key={item.glyph}
                 type="button"
                 title={item.tags}
-                className={`quiz-icon-cell ${value === item.glyph ? "active" : ""}`}
+                className={`quiz-icon-cell ${!insert && value === item.glyph ? "active" : ""}`}
                 onClick={() => onChange(item.glyph)}
               >
                 {item.glyph}
@@ -788,6 +807,50 @@ function IconPicker({ t, value, onChange, compact = false }: { t: T; value: stri
           </div>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function insertAtCaret(field: HTMLTextAreaElement | HTMLInputElement | null, value: string, glyph: string, caret: { start: number; end: number }, onChange: (next: string) => void) {
+  const from = Math.min(caret.start, value.length);
+  const to = Math.min(caret.end, value.length);
+  onChange(value.slice(0, from) + glyph + value.slice(to));
+  const pos = from + glyph.length;
+  caret.start = pos;
+  caret.end = pos;
+  queueMicrotask(() => {
+    field?.focus();
+    field?.setSelectionRange(pos, pos);
+  });
+}
+
+function TextWithEmoji({ t, value, onChange, rows = 2, multiline = true }: { t: T; value: string; onChange: (value: string) => void; rows?: number; multiline?: boolean }) {
+  const areaRef = useRef<HTMLTextAreaElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const caret = useRef({ start: value.length, end: value.length });
+  function remember(el: HTMLTextAreaElement | HTMLInputElement | null) {
+    if (!el) return;
+    caret.current = { start: el.selectionStart ?? value.length, end: el.selectionEnd ?? value.length };
+  }
+  function insert(glyph: string) {
+    insertAtCaret(multiline ? areaRef.current : inputRef.current, value, glyph, caret.current, onChange);
+  }
+  const fieldProps = {
+    className: "field-input" + (multiline ? " quiz-textarea" : ""),
+    value,
+    onChange: (event: { target: { value: string } }) => onChange(event.target.value),
+    onSelect: (event: { currentTarget: HTMLTextAreaElement | HTMLInputElement }) => remember(event.currentTarget),
+    onKeyUp: (event: { currentTarget: HTMLTextAreaElement | HTMLInputElement }) => remember(event.currentTarget),
+    onClick: (event: { currentTarget: HTMLTextAreaElement | HTMLInputElement }) => remember(event.currentTarget),
+    onBlur: (event: { currentTarget: HTMLTextAreaElement | HTMLInputElement }) => remember(event.currentTarget),
+  };
+  return (
+    <div className="quiz-text-emoji">
+      {multiline ? <textarea ref={areaRef} rows={rows} {...fieldProps} /> : <input ref={inputRef} {...fieldProps} />}
+      <div>
+        <div className="quiz-prop-title">{t.emoji}</div>
+        <IconPicker t={t} insert value="" onChange={insert} />
+      </div>
     </div>
   );
 }
@@ -821,7 +884,7 @@ function IdeasForm({ t, pages, element, onChange }: { t: T; pages: QuizPage[]; e
 
       {isText || isButtonLike || element.type === "quote" ? (
         <Prop title={t.elText}>
-          <textarea className="field-input quiz-textarea" rows={isText ? 3 : 2} value={element.text} onChange={(event) => onChange({ text: event.target.value })} />
+          <TextWithEmoji t={t} rows={isText ? 3 : 2} value={element.text} onChange={(text) => onChange({ text })} />
         </Prop>
       ) : null}
 
@@ -833,7 +896,7 @@ function IdeasForm({ t, pages, element, onChange }: { t: T; pages: QuizPage[]; e
 
       {element.type === "area" ? (
         <Prop title={t.elArea}>
-          <input className="field-input" value={element.placeholder} onChange={(event) => onChange({ placeholder: event.target.value })} />
+          <TextWithEmoji t={t} multiline={false} value={element.placeholder} onChange={(placeholder) => onChange({ placeholder })} />
         </Prop>
       ) : null}
 
@@ -1096,7 +1159,23 @@ export function QuizCanvasCard({ t, pages, setPages, activePageId, setActivePage
       </div>
       <div className="cb">
         <div className="quiz-phone quiz-funnel">
-          <div className="quiz-logo"><img src="/recruiting/logo-icon.png" alt="" /></div>
+          <div
+            className={`quiz-logo quiz-block ${selectedId === LOGO_ID ? "selected" : ""}`}
+            style={{ justifyContent: page.logo?.align === "left" ? "flex-start" : page.logo?.align === "right" ? "flex-end" : "center" }}
+            onClick={(event) => { event.stopPropagation(); setSelectedId(LOGO_ID); }}
+          >
+            <img
+              src={page.logo?.src || QUIZ_LOGO}
+              alt=""
+              style={{
+                width: `${page.logo?.width || 28}%`,
+                maxWidth: "100%",
+                margin: page.logo?.align === "left" ? "0 auto 0 0" : page.logo?.align === "right" ? "0 0 0 auto" : "0 auto",
+                borderRadius: page.logo?.radius || 0,
+                border: page.logo?.borderWidth ? `${page.logo.borderWidth}px solid ${page.logo.borderColor || "#1c2233"}` : undefined,
+              }}
+            />
+          </div>
           <div
             className={`quiz-canvas ${dropAt ? "drag-over" : ""}`}
             onDragOver={(event) => {
