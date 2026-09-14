@@ -9,7 +9,7 @@ import { fill, getRecruitingMessages, type DeptId, type RecruitingMessages } fro
 import type { Locale } from "../../lib/i18n/dictionaries";
 import { deptIds, langFlags, type Applicant, type AppStage, type EmailCat, type Employee, type Job, type JobStatus } from "../../lib/recruiting/preview-data";
 import { useRecruiting } from "./recruiting-provider";
-import { createDefaultQuiz, QuizCanvasCard, QuizToolsCard, type QuizPage } from "./quiz-builder";
+import { createDefaultQuiz, DEFAULT_FOOTER_URL, QuizCanvasCard, QuizToolsCard, type QuizFooter, type QuizPage } from "./quiz-builder";
 
 export type RecruitingView =
   | "hub" | "jobs" | "job-create" | "job-quiz" | "applications" | "application-create" | "application-detail"
@@ -235,6 +235,7 @@ function JobQuiz({ t, locale }: { t: T; locale: Locale }) {
   }));
   const [activePageId, setActivePageId] = useState("advantages");
   const [selectedElId, setSelectedElId] = useState<string | null>(null);
+  const [footer, setFooter] = useState<QuizFooter>({ impressumUrl: DEFAULT_FOOTER_URL, privacyUrl: DEFAULT_FOOTER_URL });
   const quizPages = pagesByLang[locale];
   function setQuizPages(pages: QuizPage[]) {
     setPagesByLang({ ...pagesByLang, [locale]: pages });
@@ -247,8 +248,8 @@ function JobQuiz({ t, locale }: { t: T; locale: Locale }) {
   return <>
     <Back href="/recruiting/jobs/new" label={t.backToClassic} />
     <div className="g2 g2-quiz">
-      <QuizToolsCard t={t} pages={quizPages} setPages={setQuizPages} activePageId={activePageId} setActivePageId={setActivePageId} selectedId={selectedElId} setSelectedId={setSelectedElId} />
-      <QuizCanvasCard t={t} pages={quizPages} setPages={setQuizPages} activePageId={activePageId} setActivePageId={setActivePageId} selectedId={selectedElId} setSelectedId={setSelectedElId} onPublish={() => save("active")} onDraft={() => save("draft")} />
+      <QuizToolsCard t={t} pages={quizPages} setPages={setQuizPages} activePageId={activePageId} setActivePageId={setActivePageId} selectedId={selectedElId} setSelectedId={setSelectedElId} footer={footer} setFooter={setFooter} />
+      <QuizCanvasCard t={t} pages={quizPages} setPages={setQuizPages} activePageId={activePageId} setActivePageId={setActivePageId} selectedId={selectedElId} setSelectedId={setSelectedElId} footer={footer} setFooter={setFooter} onPublish={() => save("active")} onDraft={() => save("draft")} />
     </div>
   </>;
 }

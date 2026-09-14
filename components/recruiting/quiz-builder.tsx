@@ -13,9 +13,16 @@ export const QUIZ_FUNNEL3 = "/recruiting/funnel3.png";
 export const QUIZ_FUNNEL4 = "/recruiting/funnel4.png";
 export const QUIZ_DUMMY = "/recruiting/dummy.png";
 export const QUIZ_VOICE_AVATAR = "/recruiting/colleagues3.png";
+export const QUIZ_COLLEAGUE1 = "/recruiting/colleagues1.png";
+export const QUIZ_COLLEAGUE2 = "/recruiting/colleagues2.png";
+export const QUIZ_COLLEAGUE3 = "/recruiting/colleagues3.png";
 export const QUIZ_VOICE_SAMPLE = "/recruiting/voice-sample.mp3";
 export const QUIZ_LOGO = "/recruiting/logo-icon.png";
 export const LOGO_ID = "quiz-logo";
+export const FOOTER_ID = "quiz-footer";
+export const DEFAULT_FOOTER_URL = "https://qualityfriend.solutions/";
+
+export type QuizFooter = { impressumUrl: string; privacyUrl: string };
 
 export type QuizElementType =
   | "text" | "text_small" | "text_header" | "icons" | "button" | "image" | "audio"
@@ -278,6 +285,13 @@ export function createDefaultQuiz(t: T): QuizPage[] {
       elements: [
         hdr(t.q1Prompt, 24),
         single([opt(t.yesHave, "👍", "q2"), opt(t.noHavent, "👎", "disqualify")]),
+        body(t.employeeLove),
+        hdr(t.colleaguesReport, 40),
+        cols([
+          [voice(QUIZ_COLLEAGUE1), hdr(t.colleagueName, 14), body(t.colleagueBackOffice)],
+          [voice(QUIZ_COLLEAGUE2), hdr(t.colleagueName, 14), body(t.colleagueRecruiter)],
+          [voice(QUIZ_COLLEAGUE3), hdr(t.colleagueName, 14), body(t.colleagueDistribution)],
+        ]),
       ],
     },
     {
@@ -403,6 +417,8 @@ type BuilderProps = {
   setActivePageId: (id: string) => void;
   selectedId: string | null;
   setSelectedId: (id: string | null) => void;
+  footer: QuizFooter;
+  setFooter: (footer: QuizFooter) => void;
 };
 
 function findElement(elements: QuizElement[], id: string | null): QuizElement | null {
@@ -487,7 +503,7 @@ function readImageFile(file: File | undefined, onLoad: (dataUrl: string) => void
 /* ------------------------------------------------------------------ */
 
 export function QuizToolsCard(props: BuilderProps) {
-  const { t, pages, setPages, activePageId, setActivePageId, selectedId, setSelectedId } = props;
+  const { t, pages, setPages, activePageId, setActivePageId, selectedId, setSelectedId, footer, setFooter } = props;
   const [panel, setPanel] = useState<"pages" | "editor">("pages");
   const [tab, setTab] = useState<"ideas" | "elements">("ideas");
   const page = pages.find((item) => item.id === activePageId) ?? pages[0];
@@ -586,6 +602,11 @@ export function QuizToolsCard(props: BuilderProps) {
         <div className="cb quiz-panel-body">
           {tab === "elements" ? (
             <ElementPalette t={t} onAdd={addElement} />
+          ) : selectedId === FOOTER_ID ? (
+            <>
+              <div className="quiz-panel-title">{t.footer}</div>
+              <FooterIdeas t={t} footer={footer} onChange={setFooter} />
+            </>
           ) : selected ? (
             <>
               <div className="quiz-panel-title">{selected.id === LOGO_ID ? t.logo : elementLabel(selected.type, t)}</div>
@@ -876,6 +897,19 @@ function TextWithEmoji({ t, value, onChange, rows = 2, multiline = true }: { t: 
   );
 }
 
+function FooterIdeas({ t, footer, onChange }: { t: T; footer: QuizFooter; onChange: (footer: QuizFooter) => void }) {
+  return (
+    <div className="quiz-props">
+      <Prop title={t.impressumUrl}>
+        <input className="field-input" value={footer.impressumUrl} placeholder={t.impressumUrl} onChange={(event) => onChange({ ...footer, impressumUrl: event.target.value })} />
+      </Prop>
+      <Prop title={t.privacyUrl}>
+        <input className="field-input" value={footer.privacyUrl} placeholder={t.privacyUrl} onChange={(event) => onChange({ ...footer, privacyUrl: event.target.value })} />
+      </Prop>
+    </div>
+  );
+}
+
 function IdeasForm({ t, pages, element, onChange }: { t: T; pages: QuizPage[]; element: QuizElement; onChange: (patch: Partial<QuizElement>) => void }) {
   const voiceRef = useRef<HTMLInputElement>(null);
   const avatarRef = useRef<HTMLInputElement>(null);
@@ -1054,7 +1088,7 @@ function IdeasForm({ t, pages, element, onChange }: { t: T; pages: QuizPage[]; e
 /* Canvas                                                               */
 /* ------------------------------------------------------------------ */
 
-export function QuizCanvasCard({ t, pages, setPages, activePageId, setActivePageId, selectedId, setSelectedId, onPublish, onDraft }: BuilderProps & {
+export function QuizCanvasCard({ t, pages, setPages, activePageId, setActivePageId, selectedId, setSelectedId, footer, onPublish, onDraft }: BuilderProps & {
   onPublish: () => void;
   onDraft: () => void;
 }) {
@@ -1281,14 +1315,27 @@ export function QuizCanvasCard({ t, pages, setPages, activePageId, setActivePage
             })}
             {count ? <div className={`quiz-insert ${sameLoc(dropAt, endLoc) ? "show" : ""}`} /> : null}
           </div>
-          <div className="quiz-funnel-footer">
+          <div
+            className={`quiz-funnel-footer ${selectedId === FOOTER_ID ? "selected" : ""}`}
+            onClick={(event) => { event.stopPropagation(); setSelectedId(FOOTER_ID); }}
+          >
             <div>
-              <a href="https://qualityfriend.solutions/" target="_blank" rel="noreferrer">{t.impressum}</a>
+              <a
+                href={footer.impressumUrl.trim() || DEFAULT_FOOTER_URL}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(event) => { event.preventDefault(); event.stopPropagation(); setSelectedId(FOOTER_ID); }}
+              >{t.impressum}</a>
               {" | "}
-              <a href="https://qualityfriend.solutions/" target="_blank" rel="noreferrer">{t.dataPolicy}</a>
+              <a
+                href={footer.privacyUrl.trim() || DEFAULT_FOOTER_URL}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(event) => { event.preventDefault(); event.stopPropagation(); setSelectedId(FOOTER_ID); }}
+              >{t.dataPolicy}</a>
             </div>
             <div>
-              <a href="https://qualityfriend.solutions/" target="_blank" rel="noreferrer">{t.byQualityfriend}</a>
+              <a href={DEFAULT_FOOTER_URL} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>{t.byQualityfriend}</a>
             </div>
           </div>
         </div>
