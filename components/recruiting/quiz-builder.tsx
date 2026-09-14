@@ -14,9 +14,10 @@ export const QUIZ_VOICE_SAMPLE = "/recruiting/voice-sample.mp3";
 
 export type QuizElementType =
   | "text" | "text_small" | "text_header" | "icons" | "button" | "image" | "audio"
-  | "spacers" | "video" | "single" | "multi" | "area" | "file" | "form";
+  | "spacers" | "video" | "single" | "multi" | "area" | "file" | "form" | "features" | "quote";
 
 export type QuizChoice = { id: string; label: string; icon: string; nextPageId: string };
+export type QuizFeature = { id: string; icon: string; title: string; text: string };
 
 export type QuizElement = {
   id: string;
@@ -30,6 +31,7 @@ export type QuizElement = {
   icon: string;
   placeholder: string;
   options: QuizChoice[];
+  features: QuizFeature[];
 };
 
 export type QuizPage = {
@@ -72,6 +74,7 @@ function blank(partial: Partial<QuizElement> & Pick<QuizElement, "type">): QuizE
     icon: "😊",
     placeholder: "",
     options: [],
+    features: [],
     ...partial,
   };
 }
@@ -119,6 +122,10 @@ export function createElement(type: QuizElementType, t: T, nextPageId = ""): Qui
       return blank({ type, text: t.send, nextPageId });
     case "form":
       return blank({ type, text: t.formSubmit, nextPageId: "thanks" });
+    case "features":
+      return blank({ type, features: [{ id: uid("ft"), icon: "💰", title: t.featSalary, text: t.featSalaryText }] });
+    case "quote":
+      return blank({ type, text: t.ownerQuote, src: QUIZ_VOICE_SAMPLE, avatarSrc: QUIZ_VOICE_AVATAR });
   }
 }
 
@@ -149,6 +156,12 @@ function single(options: QuizChoice[]): QuizElement {
 function multi(options: QuizChoice[]): QuizElement {
   return blank({ type: "multi", options });
 }
+function feat(items: Array<[string, string, string]>): QuizElement {
+  return blank({ type: "features", features: items.map(([icon, title, text]) => ({ id: uid("ft"), icon, title, text })) });
+}
+function quote(text: string): QuizElement {
+  return blank({ type: "quote", text, src: QUIZ_VOICE_SAMPLE, avatarSrc: QUIZ_VOICE_AVATAR });
+}
 
 export function createDefaultQuiz(t: T): QuizPage[] {
   return [
@@ -165,6 +178,15 @@ export function createDefaultQuiz(t: T): QuizPage[] {
         body(t.advantagesMeta),
         body(t.yourAdvantages),
         hdr(t.awaitsYou, 17),
+        feat([
+          ["💰", t.featSalary, t.featSalaryText],
+          ["🔧", t.featTools, t.featToolsText],
+        ]),
+        feat([
+          ["🤝", t.featTeam, t.featTeamText],
+          ["📍", t.featStable, t.featStableText],
+        ]),
+        quote(t.ownerQuote),
       ],
     },
     {
@@ -184,7 +206,7 @@ export function createDefaultQuiz(t: T): QuizPage[] {
       id: "q1",
       name: t.pageQ1,
       elements: [
-        hdr(t.q1Prompt),
+        hdr(t.q1Prompt, 24),
         single([opt(t.yesHave, "👍", "q2"), opt(t.noHavent, "👎", "disqualify")]),
       ],
     },
@@ -193,8 +215,8 @@ export function createDefaultQuiz(t: T): QuizPage[] {
       name: t.pageQ2,
       elements: [
         body(t.multiHint, 14),
-        hdr(t.q2Prompt),
-        multi([opt(t.optStable, "🛡️"), opt(t.optHours, "⏰"), opt(t.optLearn, "📚")]),
+        hdr(t.q2Prompt, 24),
+        multi([opt(t.optStable, "🛡️"), opt(t.optHours, "⏰"), opt(t.optLearn, "📚"), opt(t.optCreative, "✨")]),
         btn(t.toNextQuestion, "q3"),
       ],
     },
@@ -202,12 +224,12 @@ export function createDefaultQuiz(t: T): QuizPage[] {
       id: "q3",
       name: t.pageQ3,
       elements: [
-        hdr(t.q3Prompt),
+        hdr(t.q3Prompt, 24),
         single([
           opt(t.exp1, "🌱", "q4"),
-          opt(t.exp13, "🌿", "q4"),
-          opt(t.exp35, "🌳", "q4"),
-          opt(t.exp5, "⭐", "q4"),
+          opt(t.exp15, "🌿", "q4"),
+          opt(t.exp610, "🌳", "q4"),
+          opt(t.exp10, "⭐", "q4"),
         ]),
       ],
     },
@@ -217,7 +239,7 @@ export function createDefaultQuiz(t: T): QuizPage[] {
       elements: [
         voice(),
         body(t.doneIt),
-        hdr(t.q4Prompt),
+        hdr(t.q4Prompt, 24),
         createElement("area", t),
         btn(t.toNextQuestion, "q5"),
       ],
@@ -226,12 +248,12 @@ export function createDefaultQuiz(t: T): QuizPage[] {
       id: "q5",
       name: t.pageQ5,
       elements: [
-        hdr(t.q5Prompt),
+        hdr(t.q5Prompt, 24),
         single([
           opt(t.startAnytime, "🚀", "q6"),
-          opt(t.start2weeks, "📅", "q6"),
-          opt(t.start1month, "🗓️", "q6"),
-          opt(t.startLater, "⏳", "q6"),
+          opt(t.start23weeks, "📅", "q6"),
+          opt(t.start12months, "🗓️", "q6"),
+          opt(t.start2plus, "⏳", "q6"),
         ]),
       ],
     },
@@ -239,7 +261,7 @@ export function createDefaultQuiz(t: T): QuizPage[] {
       id: "q6",
       name: t.pageQ6,
       elements: [
-        hdr(t.q6Prompt),
+        hdr(t.q6Prompt, 24),
         { ...createElement("file", t, "q7"), nextPageId: "q7" },
         body(t.cvSafeNote),
       ],
@@ -249,12 +271,12 @@ export function createDefaultQuiz(t: T): QuizPage[] {
       name: t.pageQ7,
       elements: [
         body(t.q7Intro),
-        hdr(t.q7Prompt),
+        hdr(t.q7Prompt, 24),
         single([
           opt(t.time1012, "🕙", "data"),
-          opt(t.time1214, "🕛", "data"),
-          opt(t.time1418, "🕓", "data"),
-          opt(t.timeEvening, "🌙", "data"),
+          opt(t.time122, "🕛", "data"),
+          opt(t.time24, "🕓", "data"),
+          opt(t.time46, "🕕", "data"),
         ]),
       ],
     },
@@ -276,6 +298,7 @@ export function createDefaultQuiz(t: T): QuizPage[] {
       elements: [
         ic("✅", 70),
         hdr(t.thanksCopy, 30),
+        pic("/recruiting/thanks.png"),
       ],
     },
     {
@@ -341,20 +364,30 @@ export function QuizToolsCard(props: BuilderProps) {
       <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div className="quiz-pages">
           {pages.filter((item) => !item.locked).map((item) => (
-            <div key={item.id} className={`quiz-page ${item.id === activePageId ? "active" : ""}`}>
-              <button type="button" className="quiz-page-btn" onClick={() => { setActivePageId(item.id); setSelectedId(null); setTab("elements"); }}>
-                <input className="quiz-page-name" value={item.name} onChange={(event) => renamePage(item.id, event.target.value)} onClick={(event) => event.stopPropagation()} />
-              </button>
-              <button type="button" className="icon-btn danger" onClick={() => removePage(item.id)}>✕</button>
+            <div
+              key={item.id}
+              className={`quiz-page ${item.id === activePageId ? "active" : ""}`}
+              onClick={() => { setActivePageId(item.id); setSelectedId(null); setTab("elements"); }}
+            >
+              <input
+                className="quiz-page-name"
+                value={item.name}
+                onFocus={() => { setActivePageId(item.id); setSelectedId(null); }}
+                onChange={(event) => renamePage(item.id, event.target.value)}
+                onClick={(event) => event.stopPropagation()}
+              />
+              <button type="button" className="icon-btn danger" onClick={(event) => { event.stopPropagation(); removePage(item.id); }}>✕</button>
             </div>
           ))}
           <button type="button" className="btn btn-ghost" style={{ width: "100%" }} onClick={addPage}>{t.addPage}</button>
           <div className="quiz-fixed-label">{t.fixedPages}</div>
           {pages.filter((item) => item.locked).map((item) => (
-            <div key={item.id} className={`quiz-page locked ${item.id === activePageId ? "active" : ""}`}>
-              <button type="button" className="quiz-page-btn" onClick={() => { setActivePageId(item.id); setSelectedId(null); setTab("elements"); }}>
-                <span className="quiz-page-name" style={{ cursor: "pointer" }}>{item.name}</span>
-              </button>
+            <div
+              key={item.id}
+              className={`quiz-page locked ${item.id === activePageId ? "active" : ""}`}
+              onClick={() => { setActivePageId(item.id); setSelectedId(null); setTab("elements"); }}
+            >
+              <span className="quiz-page-name">{item.name}</span>
             </div>
           ))}
         </div>
@@ -487,10 +520,14 @@ function IdeasForm({ t, pages, element, onChange }: { t: T; pages: QuizPage[]; e
   );
 }
 
-export function QuizCanvasCard({ t, pages, setPages, activePageId, setActivePageId, selectedId, setSelectedId, onPublish, onDraft }: BuilderProps & { onPublish: () => void; onDraft: () => void }) {
+export function QuizCanvasCard({ t, pages, setPages, activePageId, setActivePageId, selectedId, setSelectedId, onPublish, onDraft }: BuilderProps & {
+  onPublish: () => void;
+  onDraft: () => void;
+}) {
   const [dropAt, setDropAt] = useState<number | null>(null);
   const page = pages.find((item) => item.id === activePageId) ?? pages[0];
-  const pageIndex = pages.findIndex((item) => item.id === page?.id);
+  if (!page) return null;
+  const pageIndex = pages.findIndex((item) => item.id === page.id);
 
   function updateElements(elements: QuizElement[]) {
     setPages(pages.map((item) => item.id === page.id ? { ...item, elements } : item));
@@ -531,13 +568,12 @@ export function QuizCanvasCard({ t, pages, setPages, activePageId, setActivePage
 
   return (
     <div className="card">
-      <div className="ch" style={{ flexDirection: "column", alignItems: "flex-start", gap: 6 }}>
-        <div className="ct">{t.quizCanvas}</div>
-        <div style={{ fontSize: 12, color: "var(--text2)" }}>{page.name} · {t.dropHint}</div>
+      <div className="ch">
+        <div className="ct">{page.name || t.quizCanvas}</div>
       </div>
       <div className="cb">
-        <div className="quiz-phone">
-          <div className="quiz-phone-bar" />
+        <div className="quiz-phone quiz-funnel">
+          <div className="quiz-logo"><img src="/recruiting/logo-icon.png" alt="" /></div>
           <div
             className="quiz-canvas"
             onDragOver={(event) => { event.preventDefault(); if (page.elements.length === 0) setDropAt(0); }}
@@ -586,11 +622,11 @@ export function QuizCanvasCard({ t, pages, setPages, activePageId, setActivePage
 function QuizBlock({ t, element, onGo }: { t: T; element: QuizElement; onGo: (id: string) => void }) {
   const align = { textAlign: element.align } as const;
   if (element.type === "text" || element.type === "text_small" || element.type === "text_header") {
-    return <div style={{ ...align, fontSize: element.fontSize, fontWeight: element.type === "text_header" ? 700 : 400, lineHeight: 1.45 }}>{element.text}</div>;
+    return <div className="quiz-copy" style={{ ...align, fontSize: element.fontSize, fontWeight: element.type === "text_header" ? 700 : 400 }}>{element.text}</div>;
   }
-  if (element.type === "icons") return <div style={{ ...align, fontSize: element.fontSize }}>{element.icon}</div>;
+  if (element.type === "icons") return <div style={{ ...align, fontSize: element.fontSize, lineHeight: 1 }}>{element.icon}</div>;
   if (element.type === "button") {
-    return <div style={align}><button type="button" className="btn btn-primary" onClick={() => onGo(element.nextPageId)}>{element.text}</button></div>;
+    return <div style={align}><button type="button" className="quiz-cta" onClick={() => onGo(element.nextPageId)}>{element.text}</button></div>;
   }
   if (element.type === "image") {
     return <div style={align}><img src={element.src || QUIZ_IMAGE_PLACEHOLDER} alt="" className="quiz-img" /></div>;
@@ -600,6 +636,33 @@ function QuizBlock({ t, element, onGo }: { t: T; element: QuizElement; onGo: (id
       <div className="quiz-voice">
         <img src={element.avatarSrc || QUIZ_VOICE_AVATAR} alt="" className="quiz-avatar" />
         <audio controls src={element.src || QUIZ_VOICE_SAMPLE} />
+      </div>
+    );
+  }
+  if (element.type === "quote") {
+    return (
+      <div className="quiz-quote">
+        <div className="quiz-voice">
+          <img src={element.avatarSrc || QUIZ_VOICE_AVATAR} alt="" className="quiz-avatar" />
+          <audio controls src={element.src || QUIZ_VOICE_SAMPLE} />
+        </div>
+        <div>
+          <div style={{ fontSize: 45, textAlign: "left", lineHeight: 1 }}>❝</div>
+          <div className="quiz-copy" style={{ fontSize: 14 }}>{element.text}</div>
+        </div>
+      </div>
+    );
+  }
+  if (element.type === "features") {
+    return (
+      <div className="quiz-features">
+        {element.features.map((item) => (
+          <div key={item.id} className="quiz-feature">
+            <div style={{ fontSize: 45, lineHeight: 1 }}>{item.icon}</div>
+            <div className="quiz-copy" style={{ fontSize: 17, fontWeight: 700, marginTop: 8 }}>{item.title}</div>
+            <div className="quiz-copy" style={{ fontSize: 14, marginTop: 6 }}>{item.text}</div>
+          </div>
+        ))}
       </div>
     );
   }
@@ -613,33 +676,38 @@ function QuizBlock({ t, element, onGo }: { t: T; element: QuizElement; onGo: (id
       <div className="quiz-choices">
         {element.options.map((option) => (
           <button key={option.id} type="button" className="quiz-choice" onClick={() => element.type === "single" && onGo(option.nextPageId)}>
-            {element.type === "multi" ? <input type="checkbox" readOnly /> : <span>›</span>}
-            <span style={{ flex: 1, textAlign: "left" }}>{option.label}</span>
-            <span>{option.icon}</span>
+            {element.type === "multi" ? <input type="checkbox" readOnly /> : <span className="quiz-choice-arrow">›</span>}
+            <span style={{ flex: 1, textAlign: "left", fontSize: 16 }}>{option.label}</span>
+            <span className="quiz-choice-icon">{option.icon}</span>
           </button>
         ))}
       </div>
     );
   }
   if (element.type === "area") {
-    return <textarea className="field-input" rows={4} placeholder={element.placeholder} readOnly />;
+    return <textarea className="quiz-area" rows={6} placeholder={element.placeholder} readOnly />;
   }
   if (element.type === "file") {
     return (
       <div style={{ textAlign: "center" }}>
-        <div className="dropzone" style={{ marginBottom: 10 }}>{t.clickOrDropFile}</div>
-        <button type="button" className="btn btn-primary" onClick={() => onGo(element.nextPageId)}>{element.text || t.send}</button>
-        <div style={{ marginTop: 8, fontSize: 12, color: "var(--text3)", cursor: "pointer" }} onClick={() => onGo(element.nextPageId)}>{t.skip}</div>
+        <div className="quiz-file">
+          <div className="quiz-file-inner">
+            <div className="quiz-file-ic">⬆</div>
+            <div>{t.clickOrDropFile}</div>
+          </div>
+        </div>
+        <button type="button" className="quiz-cta" onClick={() => onGo(element.nextPageId)}>{element.text || t.send}</button>
+        <div className="quiz-skip" onClick={() => onGo(element.nextPageId)}>{t.skip}</div>
       </div>
     );
   }
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      <input className="field-input" placeholder={t.formUser} readOnly />
-      <input className="field-input" placeholder={t.email} readOnly />
-      <input className="field-input" placeholder={t.phone} readOnly />
-      <label style={{ fontSize: 12, color: "var(--text2)" }}><input type="checkbox" readOnly /> {t.privacyAgree}</label>
-      <button type="button" className="btn btn-primary" onClick={() => onGo(element.nextPageId || "thanks")}>{element.text}</button>
+    <div className="quiz-form">
+      <input className="quiz-form-input" placeholder={t.formUser} readOnly />
+      <input className="quiz-form-input" placeholder={t.email} readOnly />
+      <input className="quiz-form-input" placeholder={t.phone} readOnly />
+      <label className="quiz-copy" style={{ fontSize: 14 }}><input type="checkbox" readOnly /> {t.privacyAgree}</label>
+      <button type="button" className="quiz-cta" onClick={() => onGo(element.nextPageId || "thanks")}>{element.text}</button>
     </div>
   );
 }

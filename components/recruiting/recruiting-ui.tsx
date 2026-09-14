@@ -30,7 +30,7 @@ export function RecruitingUI({ view, id = "" }: { view: RecruitingView; id?: str
       {view === "hub" ? <Hub t={t} /> : null}
       {view === "jobs" ? <Jobs t={t} /> : null}
       {view === "job-create" ? <JobCreate t={t} locale={locale} /> : null}
-      {view === "job-quiz" ? <JobQuiz t={t} /> : null}
+      {view === "job-quiz" ? <JobQuiz t={t} locale={locale} /> : null}
       {view === "applications" ? <Applications t={t} /> : null}
       {view === "application-create" ? <ApplicationCreate t={t} /> : null}
       {view === "application-detail" ? <ApplicationDetail t={t} id={id} /> : null}
@@ -225,14 +225,22 @@ function JobCreate({ t, locale }: { t: T; locale: Locale }) {
   </>;
 }
 
-function JobQuiz({ t }: { t: T }) {
+function JobQuiz({ t, locale }: { t: T; locale: Locale }) {
   const router = useRouter();
   const { jobs, setJobs } = useRecruiting();
-  const [quizPages, setQuizPages] = useState<QuizPage[]>(() => createDefaultQuiz(t));
+  const [pagesByLang, setPagesByLang] = useState<Record<Locale, QuizPage[]>>(() => ({
+    de: createDefaultQuiz(getRecruitingMessages("de")),
+    en: createDefaultQuiz(getRecruitingMessages("en")),
+    it: createDefaultQuiz(getRecruitingMessages("it")),
+  }));
   const [activePageId, setActivePageId] = useState("advantages");
   const [selectedElId, setSelectedElId] = useState<string | null>(null);
+  const quizPages = pagesByLang[locale];
+  function setQuizPages(pages: QuizPage[]) {
+    setPagesByLang({ ...pagesByLang, [locale]: pages });
+  }
   function save(status: JobStatus) {
-    setJobs([{ id: `job_${Date.now()}`, title: t.quizName, dept: "reception", type: "fullOrPart", start: t.immediately, notes: "", status, langs: ["de"], clicks: 0, apps: 0, conv: "–" }, ...jobs]);
+    setJobs([{ id: `job_${Date.now()}`, title: t.quizName, dept: "reception", type: "fullOrPart", start: t.immediately, notes: "", status, langs: [locale], clicks: 0, apps: 0, conv: "–" }, ...jobs]);
     alert(status === "active" ? t.published : t.savedDraft);
     router.push("/recruiting/jobs");
   }
