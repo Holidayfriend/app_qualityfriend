@@ -9,9 +9,10 @@ import { fill, getRecruitingMessages, type DeptId, type RecruitingMessages } fro
 import type { Locale } from "../../lib/i18n/dictionaries";
 import { deptIds, langFlags, type Applicant, type AppStage, type EmailCat, type Employee, type Job, type JobStatus } from "../../lib/recruiting/preview-data";
 import { useRecruiting } from "./recruiting-provider";
+import { createDefaultQuiz, QuizCanvasCard, QuizToolsCard, type QuizPage } from "./quiz-builder";
 
 export type RecruitingView =
-  | "hub" | "jobs" | "job-create" | "applications" | "application-create" | "application-detail"
+  | "hub" | "jobs" | "job-create" | "job-quiz" | "applications" | "application-create" | "application-detail"
   | "employees" | "employee-create" | "employee-detail" | "emails";
 
 type T = RecruitingMessages;
@@ -20,7 +21,7 @@ export function RecruitingUI({ view, id = "" }: { view: RecruitingView; id?: str
   const { locale } = useI18n();
   const t = getRecruitingMessages(locale);
   const titles: Record<RecruitingView, string> = {
-    hub: t.title, jobs: t.jobsTitle, "job-create": t.jobCreateTitle, applications: t.applicationsTitle,
+    hub: t.title, jobs: t.jobsTitle, "job-create": t.jobCreateTitle, "job-quiz": t.quizName, applications: t.applicationsTitle,
     "application-create": t.applicationCreateTitle, "application-detail": t.applicationDetailTitle,
     employees: t.employeesTitle, "employee-create": t.employeeCreateTitle, "employee-detail": t.employeeDetailTitle, emails: t.emailsTitle,
   };
@@ -29,6 +30,7 @@ export function RecruitingUI({ view, id = "" }: { view: RecruitingView; id?: str
       {view === "hub" ? <Hub t={t} /> : null}
       {view === "jobs" ? <Jobs t={t} /> : null}
       {view === "job-create" ? <JobCreate t={t} locale={locale} /> : null}
+      {view === "job-quiz" ? <JobQuiz t={t} /> : null}
       {view === "applications" ? <Applications t={t} /> : null}
       {view === "application-create" ? <ApplicationCreate t={t} /> : null}
       {view === "application-detail" ? <ApplicationDetail t={t} id={id} /> : null}
@@ -65,14 +67,14 @@ function Hub({ t }: { t: T }) {
     <div className="settings-grid" style={{ marginBottom: 20 }}>
       <div className="card">
         <div className="ch"><div className="ct">{t.jobsApps}</div></div>
-        <Link href="/recruiting/jobs" className="settings-item"><span className="settings-ic">📢</span><span><span className="settings-t">{t.jobs}</span><span className="settings-d">{t.jobsHint}</span></span></Link>
-        <Link href="/recruiting/applications" className="settings-item"><span className="settings-ic">📨</span><span><span className="settings-t">{t.applications}</span><span className="settings-d">{t.applicationsHint}</span></span></Link>
-        <Link href="/recruiting/employees" className="settings-item"><span className="settings-ic">🧑‍🍳</span><span><span className="settings-t">{t.employees}</span><span className="settings-d">{t.employeesHint}</span></span></Link>
+        <Link href="/recruiting/jobs" className="settings-item"><div className="settings-ic">📢</div><div><div className="settings-t">{t.jobs}</div><div className="settings-d">{t.jobsHint}</div></div></Link>
+        <Link href="/recruiting/applications" className="settings-item"><div className="settings-ic">📨</div><div><div className="settings-t">{t.applications}</div><div className="settings-d">{t.applicationsHint}</div></div></Link>
+        <Link href="/recruiting/employees" className="settings-item"><div className="settings-ic">🧑‍🍳</div><div><div className="settings-t">{t.employees}</div><div className="settings-d">{t.employeesHint}</div></div></Link>
       </div>
       <div className="card">
         <div className="ch"><div className="ct">{t.automation}</div></div>
-        <Link href="/recruiting/emails" className="settings-item"><span className="settings-ic">✉️</span><span><span className="settings-t">{t.emails}</span><span className="settings-d">{t.emailsHint}</span></span></Link>
-        <div className="settings-item" style={{ cursor: "default" }}><span className="settings-ic">🔔</span><span><span className="settings-t">{t.reminders}</span><span className="settings-d">{t.remindersHint}</span></span></div>
+        <Link href="/recruiting/emails" className="settings-item"><div className="settings-ic">✉️</div><div><div className="settings-t">{t.emails}</div><div className="settings-d">{t.emailsHint}</div></div></Link>
+        <div className="settings-item" style={{ cursor: "default" }}><div className="settings-ic">🔔</div><div><div className="settings-t">{t.reminders}</div><div className="settings-d">{t.remindersHint}</div></div></div>
       </div>
     </div>
     <div className="section-title">{t.upcomingReminders}</div>
@@ -127,7 +129,6 @@ function Jobs({ t }: { t: T }) {
 function JobCreate({ t, locale }: { t: T; locale: Locale }) {
   const router = useRouter();
   const { jobs, setJobs } = useRecruiting();
-  const [format, setFormat] = useState<"quiz" | "form">("quiz");
   const [title, setTitle] = useState("");
   const [dept, setDept] = useState<DeptId>("reception");
   const [type, setType] = useState("fullOrPart");
@@ -153,12 +154,12 @@ function JobCreate({ t, locale }: { t: T; locale: Locale }) {
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="ch"><div className="ct">{t.formatStep}</div></div>
           <div className="cb" style={{ display: "flex", gap: 12 }}>
-            <button type="button" className="kb-card" style={{ flex: 1, borderColor: format === "quiz" ? "var(--accent)" : undefined }} onClick={() => setFormat("quiz")}>
-              <div className="kb-scope">{t.quizScope}</div><div className="kb-name">{t.quizName}</div><div className="kb-meta">{t.quizMeta}</div>
-            </button>
-            <button type="button" className="kb-card" style={{ flex: 1, borderColor: format === "form" ? "var(--accent)" : undefined }} onClick={() => setFormat("form")}>
+            <div className="kb-card" style={{ flex: 1, borderColor: "var(--accent)" }}>
               <div className="kb-scope">{t.formScope}</div><div className="kb-name">{t.formName}</div><div className="kb-meta">{t.formMeta}</div>
-            </button>
+            </div>
+            <Link href="/recruiting/jobs/new/quiz" className="kb-card" style={{ flex: 1, textDecoration: "none", display: "block" }}>
+              <div className="kb-scope">{t.quizScope}</div><div className="kb-name">{t.quizName}</div><div className="kb-meta">{t.quizMeta}</div>
+            </Link>
           </div>
         </div>
         <div className="card" style={{ marginBottom: 16 }}>
@@ -208,11 +209,11 @@ function JobCreate({ t, locale }: { t: T; locale: Locale }) {
         </div>
         <div className="cb">
           {generated ? <>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 6 }}>{format === "quiz" ? t.quizFormat : t.formFormat} · {t.preview}</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 6 }}>{t.formFormat} · {t.preview}</div>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>{title || t.newPosition}</div>
             <div style={{ fontSize: 12.5, color: "var(--text2)", marginBottom: 14 }}>{typeLabel} · {t.depts[dept]} · {t.startLabel}: {start || t.immediately}</div>
             <div style={{ background: "var(--bg)", borderRadius: 8, padding: 14, marginBottom: 12, fontSize: 13, lineHeight: 1.6 }}>{fill(t.lookingFor, { dept: t.depts[dept] })}{notes ? ` – ${notes}` : ""}.</div>
-            {(format === "quiz" ? [t.quizQ1, t.quizQ2, t.quizQ3, t.quizQ4] : [t.formFields1, fill(t.formFields2, { dept: t.depts[dept] }), t.formFields3]).map((line) => <div className="doc-row" style={{ padding: "8px 12px" }} key={line}><div className="doc-name">{line}</div></div>)}
+            {[t.formFields1, fill(t.formFields2, { dept: t.depts[dept] }), t.formFields3].map((line) => <div className="doc-row" style={{ padding: "8px 12px" }} key={line}><div className="doc-name">{line}</div></div>)}
             <div style={{ marginTop: 14, display: "flex", gap: 10 }}>
               <button type="button" className="btn btn-primary" onClick={() => save("active")}>{t.publish}</button>
               <button type="button" className="btn btn-ghost" onClick={() => save("draft")}>{t.saveDraft}</button>
@@ -220,6 +221,26 @@ function JobCreate({ t, locale }: { t: T; locale: Locale }) {
           </> : <div style={{ fontSize: 12.5, color: "var(--text3)", textAlign: "center", padding: "30px 10px" }}>{t.previewEmpty}</div>}
         </div>
       </div>
+    </div>
+  </>;
+}
+
+function JobQuiz({ t }: { t: T }) {
+  const router = useRouter();
+  const { jobs, setJobs } = useRecruiting();
+  const [quizPages, setQuizPages] = useState<QuizPage[]>(() => createDefaultQuiz(t));
+  const [activePageId, setActivePageId] = useState("advantages");
+  const [selectedElId, setSelectedElId] = useState<string | null>(null);
+  function save(status: JobStatus) {
+    setJobs([{ id: `job_${Date.now()}`, title: t.quizName, dept: "reception", type: "fullOrPart", start: t.immediately, notes: "", status, langs: ["de"], clicks: 0, apps: 0, conv: "–" }, ...jobs]);
+    alert(status === "active" ? t.published : t.savedDraft);
+    router.push("/recruiting/jobs");
+  }
+  return <>
+    <Back href="/recruiting/jobs/new" label={t.backToClassic} />
+    <div className="g2 g2-quiz">
+      <QuizToolsCard t={t} pages={quizPages} setPages={setQuizPages} activePageId={activePageId} setActivePageId={setActivePageId} selectedId={selectedElId} setSelectedId={setSelectedElId} />
+      <QuizCanvasCard t={t} pages={quizPages} setPages={setQuizPages} activePageId={activePageId} setActivePageId={setActivePageId} selectedId={selectedElId} setSelectedId={setSelectedElId} onPublish={() => save("active")} onDraft={() => save("draft")} />
     </div>
   </>;
 }
