@@ -21,8 +21,9 @@ export type ClassicApplyJob = {
   logo: boolean;
 };
 
-export function ClassicApplyPage({ t, job }: { t: T; job: ClassicApplyJob }) {
+export function ClassicApplyPage({ t, job, slug, locale }: { t: T; job: ClassicApplyJob; slug?: string; locale?: string }) {
   const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [title, setTitle] = useState<"mr" | "mrs" | "divers">("mr");
   const [first, setFirst] = useState("");
@@ -31,13 +32,14 @@ export function ClassicApplyPage({ t, job }: { t: T; job: ClassicApplyJob }) {
   const [phone, setPhone] = useState("");
   const [message, setMessage] = useState("");
   const [cvName, setCvName] = useState("");
+  const [keep, setKeep] = useState(true);
   const [showRetention, setShowRetention] = useState(false);
   const typeLabel = job.type === "full" ? t.typeFull : job.type === "part" ? t.typePart : job.type === "apprentice" ? t.typeApprentice : t.typeFullOrPart;
   const benefits = job.notes.split(/[,;•]/).map((item) => item.trim()).filter(Boolean);
   const html = sanitizeJobHtml(htmlToPlain(job.description) ? job.description : `<p>${fill(t.lookingFor, { dept: t.depts[job.dept] })}.</p>`);
   const role = job.title.trim() || t.newPosition;
 
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault();
     if (!first.trim() || !last.trim()) {
       setError(t.requiredName);
@@ -48,6 +50,22 @@ export function ClassicApplyPage({ t, job }: { t: T; job: ClassicApplyJob }) {
       return;
     }
     setError("");
+    if (slug) {
+      setBusy(true);
+      const res = await fetch(`/api/apply/${encodeURIComponent(slug)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          locale, salutation: title, firstName: first.trim(), lastName: last.trim(), email: email.trim(),
+          phone: phone.trim(), message: message.trim(), cvFileName: cvName, keepForOtherJobs: keep,
+        }),
+      });
+      setBusy(false);
+      if (!res.ok) {
+        setError(t.saveFailed);
+        return;
+      }
+    }
     setDone(true);
   }
 
@@ -104,7 +122,7 @@ export function ClassicApplyPage({ t, job }: { t: T; job: ClassicApplyJob }) {
               </label>
               <label className="job-apply-agree"><input type="checkbox" required /> {t.dataProtectionNotice}</label>
               <label className="job-apply-agree">
-                <input type="checkbox" required />
+                <input type="checkbox" checked={keep} onChange={(event) => setKeep(event.target.checked)} />
                 <span>
                   {t.keepForOtherJobs.split("{here}")[0]}
                   <button type="button" className="job-apply-here" onClick={(event) => { event.preventDefault(); event.stopPropagation(); setShowRetention(true); }}>{t.hereLink}</button>
@@ -112,7 +130,7 @@ export function ClassicApplyPage({ t, job }: { t: T; job: ClassicApplyJob }) {
                 </span>
               </label>
               {error ? <p className="job-apply-error">{error}</p> : null}
-              <button type="submit" className="job-apply-btn">{t.applyNow.replace(/ \(.*\)/, "")}</button>
+              <button type="submit" className="job-apply-btn" disabled={busy}>{t.applyNow.replace(/ \(.*\)/, "")}</button>
             </form>
           </>
         )}

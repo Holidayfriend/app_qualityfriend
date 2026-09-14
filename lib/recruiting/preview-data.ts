@@ -7,7 +7,7 @@ export type EmpStatus = "active" | "inactive";
 export type CertStatus = "valid" | "expiring" | "expired";
 export type EmailCat = "received" | "offer" | "reject";
 
-export type Job = { id: string; title: string; dept: DeptId; type: string; start: string; notes: string; description: string; autoMessage: string; location: string; cvRequired: boolean; status: JobStatus; langs: Locale[]; clicks: number; apps: number; conv: string };
+export type Job = { id: string; slug?: string; format?: "classic" | "quiz"; title: string; dept: DeptId; type: string; start: string; notes: string; description: string; autoMessage: string; location: string; cvRequired: boolean; status: JobStatus; langs: Locale[]; clicks: number; apps: number; conv: string };
 export type Applicant = {
   id: string; initials: string; name: string; role: string; dept: DeptId; stage: AppStage; dateDisplay: string | null;
   score: string; suggestion: "recommended" | "possible" | "needsReview" | "notAFit" | "manualAdded" | "archived";

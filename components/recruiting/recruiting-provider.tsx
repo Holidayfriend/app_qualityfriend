@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import {
-  applicantsSeed, emailTemplatesSeed, employeesSeed, jobsSeed,
+  applicantsSeed, emailTemplatesSeed, employeesSeed,
   type Applicant, type EmailTemplates, type Employee, type Job,
 } from "../../lib/recruiting/preview-data";
 
@@ -16,7 +16,7 @@ type Store = {
 const RecruitingContext = createContext<Store | null>(null);
 
 export function RecruitingProvider({ children }: { children: ReactNode }) {
-  const [jobs, setJobs] = useState(jobsSeed);
+  const [jobs, setJobs] = useState<Job[]>([]);
   const [applicants, setApplicants] = useState(applicantsSeed);
   const [employees, setEmployees] = useState(employeesSeed);
   const [emails, setEmails] = useState(emailTemplatesSeed);

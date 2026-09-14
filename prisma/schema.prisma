@@ -535,6 +535,8 @@ model HotelTenant {
   users                        User[]
   departments                  Department[]
   extraJobs                    ExtraJob[]
+  recruitingJobs               RecruitingJob[]
+  recruitingApplications       RecruitingApplication[]
   teams                        Team[]
   auditLogs                    AuditLog[]
   rolePermissions              RoleModulePermission[]
@@ -889,4 +891,81 @@ model RegistrationRateLimit {
   @@unique([keyHash, windowStart])
   @@index([expiresAt])
   @@map("registration_rate_limits")
+}
+
+enum RecruitingJobFormat {
+  CLASSIC
+  QUIZ
+}
+
+enum RecruitingJobStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum RecruitingApplicationStage {
+  NEW
+  INVITED
+  OFFER
+  HIRED
+  REJECTED
+  ARCHIVED
+}
+
+model RecruitingJob {
+  id            String              @id @default(uuid()) @db.Uuid
+  hotelTenantId String              @map("hotel_tenant_id") @db.Uuid
+  slug          String              @unique @db.VarChar(80)
+  title         String              @db.VarChar(180)
+  format        RecruitingJobFormat
+  status        RecruitingJobStatus @default(DRAFT)
+  department    String              @db.VarChar(40)
+  workType      String              @map("work_type") @db.VarChar(40)
+  startFrom     String              @default("") @map("start_from") @db.VarChar(120)
+  notes         String              @default("") @db.Text
+  description   String              @default("") @db.Text
+  autoMessage   String              @default("") @map("auto_message") @db.Text
+  location      String              @default("") @db.VarChar(180)
+  cvRequired    Boolean             @default(false) @map("cv_required")
+  languages     Json
+  listingImage  String              @default("") @map("listing_image") @db.VarChar(255)
+  logoImage     String              @default("") @map("logo_image") @db.VarChar(255)
+  quiz          Json?
+  clickCount    Int                 @default(0) @map("click_count")
+  createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant   HotelTenant         @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  applications  RecruitingApplication[]
+
+  @@unique([hotelTenantId, id])
+  @@index([hotelTenantId, status])
+  @@index([hotelTenantId, format])
+  @@map("recruiting_jobs")
+}
+
+model RecruitingApplication {
+  id               String                      @id @default(uuid()) @db.Uuid
+  hotelTenantId    String                      @map("hotel_tenant_id") @db.Uuid
+  jobId            String                      @map("job_id") @db.Uuid
+  stage            RecruitingApplicationStage  @default(NEW)
+  locale           String                      @db.VarChar(8)
+  salutation       String                      @default("") @db.VarChar(20)
+  firstName        String                      @map("first_name") @db.VarChar(120)
+  lastName         String                      @map("last_name") @db.VarChar(120)
+  email            String                      @default("") @db.VarChar(320)
+  phone            String                      @default("") @db.VarChar(40)
+  message          String                      @default("") @db.Text
+  cvFileName       String                      @default("") @map("cv_file_name") @db.VarChar(255)
+  keepForOtherJobs Boolean                     @default(false) @map("keep_for_other_jobs")
+  answers          Json
+  createdAt        DateTime                    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant      HotelTenant                 @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  job              RecruitingJob               @relation(fields: [hotelTenantId, jobId], references: [hotelTenantId, id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([hotelTenantId, id])
+  @@index([hotelTenantId, jobId])
+  @@index([hotelTenantId, createdAt])
+  @@map("recruiting_applications")
 }

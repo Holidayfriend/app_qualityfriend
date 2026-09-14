@@ -287,6 +287,9 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 .qf-dashboard .settings-d { font-size:12px;color:var(--text2);margin-top:2px }
 .qf-dashboard .back-link { display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text2);cursor:pointer;margin-bottom:14px;font-weight:600;text-decoration:none;background:none;border:none;padding:0;font-family:inherit }
 .qf-dashboard .back-link:hover { color:var(--accent) }
+.qf-dashboard .quiz-topbar { display:flex;align-items:center;gap:14px;margin-bottom:14px;flex-wrap:wrap }
+.qf-dashboard .quiz-topbar .back-link { margin-bottom:0;flex-shrink:0 }
+.qf-dashboard .quiz-title-input { flex:1;min-width:200px;max-width:420px }
 .qf-dashboard .status-pill { padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap }
 .qf-dashboard .status-pill.active { background:var(--green-bg);color:var(--green) }
 .qf-dashboard .status-pill.inactive { background:#F3F4F6;color:var(--text3) }
@@ -533,4 +536,15 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 .job-apply-thanks { text-align:center; padding:36px 20px }
 .job-apply-ok { margin:0; font-size:32px; color:#16a34a }
 .job-apply-missing { padding:60px 16px; text-align:center }
+.job-apply-quiz.qf-dashboard { padding:0; min-height:100vh; overflow:auto }
+.job-apply-quiz-main { max-width:760px; margin:0 auto; padding:16px 12px 40px }
+.job-apply-quiz .quiz-choice.on { box-shadow:0 0 0 3px var(--accent) }
+.job-apply-quiz .quiz-file { cursor:pointer; display:block }
+.job-apply-quiz .quiz-apply-item { margin:8px 0 }
+.job-apply-quiz .quiz-logo,
+.job-apply-quiz .quiz-funnel-footer { cursor:default; border-color:transparent }
+.job-apply-quiz .quiz-logo:hover,
+.job-apply-quiz .quiz-funnel-footer:hover { border-color:transparent; background:transparent }
+.job-apply-quiz .quiz-cta,
+.job-apply-quiz .quiz-choice { pointer-events:auto }
 @media (max-width: 640px) { .job-apply-row { grid-template-columns:1fr } }

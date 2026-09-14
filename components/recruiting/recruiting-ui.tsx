@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, useEffect, type FormEvent } from "react";
 import { AppShell } from "../dashboard/app-shell";
 import { useI18n } from "../i18n/i18n-provider";
 import { fill, getRecruitingMessages, type DeptId, type RecruitingMessages } from "../../lib/i18n/recruiting-messages";
@@ -90,13 +90,24 @@ function Jobs({ t }: { t: T }) {
   const { jobs, setJobs } = useRecruiting();
   const [filter, setFilter] = useState<"all" | JobStatus>("all");
   const [search, setSearch] = useState("");
+  useEffect(() => {
+    fetch("/api/recruiting/jobs")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => { if (Array.isArray(data?.jobs)) setJobs(data.jobs); })
+      .catch(() => undefined);
+  }, [setJobs]);
   const clicks = jobs.reduce((sum, job) => sum + job.clicks, 0);
   const apps = jobs.reduce((sum, job) => sum + job.apps, 0);
   const best = [...jobs].sort((a, b) => parseFloat(b.conv) - parseFloat(a.conv))[0];
   const rows = jobs.filter((job) => (filter === "all" || job.status === filter) && job.title.toLowerCase().includes(search.toLowerCase()));
   const statusLabel = (status: JobStatus) => status === "active" ? t.active : status === "draft" ? t.draft : t.archived;
-  function toggleArchive(id: string) {
-    setJobs(jobs.map((job) => job.id === id ? { ...job, status: job.status === "archived" ? "active" : "archived" } : job));
+  async function toggleArchive(id: string) {
+    const job = jobs.find((item) => item.id === id);
+    if (!job) return;
+    const status = job.status === "archived" ? "active" : "archived";
+    const res = await fetch(`/api/recruiting/jobs/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+    if (!res.ok) return;
+    setJobs(jobs.map((item) => item.id === id ? { ...item, status } : item));
   }
   return <>
     <Back href="/recruiting" label={t.backRecruiting} />
@@ -117,10 +128,18 @@ function Jobs({ t }: { t: T }) {
     <div className="card" style={{ overflowX: "auto" }}>
       <table className="bud-table"><thead><tr><th>{t.colTitle}</th><th>{t.colLanguages}</th><th>{t.colDepartment}</th><th>{t.colStatus}</th><th>{t.colClicks}</th><th>{t.colApps}</th><th>{t.colConv}</th><th style={{ textAlign: "right" }}>{t.colActions}</th></tr></thead>
         <tbody>{rows.map((job) => <tr key={job.id}>
-          <td>{job.title}</td><td>{job.langs.map((lang) => langFlags[lang]).join("")}</td><td>{t.depts[job.dept]}</td>
+          <td>
+            <div>{job.title}</div>
+            <div style={{ fontSize: 11, color: "var(--text3)" }}>{job.format === "quiz" ? t.formatQuiz : t.formatClassic}{job.slug ? ` · /apply/${job.slug}` : ""}</div>
+          </td>
+          <td>{job.langs.map((lang) => langFlags[lang]).join("")}</td><td>{t.depts[job.dept]}</td>
           <td><span className={`status-pill ${job.status === "active" ? "active" : "inactive"}`}>{statusLabel(job.status)}</span></td>
           <td>{job.clicks || "–"}</td><td>{job.apps || "–"}</td><td>{job.conv}</td>
-          <td style={{ textAlign: "right" }}><Link href="/recruiting/jobs/new" className="icon-btn">✏️</Link> <button type="button" className="icon-btn" onClick={() => toggleArchive(job.id)}>{job.status === "archived" ? "↩️" : "🗄️"}</button></td>
+          <td style={{ textAlign: "right" }}>
+            {job.slug && job.status === "active" ? <a href={`/apply/${job.slug}`} className="icon-btn" target="_blank" rel="noreferrer" title={t.applyOpen}>↗</a> : null}
+            {" "}
+            <Link href="/recruiting/jobs/new" className="icon-btn">✏️</Link> <button type="button" className="icon-btn" onClick={() => void toggleArchive(job.id)}>{job.status === "archived" ? "↩️" : "🗄️"}</button>
+          </td>
         </tr>)}</tbody>
       </table>
     </div>
@@ -144,6 +163,8 @@ function JobCreate({ t, locale }: { t: T; locale: Locale }) {
   const [generated, setGenerated] = useState(false);
   const [image, setImage] = useState("");
   const [logo, setLogo] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const typeLabel = type === "full" ? t.typeFull : type === "part" ? t.typePart : type === "apprentice" ? t.typeApprentice : t.typeFullOrPart;
   function defaultDescription() {
     return `<p>${fill(t.lookingFor, { dept: t.depts[dept] })}${notes ? ` – ${notes}` : ""}.</p>`;
@@ -153,10 +174,29 @@ function JobCreate({ t, locale }: { t: T; locale: Locale }) {
     setPreviewLang(langs.de ? "de" : langs.en ? "en" : "it");
     if (!htmlToPlain(description)) setDescription(defaultDescription());
   }
-  function save(status: JobStatus) {
+  async function save(status: JobStatus) {
     if (!title.trim()) return;
-    setJobs([{ id: `job_${Date.now()}`, title: title.trim(), dept, type, start: start.trim() || t.immediately, notes, description: sanitizeJobHtml(description), autoMessage: sanitizeJobHtml(autoMessage), location: location.trim(), cvRequired, status, langs: (["de", "en", "it"] as Locale[]).filter((lang) => langs[lang]), clicks: 0, apps: 0, conv: "–" }, ...jobs]);
-    alert(status === "active" ? t.published : t.savedDraft);
+    setBusy(true);
+    setError("");
+    const langsOn = (["de", "en", "it"] as Locale[]).filter((lang) => langs[lang]);
+    const res = await fetch("/api/recruiting/jobs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        format: "classic", status, title: title.trim(), department: dept, workType: type,
+        startFrom: start.trim() || t.immediately, notes, description: sanitizeJobHtml(description),
+        autoMessage: sanitizeJobHtml(autoMessage), location: location.trim(), cvRequired, languages: langsOn,
+        listingImage: image, logoImage: logo,
+      }),
+    });
+    const data = await res.json().catch(() => null);
+    setBusy(false);
+    if (!res.ok) {
+      setError(t.saveFailed);
+      return;
+    }
+    if (data?.job) setJobs([data.job, ...jobs]);
+    alert(status === "active" ? `${t.published} /apply/${data.job.slug}` : t.savedDraft);
     router.push("/recruiting/jobs");
   }
   return <>
@@ -240,9 +280,10 @@ function JobCreate({ t, locale }: { t: T; locale: Locale }) {
             <div className="job-desc-preview" style={{ background: "var(--bg)", borderRadius: 8, padding: 14, marginBottom: 12, fontSize: 13, lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: sanitizeJobHtml(htmlToPlain(description) ? description : defaultDescription()) }} />
             {[t.formFields1, fill(t.formFields2, { dept: t.depts[dept] }), cvRequired ? t.formFields3Required : t.formFields3].map((line) => <div className="doc-row" style={{ padding: "8px 12px" }} key={line}><div className="doc-name">{line}</div></div>)}
             <div style={{ marginTop: 14, display: "flex", gap: 10 }}>
-              <button type="button" className="btn btn-primary" onClick={() => save("active")}>{t.publish}</button>
-              <button type="button" className="btn btn-ghost" onClick={() => save("draft")}>{t.saveDraft}</button>
+              <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void save("active")}>{t.publish}</button>
+              <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void save("draft")}>{t.saveDraft}</button>
             </div>
+            {error ? <p className="job-apply-error" style={{ marginTop: 10 }}>{error}</p> : null}
           </> : <div style={{ fontSize: 12.5, color: "var(--text3)", textAlign: "center", padding: "30px 10px" }}>{t.previewEmpty}</div>}
         </div>
       </div>
@@ -253,6 +294,7 @@ function JobCreate({ t, locale }: { t: T; locale: Locale }) {
 function JobQuiz({ t, locale }: { t: T; locale: Locale }) {
   const router = useRouter();
   const { jobs, setJobs } = useRecruiting();
+  const [title, setTitle] = useState("");
   const [pagesByLang, setPagesByLang] = useState<Record<Locale, QuizPage[]>>(() => ({
     de: createDefaultQuiz(getRecruitingMessages("de")),
     en: createDefaultQuiz(getRecruitingMessages("en")),
@@ -261,20 +303,45 @@ function JobQuiz({ t, locale }: { t: T; locale: Locale }) {
   const [activePageId, setActivePageId] = useState("advantages");
   const [selectedElId, setSelectedElId] = useState<string | null>(null);
   const [footer, setFooter] = useState<QuizFooter>({ impressumUrl: DEFAULT_FOOTER_URL, privacyUrl: DEFAULT_FOOTER_URL });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const quizPages = pagesByLang[locale];
   function setQuizPages(pages: QuizPage[]) {
     setPagesByLang({ ...pagesByLang, [locale]: pages });
   }
-  function save(status: JobStatus) {
-    setJobs([{ id: `job_${Date.now()}`, title: t.quizName, dept: "reception", type: "fullOrPart", start: t.immediately, notes: "", description: "", autoMessage: "", location: "", cvRequired: false, status, langs: [locale], clicks: 0, apps: 0, conv: "–" }, ...jobs]);
-    alert(status === "active" ? t.published : t.savedDraft);
+  async function save(status: JobStatus) {
+    if (!title.trim()) return;
+    setBusy(true);
+    setError("");
+    const res = await fetch("/api/recruiting/jobs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        format: "quiz", status, title: title.trim(), department: "reception", workType: "fullOrPart",
+        startFrom: t.immediately, languages: [locale],
+        quiz: { footer, pagesByLang },
+      }),
+    });
+    const data = await res.json().catch(() => null);
+    setBusy(false);
+    if (!res.ok) {
+      setError(t.saveFailed);
+      return;
+    }
+    if (data?.job) setJobs([data.job, ...jobs]);
+    alert(status === "active" ? `${t.published} /apply/${data.job.slug}` : t.savedDraft);
     router.push("/recruiting/jobs");
   }
   return <>
-    <Back href="/recruiting/jobs/new" label={t.backToClassic} />
+    <div className="quiz-topbar">
+      <Back href="/recruiting/jobs/new" label={t.backToClassic} />
+      <input className="field-input quiz-title-input" value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t.rolePlaceholder} aria-label={t.roleTitle} />
+      {error ? <span className="job-apply-error">{error}</span> : null}
+      {busy ? <span style={{ fontSize: 12, color: "var(--text3)" }}>{t.loading}</span> : null}
+    </div>
     <div className="g2 g2-quiz">
       <QuizToolsCard t={t} pages={quizPages} setPages={setQuizPages} activePageId={activePageId} setActivePageId={setActivePageId} selectedId={selectedElId} setSelectedId={setSelectedElId} footer={footer} setFooter={setFooter} />
-      <QuizCanvasCard t={t} pages={quizPages} setPages={setQuizPages} activePageId={activePageId} setActivePageId={setActivePageId} selectedId={selectedElId} setSelectedId={setSelectedElId} footer={footer} setFooter={setFooter} onPublish={() => save("active")} onDraft={() => save("draft")} />
+      <QuizCanvasCard t={t} pages={quizPages} setPages={setQuizPages} activePageId={activePageId} setActivePageId={setActivePageId} selectedId={selectedElId} setSelectedId={setSelectedElId} footer={footer} setFooter={setFooter} onPublish={() => void save("active")} onDraft={() => void save("draft")} />
     </div>
   </>;
 }
