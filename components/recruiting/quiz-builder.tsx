@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from "react";
+import { useRef, useState, type CSSProperties, type DragEvent, type MouseEvent, type ReactNode } from "react";
 import type { RecruitingMessages } from "../../lib/i18n/recruiting-messages";
+import { JOB_ICON_CATS, JOB_ICONS, allJobIcons, type JobIconCat } from "./job-icons";
 
 type T = RecruitingMessages;
 
@@ -14,10 +15,9 @@ export const QUIZ_VOICE_SAMPLE = "/recruiting/voice-sample.mp3";
 
 export type QuizElementType =
   | "text" | "text_small" | "text_header" | "icons" | "button" | "image" | "audio"
-  | "spacers" | "video" | "single" | "multi" | "area" | "file" | "form" | "features" | "quote";
+  | "spacers" | "video" | "single" | "multi" | "area" | "file" | "form" | "columns" | "quote";
 
 export type QuizChoice = { id: string; label: string; icon: string; nextPageId: string };
-export type QuizFeature = { id: string; icon: string; title: string; text: string };
 
 export type QuizElement = {
   id: string;
@@ -31,7 +31,8 @@ export type QuizElement = {
   icon: string;
   placeholder: string;
   options: QuizChoice[];
-  features: QuizFeature[];
+  /** "columns" element: one element list per column, each item is a normal (editable / draggable) element. */
+  columns: QuizElement[][];
   /** Text colour (empty = theme default). */
   color: string;
   /** Background colour behind the element (empty = none). */
@@ -74,12 +75,12 @@ const PALETTE: Array<{ type: QuizElementType; icon: string; label: (t: T) => str
   { type: "area", icon: "▭", label: (t) => t.elArea },
   { type: "file", icon: "📎", label: (t) => t.elFile },
   { type: "form", icon: "📝", label: (t) => t.elForm },
+  { type: "columns", icon: "▯▯", label: (t) => t.elColumns },
 ];
 
 export function elementLabel(type: QuizElementType, t: T) {
   const item = PALETTE.find((entry) => entry.type === type);
   if (item) return item.label(t);
-  if (type === "features") return t.yourAdvantages;
   return t.ownerQuote;
 }
 
@@ -99,7 +100,7 @@ function blank(partial: Partial<QuizElement> & Pick<QuizElement, "type">): QuizE
     icon: "😊",
     placeholder: "",
     options: [],
-    features: [],
+    columns: [],
     color: "",
     bgColor: "",
     btnColor: "",
@@ -159,8 +160,11 @@ export function createElement(type: QuizElementType, t: T, nextPageId = ""): Qui
       return blank({ type, text: t.send, nextPageId });
     case "form":
       return blank({ type, text: t.formSubmit, nextPageId: "thanks" });
-    case "features":
-      return blank({ type, features: [{ id: uid("ft"), icon: "💰", title: t.featSalary, text: t.featSalaryText }] });
+    case "columns":
+      return cols([
+        [ic("💰", 45), hdr(t.featSalary, 17), body(t.featSalaryText)],
+        [ic("🔧", 45), hdr(t.featTools, 17), body(t.featToolsText)],
+      ]);
     case "quote":
       return blank({ type, text: t.ownerQuote, src: QUIZ_VOICE_SAMPLE, avatarSrc: QUIZ_VOICE_AVATAR });
   }
@@ -193,8 +197,9 @@ function single(options: QuizChoice[]): QuizElement {
 function multi(options: QuizChoice[]): QuizElement {
   return blank({ type: "multi", options });
 }
-function feat(items: Array<[string, string, string]>): QuizElement {
-  return blank({ type: "features", features: items.map(([icon, title, text]) => ({ id: uid("ft"), icon, title, text })) });
+/** Two side-by-side sections; every item inside is its own element (icon / title / text …). */
+function cols(columns: QuizElement[][]): QuizElement {
+  return blank({ type: "columns", columns: [columns[0] ?? [], columns[1] ?? []], align: "center" });
 }
 function quote(text: string): QuizElement {
   return blank({ type: "quote", text, src: QUIZ_VOICE_SAMPLE, avatarSrc: QUIZ_VOICE_AVATAR });
@@ -215,13 +220,13 @@ export function createDefaultQuiz(t: T): QuizPage[] {
         body(t.advantagesMeta),
         body(t.yourAdvantages),
         hdr(t.awaitsYou, 17),
-        feat([
-          ["💰", t.featSalary, t.featSalaryText],
-          ["🔧", t.featTools, t.featToolsText],
+        cols([
+          [ic("💰", 45), hdr(t.featSalary, 17), body(t.featSalaryText)],
+          [ic("🔧", 45), hdr(t.featTools, 17), body(t.featToolsText)],
         ]),
-        feat([
-          ["🤝", t.featTeam, t.featTeamText],
-          ["📍", t.featStable, t.featStableText],
+        cols([
+          [ic("🤝", 45), hdr(t.featTeam, 17), body(t.featTeamText)],
+          [ic("📍", 45), hdr(t.featStable, 17), body(t.featStableText)],
         ]),
         quote(t.ownerQuote),
       ],
@@ -359,6 +364,9 @@ export function createDefaultQuiz(t: T): QuizPage[] {
 const DND_TYPE = "application/x-quiz-el";
 const DND_MOVE = "application/x-quiz-move";
 
+/** `parentId` null = page list. `col` is the column index when nested. */
+type NestLoc = { parentId: string | null; col: number; index: number };
+
 type BuilderProps = {
   t: T;
   pages: QuizPage[];
@@ -369,12 +377,73 @@ type BuilderProps = {
   setSelectedId: (id: string | null) => void;
 };
 
+function findElement(elements: QuizElement[], id: string | null): QuizElement | null {
+  if (!id) return null;
+  for (const el of elements) {
+    if (el.id === id) return el;
+    const nested = findElement(el.columns.flat(), id);
+    if (nested) return nested;
+  }
+  return null;
+}
+
+function locate(elements: QuizElement[], id: string): NestLoc | null {
+  const top = elements.findIndex((el) => el.id === id);
+  if (top >= 0) return { parentId: null, col: -1, index: top };
+  for (const el of elements) {
+    for (let col = 0; col < el.columns.length; col++) {
+      const index = el.columns[col].findIndex((child) => child.id === id);
+      if (index >= 0) return { parentId: el.id, col, index };
+    }
+  }
+  return null;
+}
+
+function sameLoc(a: NestLoc | null, b: NestLoc | null) {
+  return !!a && !!b && a.parentId === b.parentId && a.col === b.col && a.index === b.index;
+}
+
+function mapList(elements: QuizElement[], loc: NestLoc, fn: (list: QuizElement[]) => QuizElement[]): QuizElement[] {
+  if (loc.parentId === null) return fn(elements);
+  return elements.map((el) => el.id !== loc.parentId ? el : {
+    ...el,
+    columns: el.columns.map((column, index) => index === loc.col ? fn(column) : column),
+  });
+}
+
+function mapElement(elements: QuizElement[], id: string, fn: (el: QuizElement) => QuizElement): QuizElement[] {
+  return elements.map((el) => {
+    if (el.id === id) return fn(el);
+    if (el.columns.length) return { ...el, columns: el.columns.map((column) => mapElement(column, id, fn)) };
+    return el;
+  });
+}
+
+function removeById(elements: QuizElement[], id: string): QuizElement[] {
+  return elements.filter((el) => el.id !== id).map((el) => (
+    el.columns.length ? { ...el, columns: el.columns.map((column) => removeById(column, id)) } : el
+  ));
+}
+
+function insertAtLoc(elements: QuizElement[], loc: NestLoc, item: QuizElement): QuizElement[] {
+  return mapList(elements, loc, (list) => {
+    const next = [...list];
+    next.splice(Math.max(0, Math.min(loc.index, next.length)), 0, item);
+    return next;
+  });
+}
+
+function listAt(elements: QuizElement[], loc: NestLoc): QuizElement[] {
+  if (loc.parentId === null) return elements;
+  return elements.find((el) => el.id === loc.parentId)?.columns[loc.col] ?? [];
+}
+
 function duplicateElement(element: QuizElement): QuizElement {
   return {
     ...element,
     id: uid("el"),
     options: element.options.map((row) => ({ ...row, id: uid("opt") })),
-    features: element.features.map((row) => ({ ...row, id: uid("ft") })),
+    columns: element.columns.map((column) => column.map(duplicateElement)),
   };
 }
 
@@ -394,7 +463,7 @@ export function QuizToolsCard(props: BuilderProps) {
   const [panel, setPanel] = useState<"pages" | "editor">("pages");
   const [tab, setTab] = useState<"ideas" | "elements">("ideas");
   const page = pages.find((item) => item.id === activePageId) ?? pages[0];
-  const selected = page?.elements.find((item) => item.id === selectedId) ?? null;
+  const selected = findElement(page?.elements ?? [], selectedId);
 
   // Selecting an element on the canvas opens its inspector (like the reference builder);
   // clearing the selection (delete / click on empty canvas) while inspecting returns to the pages list.
@@ -431,30 +500,38 @@ export function QuizToolsCard(props: BuilderProps) {
   }
   function patchElement(patch: Partial<QuizElement>) {
     if (!selected) return;
-    updateElements(page.elements.map((el) => el.id === selected.id ? { ...el, ...patch } : el));
+    updateElements(mapElement(page.elements, selected.id, (el) => ({ ...el, ...patch })));
   }
   function addElement(type: QuizElementType) {
     const pageIndex = pages.findIndex((item) => item.id === page.id);
     const element = createElement(type, t, pages[pageIndex + 1]?.id ?? "");
-    const at = selected ? page.elements.findIndex((el) => el.id === selected.id) + 1 : page.elements.length;
-    const next = [...page.elements];
-    next.splice(at, 0, element);
-    updateElements(next);
+    let loc: NestLoc = { parentId: null, col: -1, index: page.elements.length };
+    if (selected) {
+      const found = locate(page.elements, selected.id);
+      if (found && found.parentId) loc = { ...found, index: found.index + 1 };
+      else if (selected.type === "columns" && type !== "columns") {
+        loc = { parentId: selected.id, col: 0, index: selected.columns[0]?.length ?? 0 };
+      } else if (found) loc = { parentId: null, col: -1, index: found.index + 1 };
+    }
+    if (type === "columns" && loc.parentId) {
+      const parentIndex = page.elements.findIndex((item) => item.id === loc.parentId);
+      loc = { parentId: null, col: -1, index: parentIndex + 1 };
+    }
+    updateElements(insertAtLoc(page.elements, loc, element));
     setSelectedId(element.id);
   }
   function removeSelected() {
     if (!selected) return;
-    updateElements(page.elements.filter((el) => el.id !== selected.id));
+    updateElements(removeById(page.elements, selected.id));
     setSelectedId(null);
     setPanel("pages");
   }
   function duplicateSelected() {
     if (!selected) return;
-    const index = page.elements.findIndex((el) => el.id === selected.id);
+    const found = locate(page.elements, selected.id);
+    if (!found) return;
     const copy = duplicateElement(selected);
-    const next = [...page.elements];
-    next.splice(index + 1, 0, copy);
-    updateElements(next);
+    updateElements(insertAtLoc(page.elements, { ...found, index: found.index + 1 }, copy));
     setSelectedId(copy.id);
   }
   function back() {
@@ -661,6 +738,60 @@ function ImageDrop({ t, src, onChange }: { t: T; src: string; onChange: (src: st
   );
 }
 
+function iconCatLabel(cat: JobIconCat, t: T) {
+  if (cat === "work") return t.iconCatWork;
+  if (cat === "people") return t.iconCatPeople;
+  if (cat === "pay") return t.iconCatPay;
+  if (cat === "time") return t.iconCatTime;
+  if (cat === "place") return t.iconCatPlace;
+  if (cat === "tools") return t.iconCatTools;
+  if (cat === "learn") return t.iconCatLearn;
+  if (cat === "health") return t.iconCatHealth;
+  if (cat === "status") return t.iconCatStatus;
+  return t.iconCatMore;
+}
+
+function IconPicker({ t, value, onChange, compact = false }: { t: T; value: string; onChange: (icon: string) => void; compact?: boolean }) {
+  const [open, setOpen] = useState(!compact);
+  const [query, setQuery] = useState("");
+  const [cat, setCat] = useState<JobIconCat | "all">("all");
+  const needle = query.trim().toLowerCase();
+  const icons = (cat === "all" ? allJobIcons() : JOB_ICONS[cat]).filter((item) => !needle || item.tags.includes(needle) || item.glyph === needle);
+
+  return (
+    <div className={`quiz-icon-picker ${compact ? "compact" : ""}`}>
+      <button type="button" className="quiz-icon-current" title={t.pickIcon} onClick={() => setOpen((on) => !on)}>
+        <span className="quiz-icon-current-glyph">{value || "😊"}</span>
+        {compact ? null : <span>{t.pickIcon}</span>}
+      </button>
+      {open ? (
+        <div className="quiz-icon-panel">
+          <input className="field-input" value={query} placeholder={t.searchIcons} onChange={(event) => setQuery(event.target.value)} />
+          <div className="quiz-icon-cats">
+            <button type="button" className={`quiz-icon-cat ${cat === "all" ? "active" : ""}`} onClick={() => setCat("all")}>{t.elIcons}</button>
+            {JOB_ICON_CATS.map((item) => (
+              <button key={item} type="button" className={`quiz-icon-cat ${cat === item ? "active" : ""}`} onClick={() => setCat(item)}>{iconCatLabel(item, t)}</button>
+            ))}
+          </div>
+          <div className="quiz-icon-grid">
+            {icons.map((item) => (
+              <button
+                key={item.glyph}
+                type="button"
+                title={item.tags}
+                className={`quiz-icon-cell ${value === item.glyph ? "active" : ""}`}
+                onClick={() => onChange(item.glyph)}
+              >
+                {item.glyph}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function IdeasForm({ t, pages, element, onChange }: { t: T; pages: QuizPage[]; element: QuizElement; onChange: (patch: Partial<QuizElement>) => void }) {
   const voiceRef = useRef<HTMLInputElement>(null);
   const avatarRef = useRef<HTMLInputElement>(null);
@@ -679,9 +810,6 @@ function IdeasForm({ t, pages, element, onChange }: { t: T; pages: QuizPage[]; e
   function patchOption(index: number, patch: Partial<QuizChoice>) {
     onChange({ options: element.options.map((row, i) => i === index ? { ...row, ...patch } : row) });
   }
-  function patchFeature(index: number, patch: Partial<QuizFeature>) {
-    onChange({ features: element.features.map((row, i) => i === index ? { ...row, ...patch } : row) });
-  }
 
   return (
     <div className="quiz-props">
@@ -699,7 +827,7 @@ function IdeasForm({ t, pages, element, onChange }: { t: T; pages: QuizPage[]; e
 
       {element.type === "icons" ? (
         <Prop title={t.elIcons}>
-          <input className="field-input" value={element.icon} onChange={(event) => onChange({ icon: event.target.value })} />
+          <IconPicker t={t} value={element.icon} onChange={(icon) => onChange({ icon })} />
         </Prop>
       ) : null}
 
@@ -728,7 +856,7 @@ function IdeasForm({ t, pages, element, onChange }: { t: T; pages: QuizPage[]; e
         <Prop title={element.type === "single" ? t.elSingle : t.elMulti}>
           {element.options.map((option, index) => (
             <div key={option.id} className="quiz-opt-edit">
-              <input className="field-input" value={option.icon} style={{ maxWidth: 48, textAlign: "center" }} onChange={(event) => patchOption(index, { icon: event.target.value })} />
+              <IconPicker t={t} compact value={option.icon} onChange={(icon) => patchOption(index, { icon })} />
               <input className="field-input" value={option.label} onChange={(event) => patchOption(index, { label: event.target.value })} />
               {element.type === "single" ? (
                 <select className="field-select" style={{ maxWidth: 110 }} value={option.nextPageId} onChange={(event) => patchOption(index, { nextPageId: event.target.value })}>
@@ -743,20 +871,11 @@ function IdeasForm({ t, pages, element, onChange }: { t: T; pages: QuizPage[]; e
         </Prop>
       ) : null}
 
-      {element.type === "features" ? (
-        <Prop title={t.yourAdvantages}>
-          {element.features.map((feature, index) => (
-            <div key={feature.id} className="quiz-feat-edit">
-              <div className="quiz-opt-edit">
-                <input className="field-input" value={feature.icon} style={{ maxWidth: 48, textAlign: "center" }} onChange={(event) => patchFeature(index, { icon: event.target.value })} />
-                <input className="field-input" value={feature.title} onChange={(event) => patchFeature(index, { title: event.target.value })} />
-                <button type="button" className="icon-btn danger" title={t.removeOption} aria-label={t.removeOption} onClick={() => onChange({ features: element.features.filter((_, i) => i !== index) })}>✕</button>
-              </div>
-              <textarea className="field-input quiz-textarea" rows={2} value={feature.text} onChange={(event) => patchFeature(index, { text: event.target.value })} />
-            </div>
-          ))}
-          <button type="button" className="btn btn-ghost" onClick={() => onChange({ features: [...element.features, { id: uid("ft"), icon: "⭐", title: t.newOption, text: "" }] })}>{t.addOption}</button>
-        </Prop>
+      {element.type === "columns" ? (
+        <div className="quiz-prop">
+          <div className="quiz-prop-title">{t.elColumns}</div>
+          <div style={{ fontSize: 12.5, color: "var(--text3)", lineHeight: 1.45 }}>{t.columnsHint}</div>
+        </div>
       ) : null}
 
       {element.type === "audio" || element.type === "quote" ? (
@@ -789,7 +908,7 @@ function IdeasForm({ t, pages, element, onChange }: { t: T; pages: QuizPage[]; e
         </Prop>
       ) : null}
 
-      {isText || isButtonLike || isChoice || element.type === "quote" || element.type === "features" ? (
+      {isText || isButtonLike || isChoice || element.type === "quote" ? (
         <Prop title={t.textColor}>
           <ColorRow t={t} value={element.color} fallback={isButtonLike || isChoice ? "#ffffff" : "#1c2233"} onChange={(color) => onChange({ color })} />
         </Prop>
@@ -855,69 +974,75 @@ export function QuizCanvasCard({ t, pages, setPages, activePageId, setActivePage
   onPublish: () => void;
   onDraft: () => void;
 }) {
-  const [dropAt, setDropAt] = useState<number | null>(null);
+  const [dropAt, setDropAt] = useState<NestLoc | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const page = pages.find((item) => item.id === activePageId) ?? pages[0];
   if (!page) return null;
   const pageIndex = pages.findIndex((item) => item.id === page.id);
+  const count = page.elements.length;
+  const endLoc: NestLoc = { parentId: null, col: -1, index: count };
 
   function updateElements(elements: QuizElement[]) {
     setPages(pages.map((item) => item.id === page.id ? { ...item, elements } : item));
   }
-  function insertAt(index: number, type: QuizElementType) {
-    const nextId = pages[pageIndex + 1]?.id ?? "";
-    const element = createElement(type, t, nextId);
-    const next = [...page.elements];
-    next.splice(index, 0, element);
-    updateElements(next);
-    setSelectedId(element.id);
-  }
-  function moveTo(id: string, index: number) {
-    const from = page.elements.findIndex((item) => item.id === id);
-    if (from < 0 || index === from || index === from + 1) return;
-    const next = [...page.elements];
-    const [moved] = next.splice(from, 1);
-    next.splice(from < index ? index - 1 : index, 0, moved);
-    updateElements(next);
-  }
-  function moveBy(id: string, delta: -1 | 1) {
-    const from = page.elements.findIndex((item) => item.id === id);
-    const to = from + delta;
-    if (from < 0 || to < 0 || to >= page.elements.length) return;
-    const next = [...page.elements];
-    const [moved] = next.splice(from, 1);
-    next.splice(to, 0, moved);
-    updateElements(next);
-  }
   function isQuizDrag(event: DragEvent) {
-    const types = Array.from(event.dataTransfer.types);
-    return types.includes(DND_TYPE) || types.includes(DND_MOVE);
+    return Array.from(event.dataTransfer.types).includes(DND_TYPE) || Array.from(event.dataTransfer.types).includes(DND_MOVE);
   }
-  /** Drop index for a pointer hovering a block: top half → before, bottom half → after. */
   function indexFor(event: DragEvent, index: number) {
     const rect = event.currentTarget.getBoundingClientRect();
     return event.clientY < rect.top + rect.height / 2 ? index : index + 1;
   }
-  function finishDrop(event: DragEvent, index: number) {
+  function finishDrop(event: DragEvent, dest: NestLoc) {
     event.preventDefault();
     setDropAt(null);
     setDraggingId(null);
     const moveId = event.dataTransfer.getData(DND_MOVE);
-    if (moveId) { moveTo(moveId, index); return; }
+    if (moveId) {
+      const from = locate(page.elements, moveId);
+      const moved = findElement(page.elements, moveId);
+      if (!from || !moved) return;
+      if (dest.parentId === moveId) return;
+      if (moved.type === "columns" && dest.parentId) return;
+      let destAdj = { ...dest };
+      if (from.parentId === dest.parentId && from.col === dest.col && from.index < dest.index) destAdj.index -= 1;
+      if (from.parentId === destAdj.parentId && from.col === destAdj.col && destAdj.index === from.index) return;
+      updateElements(insertAtLoc(removeById(page.elements, moveId), destAdj, moved));
+      return;
+    }
     const type = (event.dataTransfer.getData(DND_TYPE) || event.dataTransfer.getData("text/plain")) as QuizElementType;
-    if (type && PALETTE.some((item) => item.type === type)) insertAt(index, type);
+    if (!type || !PALETTE.some((item) => item.type === type)) return;
+    let loc = dest;
+    if (type === "columns" && loc.parentId) {
+      const parentIndex = page.elements.findIndex((item) => item.id === loc.parentId);
+      loc = { parentId: null, col: -1, index: parentIndex + 1 };
+    }
+    const element = createElement(type, t, pages[pageIndex + 1]?.id ?? "");
+    updateElements(insertAtLoc(page.elements, loc, element));
+    setSelectedId(element.id);
+  }
+  function moveBy(id: string, delta: -1 | 1) {
+    const from = locate(page.elements, id);
+    if (!from) return;
+    const list = listAt(page.elements, from);
+    const to = from.index + delta;
+    if (to < 0 || to >= list.length) return;
+    updateElements(mapList(page.elements, from, (items) => {
+      const next = [...items];
+      const [moved] = next.splice(from.index, 1);
+      next.splice(to, 0, moved);
+      return next;
+    }));
   }
   function removeElement(id: string) {
-    updateElements(page.elements.filter((item) => item.id !== id));
+    updateElements(removeById(page.elements, id));
     if (selectedId === id) setSelectedId(null);
   }
   function duplicate(id: string) {
-    const index = page.elements.findIndex((item) => item.id === id);
-    if (index < 0) return;
-    const copy = duplicateElement(page.elements[index]);
-    const next = [...page.elements];
-    next.splice(index + 1, 0, copy);
-    updateElements(next);
+    const from = locate(page.elements, id);
+    const source = findElement(page.elements, id);
+    if (!from || !source) return;
+    const copy = duplicateElement(source);
+    updateElements(insertAtLoc(page.elements, { ...from, index: from.index + 1 }, copy));
     setSelectedId(copy.id);
   }
   function go(nextId: string) {
@@ -927,8 +1052,42 @@ export function QuizCanvasCard({ t, pages, setPages, activePageId, setActivePage
       setSelectedId(null);
     }
   }
-
-  const count = page.elements.length;
+  function blockProps(element: QuizElement, loc: NestLoc, nested: boolean) {
+    const list = listAt(page.elements, loc);
+    return {
+      className: `quiz-block ${nested ? "nested" : ""} ${selectedId === element.id ? "selected" : ""} ${draggingId === element.id ? "dragging" : ""}`,
+      draggable: true,
+      onDragStart: (event: DragEvent) => {
+        event.stopPropagation();
+        event.dataTransfer.setData(DND_MOVE, element.id);
+        event.dataTransfer.effectAllowed = "move";
+        setDraggingId(element.id);
+        setSelectedId(element.id);
+      },
+      onDragEnd: () => { setDraggingId(null); setDropAt(null); },
+      onDragOver: (event: DragEvent) => {
+        if (!isQuizDrag(event)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const next = { ...loc, index: indexFor(event, loc.index) };
+        if (!sameLoc(next, dropAt)) setDropAt(next);
+      },
+      onDrop: (event: DragEvent) => {
+        event.stopPropagation();
+        finishDrop(event, { ...loc, index: indexFor(event, loc.index) });
+      },
+      onClick: (event: MouseEvent) => { event.stopPropagation(); setSelectedId(element.id); },
+      toolbar: (
+        <div className="quiz-tools-bar" onClick={(event) => event.stopPropagation()}>
+          <span className="quiz-tool quiz-handle" title={t.dragToMove}>⠿</span>
+          <button type="button" className="quiz-tool" title={t.moveUp} aria-label={t.moveUp} disabled={loc.index === 0} onClick={() => moveBy(element.id, -1)}>↑</button>
+          <button type="button" className="quiz-tool" title={t.moveDown} aria-label={t.moveDown} disabled={loc.index === list.length - 1} onClick={() => moveBy(element.id, 1)}>↓</button>
+          <button type="button" className="quiz-tool" title={t.duplicateEl} aria-label={t.duplicateEl} onClick={() => duplicate(element.id)}>⧉</button>
+          <button type="button" className="quiz-tool danger" title={t.deleteEl} aria-label={t.deleteEl} onClick={() => removeElement(element.id)}>✕</button>
+        </div>
+      ),
+    };
+  }
 
   return (
     <div className="card">
@@ -939,57 +1098,88 @@ export function QuizCanvasCard({ t, pages, setPages, activePageId, setActivePage
         <div className="quiz-phone quiz-funnel">
           <div className="quiz-logo"><img src="/recruiting/logo-icon.png" alt="" /></div>
           <div
-            className={`quiz-canvas ${dropAt !== null ? "drag-over" : ""}`}
+            className={`quiz-canvas ${dropAt ? "drag-over" : ""}`}
             onDragOver={(event) => {
               if (!isQuizDrag(event)) return;
               event.preventDefault();
               event.dataTransfer.dropEffect = event.dataTransfer.types.includes(DND_MOVE) ? "move" : "copy";
-              // Hovering the padding/empty area of the page → append at the end.
-              if (event.target === event.currentTarget || count === 0) setDropAt(count);
+              if (event.target === event.currentTarget || count === 0) setDropAt(endLoc);
             }}
             onDragLeave={(event) => {
               if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropAt(null);
             }}
-            onDrop={(event) => finishDrop(event, dropAt ?? count)}
+            onDrop={(event) => finishDrop(event, dropAt ?? endLoc)}
             onClick={(event) => { if (event.target === event.currentTarget) setSelectedId(null); }}
           >
-            {count === 0 ? <div className={`quiz-empty ${dropAt === 0 ? "show" : ""}`}>{t.dropHint}</div> : null}
-            {page.elements.map((element, index) => (
-              <div key={element.id} className="quiz-slot">
-                <div className={`quiz-insert ${dropAt === index ? "show" : ""}`} />
-                <div
-                  className={`quiz-block ${selectedId === element.id ? "selected" : ""} ${draggingId === element.id ? "dragging" : ""}`}
-                  draggable
-                  onDragStart={(event) => {
-                    event.stopPropagation();
-                    event.dataTransfer.setData(DND_MOVE, element.id);
-                    event.dataTransfer.effectAllowed = "move";
-                    setDraggingId(element.id);
-                    setSelectedId(element.id);
-                  }}
-                  onDragEnd={() => { setDraggingId(null); setDropAt(null); }}
-                  onDragOver={(event) => {
-                    if (!isQuizDrag(event)) return;
-                    event.preventDefault();
-                    event.stopPropagation();
-                    const next = indexFor(event, index);
-                    if (next !== dropAt) setDropAt(next);
-                  }}
-                  onDrop={(event) => { event.stopPropagation(); finishDrop(event, indexFor(event, index)); }}
-                  onClick={(event) => { event.stopPropagation(); setSelectedId(element.id); }}
-                >
-                  <div className="quiz-tools-bar" onClick={(event) => event.stopPropagation()}>
-                    <span className="quiz-tool quiz-handle" title={t.dragToMove}>⠿</span>
-                    <button type="button" className="quiz-tool" title={t.moveUp} aria-label={t.moveUp} disabled={index === 0} onClick={() => moveBy(element.id, -1)}>↑</button>
-                    <button type="button" className="quiz-tool" title={t.moveDown} aria-label={t.moveDown} disabled={index === count - 1} onClick={() => moveBy(element.id, 1)}>↓</button>
-                    <button type="button" className="quiz-tool" title={t.duplicateEl} aria-label={t.duplicateEl} onClick={() => duplicate(element.id)}>⧉</button>
-                    <button type="button" className="quiz-tool danger" title={t.deleteEl} aria-label={t.deleteEl} onClick={() => removeElement(element.id)}>✕</button>
+            {count === 0 ? <div className={`quiz-empty ${dropAt && dropAt.parentId === null && dropAt.index === 0 ? "show" : ""}`}>{t.dropHint}</div> : null}
+            {page.elements.map((element, index) => {
+              const loc: NestLoc = { parentId: null, col: -1, index };
+              const props = blockProps(element, loc, false);
+              return (
+                <div key={element.id} className="quiz-slot">
+                  <div className={`quiz-insert ${sameLoc(dropAt, loc) ? "show" : ""}`} />
+                  <div
+                    className={props.className}
+                    draggable={props.draggable}
+                    onDragStart={props.onDragStart}
+                    onDragEnd={props.onDragEnd}
+                    onDragOver={element.type === "columns" ? undefined : props.onDragOver}
+                    onDrop={element.type === "columns" ? undefined : props.onDrop}
+                    onClick={props.onClick}
+                  >
+                    {props.toolbar}
+                    {element.type === "columns" ? (
+                      <div className="quiz-cols">
+                        {[element.columns[0] ?? [], element.columns[1] ?? []].map((column, col) => {
+                          const endOfCol: NestLoc = { parentId: element.id, col, index: column.length };
+                          return (
+                            <div
+                              key={`${element.id}-${col}`}
+                              className={`quiz-col ${dropAt?.parentId === element.id && dropAt.col === col ? "drop-over" : ""}`}
+                              onClick={(event) => { event.stopPropagation(); setSelectedId(element.id); }}
+                              onDragOver={(event) => {
+                                if (!isQuizDrag(event)) return;
+                                event.preventDefault();
+                                event.stopPropagation();
+                                if (!sameLoc(endOfCol, dropAt)) setDropAt(endOfCol);
+                              }}
+                              onDrop={(event) => { event.stopPropagation(); finishDrop(event, dropAt?.parentId === element.id && dropAt.col === col ? dropAt : endOfCol); }}
+                            >
+                              {column.map((child, childIndex) => {
+                                const childLoc: NestLoc = { parentId: element.id, col, index: childIndex };
+                                const childProps = blockProps(child, childLoc, true);
+                                return (
+                                  <div key={child.id} className="quiz-slot">
+                                    <div className={`quiz-insert ${sameLoc(dropAt, childLoc) ? "show" : ""}`} />
+                                    <div
+                                      className={childProps.className}
+                                      draggable={childProps.draggable}
+                                      onDragStart={childProps.onDragStart}
+                                      onDragEnd={childProps.onDragEnd}
+                                      onDragOver={childProps.onDragOver}
+                                      onDrop={childProps.onDrop}
+                                      onClick={childProps.onClick}
+                                    >
+                                      {childProps.toolbar}
+                                      <QuizBlock t={t} element={child} onGo={go} />
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              <div className={`quiz-insert ${sameLoc(dropAt, endOfCol) ? "show" : ""}`} />
+                              {column.length === 0 ? <div className="quiz-col-empty">{t.dropHere}</div> : null}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <QuizBlock t={t} element={element} onGo={go} />
+                    )}
                   </div>
-                  <QuizBlock t={t} element={element} onGo={go} />
                 </div>
-              </div>
-            ))}
-            {count ? <div className={`quiz-insert ${dropAt === count ? "show" : ""}`} /> : null}
+              );
+            })}
+            {count ? <div className={`quiz-insert ${sameLoc(dropAt, endLoc) ? "show" : ""}`} /> : null}
           </div>
         </div>
         <div style={{ marginTop: 14, display: "flex", gap: 10 }}>
@@ -1077,19 +1267,6 @@ function QuizBlock({ t, element, onGo }: { t: T; element: QuizElement; onGo: (id
           <div style={{ fontSize: 45, textAlign: "left", lineHeight: 1, color: element.color || undefined }}>❝</div>
           <div className="quiz-copy" style={{ ...textStyle(element), fontSize: 14, whiteSpace: "pre-wrap" }}>{element.text}</div>
         </div>
-      </div>
-    );
-  }
-  if (element.type === "features") {
-    return (
-      <div className="quiz-features" style={{ ...wrap, textAlign: "center", color: element.color || undefined }}>
-        {element.features.map((item) => (
-          <div key={item.id} className="quiz-feature">
-            <div style={{ fontSize: 45, lineHeight: 1 }}>{item.icon}</div>
-            <div className="quiz-copy" style={{ fontSize: 17, fontWeight: 700, marginTop: 8 }}>{item.title}</div>
-            <div className="quiz-copy" style={{ fontSize: 14, marginTop: 6 }}>{item.text}</div>
-          </div>
-        ))}
       </div>
     );
   }
