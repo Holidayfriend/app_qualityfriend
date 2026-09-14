@@ -123,7 +123,9 @@ export async function GET(request: Request) {
           arrivalDate: { lte: day }, departureDate: { gte: day },
           reservation: { sourcePresent: true, status: { notIn: ["CANCELLED", "NO_SHOW"] } },
         } } }, orderBy: { number: "asc" }, select: {
-          id: true, number: true, reservationRoomStayRecords: { where: {
+          id: true, number: true,
+          roomOperationalStateRecords: { take: 1, select: { cleanliness: true, noService: true } },
+          reservationRoomStayRecords: { where: {
             arrivalDate: { lte: day }, departureDate: { gte: day },
             reservation: { sourcePresent: true, status: { notIn: ["CANCELLED", "NO_SHOW"] } },
           }, orderBy: { arrivalDate: "asc" }, select: { arrivalDate: true, departureDate: true, sourceStatus: true, serviceRemarks: true,
@@ -141,7 +143,9 @@ export async function GET(request: Request) {
         const primaryStay = stays[stays.length - 1];
         const arrivalStay = stays.findLast((stay) => stay.arrivalDate.getTime() === day.getTime());
         const departureStay = stays.find((stay) => stay.departureDate.getTime() === day.getTime());
-        return { id: room.id, number: room.number, status: "clean" as const,
+        const state = room.roomOperationalStateRecords[0];
+        const status = state?.noService ? "noCleaningDesired" as const : ({ UNKNOWN: "unassigned", DIRTY: "dirty", CLEANING: "cleaning", CLEAN: "clean", INSPECTED: "inspected" } as const)[state?.cleanliness ?? "UNKNOWN"];
+        return { id: room.id, number: room.number, status,
           arrival: stays.some((stay) => stay.arrivalDate.getTime() === day.getTime()),
           departure: stays.some((stay) => stay.departureDate.getTime() === day.getTime()),
           checkedIn: stays.some((stay) => stay.sourceStatus === "occupied"),

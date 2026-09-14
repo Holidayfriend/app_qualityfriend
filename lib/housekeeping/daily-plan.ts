@@ -23,6 +23,10 @@ export async function generateHotelDailyPlan(pool: Pool, hotelTenantId: string, 
     // Checklist completions are isolated by work_date. The new daily plan therefore
     // starts with no completed checks while prior days remain available as history.
     await client.query("BEGIN");
+    const previousRun = await client.query<{ status: string }>("SELECT status FROM housekeeping_daily_runs WHERE hotel_tenant_id=$1 AND work_date=$2::date FOR UPDATE", [hotelTenantId, workDate]);
+    // A completed daily run is safe to repeat. Do not make already-clean rooms
+    // dirty again when the cron command is retried during the same day.
+    const resetRoomStates = previousRun.rows[0]?.status !== "SUCCEEDED";
     await client.query(`INSERT INTO housekeeping_daily_runs (id,hotel_tenant_id,work_date,status,started_at)
       VALUES ($1,$2,$3::date,'RUNNING',NOW()) ON CONFLICT (hotel_tenant_id,work_date) DO UPDATE SET status='RUNNING',started_at=NOW(),finished_at=NULL,error_summary=NULL`, [runId, hotelTenantId, workDate]);
     const stays = await client.query<StayRow>(`SELECT DISTINCT ON (s.room_id) s.id AS stay_id,s.room_id,s.arrival_date::text,s.departure_date::text,
@@ -40,6 +44,11 @@ export async function generateHotelDailyPlan(pool: Pool, hotelTenantId: string, 
         ON CONFLICT (hotel_tenant_id,work_date,room_id) DO UPDATE SET reservation_stay_id=EXCLUDED.reservation_stay_id,cleaning_type=EXCLUDED.cleaning_type,
         planned_minutes=EXCLUDED.planned_minutes,assigned_to_id=CASE WHEN housekeeping_room_assignments.assignment_origin='PERMANENT' THEN EXCLUDED.assigned_to_id ELSE housekeeping_room_assignments.assigned_to_id END,
         updated_at=NOW()`, [randomUUID(), hotelTenantId, workDate, stay.room_id, stay.assigned_to_id, stay.stay_id, plan.type, stay.assigned_to_id ? "PERMANENT" : "TODAY_ONLY", plan.minutes]);
+      if (resetRoomStates) await client.query(`INSERT INTO room_operational_states
+        (id,hotel_tenant_id,room_id,cleanliness,is_express,updated_at)
+        VALUES ($1,$2,$3,'DIRTY',$4,NOW())
+        ON CONFLICT (hotel_tenant_id,room_id) DO UPDATE SET cleanliness='DIRTY',is_express=EXCLUDED.is_express,updated_at=NOW()`,
+      [randomUUID(), hotelTenantId, stay.room_id, plan.type === "EXPRESS"]);
     }
     const extras = await client.query<{ extra_job_id: string; assigned_to_id: string; minutes: number; description: string }>(`SELECT p.extra_job_id,p.assigned_to_id,e.minutes,COALESCE(NULLIF(e.description_en,''),NULLIF(e.description_de,''),e.description_it,'') AS description
       FROM housekeeping_permanent_extra_job_assignments p JOIN extra_jobs e ON e.id=p.extra_job_id AND e.hotel_tenant_id=p.hotel_tenant_id WHERE p.hotel_tenant_id=$1`, [hotelTenantId]);
