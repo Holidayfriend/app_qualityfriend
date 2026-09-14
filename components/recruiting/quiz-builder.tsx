@@ -191,6 +191,9 @@ function hdr(text: string, fontSize = 24): QuizElement {
 function body(text: string, fontSize = 14): QuizElement {
   return blank({ type: "text", text, fontSize });
 }
+function tip(text: string): QuizElement {
+  return blank({ type: "text", text, fontSize: 14, underline: true, color: "#F5D76A", bgColor: "#2E5A88" });
+}
 function btn(text: string, nextPageId: string): QuizElement {
   return blank({ type: "button", text, nextPageId });
 }
@@ -302,6 +305,7 @@ export function createDefaultQuiz(t: T): QuizPage[] {
         hdr(t.q2Prompt, 24),
         multi([opt(t.optStable, "🛡️"), opt(t.optHours, "⏰"), opt(t.optLearn, "📚"), opt(t.optCreative, "✨")]),
         btn(t.toNextQuestion, "q3"),
+        tip(t.didYouKnowFeedback),
       ],
     },
     {
