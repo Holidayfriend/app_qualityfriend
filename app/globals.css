@@ -309,6 +309,13 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 .qf-dashboard .field-lbl { font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px;display:block }
 .qf-dashboard .field-input,.qf-dashboard .field-select { width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:7px;font-size:13.5px;outline:none;font-family:inherit;background:var(--surface);color:var(--text) }
 .qf-dashboard .field-input:focus,.qf-dashboard .field-select:focus { border-color:var(--accent) }
+.qf-dashboard .job-summernote .note-editor.note-frame { border:1px solid var(--border);border-radius:7px;background:var(--surface) }
+.qf-dashboard .job-summernote .note-editor.note-frame.note-focus { border-color:var(--accent) }
+.qf-dashboard .job-summernote .note-toolbar { background:var(--bg);border-bottom:1px solid var(--border) }
+.qf-dashboard .job-summernote .note-editing-area .note-editable { background:var(--surface);color:var(--text);font-family:inherit }
+.qf-dashboard .job-desc-preview ul,.qf-dashboard .job-desc-preview ol { padding-left:1.25em;margin:.4em 0 }
+.qf-dashboard .job-desc-preview p { margin:.4em 0 }
+.qf-dashboard .job-desc-preview a { color:var(--accent) }
 .qf-dashboard .field-row { display:grid;grid-template-columns:1fr 1fr;gap:12px }
 .qf-dashboard .kb-card { background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;box-shadow:var(--sh);cursor:pointer;text-align:left;font:inherit;color:inherit }
 .qf-dashboard .kb-card:hover { border-color:var(--accent) }

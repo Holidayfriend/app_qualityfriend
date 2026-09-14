@@ -7,7 +7,7 @@ export type EmpStatus = "active" | "inactive";
 export type CertStatus = "valid" | "expiring" | "expired";
 export type EmailCat = "received" | "offer" | "reject";
 
-export type Job = { id: string; title: string; dept: DeptId; type: string; start: string; notes: string; status: JobStatus; langs: Locale[]; clicks: number; apps: number; conv: string };
+export type Job = { id: string; title: string; dept: DeptId; type: string; start: string; notes: string; description: string; status: JobStatus; langs: Locale[]; clicks: number; apps: number; conv: string };
 export type Applicant = {
   id: string; initials: string; name: string; role: string; dept: DeptId; stage: AppStage; dateDisplay: string | null;
   score: string; suggestion: "recommended" | "possible" | "needsReview" | "notAFit" | "manualAdded" | "archived";
@@ -23,12 +23,12 @@ export type Employee = {
 export type EmailTemplates = Record<EmailCat, Record<Locale, { subject: string; body: string }>>;
 
 export const jobsSeed: Job[] = [
-  { id: "service1", title: "Servicemitarbeiter (w/m/d) Vollzeit/Teilzeit 🍽", dept: "restaurant", type: "fullOrPart", start: "immediately", notes: "", status: "active", langs: ["de", "en", "it"], clicks: 397, apps: 7, conv: "1.76%" },
-  { id: "koch1", title: "Kochlehrling (m/w/d) oder Chef de Partie", dept: "kitchen", type: "fullOrPart", start: "immediately", notes: "", status: "active", langs: ["de", "it"], clicks: 320, apps: 11, conv: "3.44%" },
-  { id: "zimmer1", title: "Zimmermädchen in Teilzeit oder Vollzeit 🧹", dept: "housekeeping", type: "part", start: "immediately", notes: "", status: "active", langs: ["de"], clicks: 21, apps: 1, conv: "4.76%" },
-  { id: "reception1", title: "Front Desk Receptionist at Weihrerhof Hotel", dept: "reception", type: "full", start: "immediately", notes: "", status: "draft", langs: ["en"], clicks: 0, apps: 0, conv: "–" },
-  { id: "kellner1", title: "Wir suchen Kellner(innen) in Vollzeit/Teilzeit", dept: "restaurant", type: "fullOrPart", start: "immediately", notes: "", status: "archived", langs: ["de"], clicks: 184, apps: 9, conv: "4.89%" },
-  { id: "reception2", title: "Wir suchen einen Rezeptionsmitarbeiter (m/w/d) ☀️", dept: "reception", type: "full", start: "immediately", notes: "", status: "archived", langs: ["de", "it"], clicks: 37, apps: 1, conv: "2.70%" },
+  { id: "service1", title: "Servicemitarbeiter (w/m/d) Vollzeit/Teilzeit 🍽", dept: "restaurant", type: "fullOrPart", start: "immediately", notes: "", description: "", status: "active", langs: ["de", "en", "it"], clicks: 397, apps: 7, conv: "1.76%" },
+  { id: "koch1", title: "Kochlehrling (m/w/d) oder Chef de Partie", dept: "kitchen", type: "fullOrPart", start: "immediately", notes: "", description: "", status: "active", langs: ["de", "it"], clicks: 320, apps: 11, conv: "3.44%" },
+  { id: "zimmer1", title: "Zimmermädchen in Teilzeit oder Vollzeit 🧹", dept: "housekeeping", type: "part", start: "immediately", notes: "", description: "", status: "active", langs: ["de"], clicks: 21, apps: 1, conv: "4.76%" },
+  { id: "reception1", title: "Front Desk Receptionist at Weihrerhof Hotel", dept: "reception", type: "full", start: "immediately", notes: "", description: "", status: "draft", langs: ["en"], clicks: 0, apps: 0, conv: "–" },
+  { id: "kellner1", title: "Wir suchen Kellner(innen) in Vollzeit/Teilzeit", dept: "restaurant", type: "fullOrPart", start: "immediately", notes: "", description: "", status: "archived", langs: ["de"], clicks: 184, apps: 9, conv: "4.89%" },
+  { id: "reception2", title: "Wir suchen einen Rezeptionsmitarbeiter (m/w/d) ☀️", dept: "reception", type: "full", start: "immediately", notes: "", description: "", status: "archived", langs: ["de", "it"], clicks: 37, apps: 1, conv: "2.70%" },
 ];
 
 export const applicantsSeed: Applicant[] = [

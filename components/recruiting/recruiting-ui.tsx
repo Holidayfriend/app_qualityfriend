@@ -10,6 +10,7 @@ import type { Locale } from "../../lib/i18n/dictionaries";
 import { deptIds, langFlags, type Applicant, type AppStage, type EmailCat, type Employee, type Job, type JobStatus } from "../../lib/recruiting/preview-data";
 import { useRecruiting } from "./recruiting-provider";
 import { createDefaultQuiz, DEFAULT_FOOTER_URL, QuizCanvasCard, QuizToolsCard, type QuizFooter, type QuizPage } from "./quiz-builder";
+import { htmlToPlain, RichTextEditor, sanitizeJobHtml } from "./rich-text-editor";
 
 export type RecruitingView =
   | "hub" | "jobs" | "job-create" | "job-quiz" | "applications" | "application-create" | "application-detail"
@@ -134,16 +135,24 @@ function JobCreate({ t, locale }: { t: T; locale: Locale }) {
   const [type, setType] = useState("fullOrPart");
   const [start, setStart] = useState("");
   const [notes, setNotes] = useState("");
+  const [description, setDescription] = useState("");
   const [langs, setLangs] = useState<Record<Locale, boolean>>({ de: true, en: false, it: false });
   const [previewLang, setPreviewLang] = useState<Locale>(locale);
   const [generated, setGenerated] = useState(false);
   const [image, setImage] = useState("");
   const [logo, setLogo] = useState("");
   const typeLabel = type === "full" ? t.typeFull : type === "part" ? t.typePart : type === "apprentice" ? t.typeApprentice : t.typeFullOrPart;
-  function generate() { setGenerated(true); setPreviewLang(langs.de ? "de" : langs.en ? "en" : "it"); }
+  function defaultDescription() {
+    return `<p>${fill(t.lookingFor, { dept: t.depts[dept] })}${notes ? ` – ${notes}` : ""}.</p>`;
+  }
+  function generate() {
+    setGenerated(true);
+    setPreviewLang(langs.de ? "de" : langs.en ? "en" : "it");
+    if (!htmlToPlain(description)) setDescription(defaultDescription());
+  }
   function save(status: JobStatus) {
     if (!title.trim()) return;
-    setJobs([{ id: `job_${Date.now()}`, title: title.trim(), dept, type, start: start.trim() || t.immediately, notes, status, langs: (["de", "en", "it"] as Locale[]).filter((lang) => langs[lang]), clicks: 0, apps: 0, conv: "–" }, ...jobs]);
+    setJobs([{ id: `job_${Date.now()}`, title: title.trim(), dept, type, start: start.trim() || t.immediately, notes, description: sanitizeJobHtml(description), status, langs: (["de", "en", "it"] as Locale[]).filter((lang) => langs[lang]), clicks: 0, apps: 0, conv: "–" }, ...jobs]);
     alert(status === "active" ? t.published : t.savedDraft);
     router.push("/recruiting/jobs");
   }
@@ -174,6 +183,10 @@ function JobCreate({ t, locale }: { t: T; locale: Locale }) {
             </div>
             <label><span className="field-lbl">{t.startFrom}</span><input className="field-input" value={start} onChange={(event) => setStart(event.target.value)} placeholder={t.startPlaceholder} /></label>
             <label><span className="field-lbl">{t.aiNotes}</span><input className="field-input" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder={t.aiNotesPlaceholder} /></label>
+            <div>
+              <span className="field-lbl">{t.jobDescription}</span>
+              <RichTextEditor value={description} onChange={setDescription} placeholder={t.jobDescriptionPlaceholder} locale={locale} />
+            </div>
             <div>
               <span className="field-lbl">{t.listingLanguages}</span>
               <div style={{ display: "flex", gap: 14 }}>
@@ -212,7 +225,7 @@ function JobCreate({ t, locale }: { t: T; locale: Locale }) {
             <div style={{ fontSize: 11, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: ".5px", marginBottom: 6 }}>{t.formFormat} · {t.preview}</div>
             <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>{title || t.newPosition}</div>
             <div style={{ fontSize: 12.5, color: "var(--text2)", marginBottom: 14 }}>{typeLabel} · {t.depts[dept]} · {t.startLabel}: {start || t.immediately}</div>
-            <div style={{ background: "var(--bg)", borderRadius: 8, padding: 14, marginBottom: 12, fontSize: 13, lineHeight: 1.6 }}>{fill(t.lookingFor, { dept: t.depts[dept] })}{notes ? ` – ${notes}` : ""}.</div>
+            <div className="job-desc-preview" style={{ background: "var(--bg)", borderRadius: 8, padding: 14, marginBottom: 12, fontSize: 13, lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: sanitizeJobHtml(htmlToPlain(description) ? description : defaultDescription()) }} />
             {[t.formFields1, fill(t.formFields2, { dept: t.depts[dept] }), t.formFields3].map((line) => <div className="doc-row" style={{ padding: "8px 12px" }} key={line}><div className="doc-name">{line}</div></div>)}
             <div style={{ marginTop: 14, display: "flex", gap: 10 }}>
               <button type="button" className="btn btn-primary" onClick={() => save("active")}>{t.publish}</button>
@@ -241,7 +254,7 @@ function JobQuiz({ t, locale }: { t: T; locale: Locale }) {
     setPagesByLang({ ...pagesByLang, [locale]: pages });
   }
   function save(status: JobStatus) {
-    setJobs([{ id: `job_${Date.now()}`, title: t.quizName, dept: "reception", type: "fullOrPart", start: t.immediately, notes: "", status, langs: [locale], clicks: 0, apps: 0, conv: "–" }, ...jobs]);
+    setJobs([{ id: `job_${Date.now()}`, title: t.quizName, dept: "reception", type: "fullOrPart", start: t.immediately, notes: "", description: "", status, langs: [locale], clicks: 0, apps: 0, conv: "–" }, ...jobs]);
     alert(status === "active" ? t.published : t.savedDraft);
     router.push("/recruiting/jobs");
   }
