@@ -1,0 +1,72 @@
+import type { DeptId } from "../i18n/recruiting-messages";
+import type { Locale } from "../i18n/dictionaries";
+
+export type JobStatus = "active" | "draft" | "archived";
+export type AppStage = "new" | "invited" | "offer" | "hired" | "rejected" | "archived";
+export type EmpStatus = "active" | "inactive";
+export type CertStatus = "valid" | "expiring" | "expired";
+export type EmailCat = "received" | "offer" | "reject";
+
+export type Job = { id: string; title: string; dept: DeptId; type: string; start: string; notes: string; status: JobStatus; langs: Locale[]; clicks: number; apps: number; conv: string };
+export type Applicant = {
+  id: string; initials: string; name: string; role: string; dept: DeptId; stage: AppStage; dateDisplay: string | null;
+  score: string; suggestion: "recommended" | "possible" | "needsReview" | "notAFit" | "manualAdded" | "archived";
+  email: string; phone: string; bestTime: string; date: string; source: string; cv: string | null; message: string;
+  competencies: { social: number; professional: number; methodical: number; personal: number };
+  tags: string[]; comments: Array<{ text: string; author: string; date: string }>;
+};
+export type Employee = {
+  id: string; initials: string; name: string; dept: DeptId; status: EmpStatus; reason: "" | "pension" | "resignation";
+  email: string; phone: string; taxId: string; birthdate: string; birthplace: string; employment: string;
+  comments: string; tags: string[]; certificates: Array<{ name: "safetyBasic" | "haccp"; completed: string; expires: string; status: CertStatus }>;
+};
+export type EmailTemplates = Record<EmailCat, Record<Locale, { subject: string; body: string }>>;
+
+export const jobsSeed: Job[] = [
+  { id: "service1", title: "Servicemitarbeiter (w/m/d) Vollzeit/Teilzeit 🍽", dept: "restaurant", type: "fullOrPart", start: "immediately", notes: "", status: "active", langs: ["de", "en", "it"], clicks: 397, apps: 7, conv: "1.76%" },
+  { id: "koch1", title: "Kochlehrling (m/w/d) oder Chef de Partie", dept: "kitchen", type: "fullOrPart", start: "immediately", notes: "", status: "active", langs: ["de", "it"], clicks: 320, apps: 11, conv: "3.44%" },
+  { id: "zimmer1", title: "Zimmermädchen in Teilzeit oder Vollzeit 🧹", dept: "housekeeping", type: "part", start: "immediately", notes: "", status: "active", langs: ["de"], clicks: 21, apps: 1, conv: "4.76%" },
+  { id: "reception1", title: "Front Desk Receptionist at Weihrerhof Hotel", dept: "reception", type: "full", start: "immediately", notes: "", status: "draft", langs: ["en"], clicks: 0, apps: 0, conv: "–" },
+  { id: "kellner1", title: "Wir suchen Kellner(innen) in Vollzeit/Teilzeit", dept: "restaurant", type: "fullOrPart", start: "immediately", notes: "", status: "archived", langs: ["de"], clicks: 184, apps: 9, conv: "4.89%" },
+  { id: "reception2", title: "Wir suchen einen Rezeptionsmitarbeiter (m/w/d) ☀️", dept: "reception", type: "full", start: "immediately", notes: "", status: "archived", langs: ["de", "it"], clicks: 37, apps: 1, conv: "2.70%" },
+];
+
+export const applicantsSeed: Applicant[] = [
+  { id: "lena", initials: "LH", name: "Lena Huber", role: "Servicekraft / Restaurant", dept: "restaurant", stage: "new", dateDisplay: null, score: "88%", suggestion: "recommended", email: "lena.huber@example.com", phone: "+39 340 000 0000", bestTime: "10–12", date: "19.08.2026", source: "Quiz-Funnel · Facebook", cv: "Lebenslauf_Huber.pdf", message: "Ich liebe den direkten Gästekontakt und habe 3 Jahre Erfahrung im Service, zuletzt in einem Boutique-Hotel am Gardasee.", competencies: { social: 85, professional: 80, methodical: 65, personal: 90 }, tags: ["Zweisprachig", "Sofort verfügbar"], comments: [{ text: "Sehr sympathisch am Telefon, spricht akzentfrei Deutsch.", author: "Klaus", date: "19.08.2026" }] },
+  { id: "marco", initials: "MB", name: "Marco Bauer", role: "Rezeptionist", dept: "reception", stage: "invited", dateDisplay: "Fr. 28.08, 14:00", score: "62%", suggestion: "possible", email: "marco.bauer@example.com", phone: "+39 331 111 2222", bestTime: "16–18", date: "18.08.2026", source: "Formular · Website", cv: "Lebenslauf_Bauer.pdf", message: "1 Jahr Erfahrung an der Rezeption, spreche Deutsch und Englisch, motiviert Neues zu lernen.", competencies: { social: 70, professional: 55, methodical: 60, personal: 65 }, tags: [], comments: [] },
+  { id: "ilaria", initials: "IF", name: "Ilaria Finco", role: "SeaSpa-Mitarbeiterin", dept: "seaspa", stage: "new", dateDisplay: null, score: "70%", suggestion: "needsReview", email: "ilaria.finco@hotmail.it", phone: "+39 3382368535", bestTime: "12–14", date: "22.01.2026", source: "Quiz-Funnel · Instagram", cv: null, message: "Ausgebildete Masseurin, 2 Jahre Erfahrung im Wellnessbereich, aktuell auf Jobsuche in Südtirol.", competencies: { social: 75, professional: 70, methodical: 60, personal: 72 }, tags: ["Ausgebildete Masseurin"], comments: [] },
+  { id: "anna", initials: "AB", name: "Anna Berger", role: "Servicekraft", dept: "restaurant", stage: "offer", dateDisplay: "16.08.2026", score: "80%", suggestion: "recommended", email: "anna.berger@example.com", phone: "+39 340 222 3333", bestTime: "10–12", date: "12.08.2026", source: "Quiz-Funnel · Facebook", cv: "Lebenslauf_Berger.pdf", message: "3 Jahre Servicerfahrung im Familienbetrieb, gerne langfristig.", competencies: { social: 82, professional: 78, methodical: 70, personal: 85 }, tags: ["Erfahren"], comments: [{ text: "Angebot am 16.08 verschickt, Antwort ausstehend.", author: "Klaus", date: "16.08.2026" }] },
+  { id: "klaus", initials: "KG", name: "Klaus Gruber", role: "Küchenhilfe", dept: "kitchen", stage: "hired", dateDisplay: "01.09.2026", score: "85%", suggestion: "recommended", email: "klaus.gruber@example.com", phone: "+39 335 444 5555", bestTime: "14–16", date: "02.08.2026", source: "Formular · Website", cv: "Lebenslauf_Gruber.pdf", message: "Freue mich auf den Start, war zuvor 2 Jahre in einem Berggasthof.", competencies: { social: 75, professional: 88, methodical: 80, personal: 78 }, tags: ["Start 01.09."], comments: [{ text: "Vertrag unterschrieben, Start 01.09.2026.", author: "Klaus", date: "10.08.2026" }] },
+  { id: "petra", initials: "PS", name: "Petra Schmidt", role: "Köchin", dept: "kitchen", stage: "rejected", dateDisplay: null, score: "28%", suggestion: "notAFit", email: "petra.schmidt@example.com", phone: "+39 335 555 1234", bestTime: "14–16", date: "15.08.2026", source: "Quiz-Funnel · TikTok", cv: null, message: "Interessiere mich für die Stelle, habe aber noch keine Hotelerfahrung.", competencies: { social: 50, professional: 20, methodical: 25, personal: 45 }, tags: [], comments: [] },
+  { id: "alba", initials: "AM", name: "Alba Mendoza", role: "Housekeeping", dept: "housekeeping", stage: "archived", dateDisplay: null, score: "–", suggestion: "archived", email: "alba@weihrerhof.com", phone: "+39 340 780 2603", bestTime: "–", date: "08.05.2024", source: "Manuell hinzugefügt", cv: "Lebenslauf_Mendoza.pdf", message: "Bewerbung archiviert, Stelle war zu diesem Zeitpunkt bereits besetzt.", competencies: { social: 60, professional: 60, methodical: 60, personal: 60 }, tags: [], comments: [] },
+];
+
+export const employeesSeed: Employee[] = [
+  { id: "nina", initials: "NG", name: "Nina Gasser", dept: "restaurant", status: "active", reason: "", email: "nina@weihrerhof.com", phone: "+39 331 911 7738", taxId: "GSSNNA95L45Z112X", birthdate: "1995-07-12", birthplace: "Bozen", employment: "03.2022", comments: "Zuverlässig, springt gerne bei Engpässen ein.", tags: ["Service", "Deutsch", "Englisch"], certificates: [{ name: "safetyBasic", completed: "03.2022", expires: "03.2027", status: "valid" }, { name: "haccp", completed: "03.2024", expires: "03.2026", status: "valid" }] },
+  { id: "sabine", initials: "SS", name: "Sabine Staffler", dept: "seaspa", status: "active", reason: "", email: "sabinestaffler167@gmail.com", phone: "366/5377354", taxId: "STFSBN88T52Z112B", birthdate: "1988-12-02", birthplace: "Meran", employment: "06.2021", comments: "Ausgebildete Masseurin, sehr gästeorientiert.", tags: ["SeaSpa", "Massage", "Italienisch"], certificates: [{ name: "safetyBasic", completed: "06.2021", expires: "06.2026", status: "valid" }] },
+  { id: "solav", initials: "SH", name: "Solav Haji", dept: "housekeeping", status: "active", reason: "", email: "solav@weihrerhof.com", phone: "+39 371 133 3100", taxId: "HJMNDR84L62Z225I", birthdate: "1984-07-22", birthplace: "Irak", employment: "04.2024", comments: "", tags: ["Housekeeping"], certificates: [{ name: "safetyBasic", completed: "04.2024", expires: "10.2026", status: "expiring" }] },
+  { id: "thomas", initials: "TG", name: "Thomas Gruber", dept: "restaurant", status: "active", reason: "", email: "thomas@weihrerhof.com", phone: "+39 340 000 1111", taxId: "GRBTHM90A01Z112C", birthdate: "1990-01-01", birthplace: "Bruneck", employment: "02.2020", comments: "Langjährige Servicekraft, gute Weinkenntnisse.", tags: ["Service", "Sommelier"], certificates: [{ name: "safetyBasic", completed: "02.2020", expires: "05.2026", status: "expired" }] },
+  { id: "nadia", initials: "NM", name: "Nadia Mauroner", dept: "restaurant", status: "inactive", reason: "pension", email: "–", phone: "347 295 9425", taxId: "MRNNDA60A41Z112D", birthdate: "1960-01-01", birthplace: "Ritten", employment: "01.2015 – 12.2025", comments: "In Pension gegangen, war 10 Jahre im Team.", tags: ["Service", "Ehemalig"], certificates: [{ name: "safetyBasic", completed: "01.2015", expires: "01.2020", status: "expired" }] },
+  { id: "lorena", initials: "LL", name: "Lorena Lichiardi", dept: "housekeeping", status: "inactive", reason: "resignation", email: "lorena.lichiardi@gmail.com", phone: "393509915152", taxId: "LCHLRN95L44Z112E", birthdate: "1995-03-15", birthplace: "Trient", employment: "02.2023 – 07.2026", comments: "Hat gekündigt, Umzug nach Trient.", tags: ["Housekeeping", "Ehemalig"], certificates: [{ name: "safetyBasic", completed: "02.2023", expires: "02.2028", status: "valid" }] },
+];
+
+export const emailTemplatesSeed: EmailTemplates = {
+  received: {
+    de: { subject: "Vielen Dank für Ihre Bewerbung für {{job_name}} bei {{hotel_name}}.", body: "Lieber {{name}},\n\nwir möchten uns herzlich bei Ihnen für Ihre Bewerbung für die Position als {{job_name}} bei {{hotel_name}} bedanken. Ihre Bewerbung wurde erfolgreich erhalten.\n\nDerzeit prüfen wir alle Bewerbungen und werden Sie kontaktieren, falls Sie für ein Vorstellungsgespräch ausgewählt werden.\n\nFalls Sie Fragen haben, können Sie uns gerne unter {{hotel_email}} erreichen.\n\nMit freundlichen Grüßen,\nDas Team von {{hotel_name}}\n\n{{logo}}" },
+    en: { subject: "Thank you for your application for {{job_name}} at {{hotel_name}}.", body: "Dear {{name}},\n\nThank you for applying for the position of {{job_name}} at {{hotel_name}}. Your application has been received successfully.\n\nWe are currently reviewing all applications and will contact you if you are selected for an interview.\n\nIf you have any questions, feel free to reach us at {{hotel_email}}.\n\nBest regards,\nThe {{hotel_name}} Team\n\n{{logo}}" },
+    it: { subject: "Grazie per la tua candidatura per {{job_name}} presso {{hotel_name}}.", body: "Caro/a {{name}},\n\ngrazie per la tua candidatura per la posizione di {{job_name}} presso {{hotel_name}}. La tua candidatura è stata ricevuta con successo.\n\nStiamo attualmente esaminando tutte le candidature e ti contatteremo se sarai selezionato/a per un colloquio.\n\nPer domande, scrivici a {{hotel_email}}.\n\nCordiali saluti,\nIl team di {{hotel_name}}\n\n{{logo}}" },
+  },
+  offer: {
+    de: { subject: "Arbeitsangebot für {{job_name}} bei {{hotel_name}} – Nächste Schritte", body: "Lieber {{name}},\n\nwir freuen uns, Ihnen die Position als {{job_name}} bei {{hotel_name}} anzubieten.\n\nGerne würden wir die Details des Angebots mit Ihnen besprechen, einschließlich Gehalt, Zusatzleistungen und Startdatum.\n\nFalls Sie in der Zwischenzeit Fragen haben, können Sie uns jederzeit unter {{hotel_email}} kontaktieren.\n\nMit freundlichen Grüßen,\nDas {{hotel_name}}-Team\n\n{{logo}}" },
+    en: { subject: "Job offer for {{job_name}} at {{hotel_name}} – Next steps", body: "Dear {{name}},\n\nWe are happy to offer you the position of {{job_name}} at {{hotel_name}}.\n\nWe would like to discuss the details of the offer, including salary, benefits and start date.\n\nIf you have any questions in the meantime, feel free to contact us at {{hotel_email}}.\n\nBest regards,\nThe {{hotel_name}} Team\n\n{{logo}}" },
+    it: { subject: "Offerta di lavoro per {{job_name}} presso {{hotel_name}} – Prossimi passi", body: "Caro/a {{name}},\n\nsiamo lieti di offrirti la posizione di {{job_name}} presso {{hotel_name}}.\n\nVorremmo discutere i dettagli dell'offerta, inclusi stipendio, benefit e data di inizio.\n\nPer domande, scrivici a {{hotel_email}}.\n\nCordiali saluti,\nIl team di {{hotel_name}}\n\n{{logo}}" },
+  },
+  reject: {
+    de: { subject: "Aktualisierung Ihrer Bewerbung für {{job_name}} bei {{hotel_name}}", body: "Lieber {{name}},\n\nvielen Dank, dass Sie sich die Zeit genommen haben, sich für die Position {{job_name}} bei {{hotel_name}} zu bewerben. Nach sorgfältiger Prüfung aller Bewerbungen müssen wir Ihnen leider mitteilen, dass Ihre Bewerbung nicht weiter berücksichtigt wird.\n\nMit freundlichen Grüßen,\nDas {{hotel_name}}-Einstellungsteam\n\n{{logo}}" },
+    en: { subject: "Update on your application for {{job_name}} at {{hotel_name}}", body: "Dear {{name}},\n\nThank you for taking the time to apply for the position of {{job_name}} at {{hotel_name}}. After careful review of all applications, we regret to inform you that we will not be moving forward with your application.\n\nBest regards,\nThe {{hotel_name}} Hiring Team\n\n{{logo}}" },
+    it: { subject: "Aggiornamento sulla tua candidatura per {{job_name}} presso {{hotel_name}}", body: "Caro/a {{name}},\n\ngrazie per esserti candidato/a per la posizione di {{job_name}} presso {{hotel_name}}. Dopo un attento esame di tutte le candidature, siamo spiacenti di informarti che non proseguiremo con la tua candidatura.\n\nCordiali saluti,\nIl team di selezione di {{hotel_name}}\n\n{{logo}}" },
+  },
+};
+
+export const langFlags: Record<Locale, string> = { de: "🇩🇪", en: "🇬🇧", it: "🇮🇹" };
+export const deptIds: DeptId[] = ["reception", "housekeeping", "restaurant", "kitchen", "maintenance", "seaspa"];

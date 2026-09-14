@@ -47,3 +47,5 @@ export const housekeepingRefreshMessages = byLocale("housekeepingRefreshMessages
 export const toastMessages = byLocale("toastMessages");
 
 export const notificationMessages = byLocale("notificationMessages");
+export { recruitingMessages } from "./recruiting-messages";
+export type { RecruitingMessages } from "./recruiting-messages";

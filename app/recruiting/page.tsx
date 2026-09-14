@@ -1,1 +1,7 @@
-"use client"; import {ModulePlaceholder} from "../../components/dashboard/module-placeholder"; import {useI18n} from "../../components/i18n/i18n-provider"; export default function Page(){const{dictionary:d}=useI18n();return <ModulePlaceholder activeItem="recruiting" icon="🔍" title={d.navigation.recruiting} underDevelopment={d.common.underDevelopment}/>}
+"use client";
+
+import { RecruitingUI } from "../../components/recruiting/recruiting-ui";
+
+export default function Page() {
+  return <RecruitingUI view="hub" />;
+}
