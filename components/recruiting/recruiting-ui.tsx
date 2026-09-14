@@ -26,7 +26,7 @@ export function RecruitingUI({ view, id = "" }: { view: RecruitingView; id?: str
     employees: t.employeesTitle, "employee-create": t.employeeCreateTitle, "employee-detail": t.employeeDetailTitle, emails: t.emailsTitle,
   };
   return <AppShell activeItem="recruiting" pageTitle={titles[view]}>
-    <main className="qf-dashboard">
+    <main className={`qf-dashboard ${view === "job-quiz" ? "qf-dashboard-sticky" : ""}`}>
       {view === "hub" ? <Hub t={t} /> : null}
       {view === "jobs" ? <Jobs t={t} /> : null}
       {view === "job-create" ? <JobCreate t={t} locale={locale} /> : null}
