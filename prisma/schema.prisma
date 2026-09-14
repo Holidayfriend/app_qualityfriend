@@ -50,6 +50,11 @@ enum HousekeepingAssignmentOrigin {
   PERMANENT
 }
 
+enum HousekeepingChecklistType {
+  ROOM
+  ARRIVAL
+}
+
 model ExtraJob {
   id String @id @default(uuid()) @db.Uuid
   hotelTenantId String @map("hotel_tenant_id") @db.Uuid
@@ -134,6 +139,7 @@ model Room {
   reservationRoomStayRecords ReservationRoomStay[]
   roomOperationalStateRecords RoomOperationalState[]
   checklistTemplate RoomChecklistTemplate?
+  housekeepingChecklistCompletionRecords HousekeepingChecklistCompletion[]
   housekeepingScheduleAssignmentRecords HousekeepingRoomAssignment[]
   housekeepingPermanentAssignmentRecords HousekeepingPermanentRoomAssignment[]
 
@@ -161,6 +167,27 @@ model RoomChecklistTemplate {
 
   @@unique([hotelTenantId, id])
   @@map("room_checklist_templates")
+}
+
+model HousekeepingChecklistCompletion {
+  id String @id @default(uuid()) @db.Uuid
+  hotelTenantId String @map("hotel_tenant_id") @db.Uuid
+  roomId String @map("room_id") @db.Uuid
+  workDate DateTime @map("work_date") @db.Date
+  checklistType HousekeepingChecklistType @map("checklist_type")
+  checkIndex Int @map("check_index")
+  checkTextEn String @map("check_text_en") @db.Text
+  checkTextDe String @map("check_text_de") @db.Text
+  checkTextIt String @map("check_text_it") @db.Text
+  checkedById String @map("checked_by_id") @db.Uuid
+  checkedAt DateTime @default(now()) @map("checked_at") @db.Timestamptz(3)
+  hotelTenant HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  room Room @relation(fields: [hotelTenantId, roomId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  checkedBy User @relation("HousekeepingChecklistChecker", fields: [hotelTenantId, checkedById], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([hotelTenantId, workDate, roomId, checklistType, checkIndex])
+  @@index([hotelTenantId, roomId, workDate])
+  @@map("housekeeping_checklist_completions")
 }
 
 model HotelImportSource {
@@ -464,6 +491,7 @@ model HotelTenant {
   roomChecklistTemplateRecords RoomChecklistTemplate[]
   housekeepingRoomAssignmentRecords HousekeepingRoomAssignment[]
   housekeepingExtraJobAssignmentRecords HousekeepingExtraJobAssignment[]
+  housekeepingChecklistCompletionRecords HousekeepingChecklistCompletion[]
   housekeepingPermanentRoomAssignmentRecords HousekeepingPermanentRoomAssignment[]
   housekeepingPermanentExtraJobAssignmentRecords HousekeepingPermanentExtraJobAssignment[]
   housekeepingDailyRunRecords HousekeepingDailyRun[]
@@ -675,6 +703,7 @@ model User {
   chatMessagesReceived   ChatMessage[] @relation("ChatMessageRecipient")
   housekeepingRoomAssignmentRecords HousekeepingRoomAssignment[] @relation("HousekeepingRoomAssignee")
   housekeepingExtraJobAssignmentRecords HousekeepingExtraJobAssignment[] @relation("HousekeepingExtraJobAssignee")
+  housekeepingChecklistCompletionRecords HousekeepingChecklistCompletion[] @relation("HousekeepingChecklistChecker")
   housekeepingPermanentRoomAssignmentRecords HousekeepingPermanentRoomAssignment[] @relation("HousekeepingPermanentRoomAssignee")
   housekeepingPermanentExtraJobAssignmentRecords HousekeepingPermanentExtraJobAssignment[] @relation("HousekeepingPermanentExtraJobAssignee")
 

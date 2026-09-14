@@ -5,6 +5,7 @@ import { getSessionUserId } from "../../../../lib/auth/session";
 import { prisma } from "../../../../lib/prisma";
 
 type Locale = "en" | "de" | "it";
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 function locale(value: string | null): Locale { return value === "de" || value === "it" ? value : "en"; }
 function translatedName(item: { nameEn: string | null; nameDe: string | null; nameIt: string | null }, activeLocale: Locale) {
   return activeLocale === "de" ? item.nameDe || item.nameEn : activeLocale === "it" ? item.nameIt || item.nameEn : item.nameEn;
@@ -48,14 +49,15 @@ export async function GET(request: Request) {
   }
 
   const activeLocale = locale(new URL(request.url).searchParams.get("locale"));
-  const detailNumber = new URL(request.url).searchParams.get("detail")?.trim();
-  if (detailNumber) {
+  const detailId = new URL(request.url).searchParams.get("detailId")?.trim();
+  if (detailId) {
+    if (!uuid.test(detailId)) return Response.json({ error: "INVALID_ROOM_ID" }, { status: 400 });
     const configuredZone = user.hotelTenant.timeZone?.trim() || "UTC";
     let date: string;
     try { date = localDate(configuredZone); } catch { return Response.json({ error: "INVALID_HOTEL_TIME_ZONE" }, { status: 500 }); }
     const day = utcDate(date);
     const room = await prisma.room.findFirst({
-      where: { hotelTenantId: user.hotelTenantId, number: detailNumber, isActive: true, archivedAt: null },
+      where: { hotelTenantId: user.hotelTenantId, id: detailId, isActive: true, archivedAt: null },
       select: {
         id: true, number: true, nameEn: true, nameDe: true, nameIt: true,
         category: { select: { nameEn: true, nameDe: true, nameIt: true } },
@@ -79,20 +81,24 @@ export async function GET(request: Request) {
     const arrivalChecks = activeLocale === "de" ? strings(checklist?.arrivalChecksDe) : activeLocale === "it" ? strings(checklist?.arrivalChecksIt) : strings(checklist?.arrivalChecksEn);
     const state = room.roomOperationalStateRecords[0];
     const status = ({ UNKNOWN: "unassigned", DIRTY: "dirty", CLEANING: "cleaning", CLEAN: "clean", INSPECTED: "inspected" } as const)[state?.cleanliness ?? "UNKNOWN"];
-    const [cleaners, assignment] = await Promise.all([
+    const [cleaners, assignment, completedChecks] = await Promise.all([
       housekeepingUsers(user.hotelTenantId),
       prisma.housekeepingRoomAssignment.findFirst({
         where: { hotelTenantId: user.hotelTenantId, roomId: room.id, workDate: day },
         select: { assignedToId: true },
       }),
+      prisma.$queryRaw<Array<{ checklist_type: "ROOM" | "ARRIVAL"; check_index: number }>>`SELECT checklist_type,check_index FROM housekeeping_checklist_completions WHERE hotel_tenant_id=${user.hotelTenantId}::uuid AND room_id=${room.id}::uuid AND work_date=${date}::date`,
     ]);
+    const completed = new Set(completedChecks.map((check) => `${check.checklist_type}:${check.check_index}`));
     return Response.json({ room: {
       id: room.id, number: room.number, name: translatedName(room, activeLocale),
       category: room.category ? translatedName(room.category, activeLocale) : null,
       floor: room.floor ? translatedName(room.floor, activeLocale) || room.floor.code : null,
       status, doNotDisturb: state?.doNotDisturb ?? false, noService: state?.noService ?? false, isExpress: state?.isExpress ?? false,
       lastCleanedAt: state?.lastCleanedAt ?? null, lastInspectedAt: state?.lastInspectedAt ?? null,
-      isArrivalToday: stay?.arrivalDate.getTime() === day.getTime(), roomChecks, arrivalChecks, cleaners,
+      isArrivalToday: stay?.arrivalDate.getTime() === day.getTime(),
+      roomChecks: roomChecks.map((label, index) => ({ index, label, checked: completed.has(`ROOM:${index}`) })),
+      arrivalChecks: arrivalChecks.map((label, index) => ({ index, label, checked: completed.has(`ARRIVAL:${index}`) })), cleaners,
       assignedCleanerId: assignment?.assignedToId ?? null,
       reservation: stay ? {
         arrival: dateOnly(stay.arrivalDate), departure: dateOnly(stay.departureDate), days: Math.round((stay.departureDate.getTime() - stay.arrivalDate.getTime()) / 86400000),

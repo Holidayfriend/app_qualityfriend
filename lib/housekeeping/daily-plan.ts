@@ -20,6 +20,8 @@ export async function generateHotelDailyPlan(pool: Pool, hotelTenantId: string, 
   const client = await pool.connect();
   const runId = randomUUID();
   try {
+    // Checklist completions are isolated by work_date. The new daily plan therefore
+    // starts with no completed checks while prior days remain available as history.
     await client.query("BEGIN");
     await client.query(`INSERT INTO housekeeping_daily_runs (id,hotel_tenant_id,work_date,status,started_at)
       VALUES ($1,$2,$3::date,'RUNNING',NOW()) ON CONFLICT (hotel_tenant_id,work_date) DO UPDATE SET status='RUNNING',started_at=NOW(),finished_at=NULL,error_summary=NULL`, [runId, hotelTenantId, workDate]);
