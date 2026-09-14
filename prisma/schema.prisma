@@ -318,6 +318,7 @@ model RoomOperationalState {
   hotelTenantId String @map("hotel_tenant_id") @db.Uuid
   roomId String @map("room_id") @db.Uuid
   cleanliness RoomCleanliness @default(UNKNOWN)
+  breakfastInRoom Boolean @default(false) @map("breakfast_in_room")
   doNotDisturb Boolean @default(false) @map("do_not_disturb")
   noService Boolean @default(false) @map("no_service")
   doNotDisturbUntil DateTime? @map("do_not_disturb_until") @db.Timestamptz(3)

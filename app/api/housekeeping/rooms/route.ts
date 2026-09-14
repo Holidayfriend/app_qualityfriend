@@ -63,7 +63,7 @@ export async function GET(request: Request) {
         category: { select: { nameEn: true, nameDe: true, nameIt: true } },
         floor: { select: { code: true, nameEn: true, nameDe: true, nameIt: true } },
         checklistTemplate: true,
-        roomOperationalStateRecords: { take: 1, select: { cleanliness: true, doNotDisturb: true, noService: true, isExpress: true, lastCleanedAt: true, lastInspectedAt: true } },
+        roomOperationalStateRecords: { take: 1, select: { cleanliness: true, breakfastInRoom: true, doNotDisturb: true, noService: true, isExpress: true, lastCleanedAt: true, lastInspectedAt: true } },
         reservationRoomStayRecords: {
           where: { arrivalDate: { lte: day }, departureDate: { gte: day }, reservation: { sourcePresent: true, status: { notIn: ["CANCELLED", "NO_SHOW"] } } },
           orderBy: { arrivalDate: "asc" },
@@ -94,7 +94,7 @@ export async function GET(request: Request) {
       id: room.id, number: room.number, name: translatedName(room, activeLocale),
       category: room.category ? translatedName(room.category, activeLocale) : null,
       floor: room.floor ? translatedName(room.floor, activeLocale) || room.floor.code : null,
-      status, doNotDisturb: state?.doNotDisturb ?? false, noService: state?.noService ?? false, isExpress: state?.isExpress ?? false,
+      status, breakfastInRoom: state?.breakfastInRoom ?? false, doNotDisturb: state?.doNotDisturb ?? false, noService: state?.noService ?? false, isExpress: state?.isExpress ?? false,
       lastCleanedAt: state?.lastCleanedAt ?? null, lastInspectedAt: state?.lastInspectedAt ?? null,
       isArrivalToday: stay?.arrivalDate.getTime() === day.getTime(),
       roomChecks: roomChecks.map((label, index) => ({ index, label, checked: completed.has(`ROOM:${index}`) })),
@@ -124,7 +124,7 @@ export async function GET(request: Request) {
           reservation: { sourcePresent: true, status: { notIn: ["CANCELLED", "NO_SHOW"] } },
         } } }, orderBy: { number: "asc" }, select: {
           id: true, number: true,
-          roomOperationalStateRecords: { take: 1, select: { cleanliness: true, noService: true } },
+          roomOperationalStateRecords: { take: 1, select: { cleanliness: true, breakfastInRoom: true, doNotDisturb: true, noService: true } },
           reservationRoomStayRecords: { where: {
             arrivalDate: { lte: day }, departureDate: { gte: day },
             reservation: { sourcePresent: true, status: { notIn: ["CANCELLED", "NO_SHOW"] } },
@@ -146,6 +146,9 @@ export async function GET(request: Request) {
         const state = room.roomOperationalStateRecords[0];
         const status = state?.noService ? "noCleaningDesired" as const : ({ UNKNOWN: "unassigned", DIRTY: "dirty", CLEANING: "cleaning", CLEAN: "clean", INSPECTED: "inspected" } as const)[state?.cleanliness ?? "UNKNOWN"];
         return { id: room.id, number: room.number, status,
+          breakfastInRoom: state?.breakfastInRoom ?? false,
+          doNotDisturb: state?.doNotDisturb ?? false,
+          noService: state?.noService ?? false,
           arrival: stays.some((stay) => stay.arrivalDate.getTime() === day.getTime()),
           departure: stays.some((stay) => stay.departureDate.getTime() === day.getTime()),
           checkedIn: stays.some((stay) => stay.sourceStatus === "occupied"),

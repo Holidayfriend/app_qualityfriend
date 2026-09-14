@@ -49,6 +49,12 @@ export async function generateHotelDailyPlan(pool: Pool, hotelTenantId: string, 
         VALUES ($1,$2,$3,'DIRTY',$4,NOW())
         ON CONFLICT (hotel_tenant_id,room_id) DO UPDATE SET cleanliness='DIRTY',is_express=EXCLUDED.is_express,updated_at=NOW()`,
       [randomUUID(), hotelTenantId, stay.room_id, plan.type === "EXPRESS"]);
+      else await client.query(`INSERT INTO room_operational_states
+        (id,hotel_tenant_id,room_id,cleanliness,is_express,updated_at)
+        VALUES ($1,$2,$3,'DIRTY',$4,NOW())
+        ON CONFLICT (hotel_tenant_id,room_id) DO UPDATE SET cleanliness='DIRTY',is_express=EXCLUDED.is_express,updated_at=NOW()
+        WHERE room_operational_states.cleanliness='UNKNOWN'`,
+      [randomUUID(), hotelTenantId, stay.room_id, plan.type === "EXPRESS"]);
     }
     const extras = await client.query<{ extra_job_id: string; assigned_to_id: string; minutes: number; description: string }>(`SELECT p.extra_job_id,p.assigned_to_id,e.minutes,COALESCE(NULLIF(e.description_en,''),NULLIF(e.description_de,''),e.description_it,'') AS description
       FROM housekeeping_permanent_extra_job_assignments p JOIN extra_jobs e ON e.id=p.extra_job_id AND e.hotel_tenant_id=p.hotel_tenant_id WHERE p.hotel_tenant_id=$1`, [hotelTenantId]);
