@@ -43,7 +43,7 @@ const messages = {
     campaignTeamPh: "e.g. Team A",
     campaignUrl: "Tracked URL",
     campaignClicks: "Clicks",
-    campaignApps: "Apps",
+    campaignApps: "Applications",
     campaignCopy: "Copy URL",
     campaignCopied: "Campaign URL copied.",
     campaignCreated: "Campaign created.",
