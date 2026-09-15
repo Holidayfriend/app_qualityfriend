@@ -7,7 +7,7 @@ import { AppShell } from "../dashboard/app-shell";
 import { useI18n } from "../i18n/i18n-provider";
 import { fill, getRecruitingMessages, type DeptId, type RecruitingMessages } from "../../lib/i18n/recruiting-messages";
 import type { Locale } from "../../lib/i18n/dictionaries";
-import { deptIds, langFlags, type Applicant, type AppStage, type EmailCat, type Employee, type Job, type JobStatus } from "../../lib/recruiting/preview-data";
+import { deptIds, langFlags, type Applicant, type AppStage, type EmailCat, type EmailTemplates, type Employee, type Job, type JobStatus } from "../../lib/recruiting/preview-data";
 import { useRecruiting } from "./recruiting-provider";
 import { createDefaultQuiz, DEFAULT_FOOTER_URL, QuizCanvasCard, QuizToolsCard, type QuizFooter, type QuizPage } from "./quiz-builder";
 import { BrandLoader } from "../ui/brand-loader";
@@ -1077,12 +1077,48 @@ function EmailSettings({ t }: { t: T }) {
 }
 
 function Emails({ t, locale }: { t: T; locale: Locale }) {
-  const { emails, setEmails } = useRecruiting();
+  const [emails, setEmails] = useState<EmailTemplates | null>(null);
   const [cat, setCat] = useState<EmailCat>("received");
   const [lang, setLang] = useState<Locale>(locale);
-  const current = emails[cat][lang];
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
+  const current = emails?.[cat]?.[lang] ?? { subject: "", body: "" };
+  useEffect(() => {
+    let ignore = false;
+    setLoading(true);
+    fetch("/api/recruiting/emails")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (ignore) return;
+        if (!data?.templates) { setError(t.templateLoadFailed); return; }
+        setEmails(data.templates);
+      })
+      .catch(() => { if (!ignore) setError(t.templateLoadFailed); })
+      .finally(() => { if (!ignore) setLoading(false); });
+    return () => { ignore = true; };
+  }, [t.templateLoadFailed]);
   function change(field: "subject" | "body", value: string) {
+    if (!emails) return;
+    setNotice("");
     setEmails({ ...emails, [cat]: { ...emails[cat], [lang]: { ...current, [field]: value } } });
+  }
+  async function save() {
+    if (!emails) return;
+    setSaving(true);
+    setNotice("");
+    setError("");
+    const res = await fetch("/api/recruiting/emails", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ templates: emails }),
+    }).catch(() => null);
+    setSaving(false);
+    if (!res?.ok) { setError(t.templateSaveFailed); return; }
+    const data = await res.json().catch(() => null);
+    if (data?.templates) setEmails(data.templates);
+    setNotice(t.templateSaved);
   }
   return <>
     <Back href="/recruiting" label={t.backRecruiting} />
@@ -1099,9 +1135,12 @@ function Emails({ t, locale }: { t: T; locale: Locale }) {
         <div style={{ fontSize: 11.5, color: "var(--text3)", marginBottom: 10 }}>{t.placeholders} <code>{"{{name}}"}</code> <code>{"{{job_name}}"}</code> <code>{"{{hotel_name}}"}</code> <code>{"{{hotel_email}}"}</code> <code>{"{{logo}}"}</code></div>
         <label><span className="field-lbl">{t.subject}</span><input className="field-input" style={{ marginBottom: 12 }} value={current.subject} onChange={(event) => change("subject", event.target.value)} /></label>
         <label><span className="field-lbl">{t.body}</span><textarea className="field-input" style={{ minHeight: 180, resize: "vertical", lineHeight: 1.6 }} value={current.body} onChange={(event) => change("body", event.target.value)} /></label>
-        <button type="button" className="btn btn-primary" style={{ marginTop: 14 }} onClick={() => alert(t.templateSaved)}>{t.save}</button>
+        {error ? <div style={{ fontSize: 12.5, color: "var(--danger, #c0392b)", marginTop: 12 }}>{error}</div> : null}
+        {notice ? <div style={{ fontSize: 12.5, color: "var(--accent)", marginTop: 12 }}>{notice}</div> : null}
+        <button type="button" className="btn btn-primary" style={{ marginTop: 14 }} disabled={saving || loading || !emails} onClick={() => void save()}>{t.save}</button>
       </div>
     </div>
+    {loading || saving ? <BrandLoader label={t.loading} overlay /> : null}
   </>;
 }
 
