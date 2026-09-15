@@ -1354,7 +1354,15 @@ function EmployeeCreate({ t, locale }: { t: T; locale: Locale }) {
   const departments = useHotelDepartments(locale);
   const [first, setFirst] = useState("");
   const [last, setLast] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [departmentId, setDepartmentId] = useState("");
+  const [taxId, setTaxId] = useState("");
+  const [birthdate, setBirthdate] = useState("");
+  const [birthplace, setBirthplace] = useState("");
+  const [employedFrom, setEmployedFrom] = useState("");
+  const [employedTo, setEmployedTo] = useState("");
+  const [comments, setComments] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => {
@@ -1365,27 +1373,62 @@ function EmployeeCreate({ t, locale }: { t: T; locale: Locale }) {
     if (!first.trim() || !last.trim() || !departmentId) { setError(t.requiredName); return; }
     setBusy(true);
     setError("");
-    const res = await fetch("/api/recruiting/employees", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ firstName: first.trim(), lastName: last.trim(), departmentId, locale }),
-    }).catch(() => null);
-    setBusy(false);
-    const data = res && res.ok ? await res.json().catch(() => null) : null;
-    if (!data?.employee) { setError(t.employeeSaveFailed); return; }
-    setEmployees([data.employee as Employee, ...employees]);
-    router.push(`/recruiting/employees/${data.employee.id}`);
+    try {
+      const res = await fetch("/api/recruiting/employees", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: first.trim(),
+          lastName: last.trim(),
+          email: email.trim(),
+          phone: phone.trim(),
+          departmentId,
+          taxId: taxId.trim(),
+          birthdate: birthdate || null,
+          birthplace: birthplace.trim(),
+          employedFrom: employedFrom || null,
+          employedTo: employedTo || null,
+          comments: comments.trim(),
+          locale,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.employee) {
+        setError(t.employeeSaveFailed);
+        setBusy(false);
+        return;
+      }
+      setEmployees([data.employee as Employee, ...employees]);
+      router.push(`/recruiting/employees/${data.employee.id}`);
+    } catch {
+      setError(t.employeeSaveFailed);
+      setBusy(false);
+    }
   }
   return <>
     <Back href="/recruiting/employees" label={t.backEmployees} />
-    <form className="card" style={{ maxWidth: 460 }} onSubmit={(event) => void save(event)}>
+    <form className="card" style={{ maxWidth: 520 }} onSubmit={(event) => void save(event)}>
       <div className="ch"><div className="ct">{t.employeeCreateTitle}</div></div>
       <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div className="field-row">
-          <label><span className="field-lbl">{t.firstName}</span><input className="field-input" value={first} onChange={(event) => setFirst(event.target.value)} /></label>
-          <label><span className="field-lbl">{t.lastName}</span><input className="field-input" value={last} onChange={(event) => setLast(event.target.value)} /></label>
+          <label><span className="field-lbl">{t.firstName}</span><input className="field-input" value={first} onChange={(event) => setFirst(event.target.value)} placeholder={t.firstNamePh} /></label>
+          <label><span className="field-lbl">{t.lastName}</span><input className="field-input" value={last} onChange={(event) => setLast(event.target.value)} placeholder={t.lastNamePh} /></label>
+        </div>
+        <div className="field-row">
+          <label><span className="field-lbl">{t.email.replace(/\*$/, "")}</span><input className="field-input" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" /></label>
+          <label><span className="field-lbl">{t.phone}</span><input className="field-input" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+39 ..." /></label>
         </div>
         <label><span className="field-lbl">{t.department}</span><select className="field-select" value={departmentId} onChange={(event) => setDepartmentId(event.target.value)}>{departments.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+        <label><span className="field-lbl">{t.taxId}</span><input className="field-input" value={taxId} onChange={(event) => setTaxId(event.target.value)} /></label>
+        <div className="field-row">
+          <label><span className="field-lbl">{t.birthdate}</span><input className="field-input" type="date" value={birthdate} onChange={(event) => setBirthdate(event.target.value)} /></label>
+          <label><span className="field-lbl">{t.birthplace}</span><input className="field-input" value={birthplace} onChange={(event) => setBirthplace(event.target.value)} /></label>
+        </div>
+        <div className="field-row">
+          <label><span className="field-lbl">{t.employedFrom}</span><input className="field-input" type="date" value={employedFrom} onChange={(event) => setEmployedFrom(event.target.value)} /></label>
+          <label><span className="field-lbl">{t.employedTo}</span><input className="field-input" type="date" value={employedTo} onChange={(event) => setEmployedTo(event.target.value)} /></label>
+        </div>
+        <label><span className="field-lbl">{t.comments}</span><textarea className="field-input" style={{ minHeight: 70, resize: "vertical" }} value={comments} onChange={(event) => setComments(event.target.value)} /></label>
         {error ? <p className="job-apply-error">{error}</p> : null}
         <button type="submit" className="btn btn-primary" disabled={busy || !departments.length}>{t.save}</button>
       </div>

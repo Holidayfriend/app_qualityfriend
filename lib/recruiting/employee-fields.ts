@@ -113,6 +113,13 @@ export function employeeAuditSnapshot(row: EmployeeRow) {
   };
 }
 
+function parseOptionalDate(value: unknown): Date | null | undefined {
+  if (value === null || value === "") return null;
+  if (typeof value !== "string") return undefined;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return undefined;
+  return new Date(`${value}T00:00:00.000Z`);
+}
+
 export function parseManualEmployee(body: unknown) {
   if (!body || typeof body !== "object") return null;
   const data = body as Record<string, unknown>;
@@ -120,12 +127,22 @@ export function parseManualEmployee(body: unknown) {
   const lastName = text(data.lastName, 120);
   const departmentId = typeof data.departmentId === "string" && uuid.test(data.departmentId) ? data.departmentId : "";
   if (!firstName || !lastName || !departmentId) return null;
+  const birthdate = "birthdate" in data ? parseOptionalDate(data.birthdate) : null;
+  const employedFrom = "employedFrom" in data ? parseOptionalDate(data.employedFrom) : null;
+  const employedTo = "employedTo" in data ? parseOptionalDate(data.employedTo) : null;
+  if (birthdate === undefined || employedFrom === undefined || employedTo === undefined) return null;
   return {
     firstName,
     lastName,
     departmentId,
     email: text(data.email, 320),
     phone: text(data.phone, 40),
+    taxId: text(data.taxId, 64),
+    birthdate,
+    birthplace: text(data.birthplace, 180),
+    employedFrom,
+    employedTo,
+    comments: text(data.comments, 8000),
   };
 }
 
