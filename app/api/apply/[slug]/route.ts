@@ -1,5 +1,6 @@
 import { prisma } from "../../../../lib/prisma";
 import { parseApplicationInput, toPublicJob } from "../../../../lib/recruiting/job-fields";
+import { notifyNewRecruitingApplication } from "../../../../lib/recruiting/notify-new-application";
 
 type Context = { params: Promise<{ slug: string }> };
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -33,21 +34,30 @@ export async function POST(request: Request, context: Context) {
   const format = job.format.toLowerCase() as "classic" | "quiz";
   const input = parseApplicationInput(await request.json().catch(() => null), format, job.cvRequired);
   if (!input) return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
-  const created = await prisma.recruitingApplication.create({
-    data: {
+  const created = await prisma.$transaction(async (tx) => {
+    const row = await tx.recruitingApplication.create({
+      data: {
+        hotelTenantId: job.hotelTenantId,
+        jobId: job.id,
+        locale: input.locale,
+        salutation: input.salutation,
+        firstName: input.firstName,
+        lastName: input.lastName,
+        email: input.email,
+        phone: input.phone,
+        message: input.message,
+        cvFileName: input.cvFileName,
+        keepForOtherJobs: input.keepForOtherJobs,
+        answers: input.answers,
+      },
+    });
+    await notifyNewRecruitingApplication(tx, {
       hotelTenantId: job.hotelTenantId,
-      jobId: job.id,
-      locale: input.locale,
-      salutation: input.salutation,
-      firstName: input.firstName,
-      lastName: input.lastName,
-      email: input.email,
-      phone: input.phone,
-      message: input.message,
-      cvFileName: input.cvFileName,
-      keepForOtherJobs: input.keepForOtherJobs,
-      answers: input.answers,
-    },
+      applicationId: row.id,
+      job,
+      applicant: row,
+    });
+    return row;
   });
   return Response.json({ id: created.id }, { status: 201 });
 }
