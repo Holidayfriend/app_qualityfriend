@@ -1,7 +1,7 @@
 import { prisma } from "../../../../../lib/prisma";
 import { recordAuditLog } from "../../../../../lib/audit/audit-service";
 import { recruitingActor } from "../../../../../lib/recruiting/access";
-import { listingStatuses, localeFieldPatch, parseJobInput, toPublicJob } from "../../../../../lib/recruiting/job-fields";
+import { jobAuditSnapshot, listingStatuses, localeFieldPatch, parseJobInput, toPublicJob } from "../../../../../lib/recruiting/job-fields";
 import type { RecruitingJobStatus } from "../../../../../app/generated/prisma/client";
 
 type Context = { params: Promise<{ id: string }> };
@@ -61,7 +61,15 @@ export async function PUT(request: Request, context: Context) {
       },
       include: { department: departmentSelect },
     });
-    await recordAuditLog(tx, { hotelTenantId: actor.hotel_tenant_id, actorId: actor.id, action: "UPDATE", entityType: "RECRUITING_JOB", entityId: id, changes: { after: { title: input.title, locale } } });
+    const statusChanged = existing.status !== after.status;
+    await recordAuditLog(tx, {
+      hotelTenantId: actor.hotel_tenant_id,
+      actorId: actor.id,
+      action: statusChanged ? "STATUS_CHANGE" : "UPDATE",
+      entityType: "RECRUITING_JOB",
+      entityId: id,
+      changes: { locale, before: jobAuditSnapshot(existing), after: jobAuditSnapshot(after) },
+    });
     return after;
   });
   if (!updated) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
@@ -84,7 +92,14 @@ export async function PATCH(request: Request, context: Context) {
     const before = await tx.recruitingJob.findFirst({ where });
     if (!before) return null;
     const after = await tx.recruitingJob.update({ where: { id }, data: { status }, include: { department: departmentSelect } });
-    await recordAuditLog(tx, { hotelTenantId: actor.hotel_tenant_id, actorId: actor.id, action: "STATUS_CHANGE", entityType: "RECRUITING_JOB", entityId: id, changes: { before: { status: before.status }, after: { status: after.status } } });
+    await recordAuditLog(tx, {
+      hotelTenantId: actor.hotel_tenant_id,
+      actorId: actor.id,
+      action: "STATUS_CHANGE",
+      entityType: "RECRUITING_JOB",
+      entityId: id,
+      changes: { before: jobAuditSnapshot(before), after: jobAuditSnapshot(after) },
+    });
     return after;
   });
   if (!updated) return Response.json({ error: "NOT_FOUND" }, { status: 404 });

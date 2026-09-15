@@ -221,7 +221,9 @@
       "DEPARTMENT": "department",
       "TEAM": "team",
       "HOTEL": "hotel",
-      "USER": "user"
+      "USER": "user",
+      "RECRUITING_JOB": "job listing",
+      "RECRUITING_APPLICATION": "application"
     }
   },
   "settingsPageMessages": {

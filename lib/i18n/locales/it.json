@@ -219,7 +219,9 @@
       "DEPARTMENT": "reparto",
       "TEAM": "team",
       "HOTEL": "hotel",
-      "USER": "utente"
+      "USER": "utente",
+      "RECRUITING_JOB": "annuncio di lavoro",
+      "RECRUITING_APPLICATION": "candidatura"
     }
   },
   "settingsPageMessages": {

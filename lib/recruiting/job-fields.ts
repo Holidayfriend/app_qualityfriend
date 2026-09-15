@@ -251,6 +251,41 @@ export function toPublicJob(job: RecruitingJob, apps = 0, locale?: string, inclu
   };
 }
 
+export function jobAuditSnapshot(job: {
+  title: string;
+  titleDe?: string;
+  titleIt?: string;
+  format: RecruitingJobFormat | string;
+  status: RecruitingJobStatus | string;
+  slug?: string;
+  departmentId?: string;
+  workType?: string;
+  location?: string;
+  cvRequired?: boolean;
+  languages?: unknown;
+  listingImage?: string;
+  logoImage?: string;
+  quiz?: unknown;
+}) {
+  return {
+    title: job.title,
+    en: job.title,
+    de: job.titleDe ?? job.title,
+    it: job.titleIt ?? job.title,
+    format: String(job.format).toLowerCase(),
+    status: String(job.status).toLowerCase(),
+    slug: job.slug ?? "",
+    departmentId: job.departmentId ?? "",
+    workType: job.workType ?? "",
+    location: job.location ?? "",
+    cvRequired: job.cvRequired === true,
+    languages: job.languages ?? [],
+    listingImage: job.listingImage ?? "",
+    logoImage: job.logoImage ?? "",
+    hasQuiz: job.quiz != null,
+  };
+}
+
 export async function uniqueSlug(exists: (slug: string) => Promise<boolean>, title: string) {
   const base = slugify(title);
   if (!(await exists(base))) return base;

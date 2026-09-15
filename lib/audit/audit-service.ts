@@ -20,7 +20,8 @@ function localizedName(value: unknown, locale: Locale) {
   if (!value || typeof value !== "object") return "";
   const data = value as Record<string, unknown>;
   const direct = data[locale];
-  if (typeof direct === "string") return direct;
+  if (typeof direct === "string" && direct.trim()) return direct;
+  if (typeof data.title === "string" && data.title.trim()) return data.title;
   if (typeof data.hotelName === "string") return data.hotelName;
   if (typeof data.email === "string") return data.email;
   const fullName = [data.firstName, data.lastName].filter((part) => typeof part === "string").join(" ");
@@ -30,9 +31,9 @@ function localizedName(value: unknown, locale: Locale) {
 function descriptions(actor: string, entry: AuditEntry) {
   const changes = entry.changes && typeof entry.changes === "object" ? entry.changes as Record<string, unknown> : {};
   const entityNames = {
-    en: { DEPARTMENT: "department", TEAM: "team", HOTEL: "hotel", USER: "user", EXTRA_JOB: "extra job", FLOOR: "floor", ROOM_CATEGORY: "room category", ROOM: "room" },
-    de: { DEPARTMENT: "Abteilung", TEAM: "Team", HOTEL: "Hotel", USER: "Benutzer", EXTRA_JOB: "Zusatzaufgabe", FLOOR: "Etage", ROOM_CATEGORY: "Zimmerkategorie", ROOM: "Zimmer" },
-    it: { DEPARTMENT: "reparto", TEAM: "team", HOTEL: "hotel", USER: "utente", EXTRA_JOB: "lavoro aggiuntivo", FLOOR: "piano", ROOM_CATEGORY: "categoria camera", ROOM: "camera" },
+    en: { DEPARTMENT: "department", TEAM: "team", HOTEL: "hotel", USER: "user", EXTRA_JOB: "extra job", FLOOR: "floor", ROOM_CATEGORY: "room category", ROOM: "room", RECRUITING_JOB: "job listing", RECRUITING_APPLICATION: "application" },
+    de: { DEPARTMENT: "Abteilung", TEAM: "Team", HOTEL: "Hotel", USER: "Benutzer", EXTRA_JOB: "Zusatzaufgabe", FLOOR: "Etage", ROOM_CATEGORY: "Zimmerkategorie", ROOM: "Zimmer", RECRUITING_JOB: "Stellenanzeige", RECRUITING_APPLICATION: "Bewerbung" },
+    it: { DEPARTMENT: "reparto", TEAM: "team", HOTEL: "hotel", USER: "utente", EXTRA_JOB: "lavoro aggiuntivo", FLOOR: "piano", ROOM_CATEGORY: "categoria camera", ROOM: "camera", RECRUITING_JOB: "annuncio di lavoro", RECRUITING_APPLICATION: "candidatura" },
   } as const;
   const result = {} as Record<Locale, string>;
   for (const locale of ["en", "de", "it"] as const) {

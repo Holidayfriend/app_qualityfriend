@@ -684,6 +684,7 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
   const [notesBusy, setNotesBusy] = useState(false);
   const [notesError, setNotesError] = useState("");
   const [notesOk, setNotesOk] = useState("");
+  const [actionOk, setActionOk] = useState("");
   const [authorName, setAuthorName] = useState("Team");
   useEffect(() => {
     fetch("/api/me")
@@ -770,15 +771,29 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
   }
   async function setStage(stage: AppStage) {
     if (!item) return;
+    setActionOk("");
     const today = new Date().toLocaleDateString();
-    const patch = { stage, dateDisplay: stage === "offer" ? fill(t.offerOn, { date: today }) : item.dateDisplay };
+    const patch: Partial<Applicant> = {
+      stage,
+      dateDisplay: stage === "offer" ? fill(t.offerOn, { date: today }) : item.dateDisplay,
+      suggestion: stage === "archived" ? "archived" : item.suggestion === "archived" ? "needsReview" : item.suggestion,
+    };
     update(patch);
-    await fetch(`/api/recruiting/applications/${encodeURIComponent(id)}`, {
+    const res = await fetch(`/api/recruiting/applications/${encodeURIComponent(id)}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ stage, locale }),
-    }).catch(() => undefined);
-    alert(fill(stage === "offer" ? t.offerSent : t.rejectSent, { name: item.name }));
+    }).catch(() => null);
+    const data = res && res.ok ? await res.json().catch(() => null) : null;
+    if (data?.application) {
+      setItem(data.application as Applicant);
+      setApplicants(applicants.map((row) => row.id === id ? data.application as Applicant : row));
+    }
+    const message = stage === "offer" ? t.offerSent
+      : stage === "rejected" ? t.rejectSent
+      : stage === "archived" ? t.archivedApp
+      : t.unarchivedApp;
+    setActionOk(fill(message, { name: item.name }));
   }
   function convert() {
     if (!item) return;
@@ -852,9 +867,14 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
       <div className="card">
         <div className="ch"><div className="ct">{t.actions}</div></div>
         <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div>{stageBadge(t, item.stage)}</div>
           <button type="button" className="btn btn-primary" onClick={() => void setStage("offer")}>{t.sendOffer}</button>
           <button type="button" className="btn btn-ghost" onClick={() => void setStage("rejected")}>{t.reject}</button>
           <button type="button" className="btn btn-ghost" onClick={convert}>{t.makeEmployee}</button>
+          {item.stage === "archived"
+            ? <button type="button" className="btn btn-ghost" onClick={() => void setStage("new")}>{t.unarchive}</button>
+            : <button type="button" className="btn btn-ghost" onClick={() => void setStage("archived")}>{t.archive}</button>}
+          {actionOk ? <p style={{ margin: 0, fontSize: 12.5, color: "var(--green)", lineHeight: 1.4 }}>{actionOk}</p> : null}
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 import { prisma } from "../../../../lib/prisma";
 import { recordAuditLog } from "../../../../lib/audit/audit-service";
 import { recruitingActor } from "../../../../lib/recruiting/access";
-import { parseJobInput, toPublicJob, uniqueSlug } from "../../../../lib/recruiting/job-fields";
+import { jobAuditSnapshot, parseJobInput, toPublicJob, uniqueSlug } from "../../../../lib/recruiting/job-fields";
 
 const departmentSelect = { select: { nameEn: true, nameDe: true, nameIt: true } } as const;
 
@@ -58,7 +58,14 @@ export async function POST(request: Request) {
         quiz: input.quiz,
       },
     });
-    await recordAuditLog(tx, { hotelTenantId: actor.hotel_tenant_id, actorId: actor.id, action: "CREATE", entityType: "RECRUITING_JOB", entityId: created.id, changes: { after: { title: created.title, format: created.format, slug: created.slug } } });
+    await recordAuditLog(tx, {
+      hotelTenantId: actor.hotel_tenant_id,
+      actorId: actor.id,
+      action: "CREATE",
+      entityType: "RECRUITING_JOB",
+      entityId: created.id,
+      changes: { after: jobAuditSnapshot(created) },
+    });
     return created;
   });
   return Response.json({ job: toPublicJob(job, 0, undefined, true, department) }, { status: 201 });
