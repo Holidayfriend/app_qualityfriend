@@ -14,6 +14,7 @@ export type Applicant = {
   email: string; phone: string; bestTime: string; date: string; source: string; cv: string | null; message: string;
   competencies: { social: number; professional: number; methodical: number; personal: number };
   tags: string[]; comments: Array<{ text: string; author: string; date: string }>;
+  answers?: Array<{ pageName: string; prompt: string; value: string; type: string }>;
 };
 export type Employee = {
   id: string; initials: string; name: string; dept: DeptId; status: EmpStatus; reason: "" | "pension" | "resignation";

@@ -11,7 +11,7 @@ import { deptIds, langFlags, type Applicant, type AppStage, type EmailCat, type 
 import { useRecruiting } from "./recruiting-provider";
 import { createDefaultQuiz, DEFAULT_FOOTER_URL, QuizCanvasCard, QuizToolsCard, type QuizFooter, type QuizPage } from "./quiz-builder";
 import { BrandLoader } from "../ui/brand-loader";
-import { htmlToPlain, RichTextEditor, sanitizeJobHtml } from "./rich-text-editor";
+import { htmlToPlain, RichTextEditor, sanitizeJobHtml, type RichTextEditorHandle } from "./rich-text-editor";
 import type { PublicJob } from "../../lib/recruiting/job-fields";
 
 export type RecruitingView =
@@ -52,9 +52,9 @@ export function RecruitingUI({ view, id = "" }: { view: RecruitingView; id?: str
       {view === "job-create" ? <JobCreate t={t} locale={locale} /> : null}
       {view === "job-edit" ? <JobEdit t={t} locale={locale} id={id} /> : null}
       {view === "job-quiz" ? <JobQuiz t={t} locale={locale} /> : null}
-      {view === "applications" ? <Applications t={t} /> : null}
-      {view === "application-create" ? <ApplicationCreate t={t} /> : null}
-      {view === "application-detail" ? <ApplicationDetail t={t} id={id} /> : null}
+      {view === "applications" ? <Applications t={t} locale={locale} /> : null}
+      {view === "application-create" ? <ApplicationCreate t={t} locale={locale} /> : null}
+      {view === "application-detail" ? <ApplicationDetail t={t} locale={locale} id={id} /> : null}
       {view === "employees" ? <Employees t={t} /> : null}
       {view === "employee-create" ? <EmployeeCreate t={t} /> : null}
       {view === "employee-detail" ? <EmployeeDetail t={t} id={id} /> : null}
@@ -222,33 +222,55 @@ function ImageField({ t, label, hint, value, onChange, invalid = false, kind = "
   );
 }
 
+function contentLocaleForJob(uiLocale: Locale, langs: Locale[] | undefined): Locale {
+  if (langs?.includes(uiLocale)) return uiLocale;
+  if (langs?.length) return langs[0];
+  return uiLocale;
+}
+
 function JobEdit({ t, locale, id }: { t: T; locale: Locale; id: string }) {
   const [job, setJob] = useState<PublicJob | null>(null);
+  const [editLocale, setEditLocale] = useState<Locale>(locale);
   const [missing, setMissing] = useState(false);
   useEffect(() => {
     let ignore = false;
     setJob(null);
     setMissing(false);
-    fetch(`/api/recruiting/jobs/${encodeURIComponent(id)}?locale=${locale}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (ignore) return;
-        if (data?.job) setJob(data.job as PublicJob);
-        else setMissing(true);
-      })
-      .catch(() => { if (!ignore) setMissing(true); });
+    void (async () => {
+      const firstRes = await fetch(`/api/recruiting/jobs/${encodeURIComponent(id)}?locale=${locale}`);
+      const first = firstRes.ok ? await firstRes.json().catch(() => null) : null;
+      if (ignore) return;
+      if (!first?.job) {
+        setMissing(true);
+        return;
+      }
+      const langs = Array.isArray(first.job.langs) ? first.job.langs as Locale[] : [];
+      const wanted = contentLocaleForJob(locale, langs);
+      setEditLocale(wanted);
+      if (wanted === locale) {
+        setJob(first.job as PublicJob);
+        return;
+      }
+      const secondRes = await fetch(`/api/recruiting/jobs/${encodeURIComponent(id)}?locale=${wanted}`);
+      const second = secondRes.ok ? await secondRes.json().catch(() => null) : null;
+      if (ignore) return;
+      if (second?.job) setJob(second.job as PublicJob);
+      else setMissing(true);
+    })().catch(() => { if (!ignore) setMissing(true); });
     return () => { ignore = true; };
   }, [id, locale]);
   if (missing) return <p className="job-apply-missing">{t.saveFailed}</p>;
   if (!job) return <BrandLoader label={t.loading} />;
-  if (job.format === "quiz") return <JobQuiz key={`${job.id}-${locale}`} t={t} locale={locale} job={job} />;
-  return <JobCreate key={`${job.id}-${locale}`} t={t} locale={locale} job={job} />;
+  if (job.format === "quiz") return <JobQuiz key={`${job.id}-${editLocale}`} t={t} locale={editLocale} job={job} />;
+  return <JobCreate key={`${job.id}-${editLocale}`} t={t} locale={editLocale} job={job} />;
 }
 
 function JobCreate({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }) {
   const router = useRouter();
   const { jobs, setJobs } = useRecruiting();
   const departments = useHotelDepartments(locale);
+  const descriptionRef = useRef<RichTextEditorHandle>(null);
+  const autoMessageRef = useRef<RichTextEditorHandle>(null);
   const [title, setTitle] = useState(job?.title ?? "");
   const [dept, setDept] = useState(job?.departmentId ?? "");
   const [type, setType] = useState(job?.type ?? "fullOrPart");
@@ -287,16 +309,24 @@ function JobCreate({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }
     if (!htmlToPlain(description)) setDescription(defaultDescription());
   }
   async function save(status: JobStatus) {
+    const nextDescription = sanitizeJobHtml(descriptionRef.current?.getHtml() ?? description);
+    const nextAutoMessage = sanitizeJobHtml(autoMessageRef.current?.getHtml() ?? autoMessage);
+    setDescription(nextDescription);
+    setAutoMessage(nextAutoMessage);
     setShowErrors(true);
     setError("");
-    if (Object.values(missing).some(Boolean)) return;
+    const nextMissing = {
+      ...missing,
+      description: !htmlToPlain(nextDescription),
+    };
+    if (Object.values(nextMissing).some(Boolean)) return;
     setBusy(true);
     try {
       const langsOn = (["de", "en", "it"] as Locale[]).filter((lang) => langs[lang]);
       const payload = {
         format: job?.format ?? "classic", status, title: title.trim(), departmentId: dept, workType: type,
-        startFrom: start.trim() || t.immediately, notes, description: sanitizeJobHtml(description),
-        autoMessage: sanitizeJobHtml(autoMessage), location: location.trim(), cvRequired, languages: langsOn,
+        startFrom: start.trim() || t.immediately, notes, description: nextDescription,
+        autoMessage: nextAutoMessage, location: location.trim(), cvRequired, languages: langsOn,
         listingImage: image, logoImage: logo, locale,
       };
       const res = await fetch(job ? `/api/recruiting/jobs/${job.id}` : "/api/recruiting/jobs", {
@@ -354,13 +384,13 @@ function JobCreate({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }
             <label><span className="field-lbl">{t.aiNotes}</span><input className="field-input" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder={t.aiNotesPlaceholder} /></label>
             <div>
               <span className="field-lbl">{t.jobDescription}</span>
-              <RichTextEditor value={description} onChange={setDescription} placeholder={t.jobDescriptionPlaceholder} locale={locale} invalid={invalid("description")} />
+              <RichTextEditor ref={descriptionRef} value={description} onChange={setDescription} placeholder={t.jobDescriptionPlaceholder} locale={locale} invalid={invalid("description")} />
             </div>
             <label><span className="field-lbl">{t.location}</span><input className={`field-input${invalid("location") ? " is-invalid" : ""}`} value={location} onChange={(event) => setLocation(event.target.value)} placeholder={t.locationPlaceholder} /></label>
             <div>
               <span className="field-lbl">{t.autoMessage}</span>
               <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 400, color: "var(--text3)" }}>{t.autoMessageHint}</p>
-              <RichTextEditor value={autoMessage} onChange={setAutoMessage} placeholder={t.autoMessagePlaceholder} locale={locale} />
+              <RichTextEditor ref={autoMessageRef} value={autoMessage} onChange={setAutoMessage} placeholder={t.autoMessagePlaceholder} locale={locale} />
             </div>
             <label className="quiz-check">
               <input type="checkbox" checked={cvRequired} onChange={(event) => setCvRequired(event.target.checked)} />
@@ -493,11 +523,22 @@ function JobQuiz({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }) 
   </>;
 }
 
-function Applications({ t }: { t: T }) {
-  const { applicants } = useRecruiting();
+function Applications({ t, locale }: { t: T; locale: Locale }) {
+  const { applicants, setApplicants } = useRecruiting();
   const [filter, setFilter] = useState<"all" | AppStage>("all");
   const [search, setSearch] = useState("");
-  const rows = applicants.filter((item) => (filter === "all" || item.stage === filter) && `${item.name} ${t.depts[item.dept]}`.toLowerCase().includes(search.toLowerCase()));
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let ignore = false;
+    setLoading(true);
+    fetch(`/api/recruiting/applications?locale=${locale}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => { if (!ignore && Array.isArray(data?.applications)) setApplicants(data.applications); })
+      .catch(() => undefined)
+      .finally(() => { if (!ignore) setLoading(false); });
+    return () => { ignore = true; };
+  }, [locale, setApplicants]);
+  const rows = applicants.filter((item) => (filter === "all" || item.stage === filter) && `${item.name} ${item.role} ${t.depts[item.dept]}`.toLowerCase().includes(search.toLowerCase()));
   const filters: Array<["all" | AppStage, string]> = [["all", t.all], ["new", t.stageNew], ["invited", t.stageInvited], ["offer", t.stageOffer], ["hired", t.stageHired], ["rejected", t.stageRejected], ["archived", t.stageArchived]];
   return <>
     <Back href="/recruiting" label={t.backRecruiting} />
@@ -520,73 +561,188 @@ function Applications({ t }: { t: T }) {
         </tr>)}</tbody>
       </table>
     </div>
+    {loading ? <BrandLoader label={t.loading} overlay /> : null}
   </>;
 }
 
-function ApplicationCreate({ t }: { t: T }) {
+function ApplicationCreate({ t, locale }: { t: T; locale: Locale }) {
   const router = useRouter();
-  const { applicants, setApplicants } = useRecruiting();
+  const { applicants, setApplicants, jobs, setJobs } = useRecruiting();
   const [first, setFirst] = useState("");
   const [last, setLast] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [dept, setDept] = useState<DeptId>("reception");
+  const [jobId, setJobId] = useState("");
   const [message, setMessage] = useState("");
   const [cv, setCv] = useState("");
-  function save(event: FormEvent) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [showErrors, setShowErrors] = useState(false);
+  const [loadingJobs, setLoadingJobs] = useState(true);
+  const cvInputRef = useRef<HTMLInputElement>(null);
+  function takeCv(file?: File | null) {
+    if (!file) return;
+    const ok = /\.(pdf|doc|docx)$/i.test(file.name) || ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"].includes(file.type);
+    if (!ok) return;
+    setCv(file.name);
+  }
+  useEffect(() => {
+    let ignore = false;
+    setLoadingJobs(true);
+    fetch(`/api/recruiting/jobs?locale=${locale}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => { if (!ignore && Array.isArray(data?.jobs)) setJobs(data.jobs); })
+      .catch(() => undefined)
+      .finally(() => { if (!ignore) setLoadingJobs(false); });
+    return () => { ignore = true; };
+  }, [locale, setJobs]);
+  const openJobs = jobs.filter((job) => job.status === "active" || job.status === "draft");
+  const missing = { first: !first.trim(), last: !last.trim(), jobId: !jobId };
+  async function save(event: FormEvent) {
     event.preventDefault();
-    if (!first.trim() || !last.trim()) { alert(t.requiredName); return; }
-    const name = `${first.trim()} ${last.trim()}`;
-    const id = `app_${Date.now()}`;
-    const next: Applicant = { id, initials: `${first[0] ?? ""}${last[0] ?? ""}`.toUpperCase(), name, role: t.depts[dept], dept, stage: "new", dateDisplay: null, score: "–", suggestion: "manualAdded", email: email.trim() || "–", phone: phone.trim() || "–", bestTime: "–", date: new Date().toLocaleDateString(), source: t.manualAdded, cv: cv || null, message: message.trim(), competencies: { social: 0, professional: 0, methodical: 0, personal: 0 }, tags: [], comments: [] };
-    setApplicants([next, ...applicants]);
-    alert(fill(t.addedApp, { name }));
-    router.push("/recruiting/applications");
+    setShowErrors(true);
+    setError("");
+    if (Object.values(missing).some(Boolean)) return;
+    setBusy(true);
+    try {
+      const res = await fetch("/api/recruiting/applications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: first.trim(), lastName: last.trim(), email: email.trim(), phone: phone.trim(),
+          jobId, message: message.trim(), cvFileName: cv, locale,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.application) {
+        setError(t.saveFailed);
+        setBusy(false);
+        return;
+      }
+      setApplicants([data.application as Applicant, ...applicants.filter((item) => item.id !== data.application.id)]);
+      router.push(`/recruiting/applications/${data.application.id}`);
+    } catch {
+      setError(t.saveFailed);
+      setBusy(false);
+    }
   }
   return <>
     <Back href="/recruiting/applications" label={t.backApplications} />
-    <form className="card" style={{ maxWidth: 460 }} onSubmit={save}>
+    <form className="card" style={{ maxWidth: 460 }} onSubmit={(event) => void save(event)} noValidate>
       <div className="ch"><div className="ct">{t.applicationCreateTitle}</div></div>
       <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div className="field-row">
-          <label><span className="field-lbl">{t.firstName}</span><input className="field-input" value={first} onChange={(event) => setFirst(event.target.value)} placeholder={t.firstNamePh} /></label>
-          <label><span className="field-lbl">{t.lastName}</span><input className="field-input" value={last} onChange={(event) => setLast(event.target.value)} placeholder={t.lastNamePh} /></label>
+          <label><span className="field-lbl">{t.firstName}</span><input className={`field-input${showErrors && missing.first ? " is-invalid" : ""}`} value={first} onChange={(event) => setFirst(event.target.value)} placeholder={t.firstNamePh} /></label>
+          <label><span className="field-lbl">{t.lastName}</span><input className={`field-input${showErrors && missing.last ? " is-invalid" : ""}`} value={last} onChange={(event) => setLast(event.target.value)} placeholder={t.lastNamePh} /></label>
         </div>
         <label><span className="field-lbl">{t.email}</span><input className="field-input" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" /></label>
         <label><span className="field-lbl">{t.phone}</span><input className="field-input" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+39 ..." /></label>
-        <label><span className="field-lbl">{t.department}</span><select className="field-select" value={dept} onChange={(event) => setDept(event.target.value as DeptId)}>{deptIds.map((item) => <option key={item} value={item}>{t.depts[item]}</option>)}</select></label>
+        <label><span className="field-lbl">{t.selectJob}</span>
+          <select className={`field-select${showErrors && missing.jobId ? " is-invalid" : ""}`} value={jobId} onChange={(event) => setJobId(event.target.value)}>
+            <option value=""></option>
+            {openJobs.map((job) => <option key={job.id} value={job.id}>{job.title}</option>)}
+          </select>
+        </label>
         <label><span className="field-lbl">{t.message}</span><textarea className="field-input" style={{ minHeight: 80, resize: "vertical" }} value={message} onChange={(event) => setMessage(event.target.value)} placeholder={t.optional} /></label>
         <div>
-          <span className="field-lbl">{t.cv}</span>
-          <button type="button" className="dropzone" style={{ marginBottom: 0 }} onClick={() => { const name = prompt(t.cv, "Lebenslauf.pdf"); if (name) setCv(name); }}>{t.uploadCv}<br /><span style={{ fontSize: 11 }}>{t.dropOrClick}</span></button>
+          <span className="field-lbl">{t.cv} ({t.optional})</span>
+          <input
+            ref={cvInputRef}
+            type="file"
+            accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            hidden
+            onChange={(event) => { takeCv(event.target.files?.[0]); event.target.value = ""; }}
+          />
+          <button
+            type="button"
+            className="dropzone"
+            style={{ marginBottom: 0 }}
+            onClick={() => cvInputRef.current?.click()}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => { event.preventDefault(); takeCv(event.dataTransfer.files[0]); }}
+          >
+            {t.uploadCv}<br /><span style={{ fontSize: 11 }}>{t.clickOrDropFile}</span>
+          </button>
           {cv ? <div className="doc-row"><div className="doc-ic">📄</div><div className="doc-name">{cv}</div><button type="button" className="icon-btn danger" onClick={() => setCv("")}>🗑️</button></div> : null}
         </div>
-        <button type="submit" className="btn btn-primary">{t.save}</button>
+        {error ? <p className="job-apply-error">{error}</p> : null}
+        <button type="submit" className="btn btn-primary" disabled={busy}>{t.save}</button>
       </div>
     </form>
+    {busy || loadingJobs ? <BrandLoader label={t.loading} overlay /> : null}
   </>;
 }
 
-function ApplicationDetail({ t, id }: { t: T; id: string }) {
+function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string }) {
   const router = useRouter();
   const { applicants, setApplicants, employees, setEmployees } = useRecruiting();
-  const item = applicants.find((row) => row.id === id);
+  const [item, setItem] = useState<Applicant | null>(null);
+  const [missing, setMissing] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [comment, setComment] = useState("");
   const [tag, setTag] = useState("");
-  if (!item) return <><Back href="/recruiting/applications" label={t.backApplications} /><p>{t.loading}</p></>;
-  function update(patch: Partial<Applicant>) { setApplicants(applicants.map((row) => row.id === id ? { ...row, ...patch } : row)); }
-  function setStage(stage: AppStage) {
+  useEffect(() => {
+    let ignore = false;
+    setLoading(true);
+    setMissing(false);
+    const cached = applicants.find((row) => row.id === id);
+    if (cached) {
+      setItem(cached);
+      setLoading(false);
+      return;
+    }
+    if (!/^[0-9a-f-]{36}$/i.test(id)) {
+      setMissing(true);
+      setLoading(false);
+      return;
+    }
+    fetch(`/api/recruiting/applications/${encodeURIComponent(id)}?locale=${locale}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (ignore) return;
+        if (data?.application) {
+          const next = data.application as Applicant;
+          setItem(next);
+          setApplicants([next, ...applicants.filter((row) => row.id !== next.id)]);
+        } else setMissing(true);
+      })
+      .catch(() => { if (!ignore) setMissing(true); })
+      .finally(() => { if (!ignore) setLoading(false); });
+    return () => { ignore = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load once per id/locale
+  }, [id, locale]);
+  function update(patch: Partial<Applicant>) {
+    if (!item) return;
+    const next = { ...item, ...patch };
+    setItem(next);
+    setApplicants(applicants.some((row) => row.id === id)
+      ? applicants.map((row) => row.id === id ? next : row)
+      : [next, ...applicants]);
+  }
+  async function setStage(stage: AppStage) {
+    if (!item) return;
     const today = new Date().toLocaleDateString();
-    update({ stage, dateDisplay: stage === "offer" ? fill(t.offerOn, { date: today }) : item!.dateDisplay });
-    alert(fill(stage === "offer" ? t.offerSent : t.rejectSent, { name: item!.name }));
+    const patch = { stage, dateDisplay: stage === "offer" ? fill(t.offerOn, { date: today }) : item.dateDisplay };
+    update(patch);
+    if (/^[0-9a-f-]{36}$/i.test(id)) {
+      await fetch(`/api/recruiting/applications/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stage, locale }),
+      }).catch(() => undefined);
+    }
+    alert(fill(stage === "offer" ? t.offerSent : t.rejectSent, { name: item.name }));
   }
   function convert() {
-    if (employees.some((row) => row.id === id)) { alert(fill(t.alreadyEmployee, { name: item!.name })); router.push(`/recruiting/employees/${id}`); return; }
-    const next: Employee = { id, initials: item!.initials, name: item!.name, dept: item!.dept, status: "active", reason: "", email: item!.email, phone: item!.phone, taxId: t.stillNeeded, birthdate: "", birthplace: t.stillNeeded, employment: new Date().toLocaleDateString(), comments: fill(t.fromApplication, { date: item!.date }), tags: [...item!.tags], certificates: [] };
+    if (!item) return;
+    if (employees.some((row) => row.id === id)) { alert(fill(t.alreadyEmployee, { name: item.name })); router.push(`/recruiting/employees/${id}`); return; }
+    const next: Employee = { id, initials: item.initials, name: item.name, dept: item.dept, status: "active", reason: "", email: item.email, phone: item.phone, taxId: t.stillNeeded, birthdate: "", birthplace: t.stillNeeded, employment: new Date().toLocaleDateString(), comments: fill(t.fromApplication, { date: item.date }), tags: [...item.tags], certificates: [] };
     setEmployees([next, ...employees]);
-    alert(fill(t.converted, { name: item!.name }));
+    alert(fill(t.converted, { name: item.name }));
     router.push(`/recruiting/employees/${id}`);
   }
+  if (loading) return <BrandLoader label={t.loading} />;
+  if (missing || !item) return <><Back href="/recruiting/applications" label={t.backApplications} /><p className="job-apply-missing">{t.applicationMissing}</p></>;
   const bars: Array<[string, number]> = [[t.social, item.competencies.social], [t.professional, item.competencies.professional], [t.methodical, item.competencies.methodical], [t.personal, item.competencies.personal]];
   return <>
     <Back href="/recruiting/applications" label={t.backApplications} />
@@ -609,8 +765,22 @@ function ApplicationDetail({ t, id }: { t: T; id: string }) {
             <Field label={t.source} value={item.source} />
             <div><div className="field-lbl" style={{ marginBottom: 2 }}>{t.cv}</div><div style={{ fontSize: 13 }}>{item.cv ? fill(t.viewCv, { file: item.cv }) : t.noCv}</div></div>
           </div>
-          <div className="cb" style={{ borderTop: "1px solid var(--border)" }}><div className="field-lbl" style={{ marginBottom: 6 }}>{t.message}</div><div style={{ fontSize: 13, lineHeight: 1.6 }}>{item.message}</div></div>
+          <div className="cb" style={{ borderTop: "1px solid var(--border)" }}><div className="field-lbl" style={{ marginBottom: 6 }}>{t.message}</div><div style={{ fontSize: 13, lineHeight: 1.6 }}>{item.message || "–"}</div></div>
         </div>
+        {item.source.toLowerCase().includes("quiz") || (item.answers && item.answers.length) ? (
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div className="ch"><div className="ct">{t.quizAnswers}</div><div style={{ fontSize: 11.5, color: "var(--text2)", fontWeight: 400 }}>{t.quizAnswersHint}</div></div>
+            <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {item.answers?.length ? item.answers.map((answer, index) => (
+                <div key={`${answer.prompt}-${index}`} style={{ background: "var(--bg)", borderRadius: 8, padding: "12px 14px" }}>
+                  {answer.pageName ? <div style={{ fontSize: 11, color: "var(--text3)", fontWeight: 600, marginBottom: 4 }}>{answer.pageName}</div> : null}
+                  <div className="field-lbl" style={{ marginBottom: 4 }}>{answer.prompt}</div>
+                  <div style={{ fontSize: 13.5, lineHeight: 1.5, fontWeight: 600 }}>{answer.value}</div>
+                </div>
+              )) : <div style={{ fontSize: 13, color: "var(--text3)" }}>{t.quizNoAnswers}</div>}
+            </div>
+          </div>
+        ) : null}
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="ch"><div className="ct">{t.competencies}</div><div style={{ fontSize: 11.5, color: "var(--text2)", fontWeight: 400 }}>{t.competenciesHint}</div></div>
           <div className="cb" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
@@ -633,8 +803,8 @@ function ApplicationDetail({ t, id }: { t: T; id: string }) {
       <div className="card">
         <div className="ch"><div className="ct">{t.actions}</div></div>
         <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <button type="button" className="btn btn-primary" onClick={() => setStage("offer")}>{t.sendOffer}</button>
-          <button type="button" className="btn btn-ghost" onClick={() => setStage("rejected")}>{t.reject}</button>
+          <button type="button" className="btn btn-primary" onClick={() => void setStage("offer")}>{t.sendOffer}</button>
+          <button type="button" className="btn btn-ghost" onClick={() => void setStage("rejected")}>{t.reject}</button>
           <button type="button" className="btn btn-ghost" onClick={convert}>{t.makeEmployee}</button>
         </div>
       </div>

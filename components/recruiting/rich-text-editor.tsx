@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import type { Locale } from "../../lib/i18n/dictionaries";
 
 type SummernoteApi = {
@@ -86,25 +86,35 @@ export function sanitizeJobHtml(html: string) {
     .replace(/\s(?:href|src)\s*=\s*(['"])\s*javascript:[^'"]*\1/gi, "");
 }
 
-export function RichTextEditor({
-  value,
-  onChange,
-  placeholder,
-  locale,
-  invalid = false,
-}: {
+export type RichTextEditorHandle = { getHtml: () => string };
+
+export const RichTextEditor = forwardRef<RichTextEditorHandle, {
   value: string;
   onChange: (html: string) => void;
   placeholder: string;
   locale: Locale;
   invalid?: boolean;
-}) {
+}>(function RichTextEditor({ value, onChange, placeholder, locale, invalid = false }, ref) {
   const holderRef = useRef<HTMLDivElement>(null);
   const targetRef = useRef<HTMLElement | null>(null);
   const valueRef = useRef(value);
   const onChangeRef = useRef(onChange);
   valueRef.current = value;
   onChangeRef.current = onChange;
+
+  useImperativeHandle(ref, () => ({
+    getHtml: () => {
+      const target = targetRef.current;
+      const $ = jquery();
+      if (target && $) {
+        try {
+          const html = $(target).summernote("code");
+          if (typeof html === "string") return html;
+        } catch { /* editor not ready */ }
+      }
+      return valueRef.current;
+    },
+  }));
 
   useEffect(() => {
     const holder = holderRef.current;
@@ -128,6 +138,12 @@ export function RichTextEditor({
         lang: locale === "de" ? "de-DE" : locale === "it" ? "it-IT" : "en-US",
         callbacks: {
           onChange: (contents: string) => onChangeRef.current(contents),
+          onBlur: () => {
+            try {
+              const html = $(editor).summernote("code");
+              if (typeof html === "string") onChangeRef.current(html);
+            } catch { /* editor not ready */ }
+          },
         },
       });
       $(editor).summernote("code", valueRef.current);
@@ -154,4 +170,4 @@ export function RichTextEditor({
   }, [value]);
 
   return <div ref={holderRef} className={`job-summernote${invalid ? " is-invalid" : ""}`} />;
-}
+});
