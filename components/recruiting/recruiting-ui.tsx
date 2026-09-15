@@ -696,7 +696,6 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
   const [notesBusy, setNotesBusy] = useState(false);
   const [notesError, setNotesError] = useState("");
   const [notesOk, setNotesOk] = useState("");
-  const [actionOk, setActionOk] = useState("");
   const [actionBusy, setActionBusy] = useState(false);
   const [authorName, setAuthorName] = useState("Team");
   useEffect(() => {
@@ -783,8 +782,8 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
     await persistNotes(item.tags, nextComments);
   }
   async function setStage(stage: AppStage) {
-    if (!item) return;
-    setActionOk("");
+    if (!item || actionBusy) return;
+    setActionBusy(true);
     const today = new Date().toLocaleDateString();
     const patch: Partial<Applicant> = {
       stage,
@@ -798,20 +797,31 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
       body: JSON.stringify({ stage, locale }),
     }).catch(() => null);
     const data = res && res.ok ? await res.json().catch(() => null) : null;
-    if (data?.application) {
-      setItem(data.application as Applicant);
-      setApplicants(applicants.map((row) => row.id === id ? data.application as Applicant : row));
+    if (!data?.application) {
+      showToast({ message: t.stageUpdateFailed, tone: "error" });
+      setActionBusy(false);
+      return;
     }
-    const message = stage === "offer" ? t.offerSent
-      : stage === "rejected" ? t.rejectSent
-      : stage === "archived" ? t.archivedApp
-      : t.unarchivedApp;
-    setActionOk(fill(message, { name: item.name }));
+    setItem(data.application as Applicant);
+    setApplicants(applicants.map((row) => row.id === id ? data.application as Applicant : row));
+    if (stage === "offer" || stage === "rejected") {
+      const autoKey = stage === "offer" ? "offer" : "reject";
+      const emailRes = await fetch("/api/recruiting/emails").catch(() => null);
+      const emailData = emailRes && emailRes.ok ? await emailRes.json().catch(() => null) : null;
+      const autoOn = Boolean(emailData?.auto?.[autoKey]);
+      const message = stage === "offer"
+        ? fill(autoOn ? t.offerSent : t.offerStatusUpdated, { name: item.name })
+        : fill(autoOn ? t.rejectSent : t.rejectStatusUpdated, { name: item.name });
+      showToast({ message, tone: "success" });
+    } else {
+      const message = stage === "archived" ? t.archivedApp : t.unarchivedApp;
+      showToast({ message: fill(message, { name: item.name }), tone: "success" });
+    }
+    setActionBusy(false);
   }
   async function convert() {
     if (!item || actionBusy) return;
     setActionBusy(true);
-    setActionOk("");
     try {
       const res = await fetch("/api/recruiting/employees", {
         method: "POST",
@@ -904,17 +914,16 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
         <div className="ch"><div className="ct">{t.actions}</div></div>
         <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <div>{stageBadge(t, item.stage)}</div>
-          <button type="button" className="btn btn-primary" onClick={() => void setStage("offer")}>{t.sendOffer}</button>
-          <button type="button" className="btn btn-ghost" onClick={() => void setStage("rejected")}>{t.reject}</button>
+          <button type="button" className="btn btn-primary" disabled={actionBusy} onClick={() => void setStage("offer")}>{t.sendOffer}</button>
+          <button type="button" className="btn btn-ghost" disabled={actionBusy} onClick={() => void setStage("rejected")}>{t.reject}</button>
           <button type="button" className="btn btn-ghost" disabled={actionBusy} onClick={() => void convert()}>{t.makeEmployee}</button>
           {item.stage === "archived"
-            ? <button type="button" className="btn btn-ghost" onClick={() => void setStage("new")}>{t.unarchive}</button>
-            : <button type="button" className="btn btn-ghost" onClick={() => void setStage("archived")}>{t.archive}</button>}
-          {actionOk ? <p style={{ margin: 0, fontSize: 12.5, color: "var(--green)", lineHeight: 1.4 }}>{actionOk}</p> : null}
+            ? <button type="button" className="btn btn-ghost" disabled={actionBusy} onClick={() => void setStage("new")}>{t.unarchive}</button>
+            : <button type="button" className="btn btn-ghost" disabled={actionBusy} onClick={() => void setStage("archived")}>{t.archive}</button>}
         </div>
       </div>
     </div>
-    {notesBusy ? <BrandLoader label={t.loading} overlay /> : null}
+    {notesBusy || actionBusy ? <BrandLoader label={t.loading} overlay /> : null}
   </>;
 }
 
