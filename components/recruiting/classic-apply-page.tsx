@@ -22,7 +22,7 @@ export type ClassicApplyJob = {
   logo: string;
 };
 
-export function ClassicApplyPage({ t, job, slug, locale, langs }: { t: T; job: ClassicApplyJob; slug?: string; locale?: string; langs?: Locale[] }) {
+export function ClassicApplyPage({ t, job, slug, locale, langs, onLocaleChange }: { t: T; job: ClassicApplyJob; slug?: string; locale?: string; langs?: Locale[]; onLocaleChange?: (locale: Locale) => void }) {
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -75,7 +75,7 @@ export function ClassicApplyPage({ t, job, slug, locale, langs }: { t: T; job: C
     <div className="job-apply">
       <header className="job-apply-bar">
         {job.logo ? <img className="job-apply-logo" src={job.logo} alt="" /> : <span className="job-apply-logo-empty">QF</span>}
-        <LanguageSwitcher locales={langs} />
+        {langs && langs.length > 1 ? <LanguageSwitcher locales={langs} locale={locale as Locale | undefined} onLocaleChange={onLocaleChange} /> : null}
       </header>
       <img className="job-apply-photo" src={job.image || "/recruiting/image-placeholder.png"} alt="" />
       <main className="job-apply-main">

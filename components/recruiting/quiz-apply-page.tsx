@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from "react";
 import type { RecruitingMessages } from "../../lib/i18n/recruiting-messages";
 import type { Locale } from "../../lib/i18n/dictionaries";
+import { LanguageSwitcher } from "../i18n/language-switcher";
 import {
   DEFAULT_FOOTER_URL, QUIZ_IMAGE_PLACEHOLDER, QUIZ_LOGO, QUIZ_VOICE_AVATAR, QUIZ_VOICE_SAMPLE,
   type QuizChoice, type QuizElement, type QuizFooter, type QuizPage,
@@ -51,7 +52,7 @@ function ctaStyle(element: QuizElement): CSSProperties {
 }
 
 export function QuizApplyPage({
-  t, slug, locale, pages, footer, cvRequired = false,
+  t, slug, locale, pages, footer, cvRequired = false, langs, onLocaleChange,
 }: {
   t: T;
   slug: string;
@@ -60,6 +61,7 @@ export function QuizApplyPage({
   footer: QuizFooter;
   cvRequired?: boolean;
   langs?: Locale[];
+  onLocaleChange?: (locale: Locale) => void;
 }) {
   const startId = pages[0]?.id ?? "";
   const [pageId, setPageId] = useState(startId);
@@ -271,6 +273,10 @@ export function QuizApplyPage({
 
   return (
     <div className="job-apply job-apply-quiz qf-dashboard">
+      <header className="job-apply-bar">
+        <span />
+        {langs && langs.length > 1 ? <LanguageSwitcher locales={langs} locale={locale as Locale} onLocaleChange={onLocaleChange} /> : null}
+      </header>
       <main className="job-apply-quiz-main">
         <div className="quiz-phone quiz-funnel">
           <div className="quiz-logo" style={{ justifyContent: page.logo?.align === "left" ? "flex-start" : page.logo?.align === "right" ? "flex-end" : "center" }}>

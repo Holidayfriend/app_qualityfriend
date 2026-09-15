@@ -510,7 +510,7 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 
 .job-apply { min-height:100vh; background:#f7f6f3; color:#1c2233; font-family:var(--qf-font,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif) }
 .job-apply-bar { display:flex; align-items:center; justify-content:space-between; padding:12px 20px; background:#fff; border-bottom:1px solid #e8e6e1 }
-.job-apply-logo { height:36px }
+.job-apply-logo { width:32px; height:32px; object-fit:contain; display:block; flex-shrink:0 }
 .job-apply-logo-empty { font-weight:800; font-size:14px }
 .job-apply-photo { display:block; width:100%; height:220px; object-fit:cover }
 .job-apply-main { max-width:640px; margin:0 auto; padding:20px 16px 48px }

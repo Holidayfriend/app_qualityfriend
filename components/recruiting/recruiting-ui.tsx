@@ -12,13 +12,19 @@ import { useRecruiting } from "./recruiting-provider";
 import { createDefaultQuiz, DEFAULT_FOOTER_URL, QuizCanvasCard, QuizToolsCard, type QuizFooter, type QuizPage } from "./quiz-builder";
 import { BrandLoader } from "../ui/brand-loader";
 import { htmlToPlain, RichTextEditor, sanitizeJobHtml } from "./rich-text-editor";
+import type { PublicJob } from "../../lib/recruiting/job-fields";
 
 export type RecruitingView =
-  | "hub" | "jobs" | "job-create" | "job-quiz" | "applications" | "application-create" | "application-detail"
+  | "hub" | "jobs" | "job-create" | "job-edit" | "job-quiz" | "applications" | "application-create" | "application-detail"
   | "employees" | "employee-create" | "employee-detail" | "emails";
 
 type T = RecruitingMessages;
 type HotelDept = { id: string; name: string };
+
+function ApplyPageLink({ slug, title }: { slug?: string; title: string }) {
+  if (!slug) return null;
+  return <a href={`/apply/${slug}`} className="icon-btn" target="_blank" rel="noreferrer" title={title}>↗</a>;
+}
 
 function useHotelDepartments(locale: Locale) {
   const [departments, setDepartments] = useState<HotelDept[]>([]);
@@ -35,15 +41,16 @@ export function RecruitingUI({ view, id = "" }: { view: RecruitingView; id?: str
   const { locale } = useI18n();
   const t = getRecruitingMessages(locale);
   const titles: Record<RecruitingView, string> = {
-    hub: t.title, jobs: t.jobsTitle, "job-create": t.jobCreateTitle, "job-quiz": t.quizName, applications: t.applicationsTitle,
+    hub: t.title, jobs: t.jobsTitle, "job-create": t.jobCreateTitle, "job-edit": t.jobEditTitle, "job-quiz": t.quizName, applications: t.applicationsTitle,
     "application-create": t.applicationCreateTitle, "application-detail": t.applicationDetailTitle,
     employees: t.employeesTitle, "employee-create": t.employeeCreateTitle, "employee-detail": t.employeeDetailTitle, emails: t.emailsTitle,
   };
   return <AppShell activeItem="recruiting" pageTitle={titles[view]}>
-    <main className={`qf-dashboard ${view === "job-quiz" ? "qf-dashboard-sticky" : ""}`}>
+    <main className={`qf-dashboard ${view === "job-quiz" || view === "job-edit" ? "qf-dashboard-sticky" : ""}`}>
       {view === "hub" ? <Hub t={t} /> : null}
       {view === "jobs" ? <Jobs t={t} locale={locale} /> : null}
       {view === "job-create" ? <JobCreate t={t} locale={locale} /> : null}
+      {view === "job-edit" ? <JobEdit t={t} locale={locale} id={id} /> : null}
       {view === "job-quiz" ? <JobQuiz t={t} locale={locale} /> : null}
       {view === "applications" ? <Applications t={t} /> : null}
       {view === "application-create" ? <ApplicationCreate t={t} /> : null}
@@ -160,13 +167,13 @@ function Jobs({ t, locale }: { t: T; locale: Locale }) {
             <div>{job.title}</div>
             <div style={{ fontSize: 11, color: "var(--text3)" }}>{job.format === "quiz" ? t.formatQuiz : t.formatClassic}{job.slug ? ` · /apply/${job.slug}` : ""}</div>
           </td>
-          <td>{job.langs.map((lang) => langFlags[lang]).join("")}</td><td>{job.dept}</td>
+          <td>{(job.langs ?? []).map((lang) => langFlags[lang]).join("")}</td><td>{job.dept}</td>
           <td><span className={`status-pill ${job.status === "active" ? "active" : "inactive"}`}>{statusLabel(job.status)}</span></td>
           <td>{job.clicks || "–"}</td><td>{job.apps || "–"}</td><td>{job.conv}</td>
-          <td style={{ textAlign: "right" }}>
-            {job.slug && job.status === "active" ? <a href={`/apply/${job.slug}`} className="icon-btn" target="_blank" rel="noreferrer" title={t.applyOpen}>↗</a> : null}
+          <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+            <ApplyPageLink slug={job.slug} title={t.applyOpen} />
             {" "}
-            <Link href="/recruiting/jobs/new" className="icon-btn">✏️</Link> <button type="button" className="icon-btn" onClick={() => void toggleArchive(job.id)}>{job.status === "archived" ? "↩️" : "🗄️"}</button>
+            <Link href={`/recruiting/jobs/${job.id}`} className="icon-btn">✏️</Link> <button type="button" className="icon-btn" onClick={() => void toggleArchive(job.id)}>{job.status === "archived" ? "↩️" : "🗄️"}</button>
           </td>
         </tr>)}</tbody>
       </table>
@@ -175,7 +182,7 @@ function Jobs({ t, locale }: { t: T; locale: Locale }) {
   </>;
 }
 
-function ImageField({ t, label, hint, value, onChange, invalid = false }: { t: T; label: string; hint: string; value: string; onChange: (url: string) => void; invalid?: boolean }) {
+function ImageField({ t, label, hint, value, onChange, invalid = false, kind = "banner" }: { t: T; label: string; hint: string; value: string; onChange: (url: string) => void; invalid?: boolean; kind?: "banner" | "favicon" }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   async function take(file?: File) {
@@ -205,7 +212,7 @@ function ImageField({ t, label, hint, value, onChange, invalid = false }: { t: T
       </button>
       {value ? (
         <div className="doc-row">
-          <img src={value} alt="" style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 8 }} />
+          <img src={value} alt="" style={kind === "favicon" ? { width: 32, height: 32, objectFit: "contain", borderRadius: 6, background: "#fff" } : { width: 120, height: 68, objectFit: "cover", borderRadius: 8 }} />
           <div className="doc-name">{value.split("/").pop()}</div>
           <button type="button" className="icon-btn danger" onClick={() => onChange("")}>🗑️</button>
         </div>
@@ -215,24 +222,47 @@ function ImageField({ t, label, hint, value, onChange, invalid = false }: { t: T
   );
 }
 
-function JobCreate({ t, locale }: { t: T; locale: Locale }) {
+function JobEdit({ t, locale, id }: { t: T; locale: Locale; id: string }) {
+  const [job, setJob] = useState<PublicJob | null>(null);
+  const [missing, setMissing] = useState(false);
+  useEffect(() => {
+    let ignore = false;
+    setJob(null);
+    setMissing(false);
+    fetch(`/api/recruiting/jobs/${encodeURIComponent(id)}?locale=${locale}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (ignore) return;
+        if (data?.job) setJob(data.job as PublicJob);
+        else setMissing(true);
+      })
+      .catch(() => { if (!ignore) setMissing(true); });
+    return () => { ignore = true; };
+  }, [id, locale]);
+  if (missing) return <p className="job-apply-missing">{t.saveFailed}</p>;
+  if (!job) return <BrandLoader label={t.loading} />;
+  if (job.format === "quiz") return <JobQuiz key={`${job.id}-${locale}`} t={t} locale={locale} job={job} />;
+  return <JobCreate key={`${job.id}-${locale}`} t={t} locale={locale} job={job} />;
+}
+
+function JobCreate({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }) {
   const router = useRouter();
   const { jobs, setJobs } = useRecruiting();
   const departments = useHotelDepartments(locale);
-  const [title, setTitle] = useState("");
-  const [dept, setDept] = useState("");
-  const [type, setType] = useState("fullOrPart");
-  const [start, setStart] = useState("");
-  const [notes, setNotes] = useState("");
-  const [description, setDescription] = useState("");
-  const [autoMessage, setAutoMessage] = useState("");
-  const [location, setLocation] = useState("");
-  const [cvRequired, setCvRequired] = useState(false);
-  const [langs, setLangs] = useState<Record<Locale, boolean>>({ de: true, en: false, it: false });
+  const [title, setTitle] = useState(job?.title ?? "");
+  const [dept, setDept] = useState(job?.departmentId ?? "");
+  const [type, setType] = useState(job?.type ?? "fullOrPart");
+  const [start, setStart] = useState(job?.start ?? "");
+  const [notes, setNotes] = useState(job?.notes ?? "");
+  const [description, setDescription] = useState(job?.description ?? "");
+  const [autoMessage, setAutoMessage] = useState(job?.autoMessage ?? "");
+  const [location, setLocation] = useState(job?.location ?? "");
+  const [cvRequired, setCvRequired] = useState(job?.cvRequired ?? false);
+  const [langs, setLangs] = useState<Record<Locale, boolean>>({ de: true, en: job?.langs.includes("en") ?? false, it: job?.langs.includes("it") ?? false });
   const [previewLang, setPreviewLang] = useState<Locale>(locale);
-  const [generated, setGenerated] = useState(false);
-  const [image, setImage] = useState("");
-  const [logo, setLogo] = useState("");
+  const [generated, setGenerated] = useState(Boolean(job));
+  const [image, setImage] = useState(job?.listingImage ?? "");
+  const [logo, setLogo] = useState(job?.logoImage ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [showErrors, setShowErrors] = useState(false);
@@ -263,15 +293,16 @@ function JobCreate({ t, locale }: { t: T; locale: Locale }) {
     setBusy(true);
     try {
       const langsOn = (["de", "en", "it"] as Locale[]).filter((lang) => langs[lang]);
-      const res = await fetch("/api/recruiting/jobs", {
-        method: "POST",
+      const payload = {
+        format: job?.format ?? "classic", status, title: title.trim(), departmentId: dept, workType: type,
+        startFrom: start.trim() || t.immediately, notes, description: sanitizeJobHtml(description),
+        autoMessage: sanitizeJobHtml(autoMessage), location: location.trim(), cvRequired, languages: langsOn,
+        listingImage: image, logoImage: logo, locale,
+      };
+      const res = await fetch(job ? `/api/recruiting/jobs/${job.id}` : "/api/recruiting/jobs", {
+        method: job ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          format: "classic", status, title: title.trim(), departmentId: dept, workType: type,
-          startFrom: start.trim() || t.immediately, notes, description: sanitizeJobHtml(description),
-          autoMessage: sanitizeJobHtml(autoMessage), location: location.trim(), cvRequired, languages: langsOn,
-          listingImage: image, logoImage: logo,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
@@ -279,7 +310,7 @@ function JobCreate({ t, locale }: { t: T; locale: Locale }) {
         setBusy(false);
         return;
       }
-      if (data?.job) setJobs([data.job, ...jobs]);
+      if (data?.job) setJobs(job ? jobs.map((item) => item.id === data.job.id ? data.job : item) : [data.job, ...jobs]);
       router.push("/recruiting/jobs");
     } catch {
       setError(t.saveFailed);
@@ -287,9 +318,13 @@ function JobCreate({ t, locale }: { t: T; locale: Locale }) {
     }
   }
   return <>
-    <Back href="/recruiting/jobs" label={t.backJobs} />
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+      <Back href="/recruiting/jobs" label={t.backJobs} />
+      <ApplyPageLink slug={job?.slug} title={t.applyOpen} />
+    </div>
     <div className="g2">
       <div>
+        {job ? null : (
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="ch"><div className="ct">{t.formatStep}</div></div>
           <div className="cb" style={{ display: "flex", gap: 12 }}>
@@ -301,6 +336,7 @@ function JobCreate({ t, locale }: { t: T; locale: Locale }) {
             </Link>
           </div>
         </div>
+        )}
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="ch"><div className="ct">{t.basicsStep}</div></div>
           <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -348,7 +384,7 @@ function JobCreate({ t, locale }: { t: T; locale: Locale }) {
               <ImageField t={t} label={t.listingImage} hint={t.uploadImage} value={image} onChange={setImage} invalid={invalid("image")} />
             </div>
             <div>
-              <ImageField t={t} label={t.logo} hint={`${t.uploadLogo}`} value={logo} onChange={setLogo} invalid={invalid("logo")} />
+              <ImageField t={t} label={t.logo} hint={`${t.uploadLogo}`} value={logo} onChange={setLogo} invalid={invalid("logo")} kind="favicon" />
             </div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void save("active")}>{t.publish}</button>
@@ -384,20 +420,23 @@ function JobCreate({ t, locale }: { t: T; locale: Locale }) {
   </>;
 }
 
-function JobQuiz({ t, locale }: { t: T; locale: Locale }) {
+function JobQuiz({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }) {
   const router = useRouter();
   const { jobs, setJobs } = useRecruiting();
   const departments = useHotelDepartments(locale);
-  const [title, setTitle] = useState("");
-  const [dept, setDept] = useState("");
+  const [title, setTitle] = useState(job?.title ?? "");
+  const [dept, setDept] = useState(job?.departmentId ?? "");
   const [pagesByLang, setPagesByLang] = useState<Record<Locale, QuizPage[]>>(() => ({
-    de: createDefaultQuiz(getRecruitingMessages("de")),
-    en: createDefaultQuiz(getRecruitingMessages("en")),
-    it: createDefaultQuiz(getRecruitingMessages("it")),
+    de: Array.isArray(job?.quiz?.pagesByLang?.de) ? job.quiz.pagesByLang.de as QuizPage[] : createDefaultQuiz(getRecruitingMessages("de")),
+    en: Array.isArray(job?.quiz?.pagesByLang?.en) ? job.quiz.pagesByLang.en as QuizPage[] : createDefaultQuiz(getRecruitingMessages("en")),
+    it: Array.isArray(job?.quiz?.pagesByLang?.it) ? job.quiz.pagesByLang.it as QuizPage[] : createDefaultQuiz(getRecruitingMessages("it")),
   }));
-  const [activePageId, setActivePageId] = useState("advantages");
+  const [activePageId, setActivePageId] = useState(() => {
+    const pages = Array.isArray(job?.quiz?.pagesByLang?.[locale]) ? job.quiz.pagesByLang[locale] as QuizPage[] : [];
+    return pages[0]?.id ?? "advantages";
+  });
   const [selectedElId, setSelectedElId] = useState<string | null>(null);
-  const [footer, setFooter] = useState<QuizFooter>({ impressumUrl: DEFAULT_FOOTER_URL, privacyUrl: DEFAULT_FOOTER_URL });
+  const [footer, setFooter] = useState<QuizFooter>(job?.quiz?.footer ?? { impressumUrl: DEFAULT_FOOTER_URL, privacyUrl: DEFAULT_FOOTER_URL });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [showErrors, setShowErrors] = useState(false);
@@ -411,13 +450,15 @@ function JobQuiz({ t, locale }: { t: T; locale: Locale }) {
     if (!title.trim() || !dept) return;
     setBusy(true);
     try {
-      const res = await fetch("/api/recruiting/jobs", {
-        method: "POST",
+      const res = await fetch(job ? `/api/recruiting/jobs/${job.id}` : "/api/recruiting/jobs", {
+        method: job ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          format: "quiz", status, title: title.trim(), departmentId: dept, workType: "fullOrPart",
-          startFrom: t.immediately, languages: [locale],
-          quiz: { footer, pagesByLang },
+          format: "quiz", status, title: title.trim(), departmentId: dept, workType: job?.type || "fullOrPart",
+          startFrom: job?.start || t.immediately, notes: job?.notes || "", description: job?.description || "",
+          autoMessage: job?.autoMessage || "", location: job?.location || "", cvRequired: job?.cvRequired === true,
+          languages: job?.langs?.length ? job.langs : [locale], listingImage: job?.listingImage || "", logoImage: job?.logoImage || "",
+          quiz: { footer, pagesByLang }, locale,
         }),
       });
       const data = await res.json().catch(() => null);
@@ -426,7 +467,7 @@ function JobQuiz({ t, locale }: { t: T; locale: Locale }) {
         setBusy(false);
         return;
       }
-      if (data?.job) setJobs([data.job, ...jobs]);
+      if (data?.job) setJobs(job ? jobs.map((item) => item.id === data.job.id ? data.job : item) : [data.job, ...jobs]);
       router.push("/recruiting/jobs");
     } catch {
       setError(t.saveFailed);
@@ -435,7 +476,8 @@ function JobQuiz({ t, locale }: { t: T; locale: Locale }) {
   }
   return <>
     <div className="quiz-topbar">
-      <Back href="/recruiting/jobs/new" label={t.backToClassic} />
+      <Back href={job ? "/recruiting/jobs" : "/recruiting/jobs/new"} label={job ? t.backJobs : t.backToClassic} />
+      <ApplyPageLink slug={job?.slug} title={t.applyOpen} />
       <input className={`field-input quiz-title-input${showErrors && !title.trim() ? " is-invalid" : ""}`} value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t.rolePlaceholder} aria-label={t.roleTitle} />
       <select className={`field-select${showErrors && !dept ? " is-invalid" : ""}`} value={dept} onChange={(event) => setDept(event.target.value)} aria-label={t.department} style={{ maxWidth: 220 }}>
         <option value=""></option>

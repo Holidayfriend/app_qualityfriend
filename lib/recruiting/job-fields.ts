@@ -33,7 +33,11 @@ export type PublicJob = {
   conv: string;
   listingImage: string;
   logoImage: string;
-  quiz: { footer: { impressumUrl: string; privacyUrl: string }; pages: unknown[] } | null;
+  quiz: {
+    footer: { impressumUrl: string; privacyUrl: string };
+    pages: unknown[];
+    pagesByLang?: Record<string, unknown>;
+  } | null;
 };
 
 export function slugify(title: string) {
@@ -204,6 +208,17 @@ export function pickLocalized(en: string, de: string, it: string, locale?: strin
   return value.trim() ? value : en;
 }
 
+export function localeFieldPatch(locale: string | undefined, fields: { title: string; description: string; autoMessage: string; location: string }) {
+  const lang = locales.includes(locale as JobLocale) ? locale as JobLocale : "en";
+  if (lang === "de") {
+    return { titleDe: fields.title, descriptionDe: fields.description, autoMessageDe: fields.autoMessage, locationDe: fields.location };
+  }
+  if (lang === "it") {
+    return { titleIt: fields.title, descriptionIt: fields.description, autoMessageIt: fields.autoMessage, locationIt: fields.location };
+  }
+  return { title: fields.title, description: fields.description, autoMessage: fields.autoMessage, location: fields.location };
+}
+
 export function toPublicJob(job: RecruitingJob, apps = 0, locale?: string, includeQuiz = true, department?: JobDepartmentNames | null): PublicJob {
   const langs = asLocales(job.languages);
   const format = job.format.toLowerCase() as FormatKey;
@@ -228,7 +243,11 @@ export function toPublicJob(job: RecruitingJob, apps = 0, locale?: string, inclu
     conv: conv(job.clickCount, apps),
     listingImage: job.listingImage,
     logoImage: job.logoImage,
-    quiz: includeQuiz && format === "quiz" ? { footer: quizFooter(job.quiz), pages: pagesForLocale(job.quiz, locale || langs[0] || "en") } : null,
+    quiz: includeQuiz && format === "quiz" ? {
+      footer: quizFooter(job.quiz),
+      pages: pagesForLocale(job.quiz, locale || langs[0] || "en"),
+      pagesByLang: job.quiz && typeof job.quiz === "object" ? (job.quiz as { pagesByLang?: Record<string, unknown> }).pagesByLang : undefined,
+    } : null,
   };
 }
 
