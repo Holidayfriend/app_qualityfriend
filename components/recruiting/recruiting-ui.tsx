@@ -7,10 +7,11 @@ import { AppShell } from "../dashboard/app-shell";
 import { useI18n } from "../i18n/i18n-provider";
 import { fill, getRecruitingMessages, type DeptId, type RecruitingMessages } from "../../lib/i18n/recruiting-messages";
 import type { Locale } from "../../lib/i18n/dictionaries";
-import { deptIds, langFlags, type Applicant, type AppStage, type EmailCat, type EmailTemplates, type Employee, type Job, type JobStatus } from "../../lib/recruiting/preview-data";
+import { langFlags, type Applicant, type AppStage, type EmailCat, type EmailTemplates, type Employee, type Job, type JobStatus } from "../../lib/recruiting/preview-data";
 import { useRecruiting } from "./recruiting-provider";
 import { createDefaultQuiz, DEFAULT_FOOTER_URL, QuizCanvasCard, QuizToolsCard, type QuizFooter, type QuizPage } from "./quiz-builder";
 import { BrandLoader } from "../ui/brand-loader";
+import { useToast } from "../ui/toast-provider";
 import { htmlToPlain, RichTextEditor, sanitizeJobHtml, type RichTextEditorHandle } from "./rich-text-editor";
 import type { PublicJob } from "../../lib/recruiting/job-fields";
 
@@ -47,7 +48,7 @@ export function RecruitingUI({ view, id = "" }: { view: RecruitingView; id?: str
   };
   return <AppShell activeItem="recruiting" pageTitle={titles[view]}>
     <main className={`qf-dashboard ${view === "job-quiz" || view === "job-edit" ? "qf-dashboard-sticky" : ""}`}>
-      {view === "hub" ? <Hub t={t} /> : null}
+      {view === "hub" ? <Hub t={t} locale={locale} /> : null}
       {view === "jobs" ? <Jobs t={t} locale={locale} /> : null}
       {view === "job-create" ? <JobCreate t={t} locale={locale} /> : null}
       {view === "job-edit" ? <JobEdit t={t} locale={locale} id={id} /> : null}
@@ -55,9 +56,9 @@ export function RecruitingUI({ view, id = "" }: { view: RecruitingView; id?: str
       {view === "applications" ? <Applications t={t} locale={locale} /> : null}
       {view === "application-create" ? <ApplicationCreate t={t} locale={locale} /> : null}
       {view === "application-detail" ? <ApplicationDetail t={t} locale={locale} id={id} /> : null}
-      {view === "employees" ? <Employees t={t} /> : null}
-      {view === "employee-create" ? <EmployeeCreate t={t} /> : null}
-      {view === "employee-detail" ? <EmployeeDetail t={t} id={id} /> : null}
+      {view === "employees" ? <Employees t={t} locale={locale} /> : null}
+      {view === "employee-create" ? <EmployeeCreate t={t} locale={locale} /> : null}
+      {view === "employee-detail" ? <EmployeeDetail t={t} locale={locale} id={id} /> : null}
       {view === "settings" ? <EmailSettings t={t} /> : null}
       {view === "emails" ? <Emails t={t} locale={locale} /> : null}
     </main>
@@ -77,8 +78,16 @@ function Back({ href, label }: { href: string; label: string }) {
   return <Link href={href} className="back-link">{label}</Link>;
 }
 
-function Hub({ t }: { t: T }) {
-  const { applicants, employees } = useRecruiting();
+function Hub({ t, locale }: { t: T; locale: Locale }) {
+  const { applicants, employees, setEmployees } = useRecruiting();
+  useEffect(() => {
+    let ignore = false;
+    fetch(`/api/recruiting/employees?locale=${locale}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => { if (!ignore && Array.isArray(data?.employees)) setEmployees(data.employees); })
+      .catch(() => undefined);
+    return () => { ignore = true; };
+  }, [locale, setEmployees]);
   const reminders = useMemo(() => buildReminders(employees, t), [employees, t]);
   const openJobs = 4;
   const newApps = applicants.filter((item) => item.stage === "new").length;
@@ -677,6 +686,7 @@ function ApplicationCreate({ t, locale }: { t: T; locale: Locale }) {
 
 function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string }) {
   const router = useRouter();
+  const showToast = useToast();
   const { applicants, setApplicants, employees, setEmployees } = useRecruiting();
   const [item, setItem] = useState<Applicant | null>(null);
   const [missing, setMissing] = useState(false);
@@ -687,6 +697,7 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
   const [notesError, setNotesError] = useState("");
   const [notesOk, setNotesOk] = useState("");
   const [actionOk, setActionOk] = useState("");
+  const [actionBusy, setActionBusy] = useState(false);
   const [authorName, setAuthorName] = useState("Team");
   useEffect(() => {
     fetch("/api/me")
@@ -797,13 +808,36 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
       : t.unarchivedApp;
     setActionOk(fill(message, { name: item.name }));
   }
-  function convert() {
-    if (!item) return;
-    if (employees.some((row) => row.id === id)) { alert(fill(t.alreadyEmployee, { name: item.name })); router.push(`/recruiting/employees/${id}`); return; }
-    const next: Employee = { id, initials: item.initials, name: item.name, dept: item.dept, status: "active", reason: "", email: item.email, phone: item.phone, taxId: t.stillNeeded, birthdate: "", birthplace: t.stillNeeded, employment: new Date().toLocaleDateString(), comments: fill(t.fromApplication, { date: item.date }), tags: [...item.tags], certificates: [] };
-    setEmployees([next, ...employees]);
-    alert(fill(t.converted, { name: item.name }));
-    router.push(`/recruiting/employees/${id}`);
+  async function convert() {
+    if (!item || actionBusy) return;
+    setActionBusy(true);
+    setActionOk("");
+    try {
+      const res = await fetch("/api/recruiting/employees", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ applicationId: id, locale }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.employee) {
+        showToast({ message: t.employeeSaveFailed, tone: "error" });
+        setActionBusy(false);
+        return;
+      }
+      const employee = data.employee as Employee;
+      setEmployees([employee, ...employees.filter((row) => row.id !== employee.id)]);
+      update({ stage: "hired" });
+      showToast({
+        message: data.alreadyExists
+          ? fill(t.alreadyEmployee, { name: item.name })
+          : fill(t.converted, { name: item.name }),
+        tone: data.alreadyExists ? "info" : "success",
+      });
+      router.push(`/recruiting/employees/${employee.id}`);
+    } catch {
+      showToast({ message: t.employeeSaveFailed, tone: "error" });
+    }
+    setActionBusy(false);
   }
   if (loading) return <BrandLoader label={t.loading} />;
   if (missing || !item) return <><Back href="/recruiting/applications" label={t.backApplications} /><p className="job-apply-missing">{t.applicationMissing}</p></>;
@@ -872,7 +906,7 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
           <div>{stageBadge(t, item.stage)}</div>
           <button type="button" className="btn btn-primary" onClick={() => void setStage("offer")}>{t.sendOffer}</button>
           <button type="button" className="btn btn-ghost" onClick={() => void setStage("rejected")}>{t.reject}</button>
-          <button type="button" className="btn btn-ghost" onClick={convert}>{t.makeEmployee}</button>
+          <button type="button" className="btn btn-ghost" disabled={actionBusy} onClick={() => void convert()}>{t.makeEmployee}</button>
           {item.stage === "archived"
             ? <button type="button" className="btn btn-ghost" onClick={() => void setStage("new")}>{t.unarchive}</button>
             : <button type="button" className="btn btn-ghost" onClick={() => void setStage("archived")}>{t.archive}</button>}
@@ -884,10 +918,21 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
   </>;
 }
 
-function Employees({ t }: { t: T }) {
-  const { employees } = useRecruiting();
+function Employees({ t, locale }: { t: T; locale: Locale }) {
+  const { employees, setEmployees } = useRecruiting();
   const [filter, setFilter] = useState<"all" | "active" | "inactive">("all");
   const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let ignore = false;
+    setLoading(true);
+    fetch(`/api/recruiting/employees?locale=${locale}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => { if (!ignore && Array.isArray(data?.employees)) setEmployees(data.employees); })
+      .catch(() => undefined)
+      .finally(() => { if (!ignore) setLoading(false); });
+    return () => { ignore = true; };
+  }, [locale, setEmployees]);
   const rows = employees.filter((item) => (filter === "all" || item.status === filter) && item.name.toLowerCase().includes(search.toLowerCase()));
   return <>
     <Back href="/recruiting" label={t.backRecruiting} />
@@ -908,53 +953,116 @@ function Employees({ t }: { t: T }) {
           const certLabel = !cert ? t.noCertsYet : cert.status === "valid" ? t.valid : cert.status === "expiring" ? t.expiring : t.expired;
           return <tr key={item.id} style={{ cursor: "pointer" }}>
             <td><Link href={`/recruiting/employees/${item.id}`} className="u-row-name"><span className="u-av">{item.initials}</span>{item.name}</Link></td>
-            <td>{t.depts[item.dept]}</td>
+            <td>{item.departmentName || t.depts[item.dept]}</td>
             <td><span className={`status-pill ${item.status === "active" ? "active" : "inactive"}`}>{item.status === "active" ? t.active : t.inactive}</span></td>
             <td>{item.reason === "pension" ? t.pension : item.reason === "resignation" ? t.resignation : t.none}</td>
-            <td>{item.employment}</td>
+            <td>{item.employment || t.none}</td>
             <td><span className={`chip ${chip}`}>{certLabel}</span></td>
             <td style={{ textAlign: "right" }}><Link href={`/recruiting/employees/${item.id}`} className="icon-btn">👁️</Link></td>
           </tr>;
         })}</tbody>
       </table>
     </div>
+    {loading ? <BrandLoader label={t.loading} overlay /> : null}
   </>;
 }
 
-function EmployeeCreate({ t }: { t: T }) {
+function EmployeeCreate({ t, locale }: { t: T; locale: Locale }) {
   const router = useRouter();
   const { employees, setEmployees } = useRecruiting();
+  const departments = useHotelDepartments(locale);
   const [first, setFirst] = useState("");
   const [last, setLast] = useState("");
-  const [dept, setDept] = useState<DeptId>("reception");
-  function save(event: FormEvent) {
+  const [departmentId, setDepartmentId] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    if (!departmentId && departments[0]?.id) setDepartmentId(departments[0].id);
+  }, [departments, departmentId]);
+  async function save(event: FormEvent) {
     event.preventDefault();
-    if (!first.trim() || !last.trim()) { alert(t.requiredName); return; }
-    const id = `emp_${Date.now()}`;
-    const name = `${first.trim()} ${last.trim()}`;
-    setEmployees([{ id, initials: `${first[0] ?? ""}${last[0] ?? ""}`.toUpperCase(), name, dept, status: "active", reason: "", email: "–", phone: "–", taxId: t.stillNeeded, birthdate: "", birthplace: t.stillNeeded, employment: new Date().toLocaleDateString(), comments: "", tags: [], certificates: [] }, ...employees]);
-    router.push(`/recruiting/employees/${id}`);
+    if (!first.trim() || !last.trim() || !departmentId) { setError(t.requiredName); return; }
+    setBusy(true);
+    setError("");
+    const res = await fetch("/api/recruiting/employees", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ firstName: first.trim(), lastName: last.trim(), departmentId, locale }),
+    }).catch(() => null);
+    setBusy(false);
+    const data = res && res.ok ? await res.json().catch(() => null) : null;
+    if (!data?.employee) { setError(t.employeeSaveFailed); return; }
+    setEmployees([data.employee as Employee, ...employees]);
+    router.push(`/recruiting/employees/${data.employee.id}`);
   }
   return <>
     <Back href="/recruiting/employees" label={t.backEmployees} />
-    <form className="card" style={{ maxWidth: 460 }} onSubmit={save}>
+    <form className="card" style={{ maxWidth: 460 }} onSubmit={(event) => void save(event)}>
       <div className="ch"><div className="ct">{t.employeeCreateTitle}</div></div>
       <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div className="field-row">
           <label><span className="field-lbl">{t.firstName}</span><input className="field-input" value={first} onChange={(event) => setFirst(event.target.value)} /></label>
           <label><span className="field-lbl">{t.lastName}</span><input className="field-input" value={last} onChange={(event) => setLast(event.target.value)} /></label>
         </div>
-        <label><span className="field-lbl">{t.department}</span><select className="field-select" value={dept} onChange={(event) => setDept(event.target.value as DeptId)}>{deptIds.map((item) => <option key={item} value={item}>{t.depts[item]}</option>)}</select></label>
-        <button type="submit" className="btn btn-primary">{t.save}</button>
+        <label><span className="field-lbl">{t.department}</span><select className="field-select" value={departmentId} onChange={(event) => setDepartmentId(event.target.value)}>{departments.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+        {error ? <p className="job-apply-error">{error}</p> : null}
+        <button type="submit" className="btn btn-primary" disabled={busy || !departments.length}>{t.save}</button>
       </div>
     </form>
+    {busy ? <BrandLoader label={t.loading} overlay /> : null}
   </>;
 }
 
-function EmployeeDetail({ t, id }: { t: T; id: string }) {
+function EmployeeDetail({ t, locale, id }: { t: T; locale: Locale; id: string }) {
   const { employees, setEmployees } = useRecruiting();
-  const item = employees.find((row) => row.id === id);
-  if (!item) return <><Back href="/recruiting/employees" label={t.backEmployees} /><p>{t.loading}</p></>;
+  const [item, setItem] = useState<Employee | null>(null);
+  const [missing, setMissing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState("");
+  useEffect(() => {
+    let ignore = false;
+    setLoading(true);
+    setMissing(false);
+    if (!/^[0-9a-f-]{36}$/i.test(id)) {
+      setMissing(true);
+      setLoading(false);
+      return;
+    }
+    fetch(`/api/recruiting/employees/${encodeURIComponent(id)}?locale=${locale}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (ignore) return;
+        if (data?.employee) {
+          const next = data.employee as Employee;
+          setItem(next);
+          setEmployees([next, ...employees.filter((row) => row.id !== next.id)]);
+        } else setMissing(true);
+      })
+      .catch(() => { if (!ignore) setMissing(true); })
+      .finally(() => { if (!ignore) setLoading(false); });
+    return () => { ignore = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load once per id/locale
+  }, [id, locale]);
+  async function markInactive() {
+    if (!item || busy) return;
+    setBusy(true);
+    setNotice("");
+    const res = await fetch(`/api/recruiting/employees/${encodeURIComponent(id)}?locale=${locale}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "inactive" }),
+    }).catch(() => null);
+    setBusy(false);
+    const data = res && res.ok ? await res.json().catch(() => null) : null;
+    if (!data?.employee) { setNotice(t.employeeSaveFailed); return; }
+    const next = data.employee as Employee;
+    setItem(next);
+    setEmployees(employees.map((row) => row.id === id ? next : row));
+    setNotice(fill(t.markInactiveOk, { name: next.name }));
+  }
+  if (loading) return <BrandLoader label={t.loading} />;
+  if (missing || !item) return <><Back href="/recruiting/employees" label={t.backEmployees} /><p className="job-apply-missing">{t.employeeMissing}</p></>;
   return <>
     <Back href="/recruiting/employees" label={t.backEmployees} />
     <div className="g2">
@@ -967,19 +1075,19 @@ function EmployeeDetail({ t, id }: { t: T; id: string }) {
                 <div style={{ fontSize: 17, fontWeight: 700 }}>{item.name}</div>
                 <span className={`status-pill ${item.status === "active" ? "active" : "inactive"}`}>{item.status === "active" ? t.active : t.inactive}</span>
               </div>
-              <div style={{ fontSize: 12.5, color: "var(--text2)" }}>{t.depts[item.dept]}</div>
+              <div style={{ fontSize: 12.5, color: "var(--text2)" }}>{item.departmentName || t.depts[item.dept]}</div>
             </div>
           </div>
           <div className="cb" style={{ borderTop: "1px solid var(--border)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 20px" }}>
-            <Field label={t.email} value={item.email} /><Field label={t.phone} value={item.phone} />
-            <Field label={t.taxId} value={item.taxId} /><Field label={t.birthdate} value={item.birthdate || t.none} />
-            <Field label={t.birthplace} value={item.birthplace} /><Field label={t.employedFromTo} value={item.employment} />
+            <Field label={t.email} value={item.email || "–"} /><Field label={t.phone} value={item.phone || "–"} />
+            <Field label={t.taxId} value={item.taxId || t.stillNeeded} /><Field label={t.birthdate} value={item.birthdate || t.stillNeeded} />
+            <Field label={t.birthplace} value={item.birthplace || t.stillNeeded} /><Field label={t.employedFromTo} value={item.employment || t.stillNeeded} />
           </div>
           <div className="cb" style={{ borderTop: "1px solid var(--border)" }}>
             <div className="field-lbl" style={{ marginBottom: 6 }}>{t.comments}</div>
             <div style={{ fontSize: 13, marginBottom: 10 }}>{item.comments || t.none}</div>
             <div className="field-lbl" style={{ marginBottom: 6 }}>{t.tags}</div>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{item.tags.map((entry) => <span className="chip chip-n" key={entry}>{entry}</span>)}</div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{item.tags.length ? item.tags.map((entry) => <span className="chip chip-n" key={entry}>{entry}</span>) : <span style={{ fontSize: 12.5, color: "var(--text3)" }}>{t.none}</span>}</div>
           </div>
         </div>
         <div className="card">
@@ -996,10 +1104,12 @@ function EmployeeDetail({ t, id }: { t: T; id: string }) {
         <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <button type="button" className="btn btn-primary" onClick={() => alert(t.editDemo)}>{t.editFile}</button>
           <button type="button" className="btn btn-ghost" onClick={() => alert(t.trainingDemo)}>{t.addTraining}</button>
-          <button type="button" className="btn btn-ghost" style={{ color: "var(--red)" }} onClick={() => { setEmployees(employees.map((row) => row.id === id ? { ...row, status: "inactive" } : row)); alert(t.inactiveDemo); }}>{t.markInactive}</button>
+          <button type="button" className="btn btn-ghost" style={{ color: "var(--red)" }} disabled={busy || item.status === "inactive"} onClick={() => void markInactive()}>{t.markInactive}</button>
+          {notice ? <p style={{ margin: 0, fontSize: 12.5, color: "var(--green)" }}>{notice}</p> : null}
         </div>
       </div>
     </div>
+    {busy ? <BrandLoader label={t.loading} overlay /> : null}
   </>;
 }
 
@@ -1190,7 +1300,7 @@ function buildReminders(employees: Employee[], t: T) {
       const next = new Date(start.getFullYear(), (month ?? 1) - 1, day ?? 1);
       let diff = Math.round((next.getTime() - start.getTime()) / 86400000);
       if (diff < 0) diff += 365;
-      if (diff >= 0 && diff <= 7) items.push({ icon: "🎂", cls: "p", title: diff === 0 ? fill(t.birthdayToday, { name: employee.name }) : fill(t.birthdayIn, { name: employee.name, n: diff }), meta: t.depts[employee.dept] });
+      if (diff >= 0 && diff <= 7) items.push({ icon: "🎂", cls: "p", title: diff === 0 ? fill(t.birthdayToday, { name: employee.name }) : fill(t.birthdayIn, { name: employee.name, n: diff }), meta: employee.departmentName || t.depts[employee.dept] });
     }
     for (const cert of employee.certificates) {
       if (cert.status === "expiring") items.push({ icon: "⚠️", cls: "a", title: t.certExpiring, meta: fill(t.validUntil, { name: employee.name, date: cert.expires }) });

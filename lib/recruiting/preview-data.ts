@@ -17,9 +17,24 @@ export type Applicant = {
   answers?: Array<{ pageName: string; prompt: string; value: string; type: string }>;
 };
 export type Employee = {
-  id: string; initials: string; name: string; dept: DeptId; status: EmpStatus; reason: "" | "pension" | "resignation";
-  email: string; phone: string; taxId: string; birthdate: string; birthplace: string; employment: string;
-  comments: string; tags: string[]; certificates: Array<{ name: "safetyBasic" | "haccp"; completed: string; expires: string; status: CertStatus }>;
+  id: string;
+  applicationId?: string | null;
+  initials: string;
+  name: string;
+  dept: DeptId;
+  departmentId?: string;
+  departmentName?: string;
+  status: EmpStatus;
+  reason: "" | "pension" | "resignation";
+  email: string;
+  phone: string;
+  taxId: string;
+  birthdate: string;
+  birthplace: string;
+  employment: string;
+  comments: string;
+  tags: string[];
+  certificates: Array<{ name: "safetyBasic" | "haccp"; completed: string; expires: string; status: CertStatus }>;
 };
 export type EmailTemplates = Record<EmailCat, Record<Locale, { subject: string; body: string }>>;
 
@@ -40,15 +55,6 @@ export const applicantsSeed: Applicant[] = [
   { id: "klaus", initials: "KG", name: "Klaus Gruber", role: "Küchenhilfe", dept: "kitchen", stage: "hired", dateDisplay: "01.09.2026", score: "85%", suggestion: "recommended", email: "klaus.gruber@example.com", phone: "+39 335 444 5555", bestTime: "14–16", date: "02.08.2026", source: "Formular · Website", cv: "Lebenslauf_Gruber.pdf", message: "Freue mich auf den Start, war zuvor 2 Jahre in einem Berggasthof.", competencies: { social: 75, professional: 88, methodical: 80, personal: 78 }, tags: ["Start 01.09."], comments: [{ text: "Vertrag unterschrieben, Start 01.09.2026.", author: "Klaus", date: "10.08.2026" }] },
   { id: "petra", initials: "PS", name: "Petra Schmidt", role: "Köchin", dept: "kitchen", stage: "rejected", dateDisplay: null, score: "28%", suggestion: "notAFit", email: "petra.schmidt@example.com", phone: "+39 335 555 1234", bestTime: "14–16", date: "15.08.2026", source: "Quiz-Funnel · TikTok", cv: null, message: "Interessiere mich für die Stelle, habe aber noch keine Hotelerfahrung.", competencies: { social: 50, professional: 20, methodical: 25, personal: 45 }, tags: [], comments: [] },
   { id: "alba", initials: "AM", name: "Alba Mendoza", role: "Housekeeping", dept: "housekeeping", stage: "archived", dateDisplay: null, score: "–", suggestion: "archived", email: "alba@weihrerhof.com", phone: "+39 340 780 2603", bestTime: "–", date: "08.05.2024", source: "Manuell hinzugefügt", cv: "Lebenslauf_Mendoza.pdf", message: "Bewerbung archiviert, Stelle war zu diesem Zeitpunkt bereits besetzt.", competencies: { social: 60, professional: 60, methodical: 60, personal: 60 }, tags: [], comments: [] },
-];
-
-export const employeesSeed: Employee[] = [
-  { id: "nina", initials: "NG", name: "Nina Gasser", dept: "restaurant", status: "active", reason: "", email: "nina@weihrerhof.com", phone: "+39 331 911 7738", taxId: "GSSNNA95L45Z112X", birthdate: "1995-07-12", birthplace: "Bozen", employment: "03.2022", comments: "Zuverlässig, springt gerne bei Engpässen ein.", tags: ["Service", "Deutsch", "Englisch"], certificates: [{ name: "safetyBasic", completed: "03.2022", expires: "03.2027", status: "valid" }, { name: "haccp", completed: "03.2024", expires: "03.2026", status: "valid" }] },
-  { id: "sabine", initials: "SS", name: "Sabine Staffler", dept: "seaspa", status: "active", reason: "", email: "sabinestaffler167@gmail.com", phone: "366/5377354", taxId: "STFSBN88T52Z112B", birthdate: "1988-12-02", birthplace: "Meran", employment: "06.2021", comments: "Ausgebildete Masseurin, sehr gästeorientiert.", tags: ["SeaSpa", "Massage", "Italienisch"], certificates: [{ name: "safetyBasic", completed: "06.2021", expires: "06.2026", status: "valid" }] },
-  { id: "solav", initials: "SH", name: "Solav Haji", dept: "housekeeping", status: "active", reason: "", email: "solav@weihrerhof.com", phone: "+39 371 133 3100", taxId: "HJMNDR84L62Z225I", birthdate: "1984-07-22", birthplace: "Irak", employment: "04.2024", comments: "", tags: ["Housekeeping"], certificates: [{ name: "safetyBasic", completed: "04.2024", expires: "10.2026", status: "expiring" }] },
-  { id: "thomas", initials: "TG", name: "Thomas Gruber", dept: "restaurant", status: "active", reason: "", email: "thomas@weihrerhof.com", phone: "+39 340 000 1111", taxId: "GRBTHM90A01Z112C", birthdate: "1990-01-01", birthplace: "Bruneck", employment: "02.2020", comments: "Langjährige Servicekraft, gute Weinkenntnisse.", tags: ["Service", "Sommelier"], certificates: [{ name: "safetyBasic", completed: "02.2020", expires: "05.2026", status: "expired" }] },
-  { id: "nadia", initials: "NM", name: "Nadia Mauroner", dept: "restaurant", status: "inactive", reason: "pension", email: "–", phone: "347 295 9425", taxId: "MRNNDA60A41Z112D", birthdate: "1960-01-01", birthplace: "Ritten", employment: "01.2015 – 12.2025", comments: "In Pension gegangen, war 10 Jahre im Team.", tags: ["Service", "Ehemalig"], certificates: [{ name: "safetyBasic", completed: "01.2015", expires: "01.2020", status: "expired" }] },
-  { id: "lorena", initials: "LL", name: "Lorena Lichiardi", dept: "housekeeping", status: "inactive", reason: "resignation", email: "lorena.lichiardi@gmail.com", phone: "393509915152", taxId: "LCHLRN95L44Z112E", birthdate: "1995-03-15", birthplace: "Trient", employment: "02.2023 – 07.2026", comments: "Hat gekündigt, Umzug nach Trient.", tags: ["Housekeeping", "Ehemalig"], certificates: [{ name: "safetyBasic", completed: "02.2023", expires: "02.2028", status: "valid" }] },
 ];
 
 export const emailTemplatesSeed: EmailTemplates = {

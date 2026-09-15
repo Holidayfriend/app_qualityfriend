@@ -539,6 +539,7 @@ model HotelTenant {
   recruitingApplications       RecruitingApplication[]
   recruitingSettings           RecruitingSettings?
   recruitingEmailTemplates     RecruitingEmailTemplate[]
+  recruitingEmployees          RecruitingEmployee[]
   teams                        Team[]
   auditLogs                    AuditLog[]
   rolePermissions              RoleModulePermission[]
@@ -795,6 +796,7 @@ model Department {
   members                   User[]                     @relation("DepartmentMembers")
   rolePermissionDepartments RolePermissionDepartment[]
   recruitingJobs            RecruitingJob[]
+  recruitingEmployees       RecruitingEmployee[]
 
   @@unique([hotelTenantId, nameEn])
   @@index([hotelTenantId, isDeleted])
@@ -977,6 +979,7 @@ model RecruitingApplication {
   updatedAt        DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(3)
   hotelTenant      HotelTenant                 @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   job              RecruitingJob               @relation(fields: [hotelTenantId, jobId], references: [hotelTenantId, id], onDelete: Cascade, onUpdate: Cascade)
+  employee         RecruitingEmployee?
 
   @@unique([hotelTenantId, id])
   @@index([hotelTenantId, jobId])
@@ -1018,4 +1021,45 @@ model RecruitingEmailTemplate {
   @@unique([hotelTenantId, category, locale])
   @@index([hotelTenantId])
   @@map("recruiting_email_templates")
+}
+
+enum RecruitingEmployeeStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum RecruitingInactiveReason {
+  PENSION
+  RESIGNATION
+}
+
+model RecruitingEmployee {
+  id              String                     @id @default(uuid()) @db.Uuid
+  hotelTenantId   String                     @map("hotel_tenant_id") @db.Uuid
+  applicationId   String?                    @unique @map("application_id") @db.Uuid
+  departmentId    String                     @map("department_id") @db.Uuid
+  firstName       String                     @map("first_name") @db.VarChar(120)
+  lastName        String                     @map("last_name") @db.VarChar(120)
+  email           String                     @default("") @db.VarChar(320)
+  phone           String                     @default("") @db.VarChar(40)
+  taxId           String                     @default("") @map("tax_id") @db.VarChar(64)
+  birthdate       DateTime?                  @db.Date
+  birthplace      String                     @default("") @db.VarChar(180)
+  employedFrom    DateTime?                  @map("employed_from") @db.Date
+  employedTo      DateTime?                  @map("employed_to") @db.Date
+  status          RecruitingEmployeeStatus   @default(ACTIVE)
+  inactiveReason  RecruitingInactiveReason?  @map("inactive_reason")
+  comments        String                     @default("") @db.Text
+  tags            Json                       @default("[]")
+  certificates    Json                       @default("[]")
+  createdAt       DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant     HotelTenant                @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  application     RecruitingApplication?     @relation(fields: [applicationId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  department      Department                 @relation(fields: [departmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([hotelTenantId, id])
+  @@index([hotelTenantId, status])
+  @@index([departmentId])
+  @@map("recruiting_employees")
 }

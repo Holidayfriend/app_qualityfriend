@@ -223,7 +223,8 @@
       "RECRUITING_JOB": "Stellenanzeige",
       "RECRUITING_APPLICATION": "Bewerbung",
       "RECRUITING_SETTINGS": "Recruiting-Einstellungen",
-      "RECRUITING_EMAIL_TEMPLATE": "E-Mail-Vorlage"
+      "RECRUITING_EMAIL_TEMPLATE": "E-Mail-Vorlage",
+      "RECRUITING_EMPLOYEE": "Mitarbeiter"
     }
   },
   "settingsPageMessages": {
