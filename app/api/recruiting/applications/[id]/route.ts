@@ -3,6 +3,7 @@ import { prisma } from "../../../../../lib/prisma";
 import { recordAuditLog } from "../../../../../lib/audit/audit-service";
 import { recruitingActor } from "../../../../../lib/recruiting/access";
 import { isUuid, notesPayload, parseApplicationNotes, toDbStage, toPublicApplicant } from "../../../../../lib/recruiting/application-fields";
+import { sendRecruitingTemplateEmail } from "../../../../../lib/recruiting/send-recruiting-email";
 import type { Applicant } from "../../../../../lib/recruiting/preview-data";
 
 type Context = { params: Promise<{ id: string }> };
@@ -75,8 +76,28 @@ export async function PATCH(request: Request, context: Context) {
         after: stage ? { stage: after.stage } : { notes: after.notes },
       },
     });
-    return after;
+    return { after, previousStage: before.stage };
   });
   if (!updated) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
-  return Response.json({ application: toPublicApplicant(updated, updated.job, locale) });
+
+  let emailSent = false;
+  let emailAuto = false;
+  if (stage && stage !== updated.previousStage) {
+    const category = stage === "OFFER" ? "offer" : stage === "REJECTED" ? "reject" : null;
+    if (category) {
+      const mail = await sendRecruitingTemplateEmail({
+        hotelTenantId: actor.hotel_tenant_id,
+        category,
+        applicationId: id,
+      });
+      emailSent = mail.sent;
+      emailAuto = mail.auto;
+    }
+  }
+
+  return Response.json({
+    application: toPublicApplicant(updated.after, updated.after.job, locale),
+    emailSent,
+    emailAuto,
+  });
 }

@@ -805,13 +805,9 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
     setItem(data.application as Applicant);
     setApplicants(applicants.map((row) => row.id === id ? data.application as Applicant : row));
     if (stage === "offer" || stage === "rejected") {
-      const autoKey = stage === "offer" ? "offer" : "reject";
-      const emailRes = await fetch("/api/recruiting/emails").catch(() => null);
-      const emailData = emailRes && emailRes.ok ? await emailRes.json().catch(() => null) : null;
-      const autoOn = Boolean(emailData?.auto?.[autoKey]);
       const message = stage === "offer"
-        ? fill(autoOn ? t.offerSent : t.offerStatusUpdated, { name: item.name })
-        : fill(autoOn ? t.rejectSent : t.rejectStatusUpdated, { name: item.name });
+        ? fill(data.emailSent ? t.offerSent : t.offerStatusUpdated, { name: item.name })
+        : fill(data.emailSent ? t.rejectSent : t.rejectStatusUpdated, { name: item.name });
       showToast({ message, tone: "success" });
     } else {
       const message = stage === "archived" ? t.archivedApp : t.unarchivedApp;

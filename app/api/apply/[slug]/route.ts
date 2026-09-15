@@ -1,6 +1,7 @@
 import { prisma } from "../../../../lib/prisma";
 import { parseApplicationInput, toPublicJob } from "../../../../lib/recruiting/job-fields";
 import { notifyNewRecruitingApplication } from "../../../../lib/recruiting/notify-new-application";
+import { sendRecruitingTemplateEmail } from "../../../../lib/recruiting/send-recruiting-email";
 
 type Context = { params: Promise<{ slug: string }> };
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -59,5 +60,10 @@ export async function POST(request: Request, context: Context) {
     });
     return row;
   });
+  void sendRecruitingTemplateEmail({
+    hotelTenantId: job.hotelTenantId,
+    category: "received",
+    applicationId: created.id,
+  }).catch((error) => console.error("Received email failed", error));
   return Response.json({ id: created.id }, { status: 201 });
 }
