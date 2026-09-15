@@ -79,18 +79,43 @@ function Back({ href, label }: { href: string; label: string }) {
 }
 
 function Hub({ t, locale }: { t: T; locale: Locale }) {
-  const { applicants, employees, setEmployees } = useRecruiting();
+  const { jobs, setJobs, applicants, setApplicants, employees, setEmployees } = useRecruiting();
   useEffect(() => {
     let ignore = false;
-    fetch(`/api/recruiting/employees?locale=${locale}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => { if (!ignore && Array.isArray(data?.employees)) setEmployees(data.employees); })
+    Promise.all([
+      fetch(`/api/recruiting/jobs?locale=${locale}`).then((res) => (res.ok ? res.json() : null)),
+      fetch(`/api/recruiting/applications?locale=${locale}`).then((res) => (res.ok ? res.json() : null)),
+      fetch(`/api/recruiting/employees?locale=${locale}`).then((res) => (res.ok ? res.json() : null)),
+    ])
+      .then(([jobsData, appsData, empData]) => {
+        if (ignore) return;
+        if (Array.isArray(jobsData?.jobs)) setJobs(jobsData.jobs);
+        if (Array.isArray(appsData?.applications)) setApplicants(appsData.applications);
+        if (Array.isArray(empData?.employees)) setEmployees(empData.employees);
+      })
       .catch(() => undefined);
     return () => { ignore = true; };
-  }, [locale, setEmployees]);
+  }, [locale, setJobs, setApplicants, setEmployees]);
   const reminders = useMemo(() => buildReminders(employees, t), [employees, t]);
-  const openJobs = 4;
-  const newApps = applicants.filter((item) => item.stage === "new").length;
+  const openJobs = jobs.filter((job) => job.status === "active").length;
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const newApps = applicants.filter((item) => {
+    if (!item.createdAt) return false;
+    const ts = new Date(item.createdAt).getTime();
+    return Number.isFinite(ts) && ts >= weekAgo;
+  }).length;
+  const hiredDays = applicants
+    .filter((item) => item.stage === "hired" && item.createdAt && item.updatedAt)
+    .map((item) => {
+      const start = new Date(item.createdAt!).getTime();
+      const end = new Date(item.updatedAt!).getTime();
+      if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return null;
+      return Math.max(0, Math.round((end - start) / (24 * 60 * 60 * 1000)));
+    })
+    .filter((days): days is number => days !== null);
+  const avgTimeToHire = hiredDays.length
+    ? Math.round(hiredDays.reduce((sum, days) => sum + days, 0) / hiredDays.length)
+    : null;
   return <>
     <div className="ai-banner">
       <div style={{ fontSize: 20 }}>✨</div>
@@ -100,8 +125,7 @@ function Hub({ t, locale }: { t: T; locale: Locale }) {
     <div className="kpi-row">
       <div className="kpi"><div className="kpi-lbl">{t.openJobs}</div><div className="kpi-val">{openJobs}</div></div>
       <div className="kpi"><div className="kpi-lbl">{t.newApps7d}</div><div className="kpi-val" style={{ color: "var(--accent)" }}>{newApps}</div></div>
-      <div className="kpi"><div className="kpi-lbl">{t.interviewsWeek}</div><div className="kpi-val">2</div></div>
-      <div className="kpi"><div className="kpi-lbl">{t.timeToHire}</div><div className="kpi-val">18<span>{t.days}</span></div></div>
+      <div className="kpi"><div className="kpi-lbl">{t.timeToHire}</div><div className="kpi-val">{avgTimeToHire !== null ? <>{avgTimeToHire}<span>{t.days}</span></> : "–"}</div></div>
     </div>
     <div className="section-title">{t.modules}</div>
     <div className="settings-grid" style={{ marginBottom: 20 }}>
@@ -586,6 +610,7 @@ function ApplicationCreate({ t, locale }: { t: T; locale: Locale }) {
   const [jobId, setJobId] = useState("");
   const [message, setMessage] = useState("");
   const [cv, setCv] = useState("");
+  const [cvFile, setCvFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [showErrors, setShowErrors] = useState(false);
@@ -596,6 +621,7 @@ function ApplicationCreate({ t, locale }: { t: T; locale: Locale }) {
     const ok = /\.(pdf|doc|docx)$/i.test(file.name) || ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"].includes(file.type);
     if (!ok) return;
     setCv(file.name);
+    setCvFile(file);
   }
   useEffect(() => {
     let ignore = false;
@@ -616,14 +642,17 @@ function ApplicationCreate({ t, locale }: { t: T; locale: Locale }) {
     if (Object.values(missing).some(Boolean)) return;
     setBusy(true);
     try {
-      const res = await fetch("/api/recruiting/applications", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          firstName: first.trim(), lastName: last.trim(), email: email.trim(), phone: phone.trim(),
-          jobId, message: message.trim(), cvFileName: cv, locale,
-        }),
-      });
+      const body = new FormData();
+      body.set("firstName", first.trim());
+      body.set("lastName", last.trim());
+      body.set("email", email.trim());
+      body.set("phone", phone.trim());
+      body.set("jobId", jobId);
+      body.set("message", message.trim());
+      body.set("locale", locale);
+      if (cvFile) body.set("cv", cvFile);
+      else if (cv) body.set("cvFileName", cv);
+      const res = await fetch("/api/recruiting/applications", { method: "POST", body });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.application) {
         setError(t.saveFailed);
@@ -674,7 +703,7 @@ function ApplicationCreate({ t, locale }: { t: T; locale: Locale }) {
           >
             {t.uploadCv}<br /><span style={{ fontSize: 11 }}>{t.clickOrDropFile}</span>
           </button>
-          {cv ? <div className="doc-row"><div className="doc-ic">📄</div><div className="doc-name">{cv}</div><button type="button" className="icon-btn danger" onClick={() => setCv("")}>🗑️</button></div> : null}
+          {cv ? <div className="doc-row"><div className="doc-ic">📄</div><div className="doc-name">{cv}</div><button type="button" className="icon-btn danger" onClick={() => { setCv(""); setCvFile(null); }}>🗑️</button></div> : null}
         </div>
         {error ? <p className="job-apply-error">{error}</p> : null}
         <button type="submit" className="btn btn-primary" disabled={busy}>{t.save}</button>
@@ -698,6 +727,8 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
   const [notesOk, setNotesOk] = useState("");
   const [actionBusy, setActionBusy] = useState(false);
   const [authorName, setAuthorName] = useState("Team");
+  const [cvBusy, setCvBusy] = useState(false);
+  const cvUploadRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     fetch("/api/me")
       .then((res) => (res.ok ? res.json() : null))
@@ -731,6 +762,32 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
     return () => { ignore = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- load once per id/locale
   }, [id, locale]);
+  async function uploadCv(file?: File | null) {
+    if (!file || !item || cvBusy) return;
+    const ok = /\.(pdf|doc|docx)$/i.test(file.name) || ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"].includes(file.type);
+    if (!ok) {
+      showToast({ message: t.saveFailed, tone: "error" });
+      return;
+    }
+    setCvBusy(true);
+    const body = new FormData();
+    body.set("cv", file);
+    const res = await fetch(`/api/recruiting/applications/${encodeURIComponent(id)}/cv?locale=${locale}`, {
+      method: "POST",
+      body,
+    }).catch(() => null);
+    const data = res && res.ok ? await res.json().catch(() => null) : null;
+    if (!data?.application) {
+      showToast({ message: t.saveFailed, tone: "error" });
+      setCvBusy(false);
+      return;
+    }
+    const next = data.application as Applicant;
+    setItem(next);
+    setApplicants(applicants.map((row) => row.id === id ? next : row));
+    showToast({ message: fill(t.viewCv, { file: next.cv || file.name }), tone: "success" });
+    setCvBusy(false);
+  }
   function update(patch: Partial<Applicant>) {
     if (!item) return;
     const next = { ...item, ...patch };
@@ -867,7 +924,32 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
             <Field label={t.email} value={item.email} /><Field label={t.phone} value={item.phone} />
             <Field label={t.bestTime} value={item.bestTime} /><Field label={t.appliedOn} value={item.date} />
             <Field label={t.source} value={item.source} />
-            <div><div className="field-lbl" style={{ marginBottom: 2 }}>{t.cv}</div><div style={{ fontSize: 13 }}>{item.cv ? fill(t.viewCv, { file: item.cv }) : t.noCv}</div></div>
+            <div>
+              <div className="field-lbl" style={{ marginBottom: 2 }}>{t.cv}</div>
+              {item.cvDownloadable && item.cv ? (
+                <a
+                  href={`/api/recruiting/applications/${encodeURIComponent(item.id)}/cv`}
+                  download={item.cv}
+                  style={{ fontSize: 13, color: "var(--accent)", fontWeight: 600, textDecoration: "underline" }}
+                >
+                  {fill(t.viewCv, { file: item.cv })}
+                </a>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-start" }}>
+                  <div style={{ fontSize: 13 }}>{item.cv ? fill(t.viewCv, { file: item.cv }) : t.noCv}</div>
+                  <input
+                    ref={cvUploadRef}
+                    type="file"
+                    accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    hidden
+                    onChange={(event) => { void uploadCv(event.target.files?.[0]); event.target.value = ""; }}
+                  />
+                  <button type="button" className="btn btn-ghost" style={{ fontSize: 12, padding: "4px 10px" }} disabled={cvBusy} onClick={() => cvUploadRef.current?.click()}>
+                    {t.uploadCv}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
           <div className="cb" style={{ borderTop: "1px solid var(--border)" }}><div className="field-lbl" style={{ marginBottom: 6 }}>{t.message}</div><div style={{ fontSize: 13, lineHeight: 1.6 }}>{item.message || "–"}</div></div>
         </div>

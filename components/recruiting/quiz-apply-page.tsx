@@ -69,6 +69,7 @@ export function QuizApplyPage({
   const [picked, setPicked] = useState<Record<string, string[]>>({});
   const [areas, setAreas] = useState<Record<string, string>>({});
   const [files, setFiles] = useState<Record<string, string>>({});
+  const [fileBlobs, setFileBlobs] = useState<Record<string, File>>({});
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -114,6 +115,7 @@ export function QuizApplyPage({
     setShowErrors(true);
     const emailOk = /^\S+@\S+\.\S+$/.test(email.trim());
     const cvName = Object.values(files).filter(Boolean)[0] ?? "";
+    const cvFile = Object.values(fileBlobs)[0] ?? null;
     if (!firstName.trim() || !lastName.trim() || !emailOk || (cvRequired && !cvName)) {
       setError("");
       return;
@@ -127,15 +129,16 @@ export function QuizApplyPage({
     const payload = [...answers, formAnswer];
     setBusy(true);
     setError("");
-    const res = await fetch(`/api/apply/${encodeURIComponent(slug)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        locale, firstName: firstName.trim(), lastName: lastName.trim(), email: email.trim(), phone: phone.trim(),
-        cvFileName: cvName,
-        answers: payload,
-      }),
-    });
+    const body = new FormData();
+    body.set("locale", locale);
+    body.set("firstName", firstName.trim());
+    body.set("lastName", lastName.trim());
+    body.set("email", email.trim());
+    body.set("phone", phone.trim());
+    body.set("answers", JSON.stringify(payload));
+    if (cvFile) body.set("cv", cvFile);
+    else if (cvName) body.set("cvFileName", cvName);
+    const res = await fetch(`/api/apply/${encodeURIComponent(slug)}`, { method: "POST", body });
     setBusy(false);
     if (!res.ok) {
       setError(t.saveFailed);
@@ -243,8 +246,15 @@ export function QuizApplyPage({
               <div>{files[element.id] || t.clickOrDropFile}</div>
             </div>
             <input type="file" accept=".pdf,.doc,.docx,application/pdf" hidden onChange={(event) => {
-              const name = event.target.files?.[0]?.name ?? "";
+              const file = event.target.files?.[0] ?? null;
+              const name = file?.name ?? "";
               setFiles({ ...files, [element.id]: name });
+              setFileBlobs((prev) => {
+                const next = { ...prev };
+                if (file) next[element.id] = file;
+                else delete next[element.id];
+                return next;
+              });
               setAnswers(upsert(answers, { pageId: page.id, pageName: page.name, elementId: element.id, type: "file", prompt: promptFor(element, page), value: name, labels: name ? [name] : [] }));
             }} />
           </label>

@@ -33,6 +33,7 @@ export function ClassicApplyPage({ t, job, slug, locale, langs, onLocaleChange }
   const [phone, setPhone] = useState("");
   const [message, setMessage] = useState("");
   const [cvName, setCvName] = useState("");
+  const [cvFile, setCvFile] = useState<File | null>(null);
   const [keep, setKeep] = useState(false);
   const [privacy, setPrivacy] = useState(false);
   const [showRetention, setShowRetention] = useState(false);
@@ -54,14 +55,18 @@ export function ClassicApplyPage({ t, job, slug, locale, langs, onLocaleChange }
     setError("");
     if (slug) {
       setBusy(true);
-      const res = await fetch(`/api/apply/${encodeURIComponent(slug)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          locale, salutation: title, firstName: first.trim(), lastName: last.trim(), email: email.trim(),
-          phone: phone.trim(), message: message.trim(), cvFileName: cvName, keepForOtherJobs: keep,
-        }),
-      });
+      const body = new FormData();
+      body.set("locale", locale || "en");
+      body.set("salutation", title);
+      body.set("firstName", first.trim());
+      body.set("lastName", last.trim());
+      body.set("email", email.trim());
+      body.set("phone", phone.trim());
+      body.set("message", message.trim());
+      body.set("keepForOtherJobs", keep ? "true" : "false");
+      if (cvFile) body.set("cv", cvFile);
+      else if (cvName) body.set("cvFileName", cvName);
+      const res = await fetch(`/api/apply/${encodeURIComponent(slug)}`, { method: "POST", body });
       setBusy(false);
       if (!res.ok) {
         setError(t.saveFailed);
@@ -122,7 +127,11 @@ export function ClassicApplyPage({ t, job, slug, locale, langs, onLocaleChange }
               <label>
                 {t.cv}{job.cvRequired ? "*" : ` (${t.optional})`}
                 <span className={`job-apply-cv${showErrors && job.cvRequired && !cvName ? " is-invalid" : ""}`}>
-                  <input type="file" accept=".pdf,.doc,.docx,application/pdf" onChange={(event) => setCvName(event.target.files?.[0]?.name ?? "")} />
+                  <input type="file" accept=".pdf,.doc,.docx,application/pdf" onChange={(event) => {
+                    const file = event.target.files?.[0] ?? null;
+                    setCvFile(file);
+                    setCvName(file?.name ?? "");
+                  }} />
                   {cvName ? <em>{cvName}</em> : <small>{t.clickOrDropFile}</small>}
                 </span>
               </label>

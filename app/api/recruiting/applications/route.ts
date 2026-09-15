@@ -2,6 +2,7 @@ import { prisma } from "../../../../lib/prisma";
 import { recordAuditLog } from "../../../../lib/audit/audit-service";
 import { recruitingActor } from "../../../../lib/recruiting/access";
 import { parseManualApplication, toPublicApplicant } from "../../../../lib/recruiting/application-fields";
+import { packCvRef, saveRecruitingCv } from "../../../../lib/recruiting/cv-storage";
 
 const jobInclude = {
   select: {
@@ -12,6 +13,30 @@ const jobInclude = {
     department: { select: { nameEn: true, nameDe: true, nameIt: true } },
   },
 } as const;
+
+async function readManualBody(request: Request) {
+  const contentType = request.headers.get("content-type") || "";
+  if (!contentType.includes("multipart/form-data")) {
+    return { body: await request.json().catch(() => null), cvFile: null as File | null };
+  }
+  const form = await request.formData().catch(() => null);
+  if (!form) return { body: null, cvFile: null as File | null };
+  const cv = form.get("cv");
+  const cvFile = cv instanceof File && cv.size > 0 ? cv : null;
+  return {
+    cvFile,
+    body: {
+      jobId: form.get("jobId"),
+      firstName: form.get("firstName"),
+      lastName: form.get("lastName"),
+      email: form.get("email"),
+      phone: form.get("phone"),
+      message: form.get("message"),
+      cvFileName: cvFile?.name || form.get("cvFileName"),
+      locale: form.get("locale"),
+    },
+  };
+}
 
 export async function GET(request: Request) {
   const actor = await recruitingActor();
@@ -29,8 +54,15 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const actor = await recruitingActor();
   if (!actor) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
-  const input = parseManualApplication(await request.json().catch(() => null));
+  const { body, cvFile } = await readManualBody(request);
+  const input = parseManualApplication(body);
   if (!input) return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
+  let cvFileName = input.cvFileName;
+  if (cvFile) {
+    const saved = await saveRecruitingCv(cvFile);
+    if (!saved) return Response.json({ error: "INVALID_CV" }, { status: 400 });
+    cvFileName = packCvRef(saved.storageKey, saved.originalName);
+  }
   const job = await prisma.recruitingJob.findFirst({
     where: { id: input.jobId, hotelTenantId: actor.hotel_tenant_id },
     include: { department: { select: { nameEn: true, nameDe: true, nameIt: true } } },
@@ -48,7 +80,7 @@ export async function POST(request: Request) {
         email: input.email,
         phone: input.phone,
         message: input.message,
-        cvFileName: input.cvFileName,
+        cvFileName,
         keepForOtherJobs: false,
         answers: [],
       },

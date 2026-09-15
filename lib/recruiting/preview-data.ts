@@ -15,6 +15,11 @@ export type Applicant = {
   competencies: { social: number; professional: number; methodical: number; personal: number };
   tags: string[]; comments: Array<{ text: string; author: string; date: string }>;
   answers?: Array<{ pageName: string; prompt: string; value: string; type: string }>;
+  /** ISO timestamps from DB – used for hub KPIs (7d apps, time-to-hire). */
+  createdAt?: string;
+  updatedAt?: string;
+  /** True when a stored CV file can be downloaded. */
+  cvDownloadable?: boolean;
 };
 export type Employee = {
   id: string;

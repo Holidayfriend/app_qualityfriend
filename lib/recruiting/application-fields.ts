@@ -1,6 +1,7 @@
 import type { RecruitingApplication, RecruitingApplicationStage } from "../../app/generated/prisma/client";
 import type { DeptId } from "../i18n/recruiting-messages";
 import type { AppStage, Applicant } from "./preview-data";
+import { unpackCvRef } from "./cv-storage";
 
 const stages = ["new", "invited", "offer", "hired", "rejected", "archived"] as const;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -188,6 +189,7 @@ export function toPublicApplicant(
   const deptName = pickDeptName(job, locale);
   const jobTitle = pickTitle(job, locale);
   const format = (job?.format || "").toLowerCase();
+  const cv = unpackCvRef(row.cvFileName);
   return {
     id: row.id,
     initials: initials(row.firstName, row.lastName),
@@ -203,12 +205,15 @@ export function toPublicApplicant(
     bestTime: extras?.bestTime || "–",
     date: formatDate(row.createdAt, locale),
     source: extras?.source || (format === "quiz" || answers.length ? "Quiz-Funnel" : "Formular"),
-    cv: row.cvFileName || null,
+    cv: cv.displayName || null,
     message: row.message || "",
     competencies: ai.competencies,
     tags: extras?.tags ?? notes.tags,
     comments: extras?.comments ?? notes.comments,
     answers,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+    cvDownloadable: Boolean(cv.storageKey),
   };
 }
 
