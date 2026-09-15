@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from "react";
 import type { RecruitingMessages } from "../../lib/i18n/recruiting-messages";
+import type { Locale } from "../../lib/i18n/dictionaries";
 import {
   DEFAULT_FOOTER_URL, QUIZ_IMAGE_PLACEHOLDER, QUIZ_LOGO, QUIZ_VOICE_AVATAR, QUIZ_VOICE_SAMPLE,
   type QuizChoice, type QuizElement, type QuizFooter, type QuizPage,
@@ -50,13 +51,15 @@ function ctaStyle(element: QuizElement): CSSProperties {
 }
 
 export function QuizApplyPage({
-  t, slug, locale, pages, footer,
+  t, slug, locale, pages, footer, cvRequired = false,
 }: {
   t: T;
   slug: string;
   locale: string;
   pages: QuizPage[];
   footer: QuizFooter;
+  cvRequired?: boolean;
+  langs?: Locale[];
 }) {
   const startId = pages[0]?.id ?? "";
   const [pageId, setPageId] = useState(startId);
@@ -70,6 +73,7 @@ export function QuizApplyPage({
   const [phone, setPhone] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [showErrors, setShowErrors] = useState(false);
   const page = useMemo(() => pages.find((item) => item.id === pageId) ?? pages[0], [pages, pageId]);
 
   useEffect(() => {
@@ -105,8 +109,11 @@ export function QuizApplyPage({
 
   async function submitForm(event: FormEvent, element: QuizElement) {
     event.preventDefault();
-    if (!firstName.trim() || !lastName.trim()) {
-      setError(t.requiredName);
+    setShowErrors(true);
+    const emailOk = /^\S+@\S+\.\S+$/.test(email.trim());
+    const cvName = Object.values(files).filter(Boolean)[0] ?? "";
+    if (!firstName.trim() || !lastName.trim() || !emailOk || (cvRequired && !cvName)) {
+      setError("");
       return;
     }
     const formAnswer: Answer = {
@@ -123,7 +130,7 @@ export function QuizApplyPage({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         locale, firstName: firstName.trim(), lastName: lastName.trim(), email: email.trim(), phone: phone.trim(),
-        cvFileName: Object.values(files).filter(Boolean)[0] ?? "",
+        cvFileName: cvName,
         answers: payload,
       }),
     });
@@ -225,9 +232,10 @@ export function QuizApplyPage({
       );
     }
     if (element.type === "file") {
+      const missingCv = cvRequired && !files[element.id];
       return (
         <div style={{ ...wrap, textAlign: "center" }}>
-          <label className="quiz-file">
+          <label className={`quiz-file${showErrors && missingCv ? " is-invalid" : ""}`}>
             <div className="quiz-file-inner">
               <div className="quiz-file-ic">⬆</div>
               <div>{files[element.id] || t.clickOrDropFile}</div>
@@ -238,16 +246,19 @@ export function QuizApplyPage({
               setAnswers(upsert(answers, { pageId: page.id, pageName: page.name, elementId: element.id, type: "file", prompt: promptFor(element, page), value: name, labels: name ? [name] : [] }));
             }} />
           </label>
-          <button type="button" className="quiz-cta" style={ctaStyle(element)} onClick={() => go(element.nextPageId)}>{element.text || t.send}</button>
-          <div className="quiz-skip" onClick={() => go(element.nextPageId)}>{t.skip}</div>
+          <button type="button" className="quiz-cta" style={ctaStyle(element)} onClick={() => {
+            if (cvRequired && !files[element.id]) { setShowErrors(true); return; }
+            go(element.nextPageId);
+          }}>{element.text || t.send}</button>
+          {cvRequired ? null : <div className="quiz-skip" onClick={() => go(element.nextPageId)}>{t.skip}</div>}
         </div>
       );
     }
     return (
-      <form style={wrap} className="quiz-form" onSubmit={(event) => void submitForm(event, element)}>
-        <input className="quiz-form-input" placeholder={t.firstNamePh} value={firstName} onChange={(event) => setFirstName(event.target.value)} required />
-        <input className="quiz-form-input" placeholder={t.lastNamePh} value={lastName} onChange={(event) => setLastName(event.target.value)} required />
-        <input className="quiz-form-input" type="email" placeholder={t.email} value={email} onChange={(event) => setEmail(event.target.value)} />
+      <form style={wrap} className="quiz-form" noValidate onSubmit={(event) => void submitForm(event, element)}>
+        <input className={`quiz-form-input${showErrors && !firstName.trim() ? " is-invalid" : ""}`} placeholder={t.firstNamePh} value={firstName} onChange={(event) => setFirstName(event.target.value)} />
+        <input className={`quiz-form-input${showErrors && !lastName.trim() ? " is-invalid" : ""}`} placeholder={t.lastNamePh} value={lastName} onChange={(event) => setLastName(event.target.value)} />
+        <input className={`quiz-form-input${showErrors && !/^\S+@\S+\.\S+$/.test(email.trim()) ? " is-invalid" : ""}`} type="email" placeholder={t.email} value={email} onChange={(event) => setEmail(event.target.value)} />
         <input className="quiz-form-input" type="tel" placeholder={t.phone} value={phone} onChange={(event) => setPhone(event.target.value)} />
         <label className="quiz-copy" style={{ fontSize: 14 }}><input type="checkbox" required /> {t.privacyAgree}</label>
         {error ? <p className="job-apply-error">{error}</p> : null}

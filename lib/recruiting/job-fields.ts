@@ -174,8 +174,7 @@ export function parseApplicationInput(body: unknown, format: FormatKey, cvRequir
   const lastName = text(data.lastName, 120);
   const email = text(data.email, 320);
   const locale = locales.includes(data.locale as JobLocale) ? data.locale as JobLocale : "en";
-  if (!firstName || !lastName) return null;
-  if (email && !email.includes("@")) return null;
+  if (!firstName || !lastName || !email.includes("@")) return null;
   const cvFileName = text(data.cvFileName, 255);
   if (cvRequired && !cvFileName) return null;
   const answers = Array.isArray(data.answers) ? data.answers : [];

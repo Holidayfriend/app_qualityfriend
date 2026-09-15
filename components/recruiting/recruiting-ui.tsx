@@ -243,7 +243,6 @@ function JobCreate({ t, locale }: { t: T; locale: Locale }) {
     start: !start.trim(),
     description: !htmlToPlain(description),
     location: !location.trim(),
-    autoMessage: !htmlToPlain(autoMessage),
     image: !image,
     logo: !logo,
   };
@@ -324,7 +323,8 @@ function JobCreate({ t, locale }: { t: T; locale: Locale }) {
             <label><span className="field-lbl">{t.location}</span><input className={`field-input${invalid("location") ? " is-invalid" : ""}`} value={location} onChange={(event) => setLocation(event.target.value)} placeholder={t.locationPlaceholder} /></label>
             <div>
               <span className="field-lbl">{t.autoMessage}</span>
-              <RichTextEditor value={autoMessage} onChange={setAutoMessage} placeholder={t.autoMessagePlaceholder} locale={locale} invalid={invalid("autoMessage")} />
+              <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 400, color: "var(--text3)" }}>{t.autoMessageHint}</p>
+              <RichTextEditor value={autoMessage} onChange={setAutoMessage} placeholder={t.autoMessagePlaceholder} locale={locale} />
             </div>
             <label className="quiz-check">
               <input type="checkbox" checked={cvRequired} onChange={(event) => setCvRequired(event.target.checked)} />
