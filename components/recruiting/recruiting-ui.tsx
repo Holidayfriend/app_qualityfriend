@@ -1360,19 +1360,20 @@ function EmployeeCreate({ t, locale }: { t: T; locale: Locale }) {
   const [taxId, setTaxId] = useState("");
   const [birthdate, setBirthdate] = useState("");
   const [birthplace, setBirthplace] = useState("");
-  const [employedFrom, setEmployedFrom] = useState("");
-  const [employedTo, setEmployedTo] = useState("");
   const [comments, setComments] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [showErrors, setShowErrors] = useState(false);
+  const missing = { first: !first.trim(), last: !last.trim(), departmentId: !departmentId };
   useEffect(() => {
     if (!departmentId && departments[0]?.id) setDepartmentId(departments[0].id);
   }, [departments, departmentId]);
   async function save(event: FormEvent) {
     event.preventDefault();
-    if (!first.trim() || !last.trim() || !departmentId) { setError(t.requiredName); return; }
-    setBusy(true);
+    setShowErrors(true);
     setError("");
+    if (Object.values(missing).some(Boolean)) return;
+    setBusy(true);
     try {
       const res = await fetch("/api/recruiting/employees", {
         method: "POST",
@@ -1386,8 +1387,6 @@ function EmployeeCreate({ t, locale }: { t: T; locale: Locale }) {
           taxId: taxId.trim(),
           birthdate: birthdate || null,
           birthplace: birthplace.trim(),
-          employedFrom: employedFrom || null,
-          employedTo: employedTo || null,
           comments: comments.trim(),
           locale,
         }),
@@ -1407,26 +1406,22 @@ function EmployeeCreate({ t, locale }: { t: T; locale: Locale }) {
   }
   return <>
     <Back href="/recruiting/employees" label={t.backEmployees} />
-    <form className="card" style={{ maxWidth: 520 }} onSubmit={(event) => void save(event)}>
+    <form className="card" style={{ maxWidth: 520 }} onSubmit={(event) => void save(event)} noValidate>
       <div className="ch"><div className="ct">{t.employeeCreateTitle}</div></div>
       <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div className="field-row">
-          <label><span className="field-lbl">{t.firstName}</span><input className="field-input" value={first} onChange={(event) => setFirst(event.target.value)} placeholder={t.firstNamePh} /></label>
-          <label><span className="field-lbl">{t.lastName}</span><input className="field-input" value={last} onChange={(event) => setLast(event.target.value)} placeholder={t.lastNamePh} /></label>
+          <label><span className="field-lbl">{t.firstName}</span><input className={`field-input${showErrors && missing.first ? " is-invalid" : ""}`} value={first} onChange={(event) => setFirst(event.target.value)} placeholder={t.firstNamePh} /></label>
+          <label><span className="field-lbl">{t.lastName}</span><input className={`field-input${showErrors && missing.last ? " is-invalid" : ""}`} value={last} onChange={(event) => setLast(event.target.value)} placeholder={t.lastNamePh} /></label>
         </div>
         <div className="field-row">
           <label><span className="field-lbl">{t.email.replace(/\*$/, "")}</span><input className="field-input" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" /></label>
           <label><span className="field-lbl">{t.phone}</span><input className="field-input" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+39 ..." /></label>
         </div>
-        <label><span className="field-lbl">{t.department}</span><select className="field-select" value={departmentId} onChange={(event) => setDepartmentId(event.target.value)}>{departments.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+        <label><span className="field-lbl">{t.department}</span><select className={`field-select${showErrors && missing.departmentId ? " is-invalid" : ""}`} value={departmentId} onChange={(event) => setDepartmentId(event.target.value)}>{departments.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
         <label><span className="field-lbl">{t.taxId}</span><input className="field-input" value={taxId} onChange={(event) => setTaxId(event.target.value)} /></label>
         <div className="field-row">
           <label><span className="field-lbl">{t.birthdate}</span><input className="field-input" type="date" value={birthdate} onChange={(event) => setBirthdate(event.target.value)} /></label>
           <label><span className="field-lbl">{t.birthplace}</span><input className="field-input" value={birthplace} onChange={(event) => setBirthplace(event.target.value)} /></label>
-        </div>
-        <div className="field-row">
-          <label><span className="field-lbl">{t.employedFrom}</span><input className="field-input" type="date" value={employedFrom} onChange={(event) => setEmployedFrom(event.target.value)} /></label>
-          <label><span className="field-lbl">{t.employedTo}</span><input className="field-input" type="date" value={employedTo} onChange={(event) => setEmployedTo(event.target.value)} /></label>
         </div>
         <label><span className="field-lbl">{t.comments}</span><textarea className="field-input" style={{ minHeight: 70, resize: "vertical" }} value={comments} onChange={(event) => setComments(event.target.value)} /></label>
         {error ? <p className="job-apply-error">{error}</p> : null}
@@ -1438,16 +1433,24 @@ function EmployeeCreate({ t, locale }: { t: T; locale: Locale }) {
 }
 
 function EmployeeDetail({ t, locale, id }: { t: T; locale: Locale; id: string }) {
+  const showToast = useToast();
   const { employees, setEmployees } = useRecruiting();
   const [item, setItem] = useState<Employee | null>(null);
   const [missing, setMissing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [taxId, setTaxId] = useState("");
+  const [birthdate, setBirthdate] = useState("");
+  const [birthplace, setBirthplace] = useState("");
+  const [comments, setComments] = useState("");
   useEffect(() => {
     let ignore = false;
     setLoading(true);
     setMissing(false);
+    setEditing(false);
     if (!/^[0-9a-f-]{36}$/i.test(id)) {
       setMissing(true);
       setLoading(false);
@@ -1468,25 +1471,69 @@ function EmployeeDetail({ t, locale, id }: { t: T; locale: Locale; id: string })
     return () => { ignore = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- load once per id/locale
   }, [id, locale]);
-  async function markInactive() {
+  function startEdit() {
+    if (!item) return;
+    setEmail(item.email);
+    setPhone(item.phone);
+    setTaxId(item.taxId);
+    setBirthdate(item.birthdate);
+    setBirthplace(item.birthplace);
+    setComments(item.comments);
+    setEditing(true);
+  }
+  async function setStatus(status: "active" | "inactive") {
     if (!item || busy) return;
     setBusy(true);
-    setNotice("");
     const res = await fetch(`/api/recruiting/employees/${encodeURIComponent(id)}?locale=${locale}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "inactive" }),
+      body: JSON.stringify({ status }),
     }).catch(() => null);
     setBusy(false);
     const data = res && res.ok ? await res.json().catch(() => null) : null;
-    if (!data?.employee) { setNotice(t.employeeSaveFailed); return; }
+    if (!data?.employee) {
+      showToast({ message: t.employeeSaveFailed, tone: "error" });
+      return;
+    }
     const next = data.employee as Employee;
     setItem(next);
-    setEmployees(employees.map((row) => row.id === id ? next : row));
-    setNotice(fill(t.markInactiveOk, { name: next.name }));
+    setEmployees([next, ...employees.filter((row) => row.id !== next.id)]);
+    showToast({
+      message: fill(status === "inactive" ? t.markInactiveOk : t.markActiveOk, { name: next.name }),
+      tone: "success",
+    });
+  }
+  async function saveEdit(event: FormEvent) {
+    event.preventDefault();
+    if (!item || busy) return;
+    setBusy(true);
+    const res = await fetch(`/api/recruiting/employees/${encodeURIComponent(id)}?locale=${locale}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: email.trim(),
+        phone: phone.trim(),
+        taxId: taxId.trim(),
+        birthdate: birthdate || null,
+        birthplace: birthplace.trim(),
+        comments: comments.trim(),
+      }),
+    }).catch(() => null);
+    setBusy(false);
+    const data = res && res.ok ? await res.json().catch(() => null) : null;
+    if (!data?.employee) {
+      showToast({ message: t.employeeSaveFailed, tone: "error" });
+      return;
+    }
+    const next = data.employee as Employee;
+    setItem(next);
+    setEmployees([next, ...employees.filter((row) => row.id !== next.id)]);
+    setEditing(false);
+    showToast({ message: t.employeeUpdated, tone: "success" });
   }
   if (loading) return <BrandLoader label={t.loading} />;
   if (missing || !item) return <><Back href="/recruiting/employees" label={t.backEmployees} /><p className="job-apply-missing">{t.employeeMissing}</p></>;
+  const emailLabel = t.email.replace(/\*$/, "");
   return <>
     <Back href="/recruiting/employees" label={t.backEmployees} />
     <div className="g2">
@@ -1502,17 +1549,38 @@ function EmployeeDetail({ t, locale, id }: { t: T; locale: Locale; id: string })
               <div style={{ fontSize: 12.5, color: "var(--text2)" }}>{item.departmentName || t.depts[item.dept]}</div>
             </div>
           </div>
-          <div className="cb" style={{ borderTop: "1px solid var(--border)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 20px" }}>
-            <Field label={t.email} value={item.email || "–"} /><Field label={t.phone} value={item.phone || "–"} />
-            <Field label={t.taxId} value={item.taxId || t.stillNeeded} /><Field label={t.birthdate} value={item.birthdate || t.stillNeeded} />
-            <Field label={t.birthplace} value={item.birthplace || t.stillNeeded} /><Field label={t.employedFromTo} value={item.employment || t.stillNeeded} />
-          </div>
-          <div className="cb" style={{ borderTop: "1px solid var(--border)" }}>
-            <div className="field-lbl" style={{ marginBottom: 6 }}>{t.comments}</div>
-            <div style={{ fontSize: 13, marginBottom: 10 }}>{item.comments || t.none}</div>
-            <div className="field-lbl" style={{ marginBottom: 6 }}>{t.tags}</div>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{item.tags.length ? item.tags.map((entry) => <span className="chip chip-n" key={entry}>{entry}</span>) : <span style={{ fontSize: 12.5, color: "var(--text3)" }}>{t.none}</span>}</div>
-          </div>
+          {editing ? (
+            <form className="cb" style={{ borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 12 }} onSubmit={(event) => void saveEdit(event)}>
+              <div className="field-row">
+                <label><span className="field-lbl">{emailLabel}</span><input className="field-input" type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
+                <label><span className="field-lbl">{t.phone}</span><input className="field-input" value={phone} onChange={(event) => setPhone(event.target.value)} /></label>
+              </div>
+              <label><span className="field-lbl">{t.taxId}</span><input className="field-input" value={taxId} onChange={(event) => setTaxId(event.target.value)} /></label>
+              <div className="field-row">
+                <label><span className="field-lbl">{t.birthdate}</span><input className="field-input" type="date" value={birthdate} onChange={(event) => setBirthdate(event.target.value)} /></label>
+                <label><span className="field-lbl">{t.birthplace}</span><input className="field-input" value={birthplace} onChange={(event) => setBirthplace(event.target.value)} /></label>
+              </div>
+              <label><span className="field-lbl">{t.comments}</span><textarea className="field-input" style={{ minHeight: 70, resize: "vertical" }} value={comments} onChange={(event) => setComments(event.target.value)} /></label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button type="submit" className="btn btn-primary" disabled={busy}>{t.save}</button>
+                <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setEditing(false)}>{t.cancel}</button>
+              </div>
+            </form>
+          ) : (
+            <>
+              <div className="cb" style={{ borderTop: "1px solid var(--border)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 20px" }}>
+                <Field label={emailLabel} value={item.email || "–"} /><Field label={t.phone} value={item.phone || "–"} />
+                <Field label={t.taxId} value={item.taxId || t.stillNeeded} /><Field label={t.birthdate} value={item.birthdate || t.stillNeeded} />
+                <Field label={t.birthplace} value={item.birthplace || t.stillNeeded} /><Field label={t.employedFromTo} value={item.employment || t.stillNeeded} />
+              </div>
+              <div className="cb" style={{ borderTop: "1px solid var(--border)" }}>
+                <div className="field-lbl" style={{ marginBottom: 6 }}>{t.comments}</div>
+                <div style={{ fontSize: 13, marginBottom: 10 }}>{item.comments || t.none}</div>
+                <div className="field-lbl" style={{ marginBottom: 6 }}>{t.tags}</div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{item.tags.length ? item.tags.map((entry) => <span className="chip chip-n" key={entry}>{entry}</span>) : <span style={{ fontSize: 12.5, color: "var(--text3)" }}>{t.none}</span>}</div>
+              </div>
+            </>
+          )}
         </div>
         <div className="card">
           <div className="ch"><div className="ct">{t.safetyCerts}</div></div>
@@ -1526,10 +1594,13 @@ function EmployeeDetail({ t, locale, id }: { t: T; locale: Locale; id: string })
       <div className="card">
         <div className="ch"><div className="ct">{t.actions}</div></div>
         <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <button type="button" className="btn btn-primary" onClick={() => alert(t.editDemo)}>{t.editFile}</button>
+          <button type="button" className="btn btn-primary" disabled={busy || editing} onClick={startEdit}>{t.editFile}</button>
           <button type="button" className="btn btn-ghost" onClick={() => alert(t.trainingDemo)}>{t.addTraining}</button>
-          <button type="button" className="btn btn-ghost" style={{ color: "var(--red)" }} disabled={busy || item.status === "inactive"} onClick={() => void markInactive()}>{t.markInactive}</button>
-          {notice ? <p style={{ margin: 0, fontSize: 12.5, color: "var(--green)" }}>{notice}</p> : null}
+          {item.status === "active" ? (
+            <button type="button" className="btn btn-ghost" style={{ color: "var(--red)" }} disabled={busy || editing} onClick={() => void setStatus("inactive")}>{t.markInactive}</button>
+          ) : (
+            <button type="button" className="btn btn-ghost" disabled={busy || editing} onClick={() => void setStatus("active")}>{t.markActive}</button>
+          )}
         </div>
       </div>
     </div>
