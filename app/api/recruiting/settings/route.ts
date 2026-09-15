@@ -26,16 +26,16 @@ export async function PUT(request: Request) {
       const after = before
         ? await tx.recruitingSettings.update({ where: { hotelTenantId: actor.hotel_tenant_id }, data })
         : await tx.recruitingSettings.create({ data: { hotelTenantId: actor.hotel_tenant_id, ...data } });
+      const afterSnapshot = settingsAuditSnapshot(toPublicSettings(after));
       await recordAuditLog(tx, {
         hotelTenantId: actor.hotel_tenant_id,
         actorId: actor.id,
         action: before ? "UPDATE" : "CREATE",
         entityType: "RECRUITING_SETTINGS",
         entityId: after.id,
-        changes: {
-          before: before ? settingsAuditSnapshot(toPublicSettings(before)) : undefined,
-          after: settingsAuditSnapshot(toPublicSettings(after)),
-        },
+        changes: before
+          ? { before: settingsAuditSnapshot(toPublicSettings(before)), after: afterSnapshot }
+          : { after: afterSnapshot },
       });
       return after;
     });

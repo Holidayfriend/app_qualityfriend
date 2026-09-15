@@ -221,7 +221,8 @@
       "HOTEL": "hotel",
       "USER": "utente",
       "RECRUITING_JOB": "annuncio di lavoro",
-      "RECRUITING_APPLICATION": "candidatura"
+      "RECRUITING_APPLICATION": "candidatura",
+      "RECRUITING_SETTINGS": "impostazioni selezione"
     }
   },
   "settingsPageMessages": {

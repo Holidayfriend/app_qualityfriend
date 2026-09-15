@@ -1,5 +1,5 @@
 CREATE TABLE "recruiting_settings" (
-    "id" UUID NOT NULL,
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "hotel_tenant_id" UUID NOT NULL,
     "subdomain" VARCHAR(63),
     "reply_email" VARCHAR(320) NOT NULL DEFAULT '',

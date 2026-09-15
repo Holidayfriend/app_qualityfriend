@@ -29,5 +29,14 @@ export function parseSettingsInput(body: unknown): RecruitingEmailSettings | "IN
 }
 
 export function settingsAuditSnapshot(settings: RecruitingEmailSettings) {
-  return { email: settings.replyEmail || settings.subdomain || "settings", subdomain: settings.subdomain, replyEmail: settings.replyEmail, emailLogo: settings.emailLogo };
+  const name = [settings.subdomain, settings.replyEmail].filter(Boolean).join(" · ");
+  return {
+    en: name || "Recruiting settings",
+    de: name || "Recruiting-Einstellungen",
+    it: name || "Impostazioni selezione",
+    title: name || "Recruiting settings",
+    subdomain: settings.subdomain,
+    replyEmail: settings.replyEmail,
+    emailLogo: settings.emailLogo,
+  };
 }
