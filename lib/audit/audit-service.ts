@@ -31,9 +31,9 @@ function localizedName(value: unknown, locale: Locale) {
 function descriptions(actor: string, entry: AuditEntry) {
   const changes = entry.changes && typeof entry.changes === "object" ? entry.changes as Record<string, unknown> : {};
   const entityNames = {
-    en: { DEPARTMENT: "department", TEAM: "team", HOTEL: "hotel", USER: "user", EXTRA_JOB: "extra job", FLOOR: "floor", ROOM_CATEGORY: "room category", ROOM: "room", RECRUITING_JOB: "job listing", RECRUITING_APPLICATION: "application" },
-    de: { DEPARTMENT: "Abteilung", TEAM: "Team", HOTEL: "Hotel", USER: "Benutzer", EXTRA_JOB: "Zusatzaufgabe", FLOOR: "Etage", ROOM_CATEGORY: "Zimmerkategorie", ROOM: "Zimmer", RECRUITING_JOB: "Stellenanzeige", RECRUITING_APPLICATION: "Bewerbung" },
-    it: { DEPARTMENT: "reparto", TEAM: "team", HOTEL: "hotel", USER: "utente", EXTRA_JOB: "lavoro aggiuntivo", FLOOR: "piano", ROOM_CATEGORY: "categoria camera", ROOM: "camera", RECRUITING_JOB: "annuncio di lavoro", RECRUITING_APPLICATION: "candidatura" },
+    en: { DEPARTMENT: "department", TEAM: "team", HOTEL: "hotel", USER: "user", EXTRA_JOB: "extra job", FLOOR: "floor", ROOM_CATEGORY: "room category", ROOM: "room", RECRUITING_JOB: "job listing", RECRUITING_APPLICATION: "application", RECRUITING_SETTINGS: "recruiting settings" },
+    de: { DEPARTMENT: "Abteilung", TEAM: "Team", HOTEL: "Hotel", USER: "Benutzer", EXTRA_JOB: "Zusatzaufgabe", FLOOR: "Etage", ROOM_CATEGORY: "Zimmerkategorie", ROOM: "Zimmer", RECRUITING_JOB: "Stellenanzeige", RECRUITING_APPLICATION: "Bewerbung", RECRUITING_SETTINGS: "Recruiting-Einstellungen" },
+    it: { DEPARTMENT: "reparto", TEAM: "team", HOTEL: "hotel", USER: "utente", EXTRA_JOB: "lavoro aggiuntivo", FLOOR: "piano", ROOM_CATEGORY: "categoria camera", ROOM: "camera", RECRUITING_JOB: "annuncio di lavoro", RECRUITING_APPLICATION: "candidatura", RECRUITING_SETTINGS: "impostazioni selezione" },
   } as const;
   const result = {} as Record<Locale, string>;
   for (const locale of ["en", "de", "it"] as const) {

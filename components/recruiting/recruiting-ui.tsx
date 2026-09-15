@@ -16,7 +16,7 @@ import type { PublicJob } from "../../lib/recruiting/job-fields";
 
 export type RecruitingView =
   | "hub" | "jobs" | "job-create" | "job-edit" | "job-quiz" | "applications" | "application-create" | "application-detail"
-  | "employees" | "employee-create" | "employee-detail" | "emails";
+  | "employees" | "employee-create" | "employee-detail" | "settings" | "emails";
 
 type T = RecruitingMessages;
 type HotelDept = { id: string; name: string };
@@ -43,7 +43,7 @@ export function RecruitingUI({ view, id = "" }: { view: RecruitingView; id?: str
   const titles: Record<RecruitingView, string> = {
     hub: t.title, jobs: t.jobsTitle, "job-create": t.jobCreateTitle, "job-edit": t.jobEditTitle, "job-quiz": t.quizName, applications: t.applicationsTitle,
     "application-create": t.applicationCreateTitle, "application-detail": t.applicationDetailTitle,
-    employees: t.employeesTitle, "employee-create": t.employeeCreateTitle, "employee-detail": t.employeeDetailTitle, emails: t.emailsTitle,
+    employees: t.employeesTitle, "employee-create": t.employeeCreateTitle, "employee-detail": t.employeeDetailTitle, settings: t.settingsTitle, emails: t.emailsTitle,
   };
   return <AppShell activeItem="recruiting" pageTitle={titles[view]}>
     <main className={`qf-dashboard ${view === "job-quiz" || view === "job-edit" ? "qf-dashboard-sticky" : ""}`}>
@@ -58,6 +58,7 @@ export function RecruitingUI({ view, id = "" }: { view: RecruitingView; id?: str
       {view === "employees" ? <Employees t={t} /> : null}
       {view === "employee-create" ? <EmployeeCreate t={t} /> : null}
       {view === "employee-detail" ? <EmployeeDetail t={t} id={id} /> : null}
+      {view === "settings" ? <EmailSettings t={t} /> : null}
       {view === "emails" ? <Emails t={t} locale={locale} /> : null}
     </main>
   </AppShell>;
@@ -103,6 +104,7 @@ function Hub({ t }: { t: T }) {
       </div>
       <div className="card">
         <div className="ch"><div className="ct">{t.automation}</div></div>
+        <Link href="/recruiting/settings" className="settings-item"><div className="settings-ic">⚙️</div><div><div className="settings-t">{t.settings}</div><div className="settings-d">{t.settingsHint}</div></div></Link>
         <Link href="/recruiting/emails" className="settings-item"><div className="settings-ic">✉️</div><div><div className="settings-t">{t.emails}</div><div className="settings-d">{t.emailsHint}</div></div></Link>
         <div className="settings-item" style={{ cursor: "default" }}><div className="settings-ic">🔔</div><div><div className="settings-t">{t.reminders}</div><div className="settings-d">{t.remindersHint}</div></div></div>
       </div>
@@ -998,6 +1000,79 @@ function EmployeeDetail({ t, id }: { t: T; id: string }) {
         </div>
       </div>
     </div>
+  </>;
+}
+
+function EmailSettings({ t }: { t: T }) {
+  const [subdomain, setSubdomain] = useState("");
+  const [replyEmail, setReplyEmail] = useState("");
+  const [logo, setLogo] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let ignore = false;
+    setLoading(true);
+    fetch("/api/recruiting/settings")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (ignore || !data?.settings) return;
+        setSubdomain(typeof data.settings.subdomain === "string" ? data.settings.subdomain : "");
+        setReplyEmail(typeof data.settings.replyEmail === "string" ? data.settings.replyEmail : "");
+        setLogo(typeof data.settings.emailLogo === "string" ? data.settings.emailLogo : "");
+      })
+      .catch(() => undefined)
+      .finally(() => { if (!ignore) setLoading(false); });
+    return () => { ignore = true; };
+  }, []);
+  async function save() {
+    setSaving(true);
+    setNotice("");
+    setError("");
+    const res = await fetch("/api/recruiting/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ subdomain, replyEmail, emailLogo: logo }),
+    }).catch(() => null);
+    setSaving(false);
+    if (!res) { setError(t.settingsSaveFailed); return; }
+    if (res.status === 409) { setError(t.subdomainTaken); return; }
+    if (res.status === 400) {
+      const data = await res.json().catch(() => null);
+      setError(data?.error === "INVALID_SUBDOMAIN" ? t.subdomainInvalid : data?.error === "INVALID_EMAIL" ? t.replyEmailInvalid : t.settingsSaveFailed);
+      return;
+    }
+    if (!res.ok) { setError(t.settingsSaveFailed); return; }
+    const data = await res.json().catch(() => null);
+    if (data?.settings) {
+      setSubdomain(data.settings.subdomain ?? "");
+      setReplyEmail(data.settings.replyEmail ?? "");
+      setLogo(data.settings.emailLogo ?? "");
+    }
+    setNotice(t.settingsSaved);
+  }
+  return <>
+    <Back href="/recruiting" label={t.backRecruiting} />
+    <div className="card">
+      <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <label>
+          <span className="field-lbl">{t.subdomain}</span>
+          <input className="field-input" value={subdomain} onChange={(event) => setSubdomain(event.target.value)} placeholder={t.subdomainPlaceholder} />
+          <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 6 }}>{t.subdomainHint}</div>
+        </label>
+        <label>
+          <span className="field-lbl">{t.replyEmail}</span>
+          <input className="field-input" type="email" value={replyEmail} onChange={(event) => setReplyEmail(event.target.value)} placeholder={t.replyEmailPlaceholder} />
+          <div style={{ fontSize: 11.5, color: "var(--text3)", marginTop: 6 }}>{t.replyEmailHint}</div>
+        </label>
+        <ImageField t={t} label={t.emailLogo} hint={t.emailLogoHint} value={logo} onChange={setLogo} />
+        {error ? <div style={{ fontSize: 12.5, color: "var(--danger, #c0392b)" }}>{error}</div> : null}
+        {notice ? <div style={{ fontSize: 12.5, color: "var(--accent)" }}>{notice}</div> : null}
+        <button type="button" className="btn btn-primary" disabled={saving || loading} onClick={() => void save()}>{t.save}</button>
+      </div>
+    </div>
+    {loading || saving ? <BrandLoader label={t.loading} overlay /> : null}
   </>;
 }
 

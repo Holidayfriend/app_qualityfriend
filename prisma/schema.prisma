@@ -537,6 +537,7 @@ model HotelTenant {
   extraJobs                    ExtraJob[]
   recruitingJobs               RecruitingJob[]
   recruitingApplications       RecruitingApplication[]
+  recruitingSettings           RecruitingSettings?
   teams                        Team[]
   auditLogs                    AuditLog[]
   rolePermissions              RoleModulePermission[]
@@ -980,4 +981,17 @@ model RecruitingApplication {
   @@index([hotelTenantId, jobId])
   @@index([hotelTenantId, createdAt])
   @@map("recruiting_applications")
+}
+
+model RecruitingSettings {
+  id            String      @id @default(uuid()) @db.Uuid
+  hotelTenantId String      @unique @map("hotel_tenant_id") @db.Uuid
+  subdomain     String?     @unique @db.VarChar(63)
+  replyEmail    String      @default("") @map("reply_email") @db.VarChar(320)
+  emailLogo     String      @default("") @map("email_logo") @db.VarChar(255)
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant   HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@map("recruiting_settings")
 }
