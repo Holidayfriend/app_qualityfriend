@@ -728,7 +728,11 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
   const [actionBusy, setActionBusy] = useState(false);
   const [authorName, setAuthorName] = useState("Team");
   const [cvBusy, setCvBusy] = useState(false);
+  const [manageFilesOpen, setManageFilesOpen] = useState(false);
+  const [extraFiles, setExtraFiles] = useState<Array<{ id: string; fileName: string; mimeType: string; url: string }>>([]);
+  const [filesBusy, setFilesBusy] = useState(false);
   const cvUploadRef = useRef<HTMLInputElement>(null);
+  const extraUploadRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     fetch("/api/me")
       .then((res) => (res.ok ? res.json() : null))
@@ -766,7 +770,7 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
     if (!file || !item || cvBusy) return;
     const ok = /\.(pdf|doc|docx)$/i.test(file.name) || ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"].includes(file.type);
     if (!ok) {
-      showToast({ message: t.saveFailed, tone: "error" });
+      showToast({ message: "CV must be PDF, DOC or DOCX (max 8 MB).", tone: "error" });
       return;
     }
     setCvBusy(true);
@@ -776,17 +780,84 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
       method: "POST",
       body,
     }).catch(() => null);
-    const data = res && res.ok ? await res.json().catch(() => null) : null;
-    if (!data?.application) {
-      showToast({ message: t.saveFailed, tone: "error" });
+    const data = res ? await res.json().catch(() => null) : null;
+    if (!res?.ok || !data?.application) {
+      showToast({ message: data?.message || t.fileSaveFailed, tone: "error" });
       setCvBusy(false);
       return;
     }
     const next = data.application as Applicant;
     setItem(next);
     setApplicants(applicants.map((row) => row.id === id ? next : row));
-    showToast({ message: fill(t.viewCv, { file: next.cv || file.name }), tone: "success" });
+    showToast({ message: t.fileUploaded, tone: "success" });
     setCvBusy(false);
+  }
+  async function deleteCv() {
+    if (!item || cvBusy || (!item.cv && !item.cvDownloadable)) return;
+    setCvBusy(true);
+    const res = await fetch(`/api/recruiting/applications/${encodeURIComponent(id)}/cv?locale=${locale}`, {
+      method: "DELETE",
+    }).catch(() => null);
+    const data = res ? await res.json().catch(() => null) : null;
+    if (!res?.ok || !data?.application) {
+      showToast({ message: data?.message || t.fileDeleteFailed, tone: "error" });
+      setCvBusy(false);
+      return;
+    }
+    const next = data.application as Applicant;
+    setItem(next);
+    setApplicants(applicants.map((row) => row.id === id ? next : row));
+    showToast({ message: t.fileDeleted, tone: "success" });
+    setCvBusy(false);
+  }
+  async function loadExtraFiles() {
+    const res = await fetch(`/api/recruiting/applications/${encodeURIComponent(id)}/files`).catch(() => null);
+    const data = res && res.ok ? await res.json().catch(() => null) : null;
+    if (Array.isArray(data?.files)) setExtraFiles(data.files);
+  }
+  async function openManageFiles() {
+    setManageFilesOpen(true);
+    setFilesBusy(true);
+    await loadExtraFiles();
+    setFilesBusy(false);
+  }
+  async function uploadExtraFiles(list?: FileList | null) {
+    if (!list?.length || filesBusy) return;
+    setFilesBusy(true);
+    const body = new FormData();
+    Array.from(list).forEach((file) => body.append("file", file));
+    const res = await fetch(`/api/recruiting/applications/${encodeURIComponent(id)}/files`, {
+      method: "POST",
+      body,
+    }).catch(() => null);
+    const data = res ? await res.json().catch(() => null) : null;
+    if (!res?.ok || !data?.files?.length) {
+      showToast({ message: data?.message || t.fileSaveFailed, tone: "error" });
+      setFilesBusy(false);
+      return;
+    }
+    await loadExtraFiles();
+    showToast({
+      message: data.files.length === 1 ? t.fileUploaded : fill(t.filesUploaded, { count: String(data.files.length) }),
+      tone: "success",
+    });
+    setFilesBusy(false);
+  }
+  async function deleteExtraFile(fileId: string) {
+    if (filesBusy) return;
+    setFilesBusy(true);
+    const res = await fetch(`/api/recruiting/applications/${encodeURIComponent(id)}/files/${encodeURIComponent(fileId)}`, {
+      method: "DELETE",
+    }).catch(() => null);
+    const data = res ? await res.json().catch(() => null) : null;
+    if (!res?.ok) {
+      showToast({ message: data?.message || t.fileDeleteFailed, tone: "error" });
+      setFilesBusy(false);
+      return;
+    }
+    setExtraFiles((rows) => rows.filter((row) => row.id !== fileId));
+    showToast({ message: t.fileDeleted, tone: "success" });
+    setFilesBusy(false);
   }
   function update(patch: Partial<Applicant>) {
     if (!item) return;
@@ -926,29 +997,22 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
             <Field label={t.source} value={item.source} />
             <div>
               <div className="field-lbl" style={{ marginBottom: 2 }}>{t.cv}</div>
-              {item.cvDownloadable && item.cv ? (
-                <a
-                  href={`/api/recruiting/applications/${encodeURIComponent(item.id)}/cv`}
-                  download={item.cv}
-                  style={{ fontSize: 13, color: "var(--accent)", fontWeight: 600, textDecoration: "underline" }}
-                >
-                  {fill(t.viewCv, { file: item.cv })}
-                </a>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-start" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-start" }}>
+                {item.cvDownloadable && item.cv ? (
+                  <a
+                    href={`/api/recruiting/applications/${encodeURIComponent(item.id)}/cv`}
+                    download={item.cv}
+                    style={{ fontSize: 13, color: "var(--accent)", fontWeight: 600, textDecoration: "underline" }}
+                  >
+                    {fill(t.viewCv, { file: item.cv })}
+                  </a>
+                ) : (
                   <div style={{ fontSize: 13 }}>{item.cv ? fill(t.viewCv, { file: item.cv }) : t.noCv}</div>
-                  <input
-                    ref={cvUploadRef}
-                    type="file"
-                    accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                    hidden
-                    onChange={(event) => { void uploadCv(event.target.files?.[0]); event.target.value = ""; }}
-                  />
-                  <button type="button" className="btn btn-ghost" style={{ fontSize: 12, padding: "4px 10px" }} disabled={cvBusy} onClick={() => cvUploadRef.current?.click()}>
-                    {t.uploadCv}
-                  </button>
-                </div>
-              )}
+                )}
+                <button type="button" className="btn btn-ghost" style={{ fontSize: 12, padding: "4px 10px" }} onClick={() => void openManageFiles()}>
+                  {t.manageFiles}
+                </button>
+              </div>
             </div>
           </div>
           <div className="cb" style={{ borderTop: "1px solid var(--border)" }}><div className="field-lbl" style={{ marginBottom: 6 }}>{t.message}</div><div style={{ fontSize: 13, lineHeight: 1.6 }}>{item.message || "–"}</div></div>
@@ -1001,7 +1065,73 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
         </div>
       </div>
     </div>
-    {notesBusy || actionBusy ? <BrandLoader label={t.loading} overlay /> : null}
+    {manageFilesOpen ? (
+      <div className="job-apply-overlay" onClick={() => setManageFilesOpen(false)}>
+        <div className="job-apply-dialog manage-files-dialog" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+          <h3>{t.manageFilesTitle}</h3>
+          <p>{t.manageFilesHint}</p>
+          <div style={{ marginBottom: 18 }}>
+            <div className="field-lbl" style={{ marginBottom: 8 }}>{t.cv}</div>
+            <div className="doc-row" style={{ alignItems: "center" }}>
+              <div className="doc-ic">📄</div>
+              <div className="doc-name" style={{ flex: 1 }}>
+                {item.cvDownloadable && item.cv ? (
+                  <a href={`/api/recruiting/applications/${encodeURIComponent(item.id)}/cv`} download={item.cv} style={{ color: "var(--accent)", fontWeight: 600 }}>
+                    {item.cv}
+                  </a>
+                ) : (item.cv || t.noCv)}
+              </div>
+              <input
+                ref={cvUploadRef}
+                type="file"
+                accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                hidden
+                onChange={(event) => { void uploadCv(event.target.files?.[0]); event.target.value = ""; }}
+              />
+              <button type="button" className="btn btn-ghost" style={{ fontSize: 12, padding: "4px 10px" }} disabled={cvBusy} onClick={() => cvUploadRef.current?.click()}>
+                {item.cv || item.cvDownloadable ? t.replaceCv : t.uploadCv}
+              </button>
+              {item.cv || item.cvDownloadable ? (
+                <button type="button" className="icon-btn danger" disabled={cvBusy} title={t.deleteCv} onClick={() => void deleteCv()}>🗑️</button>
+              ) : null}
+            </div>
+          </div>
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
+              <div className="field-lbl" style={{ marginBottom: 0 }}>{t.extraFiles}</div>
+              <input
+                ref={extraUploadRef}
+                type="file"
+                multiple
+                accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp,.gif,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/webp,image/gif"
+                hidden
+                onChange={(event) => { void uploadExtraFiles(event.target.files); event.target.value = ""; }}
+              />
+              <button type="button" className="btn btn-primary" style={{ fontSize: 12, padding: "4px 10px", marginLeft: "auto" }} disabled={filesBusy} onClick={() => extraUploadRef.current?.click()}>
+                {t.uploadExtraFiles}
+              </button>
+            </div>
+            {extraFiles.length ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {extraFiles.map((file) => (
+                  <div className="doc-row" key={file.id} style={{ alignItems: "center" }}>
+                    <div className="doc-ic">{file.mimeType.startsWith("image/") ? "🖼️" : "📎"}</div>
+                    <div className="doc-name" style={{ flex: 1 }}>
+                      <a href={file.url} download={file.fileName} style={{ color: "var(--accent)", fontWeight: 600 }}>{file.fileName}</a>
+                    </div>
+                    <button type="button" className="icon-btn danger" disabled={filesBusy} title={t.deleteFile} onClick={() => void deleteExtraFile(file.id)}>🗑️</button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: 12.5, color: "var(--text3)" }}>{t.extraFilesEmpty}</div>
+            )}
+          </div>
+          <button type="button" className="btn btn-ghost" onClick={() => setManageFilesOpen(false)}>{t.close}</button>
+        </div>
+      </div>
+    ) : null}
+    {notesBusy || actionBusy || cvBusy || filesBusy ? <BrandLoader label={t.loading} overlay /> : null}
   </>;
 }
 

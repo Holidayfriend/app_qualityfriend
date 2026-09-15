@@ -135,9 +135,22 @@ export function parseQuizAnswers(value: unknown): NonNullable<Applicant["answers
   return rows;
 }
 
-export function parseApplicationNotes(value: unknown): { tags: string[]; comments: Applicant["comments"] } {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return { tags: [], comments: [] };
-  const body = value as { tags?: unknown; comments?: unknown };
+export type ApplicationExtraFile = {
+  id: string;
+  fileName: string;
+  storageKey: string;
+  mimeType: string;
+  url: string;
+  createdAt: string;
+};
+
+export function parseApplicationNotes(value: unknown): {
+  tags: string[];
+  comments: Applicant["comments"];
+  files: ApplicationExtraFile[];
+} {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return { tags: [], comments: [], files: [] };
+  const body = value as { tags?: unknown; comments?: unknown; files?: unknown };
   const tags = Array.isArray(body.tags)
     ? body.tags.map((tag) => text(tag, 80)).filter(Boolean).slice(0, 40)
     : [];
@@ -155,10 +168,33 @@ export function parseApplicationNotes(value: unknown): { tags: string[]; comment
       });
     }
   }
-  return { tags, comments };
+  const files: ApplicationExtraFile[] = [];
+  if (Array.isArray(body.files)) {
+    for (const entry of body.files.slice(0, 100)) {
+      if (!entry || typeof entry !== "object") continue;
+      const item = entry as Record<string, unknown>;
+      const id = text(item.id, 80);
+      const fileName = text(item.fileName, 255);
+      const storageKey = text(item.storageKey, 80);
+      if (!id || !fileName || !storageKey) continue;
+      files.push({
+        id,
+        fileName,
+        storageKey,
+        mimeType: text(item.mimeType, 120) || "application/octet-stream",
+        url: text(item.url, 320),
+        createdAt: text(item.createdAt, 40) || new Date().toISOString(),
+      });
+    }
+  }
+  return { tags, comments, files };
 }
 
-export function notesPayload(tags: string[], comments: Applicant["comments"]) {
+export function notesPayload(
+  tags: string[],
+  comments: Applicant["comments"],
+  files: ApplicationExtraFile[] = [],
+) {
   return {
     tags: tags.map((tag) => tag.trim()).filter(Boolean).slice(0, 40),
     comments: comments.slice(0, 200).map((entry) => ({
@@ -166,6 +202,14 @@ export function notesPayload(tags: string[], comments: Applicant["comments"]) {
       author: entry.author.trim().slice(0, 120) || "–",
       date: entry.date.trim().slice(0, 40),
     })).filter((entry) => entry.text),
+    files: files.slice(0, 100).map((entry) => ({
+      id: entry.id,
+      fileName: entry.fileName.slice(0, 255),
+      storageKey: entry.storageKey.slice(0, 80),
+      mimeType: entry.mimeType.slice(0, 120),
+      url: entry.url.slice(0, 320),
+      createdAt: entry.createdAt.slice(0, 40),
+    })),
   };
 }
 

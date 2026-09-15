@@ -1,15 +1,26 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-const MAX_BYTES = 5 * 1024 * 1024;
-const ALLOWED = new Map([
+const MAX_BYTES = 8 * 1024 * 1024;
+
+const DOC_TYPES = new Map([
   ["application/pdf", "pdf"],
   ["application/msword", "doc"],
   ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "docx"],
 ]);
 
+const IMAGE_TYPES = new Map([
+  ["image/png", "png"],
+  ["image/jpeg", "jpg"],
+  ["image/webp", "webp"],
+  ["image/gif", "gif"],
+]);
+
+const ALL_TYPES = new Map([...DOC_TYPES, ...IMAGE_TYPES]);
+
 const storageRoot = () => path.join(process.cwd(), "storage", "recruiting-cvs");
+const extrasRoot = () => path.join(process.cwd(), "storage", "recruiting-files");
 
 export function unpackCvRef(value: string): { storageKey: string | null; displayName: string } {
   const raw = value.trim();
@@ -29,35 +40,66 @@ export function packCvRef(storageKey: string, originalName: string) {
   return `${storageKey}::${safeName}`.slice(0, 255);
 }
 
-export function cvMime(storageKey: string) {
+export function fileMime(storageKey: string) {
   const ext = storageKey.split(".").pop()?.toLowerCase();
   if (ext === "pdf") return "application/pdf";
   if (ext === "doc") return "application/msword";
   if (ext === "docx") return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  if (ext === "png") return "image/png";
+  if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
+  if (ext === "webp") return "image/webp";
+  if (ext === "gif") return "image/gif";
   return "application/octet-stream";
 }
 
-function extensionFor(file: File) {
-  const fromType = ALLOWED.get(file.type);
-  if (fromType) return fromType;
-  const match = /\.(pdf|doc|docx)$/i.exec(file.name);
-  return match ? match[1].toLowerCase() : null;
+/** @deprecated use fileMime */
+export function cvMime(storageKey: string) {
+  return fileMime(storageKey);
 }
 
-export async function saveRecruitingCv(file: File) {
-  if (!(file instanceof File) || file.size <= 0 || file.size > MAX_BYTES) return null;
-  const ext = extensionFor(file);
+type UploadLike = { name: string; type: string; size: number; arrayBuffer: () => Promise<ArrayBuffer> };
+
+function extensionFor(file: UploadLike, allowImages: boolean) {
+  const map = allowImages ? ALL_TYPES : DOC_TYPES;
+  const fromType = map.get(file.type);
+  if (fromType) return fromType;
+  const pattern = allowImages
+    ? /\.(pdf|doc|docx|png|jpe?g|webp|gif)$/i
+    : /\.(pdf|doc|docx)$/i;
+  const match = pattern.exec(file.name);
+  if (!match) return null;
+  const ext = match[1].toLowerCase();
+  return ext === "jpeg" ? "jpg" : ext;
+}
+
+async function saveFile(file: UploadLike, root: string, allowImages: boolean) {
+  if (!file || typeof file.arrayBuffer !== "function" || file.size <= 0 || file.size > MAX_BYTES) return null;
+  const ext = extensionFor(file, allowImages);
   if (!ext) return null;
   const storageKey = `${randomUUID()}.${ext}`;
-  const directory = storageRoot();
-  await mkdir(directory, { recursive: true });
-  await writeFile(path.join(directory, storageKey), Buffer.from(await file.arrayBuffer()));
-  return { storageKey, originalName: file.name.trim().slice(0, 180) || storageKey };
+  await mkdir(root, { recursive: true });
+  await writeFile(path.join(root, storageKey), Buffer.from(await file.arrayBuffer()));
+  const mimeType = ALL_TYPES.has(file.type)
+    ? file.type
+    : fileMime(storageKey);
+  return {
+    storageKey,
+    originalName: String(file.name || "").trim().slice(0, 180) || storageKey,
+    mimeType,
+  };
 }
 
-export async function readRecruitingCv(storageKey: string) {
-  if (!/^[0-9a-f-]{36}\.(pdf|doc|docx)$/i.test(storageKey)) return null;
-  const root = path.resolve(storageRoot());
+export async function saveRecruitingCv(file: UploadLike) {
+  return saveFile(file, storageRoot(), false);
+}
+
+export async function saveRecruitingExtraFile(file: UploadLike) {
+  return saveFile(file, extrasRoot(), true);
+}
+
+async function readFromRoot(rootDir: string, storageKey: string, pattern: RegExp) {
+  if (!pattern.test(storageKey)) return null;
+  const root = path.resolve(rootDir);
   const target = path.resolve(root, storageKey);
   if (!target.startsWith(root + path.sep)) return null;
   try {
@@ -65,4 +107,37 @@ export async function readRecruitingCv(storageKey: string) {
   } catch {
     return null;
   }
+}
+
+export async function readRecruitingCv(storageKey: string) {
+  return readFromRoot(storageRoot(), storageKey, /^[0-9a-f-]{36}\.(pdf|doc|docx)$/i);
+}
+
+export async function readRecruitingExtraFile(storageKey: string) {
+  return readFromRoot(extrasRoot(), storageKey, /^[0-9a-f-]{36}\.(pdf|doc|docx|png|jpe?g|webp|gif)$/i);
+}
+
+async function deleteFromRoot(rootDir: string, storageKey: string, pattern: RegExp) {
+  if (!pattern.test(storageKey)) return false;
+  const root = path.resolve(rootDir);
+  const target = path.resolve(root, storageKey);
+  if (!target.startsWith(root + path.sep)) return false;
+  try {
+    await unlink(target);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function deleteRecruitingCv(storageKey: string) {
+  return deleteFromRoot(storageRoot(), storageKey, /^[0-9a-f-]{36}\.(pdf|doc|docx)$/i);
+}
+
+export async function deleteRecruitingExtraFile(storageKey: string) {
+  return deleteFromRoot(extrasRoot(), storageKey, /^[0-9a-f-]{36}\.(pdf|doc|docx|png|jpe?g|webp|gif)$/i);
+}
+
+export function extraFileDownloadUrl(applicationId: string, fileId: string) {
+  return `/api/recruiting/applications/${applicationId}/files/${fileId}`;
 }

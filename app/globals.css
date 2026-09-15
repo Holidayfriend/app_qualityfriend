@@ -543,6 +543,7 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 .job-apply-here { border:0; background:none; padding:0; color:#c4933a; font:inherit; font-weight:700; text-decoration:underline; cursor:pointer }
 .job-apply-overlay { position:fixed; inset:0; background:rgba(28,34,51,.45); display:flex; align-items:center; justify-content:center; padding:16px; z-index:20 }
 .job-apply-dialog { width:100%; max-width:400px; background:#fff; border-radius:12px; padding:22px 20px; box-shadow:0 16px 40px rgba(28,34,51,.2) }
+.job-apply-dialog.manage-files-dialog { max-width:560px; max-height:min(86vh,720px); overflow:auto }
 .job-apply-dialog h3 { margin:0 0 8px; font-size:16px }
 .job-apply-dialog p { margin:0 0 16px; font-size:14px; font-weight:400; line-height:1.5; color:#4b5563 }
 .job-apply-btn { border:0; border-radius:8px; padding:11px 16px; background:#c4933a; color:#fff; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit }

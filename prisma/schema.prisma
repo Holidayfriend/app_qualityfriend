@@ -540,6 +540,7 @@ model HotelTenant {
   recruitingSettings           RecruitingSettings?
   recruitingEmailTemplates     RecruitingEmailTemplate[]
   recruitingEmployees          RecruitingEmployee[]
+  recruitingApplicationFiles   RecruitingApplicationFile[]
   teams                        Team[]
   auditLogs                    AuditLog[]
   rolePermissions              RoleModulePermission[]
@@ -980,11 +981,29 @@ model RecruitingApplication {
   hotelTenant      HotelTenant                 @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   job              RecruitingJob               @relation(fields: [hotelTenantId, jobId], references: [hotelTenantId, id], onDelete: Cascade, onUpdate: Cascade)
   employee         RecruitingEmployee?
+  files            RecruitingApplicationFile[]
 
   @@unique([hotelTenantId, id])
   @@index([hotelTenantId, jobId])
   @@index([hotelTenantId, createdAt])
   @@map("recruiting_applications")
+}
+
+model RecruitingApplicationFile {
+  id            String                @id @default(uuid()) @db.Uuid
+  hotelTenantId String                @map("hotel_tenant_id") @db.Uuid
+  applicationId String                @map("application_id") @db.Uuid
+  fileName      String                @map("file_name") @db.VarChar(255)
+  storageKey    String                @map("storage_key") @db.VarChar(80)
+  mimeType      String                @map("mime_type") @db.VarChar(120)
+  url           String                @db.VarChar(320)
+  createdAt     DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  hotelTenant   HotelTenant           @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  application   RecruitingApplication @relation(fields: [hotelTenantId, applicationId], references: [hotelTenantId, id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([hotelTenantId, id])
+  @@index([hotelTenantId, applicationId])
+  @@map("recruiting_application_files")
 }
 
 model RecruitingSettings {
