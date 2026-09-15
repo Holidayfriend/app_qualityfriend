@@ -1,9 +1,8 @@
 import "dotenv/config";
 import { Pool } from "pg";
-import { refreshCompetitors } from "../lib/competitors/jobs";
 import { importHousekeeping, recordImportFailure, importFailureReason } from "../lib/housekeeping/import-job";
 import type { HousekeepingImportJob } from "../lib/jobs/queue";
-import { createJobQueue, initializeQueues, queues, type SmokeJob, type CompetitorRefreshJob } from "../lib/jobs/queue";
+import { createJobQueue, initializeQueues, queues, type SmokeJob } from "../lib/jobs/queue";
 
 const boss = createJobQueue(true);
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 4 });
@@ -35,16 +34,6 @@ async function main() {
       console.error(`[worker] Housekeeping import ${job.id} attempt ${job.retryCount + 1} failed: ${reason}`);
       await recordImportFailure(pool, job.data, job.retryCount >= job.retryLimit, reason);
       throw new Error(reason);
-    }
-  });
-  await boss.work<CompetitorRefreshJob>(queues.competitors, async ([job]) => {
-    try {
-      const result = await refreshCompetitors(pool, job.data);
-      console.log(`[worker] Competitor refresh ${job.id}`, result);
-      return result;
-    } catch (error) {
-      console.error(`[worker] Competitor refresh ${job.id} failed`, error);
-      throw error;
     }
   });
   await boss.work<SmokeJob>(queues.smoke, async ([job]) => {

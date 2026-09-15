@@ -87,7 +87,3 @@ the production database network and supply any API credentials its handlers need
 Do not use local source/dependency bind mounts in production. Start/update the
 worker with the app on every deployment. Docker sends SIGTERM on shutdown; the
 worker waits up to 30 seconds for active work, then unfinished jobs can be retried.
-
-The [competitor backend](competitor-backend.md) now provides refresh dispatch,
-Xotelo fetching, database upserts, and address jobs. The existing UI Refresh
-button is unchanged pending data review.

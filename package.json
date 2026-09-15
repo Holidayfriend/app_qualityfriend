@@ -9,8 +9,6 @@
     "lint": "eslint",
     "worker": "tsx scripts/worker.ts",
     "jobs:smoke": "tsx scripts/jobs-smoke.ts",
-    "test:competitors": "tsx --test tests/competitors.test.ts",
-    "competitors:refresh": "tsx scripts/competitors-refresh.ts",
     "housekeeping:daily": "tsx scripts/housekeeping-daily.ts",
     "test:housekeeping": "tsx --test tests/housekeeping-asa-file.test.ts tests/housekeeping-import.test.ts tests/housekeeping-daily-plan.test.ts"
   },
