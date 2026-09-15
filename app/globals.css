@@ -234,9 +234,13 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 .qf-dashboard * { margin:0;padding:0;box-sizing:border-box }
 .qf-dashboard .kpi-row { display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px }
 .qf-dashboard .kpi { background:var(--surface);border-radius:var(--r);padding:18px 20px;box-shadow:var(--sh);border:1px solid var(--border) }
-.qf-dashboard .kpi-lbl { font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px }
+.qf-dashboard .kpi-lbl { font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;display:flex;align-items:center;gap:6px }
 .qf-dashboard .kpi-val { font-size:28px;font-weight:700;line-height:1 }
 .qf-dashboard .kpi-val span { font-size:15px;color:var(--text2) }
+.qf-dashboard .kpi-info { position:relative;display:inline-flex;flex-shrink:0 }
+.qf-dashboard .kpi-info-btn { width:14px;height:14px;padding:0;border-radius:50%;border:1px solid var(--border);background:var(--bg);color:var(--text3);font:700 9px/14px inherit;cursor:help }
+.qf-dashboard .kpi-info-tip { display:none;position:absolute;left:0;top:calc(100% + 6px);z-index:30;width:220px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);box-shadow:var(--sh);color:var(--text2);font-size:11px;font-weight:500;letter-spacing:0;text-transform:none;line-height:1.45 }
+.qf-dashboard .kpi-info:hover .kpi-info-tip,.qf-dashboard .kpi-info:focus-within .kpi-info-tip { display:block }
 .qf-dashboard .kpi-sub { font-size:12px;color:var(--text2);margin-top:6px;display:flex;align-items:center;gap:5px }
 .qf-dashboard .chip { padding:2px 8px;border-radius:5px;font-size:11px;font-weight:600 }
 .qf-dashboard .chip-g { background:var(--green-bg);color:var(--green) }
@@ -312,8 +316,12 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 .qf-dashboard .field-lbl { font-size:12px;font-weight:600;color:var(--text2);margin-bottom:5px;display:block }
 .qf-dashboard .field-input,.qf-dashboard .field-select { width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:7px;font-size:13.5px;outline:none;font-family:inherit;background:var(--surface);color:var(--text) }
 .qf-dashboard .field-input:focus,.qf-dashboard .field-select:focus { border-color:var(--accent) }
+.qf-dashboard .field-input.is-invalid,.qf-dashboard .field-select.is-invalid { border-color:#dc2626 }
+.qf-dashboard .field-input.is-invalid:focus,.qf-dashboard .field-select.is-invalid:focus { border-color:#dc2626 }
 .qf-dashboard .job-summernote .note-editor.note-frame { border:1px solid var(--border);border-radius:7px;background:var(--surface) }
 .qf-dashboard .job-summernote .note-editor.note-frame.note-focus { border-color:var(--accent) }
+.qf-dashboard .job-summernote.is-invalid .note-editor.note-frame { border-color:#dc2626 }
+.qf-dashboard .job-summernote.is-invalid .note-editor.note-frame.note-focus { border-color:#dc2626 }
 .qf-dashboard .job-summernote .note-toolbar { background:var(--bg);border-bottom:1px solid var(--border) }
 .qf-dashboard .job-summernote .note-editing-area .note-editable { background:var(--surface);color:var(--text);font-family:inherit }
 .qf-dashboard .job-desc-preview ul,.qf-dashboard .job-desc-preview ol { padding-left:1.25em;margin:.4em 0 }
@@ -327,6 +335,7 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 .qf-dashboard .kb-meta { font-size:12px;color:var(--text2) }
 .qf-dashboard .dropzone { border:1.5px dashed var(--border);border-radius:10px;padding:28px;text-align:center;color:var(--text3);font-size:13px;cursor:pointer;margin-bottom:16px;background:none;width:100%;font-family:inherit }
 .qf-dashboard .dropzone:hover { border-color:var(--accent);color:var(--accent) }
+.qf-dashboard .dropzone.is-invalid { border-color:#dc2626;color:#dc2626 }
 .qf-dashboard .doc-row { display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border) }
 .qf-dashboard .doc-row:last-child { border-bottom:none }
 .qf-dashboard .doc-ic { width:34px;height:34px;border-radius:8px;background:var(--accent-light);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0 }

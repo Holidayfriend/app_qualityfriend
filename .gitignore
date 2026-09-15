@@ -45,4 +45,5 @@ next-env.d.ts
 
 # Runtime hotel logo uploads
 /public/uploads/hotel-logos/
+/public/uploads/recruiting-jobs/
 /storage/chat/

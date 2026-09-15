@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ClassicApplyPage } from "./classic-apply-page";
 import { QuizApplyPage } from "./quiz-apply-page";
 import { useI18n } from "../i18n/i18n-provider";
-import { getRecruitingMessages, type DeptId } from "../../lib/i18n/recruiting-messages";
+import { getRecruitingMessages } from "../../lib/i18n/recruiting-messages";
 import { jobsSeed } from "../../lib/recruiting/preview-data";
 import type { QuizFooter, QuizPage } from "./quiz-builder";
 
@@ -21,6 +21,8 @@ type ApplyJob = {
   autoMessage: string;
   location: string;
   cvRequired: boolean;
+  listingImage?: string;
+  logoImage?: string;
   quiz: { footer: QuizFooter; pages: QuizPage[] } | null;
 };
 
@@ -69,9 +71,10 @@ export function ApplyJobScreen({ slug }: { slug: string }) {
       slug={/^[0-9a-f-]{36}$/i.test(job.id) ? job.slug : undefined}
       locale={locale}
       job={{
-        title: job.title, dept: job.dept as DeptId, type: job.type, start: job.start, notes: job.notes,
+        title: job.title, dept: job.dept, type: job.type, start: job.start, notes: job.notes,
         description: job.description, autoMessage: job.autoMessage, location: job.location, cvRequired: job.cvRequired,
-        image: true, logo: true,
+        image: job.listingImage || "/recruiting/funnel1.png",
+        logo: job.logoImage || "/recruiting/logo-icon.png",
       }}
     />
   );

@@ -21,11 +21,11 @@ export async function PATCH(request: Request, context: Context) {
     const where = { id, hotelTenantId: actor.hotel_tenant_id };
     const before = await tx.recruitingJob.findFirst({ where });
     if (!before) return null;
-    const after = await tx.recruitingJob.update({ where: { id }, data: { status } });
+    const after = await tx.recruitingJob.update({ where: { id }, data: { status }, include: { department: { select: { nameEn: true, nameDe: true, nameIt: true } } } });
     await recordAuditLog(tx, { hotelTenantId: actor.hotel_tenant_id, actorId: actor.id, action: "STATUS_CHANGE", entityType: "RECRUITING_JOB", entityId: id, changes: { before: { status: before.status }, after: { status: after.status } } });
     return after;
   });
   if (!updated) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
   const apps = await prisma.recruitingApplication.count({ where: { jobId: updated.id } });
-  return Response.json({ job: toPublicJob(updated, apps) });
+  return Response.json({ job: toPublicJob(updated, apps, undefined, true, updated.department) });
 }

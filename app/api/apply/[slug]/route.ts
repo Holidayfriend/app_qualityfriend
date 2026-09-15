@@ -6,7 +6,10 @@ const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 async function publicJob(slug: string) {
   if (!slugPattern.test(slug) || slug.length > 80) return null;
-  return prisma.recruitingJob.findFirst({ where: { slug, status: "ACTIVE" } });
+  return prisma.recruitingJob.findFirst({
+    where: { slug, status: "ACTIVE" },
+    include: { department: { select: { nameEn: true, nameDe: true, nameIt: true } } },
+  });
 }
 
 export async function GET(request: Request, context: Context) {
@@ -20,7 +23,7 @@ export async function GET(request: Request, context: Context) {
     ? await prisma.recruitingJob.update({ where: { id: job.id }, data: { clickCount: { increment: 1 } } })
     : job;
   const apps = await prisma.recruitingApplication.count({ where: { jobId: current.id } });
-  return Response.json({ job: toPublicJob(current, apps, locale) }, { headers: { "Cache-Control": "no-store" } });
+  return Response.json({ job: toPublicJob(current, apps, locale, true, job.department) }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST(request: Request, context: Context) {

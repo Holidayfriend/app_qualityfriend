@@ -91,11 +91,13 @@ export function RichTextEditor({
   onChange,
   placeholder,
   locale,
+  invalid = false,
 }: {
   value: string;
   onChange: (html: string) => void;
   placeholder: string;
   locale: Locale;
+  invalid?: boolean;
 }) {
   const holderRef = useRef<HTMLDivElement>(null);
   const targetRef = useRef<HTMLElement | null>(null);
@@ -151,5 +153,5 @@ export function RichTextEditor({
     } catch { /* editor not ready */ }
   }, [value]);
 
-  return <div ref={holderRef} className="job-summernote" />;
+  return <div ref={holderRef} className={`job-summernote${invalid ? " is-invalid" : ""}`} />;
 }

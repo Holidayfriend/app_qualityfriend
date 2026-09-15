@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { fill, type DeptId, type RecruitingMessages } from "../../lib/i18n/recruiting-messages";
+import { fill, type RecruitingMessages } from "../../lib/i18n/recruiting-messages";
 import { LanguageSwitcher } from "../i18n/language-switcher";
 import { htmlToPlain, sanitizeJobHtml } from "./rich-text-editor";
 
@@ -9,7 +9,7 @@ type T = RecruitingMessages;
 
 export type ClassicApplyJob = {
   title: string;
-  dept: DeptId;
+  dept: string;
   type: string;
   start: string;
   notes: string;
@@ -17,8 +17,8 @@ export type ClassicApplyJob = {
   autoMessage: string;
   location: string;
   cvRequired: boolean;
-  image: boolean;
-  logo: boolean;
+  image: string;
+  logo: string;
 };
 
 export function ClassicApplyPage({ t, job, slug, locale }: { t: T; job: ClassicApplyJob; slug?: string; locale?: string }) {
@@ -36,7 +36,7 @@ export function ClassicApplyPage({ t, job, slug, locale }: { t: T; job: ClassicA
   const [showRetention, setShowRetention] = useState(false);
   const typeLabel = job.type === "full" ? t.typeFull : job.type === "part" ? t.typePart : job.type === "apprentice" ? t.typeApprentice : t.typeFullOrPart;
   const benefits = job.notes.split(/[,;•]/).map((item) => item.trim()).filter(Boolean);
-  const html = sanitizeJobHtml(htmlToPlain(job.description) ? job.description : `<p>${fill(t.lookingFor, { dept: t.depts[job.dept] })}.</p>`);
+  const html = sanitizeJobHtml(htmlToPlain(job.description) ? job.description : `<p>${fill(t.lookingFor, { dept: job.dept })}.</p>`);
   const role = job.title.trim() || t.newPosition;
 
   async function submit(event: FormEvent) {
@@ -72,10 +72,10 @@ export function ClassicApplyPage({ t, job, slug, locale }: { t: T; job: ClassicA
   return (
     <div className="job-apply">
       <header className="job-apply-bar">
-        {job.logo ? <img className="job-apply-logo" src="/recruiting/logo-icon.png" alt="" /> : <span className="job-apply-logo-empty">QF</span>}
+        {job.logo ? <img className="job-apply-logo" src={job.logo} alt="" /> : <span className="job-apply-logo-empty">QF</span>}
         <LanguageSwitcher />
       </header>
-      <img className="job-apply-photo" src={job.image ? "/recruiting/funnel1.png" : "/recruiting/image-placeholder.png"} alt="" />
+      <img className="job-apply-photo" src={job.image || "/recruiting/image-placeholder.png"} alt="" />
       <main className="job-apply-main">
         {done ? (
           <div className="job-apply-box job-apply-thanks">
@@ -86,7 +86,7 @@ export function ClassicApplyPage({ t, job, slug, locale }: { t: T; job: ClassicA
           <>
             <div className="job-apply-box">
               <h1>{role}</h1>
-              <p className="job-apply-meta">{typeLabel} · {t.depts[job.dept]} · {t.startLabel}: {job.start.trim() || t.immediately}</p>
+              <p className="job-apply-meta">{typeLabel} · {job.dept} · {t.startLabel}: {job.start.trim() || t.immediately}</p>
               {job.location.trim() ? <p className="job-apply-place">📍 {t.location}: {job.location.trim()}</p> : null}
               <div className="job-desc-preview" dangerouslySetInnerHTML={{ __html: html }} />
               {benefits.length ? (

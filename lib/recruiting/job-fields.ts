@@ -1,20 +1,23 @@
 import { Prisma, type RecruitingJob, type RecruitingJobFormat, type RecruitingJobStatus } from "../../app/generated/prisma/client";
-import { deptIds } from "./preview-data";
 
 export const locales = ["de", "en", "it"] as const;
 export type JobLocale = (typeof locales)[number];
 export const formats = ["classic", "quiz"] as const;
 export const listingStatuses = ["draft", "active", "archived"] as const;
 const workTypes = ["fullOrPart", "full", "part", "apprentice"] as const;
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type FormatKey = (typeof formats)[number];
 type StatusKey = (typeof listingStatuses)[number];
+
+export type JobDepartmentNames = { nameEn: string; nameDe: string; nameIt: string };
 
 export type PublicJob = {
   id: string;
   slug: string;
   format: FormatKey;
   title: string;
+  departmentId: string;
   dept: string;
   type: string;
   start: string;
@@ -140,16 +143,16 @@ export function parseJobInput(body: unknown) {
   const format = formats.includes(data.format as FormatKey) ? data.format as FormatKey : null;
   const status = listingStatuses.includes(data.status as StatusKey) ? data.status as StatusKey : null;
   const title = text(data.title, 180);
-  const department = typeof data.department === "string" && deptIds.includes(data.department as (typeof deptIds)[number]) ? data.department : "";
+  const departmentId = typeof data.departmentId === "string" && uuid.test(data.departmentId) ? data.departmentId : "";
   const workType = typeof data.workType === "string" && workTypes.includes(data.workType as (typeof workTypes)[number]) ? data.workType : "";
-  if (!format || !status || !title || !department || !workType) return null;
+  if (!format || !status || !title || !departmentId || !workType) return null;
   const quiz = format === "quiz" ? parseQuiz(data.quiz) : undefined;
   if (format === "quiz" && !quiz) return null;
   return {
     format: format.toUpperCase() as RecruitingJobFormat,
     status: status.toUpperCase() as RecruitingJobStatus,
     title,
-    department,
+    departmentId,
     workType,
     startFrom: text(data.startFrom, 120),
     notes: text(data.notes, 4000),
@@ -196,21 +199,28 @@ function conv(clicks: number, apps: number) {
   return `${((apps / clicks) * 100).toFixed(2)}%`;
 }
 
-export function toPublicJob(job: RecruitingJob, apps = 0, locale?: string, includeQuiz = true): PublicJob {
+export function pickLocalized(en: string, de: string, it: string, locale?: string) {
+  const lang = locales.includes(locale as JobLocale) ? locale as JobLocale : "en";
+  const value = lang === "de" ? de : lang === "it" ? it : en;
+  return value.trim() ? value : en;
+}
+
+export function toPublicJob(job: RecruitingJob, apps = 0, locale?: string, includeQuiz = true, department?: JobDepartmentNames | null): PublicJob {
   const langs = asLocales(job.languages);
   const format = job.format.toLowerCase() as FormatKey;
   return {
     id: job.id,
     slug: job.slug,
     format,
-    title: job.title,
-    dept: job.department,
+    title: pickLocalized(job.title, job.titleDe, job.titleIt, locale),
+    departmentId: job.departmentId,
+    dept: department ? pickLocalized(department.nameEn, department.nameDe, department.nameIt, locale) : "",
     type: job.workType,
     start: job.startFrom,
     notes: job.notes,
-    description: job.description,
-    autoMessage: job.autoMessage,
-    location: job.location,
+    description: pickLocalized(job.description, job.descriptionDe, job.descriptionIt, locale),
+    autoMessage: pickLocalized(job.autoMessage, job.autoMessageDe, job.autoMessageIt, locale),
+    location: pickLocalized(job.location, job.locationDe, job.locationIt, locale),
     cvRequired: job.cvRequired,
     status: job.status.toLowerCase() as StatusKey,
     langs,

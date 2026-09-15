@@ -792,6 +792,7 @@ model Department {
   updatedBy                 User?                      @relation("DepartmentUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   members                   User[]                     @relation("DepartmentMembers")
   rolePermissionDepartments RolePermissionDepartment[]
+  recruitingJobs            RecruitingJob[]
 
   @@unique([hotelTenantId, nameEn])
   @@index([hotelTenantId, isDeleted])
@@ -918,15 +919,23 @@ model RecruitingJob {
   hotelTenantId String              @map("hotel_tenant_id") @db.Uuid
   slug          String              @unique @db.VarChar(80)
   title         String              @db.VarChar(180)
+  titleDe       String              @default("") @map("title_de") @db.VarChar(180)
+  titleIt       String              @default("") @map("title_it") @db.VarChar(180)
   format        RecruitingJobFormat
   status        RecruitingJobStatus @default(DRAFT)
-  department    String              @db.VarChar(40)
+  departmentId  String              @map("department_id") @db.Uuid
   workType      String              @map("work_type") @db.VarChar(40)
   startFrom     String              @default("") @map("start_from") @db.VarChar(120)
   notes         String              @default("") @db.Text
   description   String              @default("") @db.Text
+  descriptionDe String              @default("") @map("description_de") @db.Text
+  descriptionIt String              @default("") @map("description_it") @db.Text
   autoMessage   String              @default("") @map("auto_message") @db.Text
+  autoMessageDe String              @default("") @map("auto_message_de") @db.Text
+  autoMessageIt String              @default("") @map("auto_message_it") @db.Text
   location      String              @default("") @db.VarChar(180)
+  locationDe    String              @default("") @map("location_de") @db.VarChar(180)
+  locationIt    String              @default("") @map("location_it") @db.VarChar(180)
   cvRequired    Boolean             @default(false) @map("cv_required")
   languages     Json
   listingImage  String              @default("") @map("listing_image") @db.VarChar(255)
@@ -936,11 +945,13 @@ model RecruitingJob {
   createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
   hotelTenant   HotelTenant         @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  department    Department          @relation(fields: [departmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   applications  RecruitingApplication[]
 
   @@unique([hotelTenantId, id])
   @@index([hotelTenantId, status])
   @@index([hotelTenantId, format])
+  @@index([departmentId])
   @@map("recruiting_jobs")
 }
 

@@ -13,7 +13,7 @@ export default function Page() {
     <ClassicApplyPage t={t} job={{
       title: seed.title, dept: seed.dept, type: seed.type, start: seed.start, notes: seed.notes,
       description: seed.description, autoMessage: seed.autoMessage, location: seed.location,
-      cvRequired: seed.cvRequired, image: true, logo: true,
+      cvRequired: seed.cvRequired, image: "/recruiting/funnel1.png", logo: "/recruiting/logo-icon.png",
     }} />
   );
 }
