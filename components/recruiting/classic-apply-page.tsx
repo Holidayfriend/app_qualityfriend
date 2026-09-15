@@ -22,7 +22,7 @@ export type ClassicApplyJob = {
   logo: string;
 };
 
-export function ClassicApplyPage({ t, job, slug, locale, langs, onLocaleChange }: { t: T; job: ClassicApplyJob; slug?: string; locale?: string; langs?: Locale[]; onLocaleChange?: (locale: Locale) => void }) {
+export function ClassicApplyPage({ t, job, slug, locale, langs, onLocaleChange, campaignCode = "" }: { t: T; job: ClassicApplyJob; slug?: string; locale?: string; langs?: Locale[]; onLocaleChange?: (locale: Locale) => void; campaignCode?: string }) {
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -66,6 +66,7 @@ export function ClassicApplyPage({ t, job, slug, locale, langs, onLocaleChange }
       body.set("keepForOtherJobs", keep ? "true" : "false");
       if (cvFile) body.set("cv", cvFile);
       else if (cvName) body.set("cvFileName", cvName);
+      if (campaignCode) body.set("campaignCode", campaignCode);
       const res = await fetch(`/api/apply/${encodeURIComponent(slug)}`, { method: "POST", body });
       setBusy(false);
       if (!res.ok) {

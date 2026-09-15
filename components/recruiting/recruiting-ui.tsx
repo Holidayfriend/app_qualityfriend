@@ -16,7 +16,7 @@ import { htmlToPlain, RichTextEditor, sanitizeJobHtml, type RichTextEditorHandle
 import type { PublicJob } from "../../lib/recruiting/job-fields";
 
 export type RecruitingView =
-  | "hub" | "jobs" | "job-create" | "job-edit" | "job-quiz" | "applications" | "application-create" | "application-detail"
+  | "hub" | "jobs" | "job-create" | "job-edit" | "job-quiz" | "campaigns" | "applications" | "application-create" | "application-detail"
   | "employees" | "employee-create" | "employee-detail" | "settings" | "emails";
 
 type T = RecruitingMessages;
@@ -42,7 +42,7 @@ export function RecruitingUI({ view, id = "" }: { view: RecruitingView; id?: str
   const { locale } = useI18n();
   const t = getRecruitingMessages(locale);
   const titles: Record<RecruitingView, string> = {
-    hub: t.title, jobs: t.jobsTitle, "job-create": t.jobCreateTitle, "job-edit": t.jobEditTitle, "job-quiz": t.quizName, applications: t.applicationsTitle,
+    hub: t.title, jobs: t.jobsTitle, "job-create": t.jobCreateTitle, "job-edit": t.jobEditTitle, "job-quiz": t.quizName, campaigns: t.campaignsTitle, applications: t.applicationsTitle,
     "application-create": t.applicationCreateTitle, "application-detail": t.applicationDetailTitle,
     employees: t.employeesTitle, "employee-create": t.employeeCreateTitle, "employee-detail": t.employeeDetailTitle, settings: t.settingsTitle, emails: t.emailsTitle,
   };
@@ -53,6 +53,7 @@ export function RecruitingUI({ view, id = "" }: { view: RecruitingView; id?: str
       {view === "job-create" ? <JobCreate t={t} locale={locale} /> : null}
       {view === "job-edit" ? <JobEdit t={t} locale={locale} id={id} /> : null}
       {view === "job-quiz" ? <JobQuiz t={t} locale={locale} /> : null}
+      {view === "campaigns" ? <Campaigns t={t} locale={locale} /> : null}
       {view === "applications" ? <Applications t={t} locale={locale} /> : null}
       {view === "application-create" ? <ApplicationCreate t={t} locale={locale} /> : null}
       {view === "application-detail" ? <ApplicationDetail t={t} locale={locale} id={id} /> : null}
@@ -132,6 +133,7 @@ function Hub({ t, locale }: { t: T; locale: Locale }) {
       <div className="card">
         <div className="ch"><div className="ct">{t.jobsApps}</div></div>
         <Link href="/recruiting/jobs" className="settings-item"><div className="settings-ic">📢</div><div><div className="settings-t">{t.jobs}</div><div className="settings-d">{t.jobsHint}</div></div></Link>
+        <Link href="/recruiting/campaigns" className="settings-item"><div className="settings-ic">🎯</div><div><div className="settings-t">{t.campaigns}</div><div className="settings-d">{t.campaignsHint}</div></div></Link>
         <Link href="/recruiting/applications" className="settings-item"><div className="settings-ic">📨</div><div><div className="settings-t">{t.applications}</div><div className="settings-d">{t.applicationsHint}</div></div></Link>
         <Link href="/recruiting/employees" className="settings-item"><div className="settings-ic">🧑‍🍳</div><div><div className="settings-t">{t.employees}</div><div className="settings-d">{t.employeesHint}</div></div></Link>
       </div>
@@ -147,6 +149,168 @@ function Hub({ t, locale }: { t: T; locale: Locale }) {
       {reminders.length ? reminders.map((item) => <div className="al" key={item.title}><div className={`al-ic ${item.cls}`}>{item.icon}</div><div><div className="al-t">{item.title}</div><div className="al-m">{item.meta}</div></div></div>)
         : <div style={{ fontSize: 12.5, color: "var(--text3)" }}>{t.noReminders}</div>}
     </div></div>
+  </>;
+}
+
+type CampaignRow = {
+  id: string;
+  jobId: string;
+  jobTitle: string;
+  jobSlug: string;
+  source: string;
+  name: string;
+  team: string;
+  code: string;
+  clickCount: number;
+  applicationCount: number;
+  urlPath: string;
+};
+
+function Campaigns({ t, locale }: { t: T; locale: Locale }) {
+  const showToast = useToast();
+  const { jobs, setJobs } = useRecruiting();
+  const [rows, setRows] = useState<CampaignRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [jobId, setJobId] = useState("");
+  const [source, setSource] = useState("");
+  const [name, setName] = useState("");
+  const [team, setTeam] = useState("");
+  const [showForm, setShowForm] = useState(false);
+
+  useEffect(() => {
+    let ignore = false;
+    setLoading(true);
+    Promise.all([
+      fetch(`/api/recruiting/campaigns?locale=${locale}`).then((res) => (res.ok ? res.json() : null)),
+      fetch(`/api/recruiting/jobs?locale=${locale}`).then((res) => (res.ok ? res.json() : null)),
+    ])
+      .then(([campaignData, jobsData]) => {
+        if (ignore) return;
+        if (Array.isArray(campaignData?.campaigns)) setRows(campaignData.campaigns);
+        if (Array.isArray(jobsData?.jobs)) setJobs(jobsData.jobs);
+      })
+      .catch(() => undefined)
+      .finally(() => { if (!ignore) setLoading(false); });
+    return () => { ignore = true; };
+  }, [locale, setJobs]);
+
+  const openJobs = jobs.filter((job) => job.status === "active" || job.status === "draft");
+
+  async function create(event: FormEvent) {
+    event.preventDefault();
+    if (!jobId || !source.trim() || !name.trim() || !team.trim()) {
+      showToast({ message: t.campaignMissingFields, tone: "error" });
+      return;
+    }
+    setBusy(true);
+    const res = await fetch(`/api/recruiting/campaigns?locale=${locale}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jobId, source: source.trim(), name: name.trim(), team: team.trim() }),
+    }).catch(() => null);
+    const data = res ? await res.json().catch(() => null) : null;
+    if (!res?.ok || !data?.campaign) {
+      showToast({ message: data?.message || t.campaignSaveFailed, tone: "error" });
+      setBusy(false);
+      return;
+    }
+    setRows((prev) => [data.campaign as CampaignRow, ...prev]);
+    setSource("");
+    setName("");
+    setTeam("");
+    setShowForm(false);
+    showToast({ message: t.campaignCreated, tone: "success" });
+    setBusy(false);
+  }
+
+  async function copyUrl(path: string) {
+    const absolute = typeof window !== "undefined" ? `${window.location.origin}${path}` : path;
+    try {
+      await navigator.clipboard.writeText(absolute);
+      showToast({ message: t.campaignCopied, tone: "success" });
+    } catch {
+      showToast({ message: absolute, tone: "info" });
+    }
+  }
+
+  async function remove(id: string) {
+    setBusy(true);
+    const res = await fetch(`/api/recruiting/campaigns?id=${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => null);
+    const data = res ? await res.json().catch(() => null) : null;
+    if (!res?.ok) {
+      showToast({ message: data?.message || t.campaignDeleteFailed, tone: "error" });
+      setBusy(false);
+      return;
+    }
+    setRows((prev) => prev.filter((row) => row.id !== id));
+    showToast({ message: t.campaignDeleted, tone: "success" });
+    setBusy(false);
+  }
+
+  return <>
+    <Back href="/recruiting" label={t.backRecruiting} />
+    <p style={{ fontSize: 12.5, color: "var(--text2)", marginBottom: 14, lineHeight: 1.5 }}>{t.campaignIntro}</p>
+    <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
+      <button type="button" className="btn btn-primary" style={{ marginLeft: "auto" }} onClick={() => setShowForm((open) => !open)}>
+        {t.campaignCreate}
+      </button>
+    </div>
+    {showForm ? (
+      <form className="card" style={{ marginBottom: 16, maxWidth: 560 }} onSubmit={(event) => void create(event)}>
+        <div className="ch"><div className="ct">{t.campaignCreate}</div></div>
+        <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <label>
+            <span className="field-lbl">{t.campaignJob}</span>
+            <select className="field-select" value={jobId} onChange={(event) => setJobId(event.target.value)}>
+              <option value=""></option>
+              {openJobs.map((job) => <option key={job.id} value={job.id}>{job.title}</option>)}
+            </select>
+          </label>
+          <label><span className="field-lbl">{t.campaignSource}</span><input className="field-input" value={source} onChange={(event) => setSource(event.target.value)} placeholder={t.campaignSourcePh} /></label>
+          <label><span className="field-lbl">{t.campaignName}</span><input className="field-input" value={name} onChange={(event) => setName(event.target.value)} placeholder={t.campaignNamePh} /></label>
+          <label><span className="field-lbl">{t.campaignTeam}</span><input className="field-input" value={team} onChange={(event) => setTeam(event.target.value)} placeholder={t.campaignTeamPh} /></label>
+          <button type="submit" className="btn btn-primary" disabled={busy}>{t.save}</button>
+        </div>
+      </form>
+    ) : null}
+    <div className="card" style={{ overflowX: "auto" }}>
+      <table className="bud-table">
+        <thead>
+          <tr>
+            <th>{t.campaignJob}</th>
+            <th>{t.campaignSource}</th>
+            <th>{t.campaignName}</th>
+            <th>{t.campaignTeam}</th>
+            <th>{t.campaignClicks}</th>
+            <th>{t.campaignApps}</th>
+            <th>{t.campaignUrl}</th>
+            <th style={{ textAlign: "right" }}>{t.colActions}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.id}>
+              <td>{row.jobTitle}</td>
+              <td>{row.source}</td>
+              <td>{row.name}</td>
+              <td>{row.team}</td>
+              <td>{row.clickCount}</td>
+              <td>{row.applicationCount}</td>
+              <td style={{ maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <a href={row.urlPath} target="_blank" rel="noreferrer" style={{ color: "var(--accent)", fontWeight: 600 }}>{row.urlPath}</a>
+              </td>
+              <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                <button type="button" className="icon-btn" title={t.campaignCopy} onClick={() => void copyUrl(row.urlPath)}>📋</button>
+                <button type="button" className="icon-btn danger" title={t.deleteFile} disabled={busy} onClick={() => void remove(row.id)}>🗑️</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {!loading && !rows.length ? <div className="cb" style={{ fontSize: 12.5, color: "var(--text3)" }}>{t.campaignEmpty}</div> : null}
+    </div>
+    {loading || busy ? <BrandLoader label={t.loading} overlay /> : null}
   </>;
 }
 

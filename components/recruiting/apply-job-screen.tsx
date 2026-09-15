@@ -43,19 +43,27 @@ function pickApplyLocale(langs: Locale[], current: Locale | null): Locale {
   return langs[0] ?? "de";
 }
 
+function campaignCodeFromUrl() {
+  if (typeof window === "undefined") return "";
+  return new URLSearchParams(window.location.search).get("c")?.trim().slice(0, 32) || "";
+}
+
 export function ApplyJobScreen({ slug }: { slug: string }) {
   const [locale, setLocale] = useState<Locale | null>(null);
   const [job, setJob] = useState<ApplyJob | null>(null);
   const [missing, setMissing] = useState(false);
+  const [campaignCode] = useState(campaignCodeFromUrl);
   const t = getRecruitingMessages(locale ?? "de");
 
   useEffect(() => {
     let ignore = false;
-    const countClick = !countedClicks.has(slug);
-    if (countClick) countedClicks.add(slug);
+    const clickKey = `${slug}:${campaignCode || "-"}`;
+    const countClick = !countedClicks.has(clickKey);
+    if (countClick) countedClicks.add(clickKey);
     const params = new URLSearchParams();
     if (locale) params.set("locale", locale);
     if (countClick) params.set("click", "1");
+    if (campaignCode) params.set("c", campaignCode);
     const query = params.toString();
     fetch(`/api/apply/${encodeURIComponent(slug)}${query ? `?${query}` : ""}`)
       .then((res) => (res.ok ? res.json() : null))
@@ -90,7 +98,7 @@ export function ApplyJobScreen({ slug }: { slug: string }) {
       })
       .catch(() => { if (!ignore) setMissing(true); });
     return () => { ignore = true; };
-  }, [slug, locale]);
+  }, [slug, locale, campaignCode]);
 
   useEffect(() => {
     const href = job?.logoImage;
@@ -122,6 +130,7 @@ export function ApplyJobScreen({ slug }: { slug: string }) {
         cvRequired={job.cvRequired}
         langs={job.langs}
         onLocaleChange={setLocale}
+        campaignCode={campaignCode}
       />
     );
   }
@@ -132,6 +141,7 @@ export function ApplyJobScreen({ slug }: { slug: string }) {
       locale={locale}
       langs={job.langs}
       onLocaleChange={setLocale}
+      campaignCode={campaignCode}
       job={{
         title: job.title, dept: job.dept, type: job.type, start: job.start, notes: job.notes,
         description: job.description, autoMessage: job.autoMessage, location: job.location, cvRequired: job.cvRequired,

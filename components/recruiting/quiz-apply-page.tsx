@@ -52,7 +52,7 @@ function ctaStyle(element: QuizElement): CSSProperties {
 }
 
 export function QuizApplyPage({
-  t, slug, locale, pages, footer, cvRequired = false, langs, onLocaleChange,
+  t, slug, locale, pages, footer, cvRequired = false, langs, onLocaleChange, campaignCode = "",
 }: {
   t: T;
   slug: string;
@@ -62,6 +62,7 @@ export function QuizApplyPage({
   cvRequired?: boolean;
   langs?: Locale[];
   onLocaleChange?: (locale: Locale) => void;
+  campaignCode?: string;
 }) {
   const startId = pages[0]?.id ?? "";
   const [pageId, setPageId] = useState(startId);
@@ -138,6 +139,7 @@ export function QuizApplyPage({
     body.set("answers", JSON.stringify(payload));
     if (cvFile) body.set("cv", cvFile);
     else if (cvName) body.set("cvFileName", cvName);
+    if (campaignCode) body.set("campaignCode", campaignCode);
     const res = await fetch(`/api/apply/${encodeURIComponent(slug)}`, { method: "POST", body });
     setBusy(false);
     if (!res.ok) {

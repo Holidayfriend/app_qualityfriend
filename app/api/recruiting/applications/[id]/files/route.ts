@@ -101,7 +101,7 @@ export async function POST(request: Request, context: Context) {
       await tx.recruitingApplication.update({
         where: { id },
         data: {
-          notes: notesPayload(notes.tags, notes.comments, nextFiles) as Prisma.InputJsonValue,
+          notes: notesPayload(notes.tags, notes.comments, nextFiles, notes.campaign) as Prisma.InputJsonValue,
         },
       });
       await recordAuditLog(tx, {

@@ -148,9 +148,12 @@ export function parseApplicationNotes(value: unknown): {
   tags: string[];
   comments: Applicant["comments"];
   files: ApplicationExtraFile[];
+  campaign: { code: string; source: string; name: string; team: string } | null;
 } {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return { tags: [], comments: [], files: [] };
-  const body = value as { tags?: unknown; comments?: unknown; files?: unknown };
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { tags: [], comments: [], files: [], campaign: null };
+  }
+  const body = value as { tags?: unknown; comments?: unknown; files?: unknown; campaign?: unknown };
   const tags = Array.isArray(body.tags)
     ? body.tags.map((tag) => text(tag, 80)).filter(Boolean).slice(0, 40)
     : [];
@@ -187,13 +190,23 @@ export function parseApplicationNotes(value: unknown): {
       });
     }
   }
-  return { tags, comments, files };
+  let campaign: { code: string; source: string; name: string; team: string } | null = null;
+  if (body.campaign && typeof body.campaign === "object" && !Array.isArray(body.campaign)) {
+    const item = body.campaign as Record<string, unknown>;
+    const code = text(item.code, 32);
+    const source = text(item.source, 80);
+    const name = text(item.name, 180);
+    const team = text(item.team, 120);
+    if (code || source || name || team) campaign = { code, source, name, team };
+  }
+  return { tags, comments, files, campaign };
 }
 
 export function notesPayload(
   tags: string[],
   comments: Applicant["comments"],
   files: ApplicationExtraFile[] = [],
+  campaign?: { code: string; source: string; name: string; team: string } | null,
 ) {
   return {
     tags: tags.map((tag) => tag.trim()).filter(Boolean).slice(0, 40),
@@ -210,6 +223,14 @@ export function notesPayload(
       url: entry.url.slice(0, 320),
       createdAt: entry.createdAt.slice(0, 40),
     })),
+    ...(campaign ? {
+      campaign: {
+        code: campaign.code.slice(0, 32),
+        source: campaign.source.slice(0, 80),
+        name: campaign.name.slice(0, 180),
+        team: campaign.team.slice(0, 120),
+      },
+    } : {}),
   };
 }
 
@@ -234,6 +255,9 @@ export function toPublicApplicant(
   const jobTitle = pickTitle(job, locale);
   const format = (job?.format || "").toLowerCase();
   const cv = unpackCvRef(row.cvFileName);
+  const campaignSource = notes.campaign
+    ? `${notes.campaign.source || "Campaign"}${notes.campaign.name ? ` · ${notes.campaign.name}` : ""}${notes.campaign.team ? ` · ${notes.campaign.team}` : ""}`
+    : "";
   return {
     id: row.id,
     initials: initials(row.firstName, row.lastName),
@@ -248,7 +272,7 @@ export function toPublicApplicant(
     phone: row.phone || "–",
     bestTime: extras?.bestTime || "–",
     date: formatDate(row.createdAt, locale),
-    source: extras?.source || (format === "quiz" || answers.length ? "Quiz-Funnel" : "Formular"),
+    source: extras?.source || campaignSource || (format === "quiz" || answers.length ? "Quiz-Funnel" : "Formular"),
     cv: cv.displayName || null,
     message: row.message || "",
     competencies: ai.competencies,

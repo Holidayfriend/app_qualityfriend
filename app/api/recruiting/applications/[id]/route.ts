@@ -58,7 +58,7 @@ export async function PATCH(request: Request, context: Context) {
       const comments = Array.isArray(data.comments)
         ? (data.comments as Applicant["comments"])
         : current.comments;
-      patch.notes = notesPayload(tags, comments, current.files) as Prisma.InputJsonValue;
+      patch.notes = notesPayload(tags, comments, current.files, current.campaign) as Prisma.InputJsonValue;
     }
     const after = await tx.recruitingApplication.update({
       where: { id },

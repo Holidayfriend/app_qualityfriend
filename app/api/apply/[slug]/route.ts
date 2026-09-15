@@ -1,4 +1,7 @@
+import { Prisma } from "../../../generated/prisma/client";
 import { prisma } from "../../../../lib/prisma";
+import { notesPayload } from "../../../../lib/recruiting/application-fields";
+import { incrementCampaignApplications, incrementCampaignClicks } from "../../../../lib/recruiting/campaigns";
 import { packCvRef, saveRecruitingCv } from "../../../../lib/recruiting/cv-storage";
 import { parseApplicationInput, toPublicJob } from "../../../../lib/recruiting/job-fields";
 import { notifyNewRecruitingApplication } from "../../../../lib/recruiting/notify-new-application";
@@ -15,10 +18,15 @@ async function publicJob(slug: string) {
   });
 }
 
+function campaignCodeFrom(value: unknown) {
+  return typeof value === "string" ? value.trim().slice(0, 32) : "";
+}
+
 async function readApplyBody(request: Request) {
   const contentType = request.headers.get("content-type") || "";
   if (!contentType.includes("multipart/form-data")) {
-    return { body: await request.json().catch(() => null), cvFile: null as File | null };
+    const body = await request.json().catch(() => null);
+    return { body, cvFile: null as File | null };
   }
   const form = await request.formData().catch(() => null);
   if (!form) return { body: null, cvFile: null as File | null };
@@ -41,6 +49,7 @@ async function readApplyBody(request: Request) {
       message: form.get("message"),
       cvFileName: cvFile?.name || form.get("cvFileName"),
       keepForOtherJobs: form.get("keepForOtherJobs") === "true" || form.get("keepForOtherJobs") === "1",
+      campaignCode: form.get("campaignCode"),
       answers,
     },
   };
@@ -53,9 +62,13 @@ export async function GET(request: Request, context: Context) {
   const url = new URL(request.url);
   const locale = url.searchParams.get("locale") ?? "";
   const click = url.searchParams.get("click") === "1";
+  const campaignCode = campaignCodeFrom(url.searchParams.get("c"));
   const current = click
     ? await prisma.recruitingJob.update({ where: { id: job.id }, data: { clickCount: { increment: 1 } } })
     : job;
+  if (click && campaignCode) {
+    await incrementCampaignClicks(campaignCode, job.id).catch((error) => console.error("Campaign click failed", error));
+  }
   const apps = await prisma.recruitingApplication.count({ where: { jobId: current.id } });
   return Response.json({ job: toPublicJob(current, apps, locale, true, job.department) }, { headers: { "Cache-Control": "no-store" } });
 }
@@ -76,6 +89,21 @@ export async function POST(request: Request, context: Context) {
   } else if (job.cvRequired) {
     return Response.json({ error: "INVALID_CV" }, { status: 400 });
   }
+  const campaignCode = campaignCodeFrom(body && typeof body === "object" ? (body as Record<string, unknown>).campaignCode : "");
+  const campaign = campaignCode
+    ? await incrementCampaignApplications(campaignCode, job.id).catch((error) => {
+      console.error("Campaign application failed", error);
+      return null;
+    })
+    : null;
+  const notes = campaign
+    ? notesPayload([], [], [], {
+      code: campaign.code,
+      source: campaign.source,
+      name: campaign.name,
+      team: campaign.team,
+    })
+    : undefined;
   const created = await prisma.$transaction(async (tx) => {
     const row = await tx.recruitingApplication.create({
       data: {
@@ -91,6 +119,7 @@ export async function POST(request: Request, context: Context) {
         cvFileName,
         keepForOtherJobs: input.keepForOtherJobs,
         answers: input.answers,
+        ...(notes ? { notes: notes as Prisma.InputJsonValue } : {}),
       },
     });
     await notifyNewRecruitingApplication(tx, {
