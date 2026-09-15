@@ -541,7 +541,7 @@ function Applications({ t, locale }: { t: T; locale: Locale }) {
     return () => { ignore = true; };
   }, [locale, setApplicants]);
   const rows = applicants.filter((item) => (filter === "all" || item.stage === filter) && `${item.name} ${item.role} ${t.depts[item.dept]}`.toLowerCase().includes(search.toLowerCase()));
-  const filters: Array<["all" | AppStage, string]> = [["all", t.all], ["new", t.stageNew], ["invited", t.stageInvited], ["offer", t.stageOffer], ["hired", t.stageHired], ["rejected", t.stageRejected], ["archived", t.stageArchived]];
+  const filters: Array<["all" | AppStage, string]> = [["all", t.all], ["new", t.stageNew], ["offer", t.stageOffer], ["hired", t.stageHired], ["rejected", t.stageRejected], ["archived", t.stageArchived]];
   return <>
     <Back href="/recruiting" label={t.backRecruiting} />
     <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
@@ -1078,6 +1078,7 @@ function EmailSettings({ t }: { t: T }) {
 
 function Emails({ t, locale }: { t: T; locale: Locale }) {
   const [emails, setEmails] = useState<EmailTemplates | null>(null);
+  const [auto, setAuto] = useState<Record<EmailCat, boolean>>({ received: true, offer: true, reject: true });
   const [cat, setCat] = useState<EmailCat>("received");
   const [lang, setLang] = useState<Locale>(locale);
   const [loading, setLoading] = useState(true);
@@ -1094,6 +1095,7 @@ function Emails({ t, locale }: { t: T; locale: Locale }) {
         if (ignore) return;
         if (!data?.templates) { setError(t.templateLoadFailed); return; }
         setEmails(data.templates);
+        if (data.auto) setAuto(data.auto);
       })
       .catch(() => { if (!ignore) setError(t.templateLoadFailed); })
       .finally(() => { if (!ignore) setLoading(false); });
@@ -1112,12 +1114,13 @@ function Emails({ t, locale }: { t: T; locale: Locale }) {
     const res = await fetch("/api/recruiting/emails", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ templates: emails }),
+      body: JSON.stringify({ templates: emails, auto }),
     }).catch(() => null);
     setSaving(false);
     if (!res?.ok) { setError(t.templateSaveFailed); return; }
     const data = await res.json().catch(() => null);
     if (data?.templates) setEmails(data.templates);
+    if (data?.auto) setAuto(data.auto);
     setNotice(t.templateSaved);
   }
   return <>
@@ -1128,8 +1131,14 @@ function Emails({ t, locale }: { t: T; locale: Locale }) {
           {([["received", t.catReceived], ["offer", t.catOffer], ["reject", t.catReject]] as const).map(([key, label]) =>
             <button key={key} type="button" className={`bud-tab ${cat === key ? "active" : ""}`} onClick={() => setCat(key)}>{label}</button>)}
         </div>
-        <div style={{ display: "flex", gap: 6 }}>{(["de", "en", "it"] as Locale[]).map((item) =>
-          <button key={item} type="button" className={`filter-btn ${lang === item ? "active" : ""}`} onClick={() => setLang(item)}>{item.toUpperCase()}</button>)}</div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+          {(["de", "en", "it"] as Locale[]).map((item) =>
+            <button key={item} type="button" className={`filter-btn ${lang === item ? "active" : ""}`} onClick={() => setLang(item)}>{item.toUpperCase()}</button>)}
+          <label style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 6, marginLeft: 8 }} title={t.autoEmailHint}>
+            <input type="checkbox" checked={auto[cat]} onChange={(event) => { setNotice(""); setAuto({ ...auto, [cat]: event.target.checked }); }} />
+            {t.autoEmail}
+          </label>
+        </div>
       </div>
       <div className="cb">
         <div style={{ fontSize: 11.5, color: "var(--text3)", marginBottom: 10 }}>{t.placeholders} <code>{"{{name}}"}</code> <code>{"{{job_name}}"}</code> <code>{"{{hotel_name}}"}</code> <code>{"{{hotel_email}}"}</code> <code>{"{{logo}}"}</code></div>

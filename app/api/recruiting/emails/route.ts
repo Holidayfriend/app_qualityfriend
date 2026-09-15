@@ -7,6 +7,7 @@ import {
   flattenEmailTemplates,
   parseEmailTemplatesInput,
   seedEmailTemplateRows,
+  toPublicEmailAuto,
   toPublicEmailTemplates,
 } from "../../../../lib/recruiting/email-template-fields";
 
@@ -30,7 +31,10 @@ export async function GET() {
   const actor = await recruitingActor();
   if (!actor) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
   const rows = await ensureHotelTemplates(actor.hotel_tenant_id);
-  return Response.json({ templates: toPublicEmailTemplates(rows) }, { headers: { "Cache-Control": "no-store" } });
+  return Response.json({
+    templates: toPublicEmailTemplates(rows),
+    auto: toPublicEmailAuto(rows),
+  }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function PUT(request: Request) {
@@ -38,10 +42,10 @@ export async function PUT(request: Request) {
   if (!actor) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
   const parsed = parseEmailTemplatesInput(await request.json().catch(() => null));
   if (!parsed) return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
-  const templates = await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx) => {
     const beforeRows = await tx.recruitingEmailTemplate.findMany({ where: { hotelTenantId: actor.hotel_tenant_id } });
-    const before = toPublicEmailTemplates(beforeRows);
-    for (const row of flattenEmailTemplates(parsed)) {
+    const before = { templates: toPublicEmailTemplates(beforeRows), auto: toPublicEmailAuto(beforeRows) };
+    for (const row of flattenEmailTemplates(parsed.templates, parsed.auto)) {
       await tx.recruitingEmailTemplate.upsert({
         where: {
           hotelTenantId_category_locale: {
@@ -51,11 +55,11 @@ export async function PUT(request: Request) {
           },
         },
         create: { hotelTenantId: actor.hotel_tenant_id, ...row },
-        update: { subject: row.subject, body: row.body },
+        update: { subject: row.subject, body: row.body, autoSend: row.autoSend },
       });
     }
     const afterRows = await tx.recruitingEmailTemplate.findMany({ where: { hotelTenantId: actor.hotel_tenant_id } });
-    const after = toPublicEmailTemplates(afterRows);
+    const after = { templates: toPublicEmailTemplates(afterRows), auto: toPublicEmailAuto(afterRows) };
     await recordAuditLog(tx, {
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
@@ -63,10 +67,10 @@ export async function PUT(request: Request) {
       entityType: "RECRUITING_EMAIL_TEMPLATE",
       entityId: afterRows[0]?.id ?? null,
       changes: beforeRows.length
-        ? { before: emailTemplatesAuditSnapshot(before), after: emailTemplatesAuditSnapshot(after) }
-        : { after: emailTemplatesAuditSnapshot(after) },
+        ? { before: emailTemplatesAuditSnapshot(before.templates, before.auto), after: emailTemplatesAuditSnapshot(after.templates, after.auto) }
+        : { after: emailTemplatesAuditSnapshot(after.templates, after.auto) },
     });
     return after;
   });
-  return Response.json({ templates });
+  return Response.json(result);
 }

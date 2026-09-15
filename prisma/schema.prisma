@@ -1010,6 +1010,7 @@ model RecruitingEmailTemplate {
   locale        String                   @db.VarChar(8)
   subject       String                   @db.VarChar(255)
   body          String                   @db.Text
+  autoSend      Boolean                  @default(true) @map("auto_send")
   createdAt     DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt     DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
   hotelTenant   HotelTenant              @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
