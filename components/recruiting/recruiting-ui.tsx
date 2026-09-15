@@ -1329,9 +1329,15 @@ function Employees({ t, locale }: { t: T; locale: Locale }) {
     <div className="card" style={{ overflowX: "auto" }}>
       <table className="bud-table"><thead><tr><th>{t.colEmployee}</th><th>{t.colDepartment}</th><th>{t.colStatus}</th><th>{t.colReason}</th><th>{t.colEmployedSince}</th><th>{t.colSafety}</th><th style={{ textAlign: "right" }}>{t.colActions}</th></tr></thead>
         <tbody>{rows.map((item) => {
-          const cert = item.certificates[0];
-          const chip = !cert ? "chip-n" : cert.status === "valid" ? "chip-g" : cert.status === "expiring" ? "chip-a" : "chip-r";
-          const certLabel = !cert ? t.noCertsYet : cert.status === "valid" ? t.valid : cert.status === "expiring" ? t.expiring : t.expired;
+          const worst = item.certificates.some((cert) => cert.status === "expired")
+            ? "expired"
+            : item.certificates.some((cert) => cert.status === "expiring")
+              ? "expiring"
+              : item.certificates.length
+                ? "valid"
+                : null;
+          const chip = !worst ? "chip-n" : worst === "valid" ? "chip-g" : worst === "expiring" ? "chip-a" : "chip-r";
+          const certLabel = !worst ? t.noCertsYet : worst === "valid" ? t.valid : worst === "expiring" ? t.expiring : t.expired;
           return <tr key={item.id} style={{ cursor: "pointer" }}>
             <td><Link href={`/recruiting/employees/${item.id}`} className="u-row-name"><span className="u-av">{item.initials}</span>{item.name}</Link></td>
             <td>{item.departmentName || t.depts[item.dept]}</td>
@@ -1440,6 +1446,11 @@ function EmployeeDetail({ t, locale, id }: { t: T; locale: Locale; id: string })
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [trainingOpen, setTrainingOpen] = useState(false);
+  const [certName, setCertName] = useState<"safetyBasic" | "haccp">("safetyBasic");
+  const [certCompleted, setCertCompleted] = useState("");
+  const [certExpires, setCertExpires] = useState("");
+  const [trainingErrors, setTrainingErrors] = useState(false);
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [taxId, setTaxId] = useState("");
@@ -1451,6 +1462,7 @@ function EmployeeDetail({ t, locale, id }: { t: T; locale: Locale; id: string })
     setLoading(true);
     setMissing(false);
     setEditing(false);
+    setTrainingOpen(false);
     if (!/^[0-9a-f-]{36}$/i.test(id)) {
       setMissing(true);
       setLoading(false);
@@ -1471,6 +1483,10 @@ function EmployeeDetail({ t, locale, id }: { t: T; locale: Locale; id: string })
     return () => { ignore = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- load once per id/locale
   }, [id, locale]);
+  function applyEmployee(next: Employee) {
+    setItem(next);
+    setEmployees([next, ...employees.filter((row) => row.id !== next.id)]);
+  }
   function startEdit() {
     if (!item) return;
     setEmail(item.email);
@@ -1495,11 +1511,9 @@ function EmployeeDetail({ t, locale, id }: { t: T; locale: Locale; id: string })
       showToast({ message: t.employeeSaveFailed, tone: "error" });
       return;
     }
-    const next = data.employee as Employee;
-    setItem(next);
-    setEmployees([next, ...employees.filter((row) => row.id !== next.id)]);
+    applyEmployee(data.employee as Employee);
     showToast({
-      message: fill(status === "inactive" ? t.markInactiveOk : t.markActiveOk, { name: next.name }),
+      message: fill(status === "inactive" ? t.markInactiveOk : t.markActiveOk, { name: (data.employee as Employee).name }),
       tone: "success",
     });
   }
@@ -1525,11 +1539,47 @@ function EmployeeDetail({ t, locale, id }: { t: T; locale: Locale; id: string })
       showToast({ message: t.employeeSaveFailed, tone: "error" });
       return;
     }
-    const next = data.employee as Employee;
-    setItem(next);
-    setEmployees([next, ...employees.filter((row) => row.id !== next.id)]);
+    applyEmployee(data.employee as Employee);
     setEditing(false);
     showToast({ message: t.employeeUpdated, tone: "success" });
+  }
+  async function saveCertificates(nextCerts: Employee["certificates"], okMessage: string) {
+    if (!item || busy) return;
+    setBusy(true);
+    const res = await fetch(`/api/recruiting/employees/${encodeURIComponent(id)}?locale=${locale}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ certificates: nextCerts }),
+    }).catch(() => null);
+    setBusy(false);
+    const data = res && res.ok ? await res.json().catch(() => null) : null;
+    if (!data?.employee) {
+      showToast({ message: t.employeeSaveFailed, tone: "error" });
+      return;
+    }
+    applyEmployee(data.employee as Employee);
+    setTrainingOpen(false);
+    setCertCompleted("");
+    setCertExpires("");
+    setTrainingErrors(false);
+    showToast({ message: okMessage, tone: "success" });
+  }
+  async function addTraining(event: FormEvent) {
+    event.preventDefault();
+    if (!item) return;
+    setTrainingErrors(true);
+    if (!certCompleted || !certExpires) {
+      showToast({ message: t.trainingMissingFields, tone: "error" });
+      return;
+    }
+    await saveCertificates(
+      [...item.certificates, { name: certName, completed: certCompleted, expires: certExpires, status: "valid" }],
+      t.trainingAdded,
+    );
+  }
+  async function removeTraining(index: number) {
+    if (!item) return;
+    await saveCertificates(item.certificates.filter((_, i) => i !== index), t.trainingRemoved);
   }
   if (loading) return <BrandLoader label={t.loading} />;
   if (missing || !item) return <><Back href="/recruiting/employees" label={t.backEmployees} /><p className="job-apply-missing">{t.employeeMissing}</p></>;
@@ -1584,26 +1634,64 @@ function EmployeeDetail({ t, locale, id }: { t: T; locale: Locale; id: string })
         </div>
         <div className="card">
           <div className="ch"><div className="ct">{t.safetyCerts}</div></div>
-          <div className="cb">{item.certificates.length ? item.certificates.map((cert) => <div className="doc-row" key={`${cert.name}-${cert.expires}`}>
-            <div className="doc-ic">🦺</div>
-            <div style={{ flex: 1 }}><div className="doc-name">{t[cert.name]}</div><div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2 }}>{fill(t.completedOn, { date: cert.completed, until: cert.expires })}</div></div>
-            <span className={`chip ${cert.status === "valid" ? "chip-g" : cert.status === "expiring" ? "chip-a" : "chip-r"}`}>{cert.status === "valid" ? t.valid : cert.status === "expiring" ? t.expiring : t.expired}</span>
-          </div>) : <div style={{ fontSize: 12.5, color: "var(--text3)" }}>{t.noTrainings}</div>}</div>
+          <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {item.certificates.length ? item.certificates.map((cert, index) => (
+              <div className="doc-row" key={`${cert.name}-${cert.completed}-${cert.expires}-${index}`} style={{ alignItems: "center" }}>
+                <div className="doc-ic">🦺</div>
+                <div style={{ flex: 1 }}>
+                  <div className="doc-name">{t[cert.name]}</div>
+                  <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2 }}>{fill(t.completedOn, { date: cert.completed, until: cert.expires })}</div>
+                </div>
+                <span className={`chip ${cert.status === "valid" ? "chip-g" : cert.status === "expiring" ? "chip-a" : "chip-r"}`}>
+                  {cert.status === "valid" ? t.valid : cert.status === "expiring" ? t.expiring : t.expired}
+                </span>
+                <button type="button" className="icon-btn danger" disabled={busy || editing} title={t.deleteFile} onClick={() => void removeTraining(index)}>🗑️</button>
+              </div>
+            )) : <div style={{ fontSize: 12.5, color: "var(--text3)" }}>{t.noTrainings}</div>}
+          </div>
         </div>
       </div>
       <div className="card">
         <div className="ch"><div className="ct">{t.actions}</div></div>
         <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <button type="button" className="btn btn-primary" disabled={busy || editing} onClick={startEdit}>{t.editFile}</button>
-          <button type="button" className="btn btn-ghost" onClick={() => alert(t.trainingDemo)}>{t.addTraining}</button>
+          <button type="button" className="btn btn-primary" disabled={busy || editing || trainingOpen} onClick={startEdit}>{t.editFile}</button>
+          <button type="button" className="btn btn-ghost" disabled={busy || editing} onClick={() => { setTrainingOpen(true); setTrainingErrors(false); }}>{t.addTraining}</button>
           {item.status === "active" ? (
-            <button type="button" className="btn btn-ghost" style={{ color: "var(--red)" }} disabled={busy || editing} onClick={() => void setStatus("inactive")}>{t.markInactive}</button>
+            <button type="button" className="btn btn-ghost" style={{ color: "var(--red)" }} disabled={busy || editing || trainingOpen} onClick={() => void setStatus("inactive")}>{t.markInactive}</button>
           ) : (
-            <button type="button" className="btn btn-ghost" disabled={busy || editing} onClick={() => void setStatus("active")}>{t.markActive}</button>
+            <button type="button" className="btn btn-ghost" disabled={busy || editing || trainingOpen} onClick={() => void setStatus("active")}>{t.markActive}</button>
           )}
         </div>
       </div>
     </div>
+    {trainingOpen ? (
+      <div className="job-apply-overlay" onClick={() => !busy && setTrainingOpen(false)}>
+        <div className="job-apply-dialog" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+          <h3>{t.addTrainingTitle}</h3>
+          <form style={{ display: "flex", flexDirection: "column", gap: 12 }} onSubmit={(event) => void addTraining(event)} noValidate>
+            <label>
+              <span className="field-lbl">{t.trainingType}</span>
+              <select className="field-select" value={certName} onChange={(event) => setCertName(event.target.value as "safetyBasic" | "haccp")}>
+                <option value="safetyBasic">{t.safetyBasic}</option>
+                <option value="haccp">{t.haccp}</option>
+              </select>
+            </label>
+            <label>
+              <span className="field-lbl">{t.completedDate}</span>
+              <input className={`field-input${trainingErrors && !certCompleted ? " is-invalid" : ""}`} type="date" value={certCompleted} onChange={(event) => setCertCompleted(event.target.value)} />
+            </label>
+            <label>
+              <span className="field-lbl">{t.expiresDate}</span>
+              <input className={`field-input${trainingErrors && !certExpires ? " is-invalid" : ""}`} type="date" value={certExpires} onChange={(event) => setCertExpires(event.target.value)} />
+            </label>
+            <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+              <button type="submit" className="btn btn-primary" disabled={busy}>{t.save}</button>
+              <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setTrainingOpen(false)}>{t.cancel}</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    ) : null}
     {busy ? <BrandLoader label={t.loading} overlay /> : null}
   </>;
 }

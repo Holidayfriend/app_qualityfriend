@@ -43,7 +43,32 @@ function parseTags(value: unknown): string[] {
   return value.map((tag) => text(tag, 80)).filter(Boolean).slice(0, 40);
 }
 
-function parseCertificates(value: unknown): Employee["certificates"] {
+function parseIsoOrEmpty(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  const de = trimmed.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if (de) return `${de[3]}-${de[2]}-${de[1]}`;
+  const month = trimmed.match(/^(\d{2})\.(\d{4})$/);
+  if (month) return `${month[2]}-${month[1]}-01`;
+  return null;
+}
+
+function certificateStatusFromExpires(expires: string): CertStatus {
+  const iso = parseIsoOrEmpty(expires);
+  if (!iso) return "valid";
+  const end = new Date(`${iso}T00:00:00.000Z`);
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  if (end.getTime() < today.getTime()) return "expired";
+  const soon = new Date(today);
+  soon.setUTCDate(soon.getUTCDate() + 90);
+  if (end.getTime() <= soon.getTime()) return "expiring";
+  return "valid";
+}
+
+export function parseCertificates(value: unknown): Employee["certificates"] {
   if (!Array.isArray(value)) return [];
   const rows: Employee["certificates"] = [];
   for (const entry of value.slice(0, 40)) {
@@ -51,14 +76,30 @@ function parseCertificates(value: unknown): Employee["certificates"] {
     const item = entry as Record<string, unknown>;
     const name = item.name === "haccp" ? "haccp" : item.name === "safetyBasic" ? "safetyBasic" : null;
     if (!name) continue;
-    const status: CertStatus =
-      item.status === "expiring" || item.status === "expired" || item.status === "valid" ? item.status : "valid";
+    const completed = parseIsoOrEmpty(item.completed) || text(item.completed, 40);
+    const expires = parseIsoOrEmpty(item.expires) || text(item.expires, 40);
+    if (!completed || !expires) continue;
     rows.push({
       name,
-      completed: text(item.completed, 40),
-      expires: text(item.expires, 40),
-      status,
+      completed,
+      expires,
+      status: certificateStatusFromExpires(expires),
     });
+  }
+  return rows;
+}
+
+export function normalizeCertificatesInput(value: unknown): Employee["certificates"] | null {
+  if (!Array.isArray(value) || value.length > 40) return null;
+  const rows: Employee["certificates"] = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") return null;
+    const item = entry as Record<string, unknown>;
+    const name = item.name === "haccp" ? "haccp" : item.name === "safetyBasic" ? "safetyBasic" : null;
+    const completed = parseIsoOrEmpty(item.completed);
+    const expires = parseIsoOrEmpty(item.expires);
+    if (!name || !completed || !expires) return null;
+    rows.push({ name, completed, expires, status: certificateStatusFromExpires(expires) });
   }
   return rows;
 }
@@ -160,6 +201,7 @@ export function parseEmployeePatch(body: unknown) {
     comments?: string;
     email?: string;
     phone?: string;
+    certificates?: Employee["certificates"];
   } = {};
   if (typeof data.status === "string") {
     const status = data.status.toLowerCase();
@@ -194,6 +236,11 @@ export function parseEmployeePatch(body: unknown) {
     if (data.employedTo === null || data.employedTo === "") patch.employedTo = null;
     else if (typeof data.employedTo === "string" && /^\d{4}-\d{2}-\d{2}$/.test(data.employedTo)) patch.employedTo = new Date(`${data.employedTo}T00:00:00.000Z`);
     else return null;
+  }
+  if ("certificates" in data) {
+    const certificates = normalizeCertificatesInput(data.certificates);
+    if (!certificates) return null;
+    patch.certificates = certificates;
   }
   if (!Object.keys(patch).length) return null;
   return patch;
