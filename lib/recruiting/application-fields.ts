@@ -134,6 +134,40 @@ export function parseQuizAnswers(value: unknown): NonNullable<Applicant["answers
   return rows;
 }
 
+export function parseApplicationNotes(value: unknown): { tags: string[]; comments: Applicant["comments"] } {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return { tags: [], comments: [] };
+  const body = value as { tags?: unknown; comments?: unknown };
+  const tags = Array.isArray(body.tags)
+    ? body.tags.map((tag) => text(tag, 80)).filter(Boolean).slice(0, 40)
+    : [];
+  const comments: Applicant["comments"] = [];
+  if (Array.isArray(body.comments)) {
+    for (const entry of body.comments.slice(0, 200)) {
+      if (!entry || typeof entry !== "object") continue;
+      const item = entry as Record<string, unknown>;
+      const commentText = text(item.text, 4000);
+      if (!commentText) continue;
+      comments.push({
+        text: commentText,
+        author: text(item.author, 120) || "–",
+        date: text(item.date, 40) || "",
+      });
+    }
+  }
+  return { tags, comments };
+}
+
+export function notesPayload(tags: string[], comments: Applicant["comments"]) {
+  return {
+    tags: tags.map((tag) => tag.trim()).filter(Boolean).slice(0, 40),
+    comments: comments.slice(0, 200).map((entry) => ({
+      text: entry.text.trim().slice(0, 4000),
+      author: entry.author.trim().slice(0, 120) || "–",
+      date: entry.date.trim().slice(0, 40),
+    })).filter((entry) => entry.text),
+  };
+}
+
 export function toPublicApplicant(
   row: RecruitingApplication,
   job?: ApplicationJobInfo | null,
@@ -142,6 +176,7 @@ export function toPublicApplicant(
 ): Applicant {
   const stage = mapStage(row.stage);
   const answers = parseQuizAnswers(row.answers);
+  const notes = parseApplicationNotes(row.notes);
   const ai = demoAiScore({
     id: row.id,
     message: row.message,
@@ -171,8 +206,8 @@ export function toPublicApplicant(
     cv: row.cvFileName || null,
     message: row.message || "",
     competencies: ai.competencies,
-    tags: extras?.tags ?? [],
-    comments: extras?.comments ?? [],
+    tags: extras?.tags ?? notes.tags,
+    comments: extras?.comments ?? notes.comments,
     answers,
   };
 }

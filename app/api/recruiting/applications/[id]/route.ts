@@ -1,7 +1,9 @@
+import { Prisma } from "../../../../../app/generated/prisma/client";
 import { prisma } from "../../../../../lib/prisma";
 import { recordAuditLog } from "../../../../../lib/audit/audit-service";
 import { recruitingActor } from "../../../../../lib/recruiting/access";
-import { isUuid, toDbStage, toPublicApplicant } from "../../../../../lib/recruiting/application-fields";
+import { isUuid, notesPayload, parseApplicationNotes, toDbStage, toPublicApplicant } from "../../../../../lib/recruiting/application-fields";
+import type { Applicant } from "../../../../../lib/recruiting/preview-data";
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -35,27 +37,43 @@ export async function PATCH(request: Request, context: Context) {
   const { id } = await context.params;
   if (!isUuid(id)) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
   const body = await request.json().catch(() => null);
-  const stageRaw = body && typeof body === "object" ? (body as { stage?: string }).stage : undefined;
-  const stage = typeof stageRaw === "string" ? toDbStage(stageRaw) : null;
-  if (!stage) return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
-  const locale = body && typeof body === "object" && typeof (body as { locale?: unknown }).locale === "string"
-    ? (body as { locale: string }).locale
-    : "";
+  if (!body || typeof body !== "object") return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
+  const data = body as { stage?: string; locale?: string; tags?: unknown; comments?: unknown };
+  const stage = typeof data.stage === "string" ? toDbStage(data.stage) : null;
+  const hasNotes = "tags" in data || "comments" in data;
+  if (!stage && !hasNotes) return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
+  const locale = typeof data.locale === "string" ? data.locale : "";
+
   const updated = await prisma.$transaction(async (tx) => {
     const before = await tx.recruitingApplication.findFirst({ where: { id, hotelTenantId: actor.hotel_tenant_id } });
     if (!before) return null;
+    const patch: { stage?: typeof stage; notes?: Prisma.InputJsonValue } = {};
+    if (stage) patch.stage = stage;
+    if (hasNotes) {
+      const current = parseApplicationNotes(before.notes);
+      const tags = Array.isArray(data.tags)
+        ? data.tags.map((tag) => (typeof tag === "string" ? tag.trim() : "")).filter(Boolean)
+        : current.tags;
+      const comments = Array.isArray(data.comments)
+        ? (data.comments as Applicant["comments"])
+        : current.comments;
+      patch.notes = notesPayload(tags, comments) as Prisma.InputJsonValue;
+    }
     const after = await tx.recruitingApplication.update({
       where: { id },
-      data: { stage },
+      data: patch,
       include: { job: jobInclude },
     });
     await recordAuditLog(tx, {
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
-      action: "STATUS_CHANGE",
+      action: stage ? "STATUS_CHANGE" : "UPDATE",
       entityType: "RECRUITING_APPLICATION",
       entityId: id,
-      changes: { before: { stage: before.stage }, after: { stage: after.stage } },
+      changes: {
+        before: stage ? { stage: before.stage } : { notes: before.notes },
+        after: stage ? { stage: after.stage } : { notes: after.notes },
+      },
     });
     return after;
   });

@@ -681,16 +681,23 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
   const [loading, setLoading] = useState(true);
   const [comment, setComment] = useState("");
   const [tag, setTag] = useState("");
+  const [notesBusy, setNotesBusy] = useState(false);
+  const [notesError, setNotesError] = useState("");
+  const [notesOk, setNotesOk] = useState("");
+  const [authorName, setAuthorName] = useState("Team");
+  useEffect(() => {
+    fetch("/api/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const name = [data?.first_name, data?.last_name].filter(Boolean).join(" ").trim();
+        if (name) setAuthorName(name);
+      })
+      .catch(() => undefined);
+  }, []);
   useEffect(() => {
     let ignore = false;
     setLoading(true);
     setMissing(false);
-    const cached = applicants.find((row) => row.id === id);
-    if (cached) {
-      setItem(cached);
-      setLoading(false);
-      return;
-    }
     if (!/^[0-9a-f-]{36}$/i.test(id)) {
       setMissing(true);
       setLoading(false);
@@ -719,18 +726,58 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
       ? applicants.map((row) => row.id === id ? next : row)
       : [next, ...applicants]);
   }
+  async function persistNotes(nextTags: string[], nextComments: Applicant["comments"]) {
+    setNotesBusy(true);
+    setNotesError("");
+    setNotesOk("");
+    update({ tags: nextTags, comments: nextComments });
+    try {
+      const res = await fetch(`/api/recruiting/applications/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tags: nextTags, comments: nextComments, locale }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.application) {
+        setNotesError(t.notesSaveFailed);
+        setNotesBusy(false);
+        return;
+      }
+      setItem(data.application as Applicant);
+      setApplicants(applicants.map((row) => row.id === id ? data.application as Applicant : row));
+      setNotesOk(t.notesSaved);
+    } catch {
+      setNotesError(t.notesSaveFailed);
+    }
+    setNotesBusy(false);
+  }
+  async function addTag() {
+    if (!item || !tag.trim()) return;
+    const nextTags = [...item.tags, tag.trim()];
+    setTag("");
+    await persistNotes(nextTags, item.comments);
+  }
+  async function removeTag(index: number) {
+    if (!item) return;
+    await persistNotes(item.tags.filter((_, i) => i !== index), item.comments);
+  }
+  async function saveComment() {
+    if (!item) return;
+    if (!comment.trim()) { alert(t.enterComment); return; }
+    const nextComments = [...item.comments, { text: comment.trim(), author: authorName, date: new Date().toLocaleDateString() }];
+    setComment("");
+    await persistNotes(item.tags, nextComments);
+  }
   async function setStage(stage: AppStage) {
     if (!item) return;
     const today = new Date().toLocaleDateString();
     const patch = { stage, dateDisplay: stage === "offer" ? fill(t.offerOn, { date: today }) : item.dateDisplay };
     update(patch);
-    if (/^[0-9a-f-]{36}$/i.test(id)) {
-      await fetch(`/api/recruiting/applications/${encodeURIComponent(id)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stage, locale }),
-      }).catch(() => undefined);
-    }
+    await fetch(`/api/recruiting/applications/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stage, locale }),
+    }).catch(() => undefined);
     alert(fill(stage === "offer" ? t.offerSent : t.rejectSent, { name: item.name }));
   }
   function convert() {
@@ -792,11 +839,13 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
           <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <label><span className="field-lbl">{t.addComment}</span><textarea className="field-input" style={{ minHeight: 70, resize: "vertical" }} value={comment} onChange={(event) => setComment(event.target.value)} placeholder={t.commentPlaceholder} /></label>
             <label><span className="field-lbl">{t.tags}</span>
-              <input className="field-input" value={tag} placeholder={t.tagsPlaceholder} onChange={(event) => setTag(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); if (tag.trim()) { update({ tags: [...item.tags, tag.trim()] }); setTag(""); } } }} />
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>{item.tags.map((entry, index) => <span className="chip chip-n" key={`${entry}-${index}`}>{entry} <button type="button" onClick={() => update({ tags: item.tags.filter((_, i) => i !== index) })}>✕</button></span>)}</div>
+              <input className="field-input" value={tag} placeholder={t.tagsPlaceholder} onChange={(event) => setTag(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void addTag(); } }} />
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>{item.tags.map((entry, index) => <span className="chip chip-n" key={`${entry}-${index}`}>{entry} <button type="button" disabled={notesBusy} onClick={() => void removeTag(index)}>✕</button></span>)}</div>
             </label>
             {item.comments.map((entry, index) => <div key={`${entry.date}-${index}`} style={{ background: "var(--bg)", borderRadius: 8, padding: "10px 12px" }}><div style={{ fontSize: 12.5, lineHeight: 1.5 }}>{entry.text}</div><div style={{ fontSize: 11, color: "var(--text3)", marginTop: 4 }}>{entry.author} · {entry.date}</div></div>)}
-            <button type="button" className="btn btn-primary" style={{ alignSelf: "flex-start" }} onClick={() => { if (!comment.trim()) { alert(t.enterComment); return; } update({ comments: [...item.comments, { text: comment.trim(), author: "Klaus", date: new Date().toLocaleDateString() }] }); setComment(""); }}>{t.save}</button>
+            {notesError ? <p className="job-apply-error">{notesError}</p> : null}
+            {notesOk ? <p style={{ margin: 0, fontSize: 12.5, color: "var(--green)" }}>{notesOk}</p> : null}
+            <button type="button" className="btn btn-primary" style={{ alignSelf: "flex-start" }} disabled={notesBusy} onClick={() => void saveComment()}>{t.save}</button>
           </div>
         </div>
       </div>
@@ -809,6 +858,7 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
         </div>
       </div>
     </div>
+    {notesBusy ? <BrandLoader label={t.loading} overlay /> : null}
   </>;
 }
 
