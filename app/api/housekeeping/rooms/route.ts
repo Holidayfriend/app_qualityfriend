@@ -124,7 +124,8 @@ export async function GET(request: Request) {
           reservation: { sourcePresent: true, status: { notIn: ["CANCELLED", "NO_SHOW"] } },
         } } }, orderBy: { number: "asc" }, select: {
           id: true, number: true,
-          roomOperationalStateRecords: { take: 1, select: { cleanliness: true, breakfastInRoom: true, doNotDisturb: true, noService: true } },
+          roomOperationalStateRecords: { take: 1, select: { cleanliness: true, breakfastInRoom: true, doNotDisturb: true, noService: true, isExpress: true } },
+          housekeepingScheduleAssignmentRecords: { where: { workDate: day }, take: 1, select: { cleaningType: true } },
           reservationRoomStayRecords: { where: {
             arrivalDate: { lte: day }, departureDate: { gte: day },
             reservation: { sourcePresent: true, status: { notIn: ["CANCELLED", "NO_SHOW"] } },
@@ -144,8 +145,10 @@ export async function GET(request: Request) {
         const arrivalStay = stays.findLast((stay) => stay.arrivalDate.getTime() === day.getTime());
         const departureStay = stays.find((stay) => stay.departureDate.getTime() === day.getTime());
         const state = room.roomOperationalStateRecords[0];
+        const assignment = room.housekeepingScheduleAssignmentRecords[0];
         const status = state?.noService ? "noCleaningDesired" as const : ({ UNKNOWN: "unassigned", DIRTY: "dirty", CLEANING: "cleaning", CLEAN: "clean", INSPECTED: "inspected" } as const)[state?.cleanliness ?? "UNKNOWN"];
-        return { id: room.id, number: room.number, status,
+        const isExpress = Boolean(state?.isExpress) || assignment?.cleaningType === "EXPRESS";
+        return { id: room.id, number: room.number, status, isExpress,
           breakfastInRoom: state?.breakfastInRoom ?? false,
           doNotDisturb: state?.doNotDisturb ?? false,
           noService: state?.noService ?? false,

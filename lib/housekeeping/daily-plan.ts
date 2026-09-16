@@ -53,12 +53,10 @@ export async function generateHotelDailyPlan(prisma: PrismaClient, hotelTenantId
     // All reads/writes below succeed together or roll back together. 120s max for a large hotel.
     return await prisma.$transaction(async (tx) => {
       // Lock this hotel+date run row so two cron starts cannot generate the same day at once
-      const previousRun = await tx.$queryRaw<{ status: string }[]>`
+      await tx.$queryRaw<{ status: string }[]>`
         SELECT status FROM housekeeping_daily_runs
         WHERE hotel_tenant_id=${hotelTenantId}::uuid AND work_date=${workDate}::date
         FOR UPDATE`;
-      // First run or last run failed → reset rooms to DIRTY. Successful re-run → do not dirty already-cleaned rooms.
-      const resetRoomStates = previousRun[0]?.status !== "SUCCEEDED";
       // Create a RUNNING row, or reuse today's row if the command is retried
       await tx.$executeRaw`
         INSERT INTO housekeeping_daily_runs (id,hotel_tenant_id,work_date,status,started_at)
@@ -109,22 +107,12 @@ export async function generateHotelDailyPlan(prisma: PrismaClient, hotelTenantId
             END,
             updated_at=NOW()`;
 
-        if (resetRoomStates) {
-          // First generation today (or after a failed run): mark the occupied room DIRTY (and express flag)
-          await tx.$executeRaw`
-            INSERT INTO room_operational_states (id,hotel_tenant_id,room_id,cleanliness,is_express,updated_at)
-            VALUES (${randomUUID()}::uuid,${hotelTenantId}::uuid,${stay.room_id}::uuid,'DIRTY',${plan.type === "EXPRESS"},NOW())
-            ON CONFLICT (hotel_tenant_id,room_id) DO UPDATE
-            SET cleanliness='DIRTY', is_express=EXCLUDED.is_express, updated_at=NOW()`;
-        } else {
-          // Re-run after success: only set DIRTY if the room was still UNKNOWN (never overwrite CLEAN)
-          await tx.$executeRaw`
-            INSERT INTO room_operational_states (id,hotel_tenant_id,room_id,cleanliness,is_express,updated_at)
-            VALUES (${randomUUID()}::uuid,${hotelTenantId}::uuid,${stay.room_id}::uuid,'DIRTY',${plan.type === "EXPRESS"},NOW())
-            ON CONFLICT (hotel_tenant_id,room_id) DO UPDATE
-            SET cleanliness='DIRTY', is_express=EXCLUDED.is_express, updated_at=NOW()
-            WHERE room_operational_states.cleanliness='UNKNOWN'`;
-        }
+        // Every daily run: occupied rooms become DIRTY. Express = dirty + ⚡ (is_express), regular = dirty only.
+        await tx.$executeRaw`
+          INSERT INTO room_operational_states (id,hotel_tenant_id,room_id,cleanliness,is_express,updated_at)
+          VALUES (${randomUUID()}::uuid,${hotelTenantId}::uuid,${stay.room_id}::uuid,'DIRTY',${plan.type === "EXPRESS"},NOW())
+          ON CONFLICT (hotel_tenant_id,room_id) DO UPDATE
+          SET cleanliness='DIRTY', is_express=EXCLUDED.is_express, updated_at=NOW()`;
       }
 
       // Permanent extra jobs (not rooms): default assignee + minutes + a description snapshot
