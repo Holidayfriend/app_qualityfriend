@@ -461,6 +461,7 @@
     "fromRoom": "From room",
     "toRoom": "To room",
     "reservationNote": "Reservation note",
+    "linenChange": "Linen change",
     "extraToday": "Additional jobs today",
     "myExtraToday": "My additional jobs today",
     "extraEmpty": "No additional jobs assigned today.",

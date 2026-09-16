@@ -459,6 +459,7 @@
     "fromRoom": "Aus Zimmer",
     "toRoom": "In Zimmer",
     "reservationNote": "Reservierungsnotiz",
+    "linenChange": "Wäschewechsel",
     "extraToday": "Heute zusätzliche Jobs",
     "myExtraToday": "Meine Zusatzaufgaben heute",
     "extraEmpty": "Keine Zusatzaufgaben für heute zugewiesen.",
