@@ -543,6 +543,7 @@ model HotelTenant {
   recruitingEmailTemplates     RecruitingEmailTemplate[]
   recruitingEmployees          RecruitingEmployee[]
   recruitingApplicationFiles   RecruitingApplicationFile[]
+  hotelNotes                   HotelNote[]
   teams                        Team[]
   auditLogs                    AuditLog[]
   rolePermissions              RoleModulePermission[]
@@ -738,6 +739,9 @@ model User {
   housekeepingChecklistCompletionRecords HousekeepingChecklistCompletion[] @relation("HousekeepingChecklistChecker")
   housekeepingPermanentRoomAssignmentRecords HousekeepingPermanentRoomAssignment[] @relation("HousekeepingPermanentRoomAssignee")
   housekeepingPermanentExtraJobAssignmentRecords HousekeepingPermanentExtraJobAssignment[] @relation("HousekeepingPermanentExtraJobAssignee")
+  hotelNotesCreated HotelNote[] @relation("HotelNoteAuthor")
+  hotelNoteComments HotelNoteComment[]
+  hotelNoteShares   HotelNoteShareUser[]
 
   @@index([hotelTenantId])
   @@index([hotelTenantId, isActive])
@@ -779,6 +783,24 @@ enum ChatMessageType {
   IMAGE
   VIDEO
   VOICE
+}
+
+enum HotelNoteKind {
+  NOTE
+  TEMPLATE
+}
+
+enum HotelNoteStatus {
+  ACTIVE
+  INACTIVE
+  DRAFT
+}
+
+enum HotelNoteVisibility {
+  ALL
+  DEPARTMENT
+  USER
+  PRIVATE
 }
 
 model ChatMessage {
@@ -823,6 +845,7 @@ model Department {
   rolePermissionDepartments RolePermissionDepartment[]
   recruitingJobs            RecruitingJob[]
   recruitingEmployees       RecruitingEmployee[]
+  hotelNoteShares           HotelNoteShareDepartment[]
 
   @@unique([hotelTenantId, nameEn])
   @@index([hotelTenantId, isDeleted])
@@ -831,6 +854,89 @@ model Department {
   @@index([createdById])
   @@index([updatedById])
   @@map("departments")
+}
+
+model HotelNote {
+  id              String              @id @default(uuid()) @db.Uuid
+  hotelTenantId   String              @map("hotel_tenant_id") @db.Uuid
+  createdById     String              @map("created_by_id") @db.Uuid
+  kind            HotelNoteKind       @default(NOTE)
+  status          HotelNoteStatus     @default(ACTIVE)
+  visibility      HotelNoteVisibility @default(ALL)
+  title           String              @db.VarChar(180)
+  titleDe         String              @map("title_de") @db.VarChar(180)
+  titleIt         String              @map("title_it") @db.VarChar(180)
+  description     String              @db.Text
+  descriptionDe   String              @map("description_de") @db.Text
+  descriptionIt   String              @map("description_it") @db.Text
+  tags            String[]            @default([])
+  tagsDe          String[]            @default([]) @map("tags_de")
+  tagsIt          String[]            @default([]) @map("tags_it")
+  originalLocale  String              @default("en") @map("original_locale") @db.VarChar(8)
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant     HotelTenant         @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+  createdBy       User                @relation("HotelNoteAuthor", fields: [createdById], references: [id], onDelete: Restrict)
+  departments     HotelNoteShareDepartment[]
+  users           HotelNoteShareUser[]
+  attachments     HotelNoteAttachment[]
+  comments        HotelNoteComment[]
+
+  @@index([hotelTenantId, kind, status, createdAt])
+  @@index([createdById])
+  @@map("hotel_notes")
+}
+
+model HotelNoteShareDepartment {
+  noteId       String     @map("note_id") @db.Uuid
+  departmentId String     @map("department_id") @db.Uuid
+  note         HotelNote  @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@id([noteId, departmentId])
+  @@index([departmentId])
+  @@map("hotel_note_share_departments")
+}
+
+model HotelNoteShareUser {
+  noteId String    @map("note_id") @db.Uuid
+  userId String    @map("user_id") @db.Uuid
+  note   HotelNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  user   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([noteId, userId])
+  @@index([userId])
+  @@map("hotel_note_share_users")
+}
+
+model HotelNoteAttachment {
+  id         String    @id @default(uuid()) @db.Uuid
+  noteId     String    @map("note_id") @db.Uuid
+  fileName   String    @map("file_name") @db.VarChar(180)
+  storageKey String    @map("storage_key") @db.VarChar(80)
+  mimeType   String    @map("mime_type") @db.VarChar(120)
+  byteSize   Int       @map("byte_size")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  note       HotelNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@index([noteId])
+  @@map("hotel_note_attachments")
+}
+
+model HotelNoteComment {
+  id        String    @id @default(uuid()) @db.Uuid
+  noteId    String    @map("note_id") @db.Uuid
+  authorId  String    @map("author_id") @db.Uuid
+  text      String    @db.Text
+  textDe    String    @map("text_de") @db.Text
+  textIt    String    @map("text_it") @db.Text
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  note      HotelNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  author    User      @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([noteId, createdAt])
+  @@index([authorId])
+  @@map("hotel_note_comments")
 }
 
 model Team {
