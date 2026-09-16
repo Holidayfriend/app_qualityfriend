@@ -2,13 +2,13 @@ type Names = { nameEn: string | null; nameDe: string | null; nameIt: string | nu
 
 export function categoryAuditSnapshot(category: Names & {
   expressMinutes: number | null; normalMinutes: number | null; departureMinutes: number | null; finalMinutes: number | null;
-  cleaningFrequency: string | null; cleaningWeekdays: number[]; linenFrequency: string | null;
+  cleaningFrequency: string | null; cleaningWeekdays: number[]; linenFrequency: string | null; linenWeekdays: number[];
 }) {
   return {
     en: category.nameEn, de: category.nameDe, it: category.nameIt,
     expressMinutes: category.expressMinutes, normalMinutes: category.normalMinutes,
     departureMinutes: category.departureMinutes, finalMinutes: category.finalMinutes,
-    cleaningFrequency: category.cleaningFrequency, cleaningWeekdays: category.cleaningWeekdays, linenFrequency: category.linenFrequency,
+    cleaningFrequency: category.cleaningFrequency, cleaningWeekdays: category.cleaningWeekdays, linenFrequency: category.linenFrequency, linenWeekdays: category.linenWeekdays,
   };
 }
 

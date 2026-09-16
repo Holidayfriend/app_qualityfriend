@@ -517,6 +517,8 @@
     "onRequest": "Nach Wunsch",
     "regularCleaningDays": "Tage für reguläre Reinigung",
     "regularCleaningDaysHelp": "An ausgewählten Tagen erfolgt die reguläre Reinigung. An allen anderen Tagen erfolgt die Expressreinigung.",
+    "linenChangeDays": "Tage für Wäschewechsel",
+    "linenChangeDaysHelp": "An ausgewählten Tagen erfolgt der Wäschewechsel. An allen anderen Tagen entfällt der Wäschewechsel.",
     "monday": "Montag",
     "tuesday": "Dienstag",
     "wednesday": "Mittwoch",

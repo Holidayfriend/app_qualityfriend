@@ -107,6 +107,7 @@ model RoomCategory {
   cleaningFrequency String? @map("cleaning_frequency") @db.VarChar(30)
   cleaningWeekdays Int[] @default([]) @map("cleaning_weekdays")
   linenFrequency String? @map("linen_frequency") @db.VarChar(30)
+  linenWeekdays Int[] @default([]) @map("linen_weekdays")
   isActive Boolean @default(true) @map("is_active")
   archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)

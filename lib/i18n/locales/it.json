@@ -517,6 +517,8 @@
     "onRequest": "Su richiesta",
     "regularCleaningDays": "Giorni di pulizia regolare",
     "regularCleaningDaysHelp": "Nei giorni selezionati viene effettuata la pulizia regolare. Negli altri giorni viene effettuata la pulizia express.",
+    "linenChangeDays": "Giorni di cambio biancheria",
+    "linenChangeDaysHelp": "Nei giorni selezionati viene effettuato il cambio biancheria. Negli altri giorni il cambio biancheria non viene effettuato.",
     "monday": "Lunedì",
     "tuesday": "Martedì",
     "wednesday": "Mercoledì",

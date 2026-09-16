@@ -519,6 +519,8 @@
     "onRequest": "On request",
     "regularCleaningDays": "Regular cleaning days",
     "regularCleaningDaysHelp": "Selected days use Regular cleaning. All other days use Express cleaning.",
+    "linenChangeDays": "Linen-change days",
+    "linenChangeDaysHelp": "Selected days use linen change. All other days skip linen change.",
     "monday": "Monday",
     "tuesday": "Tuesday",
     "wednesday": "Wednesday",

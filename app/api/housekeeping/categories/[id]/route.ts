@@ -25,7 +25,7 @@ export async function GET(request: Request, context: Context) {
   const user = await actor();
   const { id } = await context.params;
   if (!user || !uuid.test(id)) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
-  const category = await prisma.roomCategory.findFirst({ where: { id, hotelTenantId: user.hotelTenantId, isActive: true, archivedAt: null }, select: { id: true, nameEn: true, nameDe: true, nameIt: true, expressMinutes: true, normalMinutes: true, departureMinutes: true, finalMinutes: true, cleaningFrequency: true, cleaningWeekdays: true, linenFrequency: true } });
+  const category = await prisma.roomCategory.findFirst({ where: { id, hotelTenantId: user.hotelTenantId, isActive: true, archivedAt: null }, select: { id: true, nameEn: true, nameDe: true, nameIt: true, expressMinutes: true, normalMinutes: true, departureMinutes: true, finalMinutes: true, cleaningFrequency: true, cleaningWeekdays: true, linenFrequency: true, linenWeekdays: true } });
   if (!category) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
   const activeLocale = locale(new URL(request.url).searchParams.get("locale"));
   const name = activeLocale === "de" ? category.nameDe || category.nameEn : activeLocale === "it" ? category.nameIt || category.nameEn : category.nameEn;
@@ -40,16 +40,17 @@ export async function PATCH(request: Request, context: Context) {
   const name = typeof body?.name === "string" ? body.name.trim() : "";
   const activeLocale = locale(body?.locale);
   const expressMinutes = body?.expressMinutes, normalMinutes = body?.normalMinutes, departureMinutes = body?.departureMinutes, finalMinutes = body?.finalMinutes;
-  const cleaningFrequency = body?.cleaningFrequency, linenFrequency = body?.linenFrequency, selectedWeekdays = weekdays(body?.cleaningWeekdays);
-  if (!name || name.length > 180 || ![expressMinutes, normalMinutes, departureMinutes, finalMinutes].every(validMinutes) || !frequencies.has(cleaningFrequency as Frequency) || !frequencies.has(linenFrequency as Frequency) || selectedWeekdays === null || cleaningFrequency === "ON_REQUEST" && selectedWeekdays.length === 0) return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
-  const cleaningWeekdays = cleaningFrequency === "ON_REQUEST" ? [...selectedWeekdays].sort((a, b) => a - b) : [];
+  const cleaningFrequency = body?.cleaningFrequency, linenFrequency = body?.linenFrequency, selectedCleaningWeekdays = weekdays(body?.cleaningWeekdays), selectedLinenWeekdays = weekdays(body?.linenWeekdays);
+  if (!name || name.length > 180 || ![expressMinutes, normalMinutes, departureMinutes, finalMinutes].every(validMinutes) || !frequencies.has(cleaningFrequency as Frequency) || !frequencies.has(linenFrequency as Frequency) || selectedCleaningWeekdays === null || selectedLinenWeekdays === null || cleaningFrequency === "ON_REQUEST" && selectedCleaningWeekdays.length === 0 || linenFrequency === "ON_REQUEST" && selectedLinenWeekdays.length === 0) return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
+  const cleaningWeekdays = cleaningFrequency === "ON_REQUEST" ? [...selectedCleaningWeekdays].sort((a, b) => a - b) : [];
+  const linenWeekdays = linenFrequency === "ON_REQUEST" ? [...selectedLinenWeekdays].sort((a, b) => a - b) : [];
   const translatedName = activeLocale === "en" ? { nameEn: name } : activeLocale === "de" ? { nameDe: name } : { nameIt: name };
   const updated = await prisma.$transaction(async tx => {
     await tx.$queryRaw`SELECT id FROM room_categories WHERE id = ${id}::uuid AND hotel_tenant_id = ${user.hotelTenantId}::uuid FOR UPDATE`;
     const where = { id, hotelTenantId: user.hotelTenantId, isActive: true, archivedAt: null };
     const before = await tx.roomCategory.findFirst({ where });
     if (!before) return false;
-    const after = await tx.roomCategory.update({ where, data: { ...translatedName, expressMinutes: expressMinutes as number | null, normalMinutes: normalMinutes as number | null, departureMinutes: departureMinutes as number | null, finalMinutes: finalMinutes as number | null, cleaningFrequency: cleaningFrequency as Frequency, cleaningWeekdays, linenFrequency: linenFrequency as Frequency } });
+    const after = await tx.roomCategory.update({ where, data: { ...translatedName, expressMinutes: expressMinutes as number | null, normalMinutes: normalMinutes as number | null, departureMinutes: departureMinutes as number | null, finalMinutes: finalMinutes as number | null, cleaningFrequency: cleaningFrequency as Frequency, cleaningWeekdays, linenFrequency: linenFrequency as Frequency, linenWeekdays } });
     await recordAuditLog(tx, { hotelTenantId: user.hotelTenantId, actorId: user.id, action: "UPDATE", entityType: "ROOM_CATEGORY", entityId: id, changes: { before: categoryAuditSnapshot(before), after: categoryAuditSnapshot(after) } });
     return true;
   });
