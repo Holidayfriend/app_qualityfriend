@@ -5,6 +5,7 @@ export type NoteComment = { id?: string; text: string; author: string; date: str
 export type NoteFile = { id?: string; name: string; url?: string };
 export type Note = {
   id: string;
+  createdById?: string;
   kind?: "note" | "template";
   title: string;
   creator: string;

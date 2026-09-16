@@ -42,8 +42,12 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       const templatesData = templatesRes.ok ? await templatesRes.json() as { notes?: Note[] } : null;
       const departmentsData = departmentsRes.ok ? await departmentsRes.json() as { departments?: HotelDept[] } : null;
       const usersData = usersRes.ok ? await usersRes.json() as { users?: HotelUser[] } : null;
-      const meData = meRes.ok ? await meRes.json() as { role?: string; allowed_modules?: string[] } : null;
-      setNotes(Array.isArray(notesData?.notes) ? notesData.notes : []);
+      const meData = meRes.ok ? await meRes.json() as { id?: string; role?: string; allowed_modules?: string[] } : null;
+      const userId = meData?.id ?? "";
+      const visibleNotes = (Array.isArray(notesData?.notes) ? notesData.notes : []).filter((note) =>
+        note.visibility !== "privat" || !note.createdById || note.createdById === userId,
+      );
+      setNotes(visibleNotes);
       setTemplates(Array.isArray(templatesData?.notes) ? templatesData.notes : []);
       setDepartments(Array.isArray(departmentsData?.departments) ? departmentsData.departments : []);
       setUsers(Array.isArray(usersData?.users) ? usersData.users : []);

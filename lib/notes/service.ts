@@ -33,19 +33,25 @@ export function visibleWhere(actor: NotesActor, kind: HotelNoteKind): Prisma.Hot
   if (kind === "TEMPLATE") {
     return { hotelTenantId: actor.hotel_tenant_id, kind: "TEMPLATE" };
   }
-  const or: Prisma.HotelNoteWhereInput[] = [
-    { createdById: actor.id },
+  const shared: Prisma.HotelNoteWhereInput[] = [
     { visibility: "ALL" },
     { visibility: "USER", users: { some: { userId: actor.id } } },
   ];
   if (actor.departmentId) {
-    or.push({ visibility: "DEPARTMENT", departments: { some: { departmentId: actor.departmentId } } });
+    shared.push({ visibility: "DEPARTMENT", departments: { some: { departmentId: actor.departmentId } } });
   }
   return {
     hotelTenantId: actor.hotel_tenant_id,
     kind: "NOTE",
     status: actor.canManage ? { not: "DRAFT" } : "ACTIVE",
-    OR: or,
+    AND: [
+      {
+        OR: [
+          { createdById: actor.id },
+          { AND: [{ visibility: { not: "PRIVATE" } }, { OR: shared }] },
+        ],
+      },
+    ],
   };
 }
 
@@ -54,6 +60,7 @@ export function toPublicNote(row: NoteRow, locale: string) {
   const status = row.status === "INACTIVE" ? "inaktiv" : "aktiv";
   return {
     id: row.id,
+    createdById: row.createdById,
     kind: row.kind === "TEMPLATE" ? "template" : "note",
     title: pickLocalized(row.title, row.titleDe, row.titleIt, locale),
     desc: pickLocalized(row.description, row.descriptionDe, row.descriptionIt, locale),
@@ -91,9 +98,10 @@ function parseJsonList(value: FormDataEntryValue | null) {
 }
 
 function visibilityOf(value: string): HotelNoteVisibility {
-  if (value === "dept") return "DEPARTMENT";
-  if (value === "user") return "USER";
-  if (value === "privat") return "PRIVATE";
+  const key = value.trim().toLowerCase();
+  if (key === "dept" || key === "department") return "DEPARTMENT";
+  if (key === "user") return "USER";
+  if (key === "privat" || key === "private" || key === "onlyme" || key === "only-me") return "PRIVATE";
   return "ALL";
 }
 
@@ -126,6 +134,51 @@ async function validUserIds(hotelTenantId: string, ids: string[]) {
   return rows.map((row) => row.id);
 }
 
+async function noteManagerIds(tx: Prisma.TransactionClient, hotelTenantId: string) {
+  const [users, permissions] = await Promise.all([
+    tx.user.findMany({
+      where: { hotelTenantId, isActive: true, isDeleted: false },
+      select: { id: true, role: true },
+    }),
+    tx.roleModulePermission.findMany({
+      where: { hotelTenantId, moduleKey: "notes" },
+      select: { role: true, canView: true },
+    }),
+  ]);
+  const override = new Map(permissions.map((item) => [item.role, item.canView]));
+  return users.filter((user) => {
+    if (user.role === "ADMIN") return true;
+    if (override.has(user.role)) return override.get(user.role) === true;
+    return user.role === "EMPLOYEE" || user.role === "TEAM_LEAD";
+  }).map((user) => user.id);
+}
+
+async function assignedUserIds(
+  tx: Prisma.TransactionClient,
+  input: { hotelTenantId: string; visibility: HotelNoteVisibility; departmentIds: string[]; userIds: string[]; excludeId: string },
+) {
+  const base: Prisma.UserWhereInput = {
+    hotelTenantId: input.hotelTenantId,
+    isActive: true,
+    isDeleted: false,
+    id: { not: input.excludeId },
+  };
+  if (input.visibility === "PRIVATE") return [] as string[];
+  if (input.visibility === "DEPARTMENT") {
+    if (!input.departmentIds.length) return [];
+    const rows = await tx.user.findMany({ where: { ...base, departmentId: { in: input.departmentIds } }, select: { id: true } });
+    return rows.map((row) => row.id);
+  }
+  if (input.visibility === "USER") {
+    const ids = input.userIds.filter((id) => id !== input.excludeId);
+    if (!ids.length) return [];
+    const rows = await tx.user.findMany({ where: { ...base, id: { in: ids } }, select: { id: true } });
+    return rows.map((row) => row.id);
+  }
+  const rows = await tx.user.findMany({ where: base, select: { id: true } });
+  return rows.map((row) => row.id);
+}
+
 async function notifyRecipients(
   tx: Prisma.TransactionClient,
   input: {
@@ -137,46 +190,43 @@ async function notifyRecipients(
     departmentIds: string[];
     userIds: string[];
     title: string;
-    event: "create" | "update";
+    event: "create" | "update" | "comment";
   },
 ) {
   if (input.kind !== "NOTE" || input.status === "DRAFT" || input.visibility === "PRIVATE") return;
-  const where: Prisma.UserWhereInput = {
+  const assigned = await assignedUserIds(tx, {
     hotelTenantId: input.actor.hotel_tenant_id,
-    isActive: true,
-    isDeleted: false,
-    id: { not: input.actor.id },
-  };
-  if (input.visibility === "DEPARTMENT") {
-    if (!input.departmentIds.length) return;
-    where.departmentId = { in: input.departmentIds };
-  } else if (input.visibility === "USER") {
-    if (!input.userIds.length) return;
-    where.id = { in: input.userIds.filter((id) => id !== input.actor.id) };
-  }
-  const recipients = await tx.user.findMany({ where, select: { id: true } });
-  if (!recipients.length) return;
+    visibility: input.visibility,
+    departmentIds: input.departmentIds,
+    userIds: input.userIds,
+    excludeId: input.actor.id,
+  });
+  const managers = input.event === "comment" ? await noteManagerIds(tx, input.actor.hotel_tenant_id) : [];
+  const recipientIds = [...new Set([...assigned, ...managers])].filter((id) => id !== input.actor.id);
+  if (!recipientIds.length) return;
   const author = `${input.actor.firstName} ${input.actor.lastName}`.trim();
-  const created = input.event === "create";
-  const text = {
-    en: {
-      title: created ? "New note" : "Note updated",
-      body: created ? `${author} shared “${input.title}”.` : `${author} updated “${input.title}”.`,
-    },
-    de: {
-      title: created ? "Neue Notiz" : "Notiz aktualisiert",
-      body: created ? `${author} hat „${input.title}“ geteilt.` : `${author} hat „${input.title}“ aktualisiert.`,
-    },
-    it: {
-      title: created ? "Nuova nota" : "Nota aggiornata",
-      body: created ? `${author} ha condiviso “${input.title}”.` : `${author} ha aggiornato “${input.title}”.`,
-    },
-  };
+  const text = input.event === "comment"
+    ? {
+      en: { title: "New comment", body: `${author} commented on “${input.title}”.` },
+      de: { title: "Neuer Kommentar", body: `${author} hat „${input.title}“ kommentiert.` },
+      it: { title: "Nuovo commento", body: `${author} ha commentato “${input.title}”.` },
+    }
+    : input.event === "create"
+      ? {
+        en: { title: "New note", body: `${author} shared “${input.title}”.` },
+        de: { title: "Neue Notiz", body: `${author} hat „${input.title}“ geteilt.` },
+        it: { title: "Nuova nota", body: `${author} ha condiviso “${input.title}”.` },
+      }
+      : {
+        en: { title: "Note updated", body: `${author} updated “${input.title}”.` },
+        de: { title: "Notiz aktualisiert", body: `${author} hat „${input.title}“ aktualisiert.` },
+        it: { title: "Nota aggiornata", body: `${author} ha aggiornato “${input.title}”.` },
+      };
   await tx.notification.createMany({
     skipDuplicates: true,
-    data: recipients.map((recipient) => ({
+    data: recipientIds.map((recipientId) => ({
       hotelTenantId: input.actor.hotel_tenant_id,
-      recipientId: recipient.id,
+      recipientId,
       moduleKey: "notes",
       eventKey: `notes:${input.noteId}:${input.event}:${randomUUID()}`,
       icon: "notes",
@@ -221,10 +271,13 @@ export async function getNote(actor: NotesActor, id: string, locale: string) {
 
 export async function getOwnedNote(actor: NotesActor, id: string) {
   if (!isUuid(id)) return null;
-  return prisma.hotelNote.findFirst({
+  const row = await prisma.hotelNote.findFirst({
     where: { id, hotelTenantId: actor.hotel_tenant_id },
     include,
   });
+  if (!row) return null;
+  if (row.visibility === "PRIVATE" && row.createdById !== actor.id) return null;
+  return row;
 }
 
 export async function createNote(actor: NotesActor, form: FormData, locale: string) {
@@ -388,7 +441,7 @@ export async function addNoteComment(actor: NotesActor, id: string, text: string
   if (!value) return { error: "COMMENT_REQUIRED" as const };
   const existing = await prisma.hotelNote.findFirst({
     where: { id, AND: [visibleWhere(actor, "NOTE")] },
-    select: { id: true },
+    include,
   });
   if (!existing) return { error: "NOT_FOUND" as const };
   const row = await prisma.$transaction(async (tx) => {
@@ -402,6 +455,17 @@ export async function addNoteComment(actor: NotesActor, id: string, text: string
       entityType: "NOTE",
       entityId: id,
       changes: { after: { comment: value.slice(0, 80) } },
+    });
+    await notifyRecipients(tx, {
+      actor,
+      noteId: id,
+      kind: existing.kind,
+      status: existing.status,
+      visibility: existing.visibility,
+      departmentIds: existing.departments.map((item) => item.departmentId),
+      userIds: existing.users.map((item) => item.userId),
+      title: existing.title,
+      event: "comment",
     });
     return tx.hotelNote.findFirstOrThrow({ where: { id }, include });
   });
