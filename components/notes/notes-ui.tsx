@@ -6,8 +6,8 @@ import { useState, type FormEvent, type KeyboardEvent, type ReactNode } from "re
 import { AppShell } from "../dashboard/app-shell";
 import { useI18n } from "../i18n/i18n-provider";
 import { getNotesMessages, type NotesMessages } from "../../lib/i18n/notes-messages";
-import { DEPT_IDS, noteColorFor, type Note, type NoteDept, type NoteFile, type NoteVisibility } from "../../lib/notes/demo-data";
-import { useNotes } from "./notes-provider";
+import { noteColorFor, type Note, type NoteDept, type NoteFile, type NoteVisibility } from "../../lib/notes/demo-data";
+import { useNotes, type HotelDept, type HotelUser } from "./notes-provider";
 
 type T = NotesMessages;
 type Filter = "alle" | "aktiv" | "inaktiv";
@@ -19,6 +19,16 @@ function useT() {
 
 function fill(template: string, vars: Record<string, string>) {
   return Object.entries(vars).reduce((text, [key, value]) => text.replaceAll(`{${key}}`, value), template);
+}
+
+function deptLabel(id: string, departments: HotelDept[], t: T) {
+  const fromDb = departments.find((item) => item.id === id);
+  if (fromDb) return fromDb.name;
+  return t.depts[id as keyof T["depts"]] ?? id;
+}
+
+function userLabel(id: string, users: HotelUser[]) {
+  return users.find((item) => item.id === id)?.name ?? id;
 }
 
 function Shell({ title, children }: { title: string; children: ReactNode }) {
@@ -59,13 +69,14 @@ export function NotesListPage() {
 export function NotesFormPage({ id }: { id?: string }) {
   const t = useT();
   const router = useRouter();
-  const { notes, fullName, upsert } = useNotes();
+  const { notes, fullName, departments, users, upsert } = useNotes();
   const existing = id ? notes.find((item) => item.id === id) : undefined;
   const [title, setTitle] = useState(existing?.title ?? "");
   const [desc, setDesc] = useState(existing?.desc ?? "");
   const [template, setTemplate] = useState("");
   const [visibility, setVisibility] = useState<NoteVisibility>(existing?.visibility ?? "alle");
   const [depts, setDepts] = useState<NoteDept[]>(existing?.depts ?? []);
+  const [userIds, setUserIds] = useState<string[]>(existing?.userIds ?? []);
   const [tags, setTags] = useState<string[]>(existing?.tags ?? []);
   const [tagInput, setTagInput] = useState("");
   const [attachments, setAttachments] = useState<NoteFile[]>(existing?.attachments ?? []);
@@ -100,6 +111,7 @@ export function NotesFormPage({ id }: { id?: string }) {
       status: existing?.status ?? "aktiv",
       visibility,
       depts: visibility === "dept" ? depts : [],
+      userIds: visibility === "user" ? userIds : [],
       tags,
       origLang: existing?.origLang ?? "de",
       desc,
@@ -149,15 +161,25 @@ export function NotesFormPage({ id }: { id?: string }) {
           <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <label style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}><input type="radio" name="note-vis" checked={visibility === "alle"} onChange={() => setVisibility("alle")} /> {t.visAll}</label>
             <label style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}><input type="radio" name="note-vis" checked={visibility === "dept"} onChange={() => setVisibility("dept")} /> {t.visDept}</label>
+            <label style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}><input type="radio" name="note-vis" checked={visibility === "user"} onChange={() => setVisibility("user")} /> {t.visUser}</label>
             <label style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}><input type="radio" name="note-vis" checked={visibility === "privat"} onChange={() => setVisibility("privat")} /> {t.visPrivate}</label>
             <div style={{ fontSize: 11, color: "var(--text3)", marginLeft: 24, marginTop: -4 }}>{t.visPrivateHint}</div>
             {visibility === "dept" ? <div style={{ marginTop: 6 }}>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
-                {depts.map((dept, index) => <span key={dept} className="chip chip-n">{t.depts[dept]} <span style={{ cursor: "pointer", marginLeft: 4 }} onClick={() => setDepts((current) => current.filter((_, i) => i !== index))}>✕</span></span>)}
+                {depts.map((dept, index) => <span key={dept} className="chip chip-n">{deptLabel(dept, departments, t)} <span style={{ cursor: "pointer", marginLeft: 4 }} onClick={() => setDepts((current) => current.filter((_, i) => i !== index))}>✕</span></span>)}
               </div>
-              <select className="field-select" defaultValue="" onChange={(event) => { const value = event.target.value as NoteDept; if (value && !depts.includes(value)) setDepts((current) => [...current, value]); event.target.value = ""; }}>
+              <select className="field-select" defaultValue="" onChange={(event) => { const value = event.target.value; if (value && !depts.includes(value)) setDepts((current) => [...current, value]); event.target.value = ""; }}>
                 <option value="">{t.addDept}</option>
-                {DEPT_IDS.map((dept) => <option key={dept} value={dept}>{t.depts[dept]}</option>)}
+                {departments.filter((dept) => !depts.includes(dept.id)).map((dept) => <option key={dept.id} value={dept.id}>{dept.name}</option>)}
+              </select>
+            </div> : null}
+            {visibility === "user" ? <div style={{ marginTop: 6 }}>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                {userIds.map((userId, index) => <span key={userId} className="chip chip-n">{userLabel(userId, users)} <span style={{ cursor: "pointer", marginLeft: 4 }} onClick={() => setUserIds((current) => current.filter((_, i) => i !== index))}>✕</span></span>)}
+              </div>
+              <select className="field-select" defaultValue="" onChange={(event) => { const value = event.target.value; if (value && !userIds.includes(value)) setUserIds((current) => [...current, value]); event.target.value = ""; }}>
+                <option value="">{t.addUser}</option>
+                {users.filter((user) => !userIds.includes(user.id)).map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}
               </select>
             </div> : null}
           </div>
@@ -185,7 +207,7 @@ export function NotesFormPage({ id }: { id?: string }) {
 
 export function NotesDetailPage({ id }: { id: string }) {
   const t = useT();
-  const { notes, toggleStatus, addComment } = useNotes();
+  const { notes, departments, users, toggleStatus, addComment } = useNotes();
   const note = notes.find((item) => item.id === id);
   const [comment, setComment] = useState("");
   const [showOriginal, setShowOriginal] = useState(false);
@@ -223,7 +245,8 @@ export function NotesDetailPage({ id }: { id: string }) {
           {note.attachments.map((file, index) => <div key={`${file.name}-${index}`} className="doc-row"><div className="doc-ic">📎</div><div className="doc-name">{file.name}</div></div>)}
         </div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
-          {note.depts.length ? note.depts.map((dept) => <span key={dept} className="chip chip-n">{t.depts[dept]}</span>)
+          {note.visibility === "user" && note.userIds.length ? note.userIds.map((userId) => <span key={userId} className="chip chip-n">{userLabel(userId, users)}</span>)
+            : note.depts.length ? note.depts.map((dept) => <span key={dept} className="chip chip-n">{deptLabel(dept, departments, t)}</span>)
             : note.visibility === "privat" ? <span className="chip chip-r">{t.privateChip}</span>
             : <span className="chip chip-n">{t.visibleAll}</span>}
         </div>

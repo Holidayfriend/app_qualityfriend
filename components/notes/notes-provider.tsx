@@ -1,11 +1,17 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useI18n } from "../i18n/i18n-provider";
 import { INITIAL_NOTES, type Note, type NoteComment, type NoteDept, type NoteFile, type NoteStatus, type NoteVisibility } from "../../lib/notes/demo-data";
+
+export type HotelDept = { id: string; name: string };
+export type HotelUser = { id: string; name: string };
 
 type Store = {
   fullName: string;
   notes: Note[];
+  departments: HotelDept[];
+  users: HotelUser[];
   upsert: (note: Note) => void;
   toggleStatus: (id: string) => void;
   addComment: (id: string, text: string) => void;
@@ -14,8 +20,11 @@ type Store = {
 const NotesContext = createContext<Store | null>(null);
 
 export function NotesProvider({ children }: { children: ReactNode }) {
+  const { locale } = useI18n();
   const [fullName, setFullName] = useState("Klaus");
-  const [notes, setNotes] = useState<Note[]>(() => INITIAL_NOTES.map((item) => ({ ...item, depts: [...item.depts], tags: [...item.tags], attachments: [...item.attachments], comments: [...item.comments] })));
+  const [departments, setDepartments] = useState<HotelDept[]>([]);
+  const [users, setUsers] = useState<HotelUser[]>([]);
+  const [notes, setNotes] = useState<Note[]>(() => INITIAL_NOTES.map((item) => ({ ...item, depts: [...item.depts], userIds: [...item.userIds], tags: [...item.tags], attachments: [...item.attachments], comments: [...item.comments] })));
 
   useEffect(() => {
     fetch("/api/me").then(async (response) => {
@@ -23,6 +32,20 @@ export function NotesProvider({ children }: { children: ReactNode }) {
       const user = await response.json() as { first_name: string; last_name: string };
       setFullName(`${user.first_name} ${user.last_name}`.trim() || "Klaus");
     }).catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    fetch(`/api/notes/departments?locale=${locale}`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => { if (Array.isArray(data?.departments)) setDepartments(data.departments); })
+      .catch(() => undefined);
+  }, [locale]);
+
+  useEffect(() => {
+    fetch("/api/notes/users")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => { if (Array.isArray(data?.users)) setUsers(data.users); })
+      .catch(() => undefined);
   }, []);
 
   function upsert(note: Note) {
@@ -42,7 +65,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
     setNotes((current) => current.map((item) => item.id === id ? { ...item, comments: [...item.comments, comment] } : item));
   }
 
-  const value = useMemo(() => ({ fullName, notes, upsert, toggleStatus, addComment }), [fullName, notes]);
+  const value = useMemo(() => ({ fullName, notes, departments, users, upsert, toggleStatus, addComment }), [fullName, notes, departments, users]);
   return <NotesContext.Provider value={value}>{children}</NotesContext.Provider>;
 }
 
