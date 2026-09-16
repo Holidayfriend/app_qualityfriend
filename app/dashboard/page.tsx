@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { AppShell } from "../../components/dashboard/app-shell";
+import { HousekeepingCard } from "../../components/dashboard/housekeeping-card";
+import { WeatherCard } from "../../components/dashboard/weather-card";
 import { useI18n } from "../../components/i18n/i18n-provider";
 
 export default function DashboardPage() {
@@ -38,23 +40,8 @@ export default function DashboardPage() {
         </div>
       </div>
       <div style={{"display":"flex","flexDirection":"column","gap":"18px"}}>
-        <div className="weather">
-          <div style={{"fontSize":"36px"}}>⛅</div>
-          <div><div className="w-temp">18°</div><div className="w-desc">{d.weather}</div></div>
-          <div className="w-detail">{d.rain}<br />{d.wind}<br />{d.uv}</div>
-        </div>
-        <div className="card">
-          <div className="ch"><div className="ct">🧹 {dictionary.navigation.housekeeping}</div><span className="ca" onClick={() => router.push("/housekeeping")}>{d.fullView} →</span></div>
-          <div className="cb">
-            <div style={{"display":"flex","gap":"10px","marginBottom":"12px"}}>
-              <div style={{"flex":1,"textAlign":"center","padding":"10px","background":"var(--red-bg)","borderRadius":"8px"}}><div style={{"fontSize":"20px","fontWeight":700,"color":"var(--red)"}}>3</div><div style={{"fontSize":"11px","color":"var(--red)"}}>{d.dirty}</div></div>
-              <div style={{"flex":1,"textAlign":"center","padding":"10px","background":"var(--amber-bg)","borderRadius":"8px"}}><div style={{"fontSize":"20px","fontWeight":700,"color":"var(--amber)"}}>2</div><div style={{"fontSize":"11px","color":"var(--amber)"}}>{d.cleaning}</div></div>
-              <div style={{"flex":1,"textAlign":"center","padding":"10px","background":"var(--green-bg)","borderRadius":"8px"}}><div style={{"fontSize":"20px","fontWeight":700,"color":"var(--green)"}}>6</div><div style={{"fontSize":"11px","color":"var(--green)"}}>{d.ready}</div></div>
-              <div style={{"flex":1,"textAlign":"center","padding":"10px","background":"var(--blue-bg)","borderRadius":"8px"}}><div style={{"fontSize":"20px","fontWeight":700,"color":"var(--blue)"}}>3</div><div style={{"fontSize":"11px","color":"var(--blue)"}}>{d.inspected}</div></div>
-            </div>
-            <div style={{"fontSize":"12.5px","color":"var(--text2)"}}>{d.hkNote}</div>
-          </div>
-        </div>
+        <WeatherCard />
+        <HousekeepingCard />
         <div className="card">
           <div className="ch"><div className="ct">📅 {d.onDuty}</div><span className="ca" onClick={() => router.push("/schedule")}>{d.roster} →</span></div>
           <div className="cb">

@@ -1,9 +1,11 @@
 # Background jobs
 
 Jobs use pg-boss and the existing PostgreSQL database. Its tables live in the
-separate `pgboss` schema, initialized automatically on startup. No Redis or cron
-is required. The database user must be allowed to create that schema and tables.
-The PostgreSQL Docker volume persists queued jobs across container restarts.
+separate `pgboss` schema, initialized automatically on startup. No Redis or host
+cron is required. The worker enables pg-boss scheduling so `weather-daily` runs
+at 06:00 and 14:00 UTC. The database user must be allowed to create that schema
+and tables. The PostgreSQL Docker volume persists queued jobs across container
+restarts.
 
 ## Local Docker
 
@@ -23,7 +25,12 @@ After initial setup, `docker compose up -d` starts the worker with the other ser
 ```bash
 docker compose logs -f worker
 docker compose exec worker npm run jobs:smoke
+docker compose exec worker npm run weather:daily
 ```
+
+`weather:daily` geocodes each active hotel address (once, then reused), fetches
+Open-Meteo weather, and upserts `hotel_weather`. The dashboard reads that row
+only. The same job also runs from the worker schedule at 06:00 and 14:00 UTC.
 
 The smoke command queues a harmless job and waits up to 45 seconds for the
 separate worker to finish it. Use `-- --dispatch-only` to queue without waiting,

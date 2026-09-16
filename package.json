@@ -10,7 +10,9 @@
     "worker": "tsx scripts/worker.ts",
     "jobs:smoke": "tsx scripts/jobs-smoke.ts",
     "housekeeping:daily": "tsx scripts/housekeeping-daily.ts",
-    "test:housekeeping": "tsx --test tests/housekeeping-asa-file.test.ts tests/housekeeping-import.test.ts tests/housekeeping-daily-plan.test.ts"
+    "weather:daily": "tsx scripts/weather-daily.ts",
+    "test:housekeeping": "tsx --test tests/housekeeping-asa-file.test.ts tests/housekeeping-import.test.ts tests/housekeeping-daily-plan.test.ts",
+    "test:weather": "tsx --test tests/weather-daily.test.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",

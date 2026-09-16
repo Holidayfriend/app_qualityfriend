@@ -1,13 +1,13 @@
 import { PgBoss } from "pg-boss";
 
-export const queues = { smoke: "qualityfriend-smoke", housekeeping: "housekeeping-import", housekeepingFailed: "housekeeping-import-failed" } as const;
+export const queues = { smoke: "qualityfriend-smoke", housekeeping: "housekeeping-import", housekeepingFailed: "housekeeping-import-failed", weatherDaily: "weather-daily" } as const;
 export type HousekeepingImportJob = { hotelTenantId: string; actorId: string; xmlName: string; runId: string; sourceId: string };
 export type SmokeJob = { message: string };
 
 export function createJobQueue(worker = false) {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) throw new Error("DATABASE_URL is not configured.");
-  const boss = new PgBoss({ connectionString, supervise: worker, schedule: false });
+  const boss = new PgBoss({ connectionString, supervise: worker, schedule: worker });
   boss.on("error", (error) => console.error("[queue]", error.message));
   return boss;
 }
@@ -23,6 +23,13 @@ export async function initializeQueues(boss: PgBoss) {
     retryDelay: 10,
     retryBackoff: true,
     expireInSeconds: 300,
+    deleteAfterSeconds: 7 * 24 * 60 * 60,
+  });
+  await boss.createQueue(queues.weatherDaily, {
+    policy: "exclusive",
+    retryLimit: 1,
+    retryDelay: 60,
+    expireInSeconds: 600,
     deleteAfterSeconds: 7 * 24 * 60 * 60,
   });
 }

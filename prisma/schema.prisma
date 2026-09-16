@@ -551,8 +551,31 @@ model HotelTenant {
   @@index([isActive])
   @@index([activeMcp])
   competitors Competitor[]
+  weather HotelWeather?
 
   @@map("hotel_tenants")
+}
+
+model HotelWeather {
+  hotelTenantId String      @id @map("hotel_tenant_id") @db.Uuid
+  cityName      String      @map("city_name") @db.VarChar(120)
+  countryName   String      @map("country_name") @db.VarChar(120)
+  addressKey    String      @map("address_key") @db.VarChar(400)
+  latitude      Float
+  longitude     Float
+  temperatureC  Int         @map("temperature_c")
+  weatherCode   Int         @map("weather_code")
+  conditionKey  String      @map("condition_key") @db.VarChar(40)
+  icon          String      @db.VarChar(16)
+  rainFromHour  String?     @map("rain_from_hour") @db.VarChar(5)
+  windKmh       Int         @map("wind_kmh")
+  uvIndex       Int         @map("uv_index")
+  fetchedAt     DateTime    @map("fetched_at") @db.Timestamptz(3)
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant   HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("hotel_weather")
 }
 
 model Competitor {

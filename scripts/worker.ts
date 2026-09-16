@@ -2,7 +2,9 @@ import "dotenv/config";
 import { Pool } from "pg";
 import { importHousekeeping, recordImportFailure, importFailureReason } from "../lib/housekeeping/import-job";
 import type { HousekeepingImportJob } from "../lib/jobs/queue";
+import { createJobPrisma } from "../lib/jobs/prisma";
 import { createJobQueue, initializeQueues, queues, type SmokeJob } from "../lib/jobs/queue";
+import { syncAllHotelWeather } from "../lib/weather/sync";
 
 const boss = createJobQueue(true);
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 4 });
@@ -40,6 +42,17 @@ async function main() {
     if (typeof job.data.message !== "string") throw new Error("Invalid smoke job payload.");
     console.log(`[worker] Completed smoke job ${job.id}`);
     return { message: job.data.message, processedAt: new Date().toISOString() };
+  });
+  await boss.schedule(queues.weatherDaily, "0 6,14 * * *", {}, { tz: "UTC", singletonKey: "weather-daily", singletonSeconds: 3600 });
+  await boss.work(queues.weatherDaily, async () => {
+    const prisma = createJobPrisma(2);
+    try {
+      const results = await syncAllHotelWeather(prisma);
+      console.log(`[worker] Weather daily completed`, { hotels: results.length, failed: results.filter((item) => !item.ok).length });
+      return { hotels: results.length };
+    } finally {
+      await prisma.$disconnect();
+    }
   });
   console.log("[worker] Ready and waiting for jobs.");
   for (const signal of ["SIGTERM", "SIGINT"] as const) {
