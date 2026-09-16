@@ -9,7 +9,7 @@ import type { PrismaClient } from "../../app/generated/prisma/client"; // Type o
  */
 
 // Shape of one stay row returned by the DISTINCT ON query below
-type StayRow = { stay_id: string; room_id: string; arrival_date: string; departure_date: string; normal_minutes: number | null; express_minutes: number | null; departure_minutes: number | null; cleaning_frequency: string | null; cleaning_weekdays: number[] | null; assigned_to_id: string | null };
+type StayRow = { stay_id: string; room_id: string; arrival_date: string; departure_date: string; normal_minutes: number | null; express_minutes: number | null; departure_minutes: number | null; cleaning_frequency: string | null; cleaning_weekdays: number[] | null; linen_frequency: string | null; linen_weekdays: number[] | null; assigned_to_id: string | null };
 
 // Convert "now" into YYYY-MM-DD in a hotel time zone (e.g. Europe/Rome), not the server clock
 export function hotelLocalDate(timeZone: string, now = new Date()) {
@@ -46,6 +46,14 @@ export function cleaningPlan(stay: Pick<StayRow, "arrival_date" | "departure_dat
     : { type: "EXPRESS", minutes: stay.express_minutes ?? 0 } as const;
 }
 
+export function linenDueToday(stay: Pick<StayRow, "arrival_date" | "linen_frequency" | "linen_weekdays">, date: string) {
+  const elapsed = dayDifference(stay.arrival_date, date);
+  return stay.linen_frequency === "DAILY"
+    || stay.linen_frequency === "EVERY_SECOND_DAY" && elapsed % 2 === 0
+    || stay.linen_frequency === "WEEKLY" && elapsed % 7 === 0
+    || stay.linen_frequency === "ON_REQUEST" && (stay.linen_weekdays ?? []).includes(isoWeekday(date));
+}
+
 // Build/refresh one hotel's housekeeping plan for one local calendar day (idempotent)
 export async function generateHotelDailyPlan(prisma: PrismaClient, hotelTenantId: string, workDate: string) {
   const runId = randomUUID(); // id for the housekeeping_daily_runs row we are about to write
@@ -76,6 +84,7 @@ export async function generateHotelDailyPlan(prisma: PrismaClient, hotelTenantId
         SELECT DISTINCT ON (s.room_id)
           s.id AS stay_id, s.room_id, s.arrival_date::text, s.departure_date::text,
           c.normal_minutes, c.express_minutes, c.departure_minutes, c.cleaning_frequency, c.cleaning_weekdays,
+          c.linen_frequency, c.linen_weekdays,
           p.assigned_to_id
         FROM reservation_room_stays s
         JOIN reservations v ON v.id=s.reservation_id AND v.hotel_tenant_id=s.hotel_tenant_id
@@ -91,6 +100,7 @@ export async function generateHotelDailyPlan(prisma: PrismaClient, hotelTenantId
 
       for (const stay of stays) {
         const plan = cleaningPlan(stay, workDate); // REGULAR / EXPRESS / DEPARTURE + planned minutes
+        const linenChange = linenDueToday(stay, workDate);
         // Insert today's room assignment, or update stay/type/minutes if it already exists.
         // If origin is PERMANENT, also refresh the cleaner; if TODAY_ONLY, keep the person already assigned.
         await tx.$executeRaw`
@@ -115,10 +125,10 @@ export async function generateHotelDailyPlan(prisma: PrismaClient, hotelTenantId
 
         // Every daily run: occupied rooms become DIRTY. Express = dirty + ⚡ (is_express), regular = dirty only.
         await tx.$executeRaw`
-          INSERT INTO room_operational_states (id,hotel_tenant_id,room_id,cleanliness,is_express,updated_at)
-          VALUES (${randomUUID()}::uuid,${hotelTenantId}::uuid,${stay.room_id}::uuid,'DIRTY',${plan.type === "EXPRESS"},NOW())
+          INSERT INTO room_operational_states (id,hotel_tenant_id,room_id,cleanliness,is_express,linen_change,updated_at)
+          VALUES (${randomUUID()}::uuid,${hotelTenantId}::uuid,${stay.room_id}::uuid,'DIRTY',${plan.type === "EXPRESS"},${linenChange},NOW())
           ON CONFLICT (hotel_tenant_id,room_id) DO UPDATE
-          SET cleanliness='DIRTY', is_express=EXCLUDED.is_express, updated_at=NOW()`;
+          SET cleanliness='DIRTY', is_express=EXCLUDED.is_express, linen_change=EXCLUDED.linen_change, updated_at=NOW()`;
       }
 
       // Permanent extra jobs (not rooms): default assignee + minutes + a description snapshot

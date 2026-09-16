@@ -127,7 +127,7 @@ export async function GET(request: Request) {
           reservation: { sourcePresent: true, status: { notIn: ["CANCELLED", "NO_SHOW"] } },
         } } }, orderBy: { number: "asc" }, select: {
           id: true, number: true,
-          roomOperationalStateRecords: { take: 1, select: { cleanliness: true, breakfastInRoom: true, doNotDisturb: true, noService: true, isExpress: true } },
+          roomOperationalStateRecords: { take: 1, select: { cleanliness: true, breakfastInRoom: true, doNotDisturb: true, noService: true, isExpress: true, linenChange: true } },
           housekeepingScheduleAssignmentRecords: { where: { workDate: day }, take: 1, select: { cleaningType: true } },
           reservationRoomStayRecords: { where: {
             arrivalDate: { lte: day }, departureDate: { gte: day },
@@ -152,6 +152,7 @@ export async function GET(request: Request) {
         const status = state?.noService ? "noCleaningDesired" as const : ({ UNKNOWN: "unassigned", DIRTY: "dirty", CLEANING: "cleaning", CLEAN: "clean", INSPECTED: "inspected" } as const)[state?.cleanliness ?? "UNKNOWN"];
         const isExpress = Boolean(state?.isExpress) || assignment?.cleaningType === "EXPRESS";
         return { id: room.id, number: room.number, status, isExpress,
+          linenChange: Boolean(state?.linenChange),
           breakfastInRoom: state?.breakfastInRoom ?? false,
           doNotDisturb: state?.doNotDisturb ?? false,
           noService: state?.noService ?? false,
