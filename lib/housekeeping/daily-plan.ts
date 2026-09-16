@@ -64,6 +64,12 @@ export async function generateHotelDailyPlan(prisma: PrismaClient, hotelTenantId
         ON CONFLICT (hotel_tenant_id,work_date) DO UPDATE
         SET status='RUNNING', started_at=NOW(), finished_at=NULL, error_summary=NULL`;
 
+      // Room/arrival checks belong to this work_date. Clear today's ticks so the new plan starts unchecked.
+      // Older days stay in the table as history.
+      await tx.$executeRaw`
+        DELETE FROM housekeeping_checklist_completions
+        WHERE hotel_tenant_id=${hotelTenantId}::uuid AND work_date=${workDate}::date`;
+
       // Occupied rooms today: one stay per room (latest arrival if two overlap).
       // Joins reservation (skip cancelled/no-show), room, category minutes/frequency, permanent cleaner.
       const stays = await tx.$queryRaw<StayRow[]>`
