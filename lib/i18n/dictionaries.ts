@@ -49,5 +49,7 @@ export const toastMessages = byLocale("toastMessages");
 export const notificationMessages = byLocale("notificationMessages");
 export { scheduleMessages, getScheduleMessages } from "./schedule-messages";
 export type { ScheduleMessages } from "./schedule-messages";
+export { notesMessages, getNotesMessages } from "./notes-messages";
+export type { NotesMessages } from "./notes-messages";
 export { recruitingMessages } from "./recruiting-messages";
 export type { RecruitingMessages } from "./recruiting-messages";

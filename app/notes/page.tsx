@@ -1,1 +1,7 @@
-"use client"; import {ModulePlaceholder} from "../../components/dashboard/module-placeholder"; import {useI18n} from "../../components/i18n/i18n-provider"; export default function Page(){const{dictionary:d}=useI18n();return <ModulePlaceholder activeItem="notes" icon="📝" title={d.navigation.notes} underDevelopment={d.common.underDevelopment}/>}
+"use client";
+
+import { NotesListPage } from "../../components/notes/notes-ui";
+
+export default function Page() {
+  return <NotesListPage />;
+}
