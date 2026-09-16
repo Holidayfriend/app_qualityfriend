@@ -9,6 +9,32 @@ import { useI18n } from "../i18n/i18n-provider";
 import { moduleNavigationMessages, roleLevelNames } from "../../lib/i18n/dictionaries";
 
 type AppShellProps = { activeItem: string; children: ReactNode; pageTitle?: string };
+type ShellUser = { first_name: string; last_name: string; role: string; language: "EN" | "DE" | "IT"; hotel_name_en: string; hotel_name_de: string; hotel_name_it: string; allowed_modules: string[] };
+
+const CACHE_KEY = "qf-shell-user";
+let memoryUser: ShellUser | null = null;
+
+function readCachedUser(): ShellUser | null {
+  if (memoryUser) return memoryUser;
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    memoryUser = JSON.parse(raw) as ShellUser;
+    return memoryUser;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedUser(user: ShellUser | null) {
+  memoryUser = user;
+  if (typeof window === "undefined") return;
+  try {
+    if (user) sessionStorage.setItem(CACHE_KEY, JSON.stringify(user));
+    else sessionStorage.removeItem(CACHE_KEY);
+  } catch { /* Ignore quota/private-mode storage failures. */ }
+}
 
 export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
   const { dictionary, locale, setLocale } = useI18n();
@@ -20,15 +46,27 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [selectedItem, setSelectedItem] = useState(activeItem);
-  const [currentUser, setCurrentUser] = useState<{ first_name: string; last_name: string; role: string; language: "EN" | "DE" | "IT"; hotel_name_en: string; hotel_name_de: string; hotel_name_it: string; allowed_modules: string[] } | null>(null);
+  const [currentUser, setCurrentUser] = useState<ShellUser | null>(() => readCachedUser());
+
+  useEffect(() => { setSelectedItem(activeItem); }, [activeItem]);
 
   useEffect(() => {
+    let cancelled = false;
     fetch("/api/me").then(async (response) => {
-      if (!response.ok) return router.replace("/login");
-      const user = await response.json();
+      if (!response.ok) {
+        writeCachedUser(null);
+        if (!cancelled) router.replace("/login");
+        return;
+      }
+      const user = await response.json() as ShellUser;
+      writeCachedUser(user);
+      if (cancelled) return;
       setCurrentUser(user);
       setLocale(user.language.toLowerCase());
-    }).catch(() => router.replace("/login"));
+    }).catch(() => {
+      if (!cancelled) router.replace("/login");
+    });
+    return () => { cancelled = true; };
   }, [router, setLocale]);
 
   useEffect(() => {
@@ -94,6 +132,7 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
     try {
       await fetch("/api/logout", { method: "POST" });
     } finally {
+      writeCachedUser(null);
       router.replace("/login");
       router.refresh();
     }
@@ -113,7 +152,7 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
     <aside className={`fixed inset-y-0 left-0 z-50 flex w-[220px] flex-col overflow-y-auto bg-[var(--qf-navy)] text-white transition-transform lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${menuOpen ? "translate-x-0" : "-translate-x-full"}`}>
       <div className="flex items-center gap-3 border-b border-white/[.07] px-[18px] py-4"><div className="rounded-lg bg-white p-1"><Image src="/logo-icon.png" alt="" width={32} height={32} className="h-8 w-8 rounded-md object-contain" /></div><div className="min-w-0"><p className="truncate text-[13px] font-bold">{hotelName || "QualityFriend"}</p><p className="mt-0.5 text-[10px] text-white/35">{dictionary.common.brandSubtitle}</p></div></div>
       <nav className="flex-1 py-1">{groups.map((group) => <div key={group.title} className="px-2.5 pb-1 pt-3.5"><p className="px-2 pb-1.5 text-[9px] font-semibold uppercase tracking-[1.1px] text-white/30">{group.title}</p>{group.items.map(([id, icon, label, badge]) => { const active = selectedItem === id; return <button key={id} type="button" onClick={() => navigate(id)} className={`mb-px flex w-full cursor-pointer items-center gap-2 rounded-[6px] px-2.5 py-1.5 text-left text-[11.5px] leading-4 transition ${active ? "bg-[var(--qf-accent)] font-semibold text-white" : "text-white/60 hover:bg-[var(--qf-navy-hover)] hover:text-white"}`}><span className="w-4 text-center text-[12px]">{icon}</span><span className="min-w-0 flex-1">{label}</span>{badge ? <span className={`rounded-full px-1.5 py-px text-[8px] font-bold text-white ${badge === n.new ? "bg-[#7c3aed]" : badge === "2" ? "bg-[var(--qf-danger)]" : "bg-[#d97706]"}`}>{badge}</span> : null}</button>; })}</div>)}</nav>
-      <div className="border-t border-white/[.07] p-2.5"><button type="button" onClick={() => { setMenuOpen(false); router.push("/settings/account"); }} aria-label={`${fullName} account settings`} className="flex w-full cursor-pointer items-center gap-2.5 rounded-[7px] px-2.5 py-2 text-left transition hover:bg-[var(--qf-navy-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--qf-accent)]"><div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-[var(--qf-accent)] text-xs font-bold">{initials}</div><div className="min-w-0 flex-1"><p className="truncate text-[11.5px] font-medium text-white/85">{fullName}</p><p className="text-[9.5px] text-white/35">{roleName}</p></div><span aria-hidden className="text-xs text-white/30">›</span></button></div>
+      <div className="border-t border-white/[.07] p-2.5"><button type="button" onClick={() => { setMenuOpen(false); router.push("/settings/account"); }} aria-label={`${fullName} account settings`} className="flex w-full cursor-pointer items-center gap-2.5 rounded-[7px] px-2.5 py-2 text-left transition hover:bg-[var(--qf-navy-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--qf-accent)]"><div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-[var(--qf-accent)] text-xs font-bold">{initials || "·"}</div><div className="min-w-0 flex-1"><p className="truncate text-[11.5px] font-medium text-white/85">{fullName || "…"}</p><p className="text-[9.5px] text-white/35">{roleName || "…"}</p></div><span aria-hidden className="text-xs text-white/30">›</span></button></div>
     </aside>
     {mobileMoreOpen ? <section className="fixed inset-x-0 bottom-[calc(68px+env(safe-area-inset-bottom))] top-14 z-30 overflow-y-auto bg-[var(--qf-background)] p-4 lg:hidden" aria-label="Mehr">
       {groups.slice(1).map((group) => {
