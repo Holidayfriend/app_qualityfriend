@@ -9,7 +9,16 @@ export function hasHousekeepingAdminAccess(modules: readonly string[]) {
   return modules.includes("housekeeping");
 }
 
+export function hasHousekeeperAccess(modules: readonly string[]) {
+  return modules.includes("housekeeper");
+}
+
 export async function housekeepingAccess(user: AccessUser) {
   const modules = await accessibleModules(user);
-  return { modules, board: hasHousekeepingBoardAccess(modules), admin: hasHousekeepingAdminAccess(modules) };
+  return {
+    modules,
+    board: hasHousekeepingBoardAccess(modules),
+    admin: hasHousekeepingAdminAccess(modules),
+    housekeeper: hasHousekeeperAccess(modules),
+  };
 }

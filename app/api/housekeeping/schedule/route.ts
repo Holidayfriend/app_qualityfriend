@@ -25,7 +25,7 @@ async function actor() {
 
 async function housekeepingUsers(hotelTenantId: string) {
   const users = await prisma.user.findMany({ where: { hotelTenantId, isActive: true, isDeleted: false }, orderBy: [{ firstName: "asc" }, { lastName: "asc" }], select: { id: true, firstName: true, lastName: true, role: true } });
-  const access = await Promise.all(users.map(async (user) => ({ user, allowed: (await housekeepingAccess({ id: user.id, hotel_tenant_id: hotelTenantId, role: user.role })).board })));
+  const access = await Promise.all(users.map(async (user) => ({ user, allowed: user.role !== "ADMIN" && (await housekeepingAccess({ id: user.id, hotel_tenant_id: hotelTenantId, role: user.role })).housekeeper })));
   return access.filter((entry) => entry.allowed).map((entry) => entry.user);
 }
 

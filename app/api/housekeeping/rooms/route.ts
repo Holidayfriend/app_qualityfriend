@@ -20,7 +20,7 @@ function strings(value: unknown) { return Array.isArray(value) ? value.filter((i
 function dateOnly(value: Date) { return value.toISOString().slice(0, 10); }
 async function housekeepingUsers(hotelTenantId: string) {
   const users = await prisma.user.findMany({ where: { hotelTenantId, isActive: true, isDeleted: false }, orderBy: [{ firstName: "asc" }, { lastName: "asc" }], select: { id: true, firstName: true, lastName: true, role: true } });
-  const access = await Promise.all(users.map(async (employee) => ({ employee, allowed: (await housekeepingAccess({ id: employee.id, hotel_tenant_id: hotelTenantId, role: employee.role })).board })));
+  const access = await Promise.all(users.map(async (employee) => ({ employee, allowed: employee.role !== "ADMIN" && (await housekeepingAccess({ id: employee.id, hotel_tenant_id: hotelTenantId, role: employee.role })).housekeeper })));
   return access.filter((entry) => entry.allowed).map(({ employee }) => ({ id: employee.id, name: `${employee.firstName} ${employee.lastName}`.trim() }));
 }
 function birthdayDuringStay(dateOfBirth: Date | null, arrival: Date, departure: Date) {
