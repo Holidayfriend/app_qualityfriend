@@ -1,1 +1,7 @@
-"use client"; import {ModulePlaceholder} from "../../components/dashboard/module-placeholder"; import {useI18n} from "../../components/i18n/i18n-provider"; export default function Page(){const{dictionary:d}=useI18n();return <ModulePlaceholder activeItem="schedule" icon="📅" title={d.navigation.schedule} underDevelopment={d.common.underDevelopment}/>}
+"use client";
+
+import { SchedulePlanPage } from "../../components/schedule/schedule-ui";
+
+export default function Page() {
+  return <SchedulePlanPage />;
+}
