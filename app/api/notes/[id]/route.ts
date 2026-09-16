@@ -1,4 +1,4 @@
-import { notesActor } from "../../../../lib/notes/access";
+import { notesEditor, notesViewer } from "../../../../lib/notes/access";
 import { getNote, isUuid, updateNote, updateNoteStatus } from "../../../../lib/notes/service";
 import { supportedLocales } from "../../../../lib/i18n/dictionaries";
 
@@ -10,7 +10,7 @@ function localeOf(request: Request) {
 }
 
 export async function GET(request: Request, context: Context) {
-  const actor = await notesActor();
+  const actor = await notesViewer();
   if (!actor) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
   const { id } = await context.params;
   if (!isUuid(id)) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
@@ -20,7 +20,7 @@ export async function GET(request: Request, context: Context) {
 }
 
 export async function PATCH(request: Request, context: Context) {
-  const actor = await notesActor();
+  const actor = await notesEditor();
   if (!actor) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
   const { id } = await context.params;
   const locale = localeOf(request);

@@ -12,6 +12,7 @@ type Store = {
   templates: Note[];
   departments: HotelDept[];
   users: HotelUser[];
+  canManage: boolean;
   loading: boolean;
   reload: () => Promise<void>;
 };
@@ -24,25 +25,29 @@ export function NotesProvider({ children }: { children: ReactNode }) {
   const [templates, setTemplates] = useState<Note[]>([]);
   const [departments, setDepartments] = useState<HotelDept[]>([]);
   const [users, setUsers] = useState<HotelUser[]>([]);
+  const [canManage, setCanManage] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const [notesRes, templatesRes, departmentsRes, usersRes] = await Promise.all([
+      const [notesRes, templatesRes, departmentsRes, usersRes, meRes] = await Promise.all([
         fetch(`/api/notes?locale=${locale}`, { cache: "no-store" }),
         fetch(`/api/notes?locale=${locale}&kind=template`, { cache: "no-store" }),
         fetch(`/api/notes/departments?locale=${locale}`, { cache: "no-store" }),
         fetch("/api/notes/users", { cache: "no-store" }),
+        fetch("/api/me", { cache: "no-store" }),
       ]);
       const notesData = notesRes.ok ? await notesRes.json() as { notes?: Note[] } : null;
       const templatesData = templatesRes.ok ? await templatesRes.json() as { notes?: Note[] } : null;
       const departmentsData = departmentsRes.ok ? await departmentsRes.json() as { departments?: HotelDept[] } : null;
       const usersData = usersRes.ok ? await usersRes.json() as { users?: HotelUser[] } : null;
+      const meData = meRes.ok ? await meRes.json() as { role?: string; allowed_modules?: string[] } : null;
       setNotes(Array.isArray(notesData?.notes) ? notesData.notes : []);
       setTemplates(Array.isArray(templatesData?.notes) ? templatesData.notes : []);
       setDepartments(Array.isArray(departmentsData?.departments) ? departmentsData.departments : []);
       setUsers(Array.isArray(usersData?.users) ? usersData.users : []);
+      setCanManage(meData?.role === "ADMIN" || (meData?.allowed_modules ?? []).includes("notes"));
     } catch {
       setNotes([]);
       setTemplates([]);
@@ -53,7 +58,7 @@ export function NotesProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { void reload(); }, [reload]);
 
-  const value = useMemo(() => ({ notes, templates, departments, users, loading, reload }), [notes, templates, departments, users, loading, reload]);
+  const value = useMemo(() => ({ notes, templates, departments, users, canManage, loading, reload }), [notes, templates, departments, users, canManage, loading, reload]);
   return <NotesContext.Provider value={value}>{children}</NotesContext.Provider>;
 }
 

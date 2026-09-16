@@ -12,9 +12,13 @@ async function context() {
   const fullAccess = user.role === "ADMIN" ? modules : (await prisma.roleModulePermission.findMany({ where: {
     hotelTenantId: user.hotelTenantId, role: user.role, canView: true, scope: "ALL",
   }, select: { moduleKey: true } })).map(item => item.moduleKey);
-  return { user, where: { hotelTenantId: user.hotelTenantId, recipientId: user.id, moduleKey: { in: modules },
-    OR: [{ requiredScope: "OWN" as const }, { requiredScope: "ALL" as const, moduleKey: { in: fullAccess } }],
-  } };
+  return { user, where: { hotelTenantId: user.hotelTenantId, recipientId: user.id, OR: [
+    { moduleKey: "notes" },
+    { AND: [
+      { moduleKey: { in: modules } },
+      { OR: [{ requiredScope: "OWN" as const }, { requiredScope: "ALL" as const, moduleKey: { in: fullAccess } }] },
+    ] },
+  ] } };
 }
 
 export async function GET(request: Request) {

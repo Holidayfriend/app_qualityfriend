@@ -41,7 +41,12 @@ export function visibleWhere(actor: NotesActor, kind: HotelNoteKind): Prisma.Hot
   if (actor.departmentId) {
     or.push({ visibility: "DEPARTMENT", departments: { some: { departmentId: actor.departmentId } } });
   }
-  return { hotelTenantId: actor.hotel_tenant_id, kind: "NOTE", status: { not: "DRAFT" }, OR: or };
+  return {
+    hotelTenantId: actor.hotel_tenant_id,
+    kind: "NOTE",
+    status: actor.canManage ? { not: "DRAFT" } : "ACTIVE",
+    OR: or,
+  };
 }
 
 export function toPublicNote(row: NoteRow, locale: string) {
@@ -174,7 +179,7 @@ async function notifyRecipients(
       recipientId: recipient.id,
       moduleKey: "notes",
       eventKey: `notes:${input.noteId}:${input.event}:${randomUUID()}`,
-      icon: "📝",
+      icon: "notes",
       destination: `/notes/${input.noteId}`,
       titleEn: text.en.title,
       titleDe: text.de.title,
@@ -182,7 +187,7 @@ async function notifyRecipients(
       bodyEn: text.en.body,
       bodyDe: text.de.body,
       bodyIt: text.it.body,
-      requiredScope: "OWN",
+      requiredScope: input.visibility === "ALL" ? "ALL" : "OWN",
     })),
   });
 }
@@ -291,7 +296,7 @@ export async function createNote(actor: NotesActor, form: FormData, locale: stri
 export async function updateNote(actor: NotesActor, id: string, form: FormData, locale: string) {
   const existing = await getOwnedNote(actor, id);
   if (!existing || existing.hotelTenantId !== actor.hotel_tenant_id) return { error: "NOT_FOUND" as const };
-  if (existing.createdById !== actor.id && actor.role !== "ADMIN") return { error: "FORBIDDEN" as const };
+  if (!actor.canManage) return { error: "FORBIDDEN" as const };
   if (existing.kind === "TEMPLATE") return { error: "NOT_FOUND" as const };
   const title = String(form.get("title") ?? "").trim().slice(0, 180);
   const description = String(form.get("description") ?? "").trim().slice(0, 20000);
@@ -362,7 +367,7 @@ export async function updateNote(actor: NotesActor, id: string, form: FormData, 
 export async function updateNoteStatus(actor: NotesActor, id: string, status: HotelNoteStatus, locale: string) {
   const existing = await getOwnedNote(actor, id);
   if (!existing || existing.kind !== "NOTE") return { error: "NOT_FOUND" as const };
-  if (existing.createdById !== actor.id && actor.role !== "ADMIN") return { error: "FORBIDDEN" as const };
+  if (!actor.canManage) return { error: "FORBIDDEN" as const };
   const row = await prisma.$transaction(async (tx) => {
     const updated = await tx.hotelNote.update({ where: { id }, data: { status }, include });
     await recordAuditLog(tx, {

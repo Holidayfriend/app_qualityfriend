@@ -40,7 +40,7 @@ function Shell({ title, children }: { title: string; children: ReactNode }) {
 
 export function NotesListPage() {
   const t = useT();
-  const { notes, loading } = useNotes();
+  const { notes, loading, canManage } = useNotes();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("alle");
   const rows = notes.filter((note) => {
@@ -53,12 +53,12 @@ export function NotesListPage() {
 
   return <Shell title={t.pageTitle}>
     <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
-      <Link href="/notes/new" className="btn btn-primary">{t.newNote}</Link>
+      {canManage ? <Link href="/notes/new" className="btn btn-primary">{t.newNote}</Link> : null}
       <input className="field-input" style={{ flex: 1, maxWidth: 320 }} placeholder={t.search} value={query} onChange={(event) => setQuery(event.target.value)} />
-      <div className="filter-row" style={{ marginBottom: 0 }}>
+      {canManage ? <div className="filter-row" style={{ marginBottom: 0 }}>
         {([["alle", t.filterAll], ["aktiv", t.filterActive], ["inaktiv", t.filterArchived]] as const).map(([id, label]) =>
           <button key={id} type="button" className={`filter-btn${filter === id ? " active" : ""}`} onClick={() => setFilter(id)}>{label}</button>)}
-      </div>
+      </div> : null}
     </div>
     <div className="note-grid">
       {rows.length ? rows.map((note) => <Link key={note.id} href={`/notes/${note.id}`} className="note-card" style={{ background: noteColorFor(note), opacity: note.status === "inaktiv" ? 0.55 : 1 }}>
@@ -285,7 +285,7 @@ export function NotesDetailPage({ id }: { id: string }) {
   const t = useT();
   const { locale } = useI18n();
   const toast = useToast();
-  const { notes, departments, users, loading, reload } = useNotes();
+  const { notes, departments, users, loading, reload, canManage } = useNotes();
   const [note, setNote] = useState<Note | undefined>();
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
@@ -400,10 +400,10 @@ export function NotesDetailPage({ id }: { id: string }) {
           <button type="submit" className="btn btn-ghost">{t.add}</button>
         </form>
       </div>
-      <div className="cb" style={{ borderTop: "1px solid var(--border)", display: "flex", gap: 10 }}>
+      {canManage ? <div className="cb" style={{ borderTop: "1px solid var(--border)", display: "flex", gap: 10 }}>
         <button type="button" className="btn btn-ghost" onClick={() => void toggleStatus()}>{note.status === "aktiv" ? t.markInactive : t.markActive}</button>
         <Link href={`/notes/${note.id}/edit`} className="btn btn-ghost">{t.edit}</Link>
-      </div>
+      </div> : null}
     </div>
   </Shell>;
 }

@@ -121,6 +121,7 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
   function canShow(id: string) {
     if (!currentUser) return false;
     if (currentUser.role === "ADMIN") return true;
+    if (id === "notes") return true;
     const modules = currentUser.allowed_modules;
     if (id === "housekeeping") return modules.includes("housekeeping") || modules.includes("housekeeper");
     return modules.includes(id === "ai" ? "aiAssistant" : id);
@@ -141,7 +142,7 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
   useEffect(() => {
     const activeKey = pathname === "/settings/activity-log" ? "activityLog" : pathname === "/settings/recycle-bin" ? "recycleBin" : activeItem === "ai" ? "aiAssistant" : activeItem;
     const allowed = currentUser?.allowed_modules ?? [];
-    const canViewActive = currentUser?.role === "ADMIN" || allowed.includes(activeKey) || (activeKey === "housekeeping" && allowed.includes("housekeeper"));
+    const canViewActive = currentUser?.role === "ADMIN" || allowed.includes(activeKey) || activeKey === "notes" || (activeKey === "housekeeping" && allowed.includes("housekeeper"));
     if (currentUser && !canViewActive) router.replace("/access-denied");
     const chatButton = document.querySelector<HTMLButtonElement>(`button[aria-label="${moduleNavigation.chat}"]`);
     if (chatButton) { chatButton.dataset.chatButton = "true"; chatButton.hidden = !(currentUser?.role === "ADMIN" || currentUser?.allowed_modules.includes("chat")); }

@@ -1,10 +1,10 @@
-import { notesActor } from "../../../../lib/notes/access";
+import { notesViewer } from "../../../../lib/notes/access";
 import { pickLocalized } from "../../../../lib/recruiting/job-fields";
 import { supportedLocales } from "../../../../lib/i18n/dictionaries";
 import { prisma } from "../../../../lib/prisma";
 
 export async function GET(request: Request) {
-  const actor = await notesActor();
+  const actor = await notesViewer();
   if (!actor) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
   const locale = new URL(request.url).searchParams.get("locale") ?? "";
   const lang = supportedLocales.includes(locale as (typeof supportedLocales)[number]) ? locale : "en";

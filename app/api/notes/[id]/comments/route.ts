@@ -1,11 +1,11 @@
-import { notesActor } from "../../../../../lib/notes/access";
+import { notesViewer } from "../../../../../lib/notes/access";
 import { addNoteComment, isUuid } from "../../../../../lib/notes/service";
 import { supportedLocales } from "../../../../../lib/i18n/dictionaries";
 
 type Context = { params: Promise<{ id: string }> };
 
 export async function POST(request: Request, context: Context) {
-  const actor = await notesActor();
+  const actor = await notesViewer();
   if (!actor) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
   const { id } = await context.params;
   if (!isUuid(id)) return Response.json({ error: "NOT_FOUND" }, { status: 404 });

@@ -1,4 +1,4 @@
-import { notesActor } from "../../../../../../lib/notes/access";
+import { notesViewer } from "../../../../../../lib/notes/access";
 import { getNote, isUuid } from "../../../../../../lib/notes/service";
 import { prisma } from "../../../../../../lib/prisma";
 import { mimeFor, readNoteFile } from "../../../../../../lib/notes/storage";
@@ -6,7 +6,7 @@ import { mimeFor, readNoteFile } from "../../../../../../lib/notes/storage";
 type Context = { params: Promise<{ id: string; fileId: string }> };
 
 export async function GET(_request: Request, context: Context) {
-  const actor = await notesActor();
+  const actor = await notesViewer();
   if (!actor) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
   const { id, fileId } = await context.params;
   if (!isUuid(id) || !isUuid(fileId)) return Response.json({ error: "NOT_FOUND" }, { status: 404 });

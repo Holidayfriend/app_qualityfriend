@@ -1,8 +1,8 @@
-import { notesActor } from "../../../../lib/notes/access";
+import { notesViewer } from "../../../../lib/notes/access";
 import { prisma } from "../../../../lib/prisma";
 
 export async function GET() {
-  const actor = await notesActor();
+  const actor = await notesViewer();
   if (!actor) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
   const rows = await prisma.user.findMany({
     where: { hotelTenantId: actor.hotel_tenant_id, isDeleted: false, isActive: true },
