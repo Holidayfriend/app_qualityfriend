@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Prisma } from "../../../../../../app/generated/prisma/client";
 import { recordAuditLog } from "../../../../../../lib/audit/audit-service";
-import { accessibleModules } from "../../../../../../lib/auth/module-access";
+import { housekeepingAccess } from "../../../../../../lib/housekeeping/access";
 import { getSessionUserId } from "../../../../../../lib/auth/session";
 import { prisma } from "../../../../../../lib/prisma";
 
@@ -19,7 +19,7 @@ async function actor() {
   const id = await getSessionUserId();
   if (!id) return null;
   const user = await prisma.user.findFirst({ where: { id, isActive: true, isDeleted: false }, select: { id: true, hotelTenantId: true, role: true, hotelTenant: { select: { timeZone: true } } } });
-  return user && (await accessibleModules({ id: user.id, hotel_tenant_id: user.hotelTenantId, role: user.role })).includes("housekeeping") ? user : null;
+  return user && (await housekeepingAccess({ id: user.id, hotel_tenant_id: user.hotelTenantId, role: user.role })).board ? user : null;
 }
 
 export async function PATCH(request: Request, context: Context) {

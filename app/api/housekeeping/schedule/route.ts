@@ -1,5 +1,5 @@
 import { Prisma } from "../../../../app/generated/prisma/client";
-import { accessibleModules } from "../../../../lib/auth/module-access";
+import { housekeepingAccess } from "../../../../lib/housekeeping/access";
 import { getSessionUserId } from "../../../../lib/auth/session";
 import { prisma } from "../../../../lib/prisma";
 import { cleaningPlan } from "../../../../lib/housekeeping/daily-plan";
@@ -20,12 +20,12 @@ async function actor() {
   const id = await getSessionUserId();
   if (!id) return null;
   const user = await prisma.user.findFirst({ where: { id, isActive: true, isDeleted: false }, select: { id: true, hotelTenantId: true, role: true, hotelTenant: { select: { timeZone: true } } } });
-  return user && (await accessibleModules({ id: user.id, hotel_tenant_id: user.hotelTenantId, role: user.role })).includes("housekeeping") ? user : null;
+  return user && (await housekeepingAccess({ id: user.id, hotel_tenant_id: user.hotelTenantId, role: user.role })).admin ? user : null;
 }
 
 async function housekeepingUsers(hotelTenantId: string) {
   const users = await prisma.user.findMany({ where: { hotelTenantId, isActive: true, isDeleted: false }, orderBy: [{ firstName: "asc" }, { lastName: "asc" }], select: { id: true, firstName: true, lastName: true, role: true } });
-  const access = await Promise.all(users.map(async (user) => ({ user, allowed: (await accessibleModules({ id: user.id, hotel_tenant_id: hotelTenantId, role: user.role })).includes("housekeeping") })));
+  const access = await Promise.all(users.map(async (user) => ({ user, allowed: (await housekeepingAccess({ id: user.id, hotel_tenant_id: hotelTenantId, role: user.role })).board })));
   return access.filter((entry) => entry.allowed).map((entry) => entry.user);
 }
 

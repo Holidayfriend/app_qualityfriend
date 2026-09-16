@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
-import { requireAnyModuleAccess } from "../../lib/auth/module-access";
+import { requireModuleAccess } from "../../../lib/auth/module-access";
 
 export default async function Layout({ children }: { children: ReactNode }) {
-  await requireAnyModuleAccess(["housekeeping", "housekeeper"]);
+  await requireModuleAccess("housekeeping");
   return children;
 }

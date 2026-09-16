@@ -9,10 +9,10 @@ async function assertActor(client: PoolClient, data: HousekeepingImportJob) {
   const result = await client.query(`SELECT h.asa_xml_name FROM hotel_tenants h JOIN users u ON u.hotel_tenant_id=h.id
     WHERE h.id=$1 AND u.id=$2 AND h.is_active AND u.is_active AND NOT u.is_deleted
     AND h.subscription_status IN ('ACTIVE','COMPED')
-    -- Housekeeping is enabled by default for all current staff roles; explicit can_view overrides it.
+    -- Housekeeping Admin is enabled by default for team lead and management; employees use Housekeeper.
     -- Match accessibleModules(): admins always have access, no extra action/scope permission.
     AND (u.role='ADMIN' OR COALESCE((SELECT p.can_view FROM role_module_permissions p WHERE p.hotel_tenant_id=h.id
-      AND p.role=u.role AND p.module_key='housekeeping'),true))
+      AND p.role=u.role AND p.module_key='housekeeping'), u.role IN ('TEAM_LEAD','MANAGEMENT')))
     FOR SHARE OF h,u`, [data.hotelTenantId, data.actorId]);
   if (result.rows[0]?.asa_xml_name?.trim() !== data.xmlName) throw new Error("Import settings or authorization changed");
 }

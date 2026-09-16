@@ -1,6 +1,6 @@
 import { recordAuditLog } from "../../../../../lib/audit/audit-service";
 import { categoryAuditSnapshot } from "../../../../../lib/housekeeping/settings-audit";
-import { accessibleModules } from "../../../../../lib/auth/module-access";
+import { housekeepingAccess } from "../../../../../lib/housekeeping/access";
 import { getSessionUserId } from "../../../../../lib/auth/session";
 import { prisma } from "../../../../../lib/prisma";
 
@@ -15,7 +15,7 @@ async function actor() {
   if (!id) return null;
   const user = await prisma.user.findFirst({ where: { id, isActive: true, isDeleted: false }, select: { id: true, hotelTenantId: true, role: true } });
   if (!user) return null;
-  return (await accessibleModules({ id: user.id, hotel_tenant_id: user.hotelTenantId, role: user.role })).includes("housekeeping") ? user : null;
+  return (await housekeepingAccess({ id: user.id, hotel_tenant_id: user.hotelTenantId, role: user.role })).admin ? user : null;
 }
 function locale(value: unknown): Locale { return value === "de" || value === "it" ? value : "en"; }
 function validMinutes(value: unknown) { return value === null || typeof value === "number" && Number.isInteger(value) && value >= 0; }

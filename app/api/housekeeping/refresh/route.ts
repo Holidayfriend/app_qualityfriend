@@ -1,5 +1,5 @@
 import { getSessionUserId } from "../../../../lib/auth/session";
-import { accessibleModules } from "../../../../lib/auth/module-access";
+import { housekeepingAccess } from "../../../../lib/housekeeping/access";
 import { prisma } from "../../../../lib/prisma";
 import { checkAsaFile } from "../../../../lib/housekeeping/asa-file";
 import { dispatchHousekeepingImport } from "../../../../lib/housekeeping/dispatch";
@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     });
     if (!user) return json({ error: "UNAUTHENTICATED" }, 401);
     const actor = { id: user.id, hotel_tenant_id: user.hotelTenantId, role: user.role };
-    if (!["ACTIVE", "COMPED"].includes(user.hotelTenant.subscriptionStatus) || !(await accessibleModules(actor)).includes("housekeeping")) return json({ error: "FORBIDDEN" }, 403);
+    if (!["ACTIVE", "COMPED"].includes(user.hotelTenant.subscriptionStatus) || !(await housekeepingAccess(actor)).admin) return json({ error: "FORBIDDEN" }, 403);
     const result = await checkAsaFile(user.hotelTenant.asaXmlName);
     if (result !== "READY") return json({ error: result }, result === "ASA_XML_NOT_FOUND" ? 404 : 400);
     const jobId = await dispatchHousekeepingImport(user.hotelTenantId, user.id, user.hotelTenant.asaXmlName!.trim());
@@ -41,7 +41,7 @@ export async function GET() {
     });
     if (!user) return json({ error: "UNAUTHENTICATED" }, 401);
     const actor = { id: user.id, hotel_tenant_id: user.hotelTenantId, role: user.role };
-    if (!["ACTIVE", "COMPED"].includes(user.hotelTenant.subscriptionStatus) || !(await accessibleModules(actor)).includes("housekeeping")) return json({ error: "FORBIDDEN" }, 403);
+    if (!["ACTIVE", "COMPED"].includes(user.hotelTenant.subscriptionStatus) || !(await housekeepingAccess(actor)).board) return json({ error: "FORBIDDEN" }, 403);
     const source = await prisma.hotelImportSource.findFirst({
       where: { hotelTenantId: user.hotelTenantId, provider: "ASA_XML", lastSuccessfulAt: { not: null } },
       orderBy: { lastSuccessfulAt: "desc" },

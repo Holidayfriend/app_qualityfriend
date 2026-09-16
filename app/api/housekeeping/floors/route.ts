@@ -1,4 +1,4 @@
-import { accessibleModules } from "../../../../lib/auth/module-access";
+import { housekeepingAccess } from "../../../../lib/housekeeping/access";
 import { getSessionUserId } from "../../../../lib/auth/session";
 import { prisma } from "../../../../lib/prisma";
 
@@ -13,7 +13,7 @@ export async function GET() {
   if (!user) return Response.json({ error: "UNAUTHENTICATED" }, { status: 401 });
 
   const actor = { id: user.id, hotel_tenant_id: user.hotelTenantId, role: user.role };
-  if (!(await accessibleModules(actor)).includes("housekeeping")) {
+  if (!(await housekeepingAccess(actor)).admin) {
     return Response.json({ error: "FORBIDDEN" }, { status: 403 });
   }
 

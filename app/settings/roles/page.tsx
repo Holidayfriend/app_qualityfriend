@@ -8,7 +8,7 @@ import { BrandLoader } from "../../../components/ui/brand-loader";
 import { additionalModuleMessages, clientRoleMessages, requestMessages } from "../../../lib/i18n/dictionaries";
 
 type Level = "employee" | "teamLead" | "management" | "administrator";
-type ModuleId = "dashboard" | "aiAssistant" | "chat" | "mcp" | "handovers" | "tasks" | "housekeeping" | "repairs" | "notes" | "schedule" | "recruiting" | "manuals" | "budget" | "revenue" | "competitors" | "users" | "departmentTeams" | "roles";
+type ModuleId = "dashboard" | "aiAssistant" | "chat" | "mcp" | "handovers" | "tasks" | "housekeeping" | "housekeeper" | "repairs" | "notes" | "schedule" | "recruiting" | "manuals" | "budget" | "revenue" | "competitors" | "users" | "departmentTeams" | "roles";
 type Row = { id: ModuleId; icon: string; levels: Level[]; departments: string[] };
 
 const all: Level[] = ["employee", "teamLead", "management", "administrator"];
@@ -19,7 +19,8 @@ const rows: Row[] = [
   { id: "mcp", icon: "🔌", levels: ["administrator"], departments: ["all"] },
   { id: "handovers", icon: "🤝", levels: all, departments: ["reception", "restaurant"] },
   { id: "tasks", icon: "✅", levels: all, departments: ["all"] },
-  { id: "housekeeping", icon: "🧹", levels: all, departments: ["housekeeping"] },
+  { id: "housekeeping", icon: "🧹", levels: ["teamLead", "management", "administrator"], departments: ["housekeeping"] },
+  { id: "housekeeper", icon: "🧽", levels: ["employee", "administrator"], departments: ["housekeeping"] },
   { id: "repairs", icon: "🔧", levels: all, departments: ["housekeeping", "maintenance"] },
   { id: "notes", icon: "📝", levels: all, departments: ["reception", "restaurant"] },
   { id: "schedule", icon: "📅", levels: ["teamLead", "management", "administrator"], departments: ["all"] },
@@ -36,7 +37,7 @@ const rows: Row[] = [
 const databaseRoles: Record<Exclude<Level, "administrator">, string> = { employee: "EMPLOYEE", teamLead: "TEAM_LEAD", management: "MANAGEMENT" };
 const mobileGroups: Array<{ title: Record<"en" | "de" | "it", string>; ids: ModuleId[] }> = [
   { title: { en: "Basics", de: "Grundlagen", it: "Base" }, ids: ["dashboard", "aiAssistant", "chat", "tasks", "manuals"] },
-  { title: { en: "Operations", de: "Betrieb", it: "Operazioni" }, ids: ["handovers", "housekeeping", "repairs", "notes", "schedule"] },
+  { title: { en: "Operations", de: "Betrieb", it: "Operazioni" }, ids: ["handovers", "housekeeping", "housekeeper", "repairs", "notes", "schedule"] },
   { title: { en: "Strategy", de: "Strategie", it: "Strategia" }, ids: ["budget", "revenue", "competitors"] },
   { title: { en: "Administration", de: "Administration", it: "Amministrazione" }, ids: ["recruiting", "users", "departmentTeams", "roles", "mcp"] },
 ];

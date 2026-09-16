@@ -1,6 +1,6 @@
 import { recordAuditLog } from "../../../../../lib/audit/audit-service";
 import { roomAuditSnapshot } from "../../../../../lib/housekeeping/settings-audit";
-import { accessibleModules } from "../../../../../lib/auth/module-access";
+import { housekeepingAccess } from "../../../../../lib/housekeeping/access";
 import { getSessionUserId } from "../../../../../lib/auth/session";
 import { prisma } from "../../../../../lib/prisma";
 
@@ -9,7 +9,7 @@ type Locale = "en" | "de" | "it";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const locale = (value: string | null): Locale => value === "de" || value === "it" ? value : "en";
 const names = (activeLocale: Locale, item: { nameEn: string | null; nameDe: string | null; nameIt: string | null }) => activeLocale === "de" ? item.nameDe || item.nameEn || "" : activeLocale === "it" ? item.nameIt || item.nameEn || "" : item.nameEn || "";
-async function actor() { const id = await getSessionUserId(); if (!id) return null; const user = await prisma.user.findFirst({ where: { id, isActive: true, isDeleted: false }, select: { id: true, hotelTenantId: true, role: true } }); return user && (await accessibleModules({ id: user.id, hotel_tenant_id: user.hotelTenantId, role: user.role })).includes("housekeeping") ? user : null; }
+async function actor() { const id = await getSessionUserId(); if (!id) return null; const user = await prisma.user.findFirst({ where: { id, isActive: true, isDeleted: false }, select: { id: true, hotelTenantId: true, role: true } }); return user && (await housekeepingAccess({ id: user.id, hotel_tenant_id: user.hotelTenantId, role: user.role })).admin ? user : null; }
 function strings(value: unknown) { return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : []; }
 
 export async function GET(request: Request, context: Context) {

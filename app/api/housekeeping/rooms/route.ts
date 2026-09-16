@@ -1,6 +1,6 @@
 import { recordAuditLog } from "../../../../lib/audit/audit-service";
 import { roomAuditSnapshot } from "../../../../lib/housekeeping/settings-audit";
-import { accessibleModules } from "../../../../lib/auth/module-access";
+import { housekeepingAccess } from "../../../../lib/housekeeping/access";
 import { getSessionUserId } from "../../../../lib/auth/session";
 import { prisma } from "../../../../lib/prisma";
 
@@ -20,7 +20,7 @@ function strings(value: unknown) { return Array.isArray(value) ? value.filter((i
 function dateOnly(value: Date) { return value.toISOString().slice(0, 10); }
 async function housekeepingUsers(hotelTenantId: string) {
   const users = await prisma.user.findMany({ where: { hotelTenantId, isActive: true, isDeleted: false }, orderBy: [{ firstName: "asc" }, { lastName: "asc" }], select: { id: true, firstName: true, lastName: true, role: true } });
-  const access = await Promise.all(users.map(async (employee) => ({ employee, allowed: (await accessibleModules({ id: employee.id, hotel_tenant_id: hotelTenantId, role: employee.role })).includes("housekeeping") })));
+  const access = await Promise.all(users.map(async (employee) => ({ employee, allowed: (await housekeepingAccess({ id: employee.id, hotel_tenant_id: hotelTenantId, role: employee.role })).board })));
   return access.filter((entry) => entry.allowed).map(({ employee }) => ({ id: employee.id, name: `${employee.firstName} ${employee.lastName}`.trim() }));
 }
 function birthdayDuringStay(dateOfBirth: Date | null, arrival: Date, departure: Date) {
@@ -37,7 +37,10 @@ export async function GET(request: Request) {
   if (!id) return Response.json({ error: "UNAUTHENTICATED" }, { status: 401 });
   const user = await prisma.user.findFirst({ where: { id, isActive: true, isDeleted: false }, select: { id: true, hotelTenantId: true, role: true, hotelTenant: { select: { timeZone: true } } } });
   if (!user) return Response.json({ error: "UNAUTHENTICATED" }, { status: 401 });
-  if (!(await accessibleModules({ id: user.id, hotel_tenant_id: user.hotelTenantId, role: user.role })).includes("housekeeping")) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
+  const access = await housekeepingAccess({ id: user.id, hotel_tenant_id: user.hotelTenantId, role: user.role });
+  const params = new URL(request.url).searchParams;
+  const boardRequest = params.get("summary") === "1" || params.get("board") === "1" || Boolean(params.get("detailId")?.trim());
+  if (!(boardRequest ? access.board : access.admin)) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
 
   if (new URL(request.url).searchParams.get("summary") === "1") {
     const where = { hotelTenantId: user.hotelTenantId, isActive: true, archivedAt: null };
@@ -202,7 +205,7 @@ export async function POST(request: Request) {
   if (!id) return Response.json({ error: "UNAUTHENTICATED" }, { status: 401 });
   const user = await prisma.user.findFirst({ where: { id, isActive: true, isDeleted: false }, select: { id: true, hotelTenantId: true, role: true } });
   if (!user) return Response.json({ error: "UNAUTHENTICATED" }, { status: 401 });
-  if (!(await accessibleModules({ id: user.id, hotel_tenant_id: user.hotelTenantId, role: user.role })).includes("housekeeping")) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
+  if (!(await housekeepingAccess({ id: user.id, hotel_tenant_id: user.hotelTenantId, role: user.role })).admin) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
   const input = await roomInput(request);
   if ("error" in input) return Response.json(input, { status: 400 });
   const duplicate = await prisma.room.findFirst({ where: { hotelTenantId: user.hotelTenantId, number: input.number }, select: { id: true } });
