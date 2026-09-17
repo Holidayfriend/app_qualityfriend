@@ -3,8 +3,9 @@ import { Pool } from "pg";
 import { importHousekeeping, recordImportFailure, importFailureReason } from "../lib/housekeeping/import-job";
 import type { HousekeepingImportJob } from "../lib/jobs/queue";
 import { createJobPrisma } from "../lib/jobs/prisma";
-import { createJobQueue, initializeQueues, queues, type ManualIndexJob, type SmokeJob } from "../lib/jobs/queue";
+import { createJobQueue, initializeQueues, queues, type ManualIndexJob, type RecruitingAiScoreJob, type SmokeJob } from "../lib/jobs/queue";
 import { indexManualDocument } from "../lib/manuals/index-job";
+import { scoreRecruitingApplication } from "../lib/recruiting/ai-score-job";
 import { syncAllHotelWeather } from "../lib/weather/sync";
 
 const boss = createJobQueue(true);
@@ -48,6 +49,12 @@ async function main() {
     if (!job.data?.hotelTenantId || !job.data?.documentId) throw new Error("Invalid manual index payload.");
     const result = await indexManualDocument(job.data);
     console.log(`[worker] Manual index ${job.id} completed`, result);
+    return result;
+  });
+  await boss.work<RecruitingAiScoreJob>(queues.recruitingAiScore, async ([job]) => {
+    if (!job.data?.hotelTenantId || !job.data?.applicationId) throw new Error("Invalid recruiting AI score payload.");
+    const result = await scoreRecruitingApplication(job.data);
+    console.log(`[worker] Recruiting AI score ${job.id} completed`, result);
     return result;
   });
   await boss.schedule(queues.weatherDaily, "0 6,14 * * *", {}, { tz: "UTC", singletonKey: "weather-daily", singletonSeconds: 3600 });

@@ -1181,6 +1181,15 @@ model RecruitingApplication {
   keepForOtherJobs Boolean                     @default(false) @map("keep_for_other_jobs")
   answers          Json
   notes            Json                        @default("{}")
+  aiStatus         String                      @default("PENDING") @map("ai_status") @db.VarChar(20)
+  aiError          String?                     @map("ai_error") @db.Text
+  aiScore          Int?                        @map("ai_score")
+  aiRecommendation String?                     @map("ai_recommendation") @db.VarChar(40)
+  aiSocial         Int?                        @map("ai_social")
+  aiProfessional   Int?                        @map("ai_professional")
+  aiMethodical     Int?                        @map("ai_methodical")
+  aiPersonal       Int?                        @map("ai_personal")
+  aiScoredAt       DateTime?                   @map("ai_scored_at") @db.Timestamptz(3)
   createdAt        DateTime                    @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt        DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(3)
   hotelTenant      HotelTenant                 @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)

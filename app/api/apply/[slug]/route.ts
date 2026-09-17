@@ -3,6 +3,7 @@ import { prisma } from "../../../../lib/prisma";
 import { notesPayload } from "../../../../lib/recruiting/application-fields";
 import { incrementCampaignApplications, incrementCampaignClicks } from "../../../../lib/recruiting/campaigns";
 import { packCvRef, saveRecruitingCv } from "../../../../lib/recruiting/cv-storage";
+import { dispatchRecruitingAiScore } from "../../../../lib/recruiting/dispatch-ai-score";
 import { parseApplicationInput, toPublicJob } from "../../../../lib/recruiting/job-fields";
 import { notifyNewRecruitingApplication } from "../../../../lib/recruiting/notify-new-application";
 import { sendRecruitingTemplateEmail } from "../../../../lib/recruiting/send-recruiting-email";
@@ -135,5 +136,6 @@ export async function POST(request: Request, context: Context) {
     category: "received",
     applicationId: created.id,
   }).catch((error) => console.error("Received email failed", error));
+  void dispatchRecruitingAiScore(job.hotelTenantId, created.id).catch((error) => console.error("Recruiting AI score dispatch failed", error));
   return Response.json({ id: created.id }, { status: 201 });
 }

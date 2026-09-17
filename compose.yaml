@@ -53,6 +53,8 @@ services:
       MAIL_ENCRYPTION: ${MAIL_ENCRYPTION:-tls}
       MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-noreply@qualityfriend.local}
       MAIL_FROM_NAME: ${MAIL_FROM_NAME:-QualityFriend}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
       WATCHPACK_POLLING: "true"
     ports:
       - "${APP_HOST_PORT:-3000}:3000"
@@ -81,6 +83,8 @@ services:
     environment:
       NODE_ENV: development
       DATABASE_URL: postgresql://${POSTGRES_USER:-qualityfriend}:${POSTGRES_PASSWORD:-qualityfriend_local_password}@postgres:5432/${POSTGRES_DB:-qualityfriend_dev}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
     volumes:
       - .:/app
       - worker_node_modules:/app/node_modules

@@ -487,6 +487,7 @@ function JobCreate({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [showErrors, setShowErrors] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
   const typeLabel = type === "full" ? t.typeFull : type === "part" ? t.typePart : type === "apprentice" ? t.typeApprentice : t.typeFullOrPart;
   const missing = {
     title: !title.trim(),
@@ -502,10 +503,43 @@ function JobCreate({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }
   function defaultDescription() {
     return `<p>${fill(t.lookingFor, { dept: deptName })}${notes ? ` – ${notes}` : ""}.</p>`;
   }
-  function generate() {
-    setGenerated(true);
-    setPreviewLang(langs.de ? "de" : langs.en ? "en" : "it");
-    if (!htmlToPlain(description)) setDescription(defaultDescription());
+  async function generate() {
+    if (!title.trim()) {
+      setShowErrors(true);
+      setError(t.generateNeedTitle);
+      return;
+    }
+    setError("");
+    setAiBusy(true);
+    try {
+      const res = await fetch("/api/recruiting/jobs/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title.trim(),
+          departmentName: deptName,
+          workType: type,
+          locale,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data) {
+        setError(res.status === 400 ? t.generateNeedTitle : t.generateFailed);
+        return;
+      }
+      if (typeof data.title === "string" && data.title.trim()) setTitle(data.title.trim());
+      if (typeof data.startFrom === "string") setStart(data.startFrom);
+      if (typeof data.benefits === "string") setNotes(data.benefits);
+      if (typeof data.location === "string") setLocation(data.location);
+      if (typeof data.descriptionHtml === "string") setDescription(data.descriptionHtml);
+      if (typeof data.thankYouHtml === "string") setAutoMessage(data.thankYouHtml);
+      setGenerated(true);
+      setPreviewLang(langs[locale] ? locale : langs.de ? "de" : langs.en ? "en" : "it");
+    } catch {
+      setError(t.generateFailed);
+    } finally {
+      setAiBusy(false);
+    }
   }
   async function save(status: JobStatus) {
     const nextDescription = sanitizeJobHtml(descriptionRef.current?.getHtml() ?? description);
@@ -603,7 +637,7 @@ function JobCreate({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }
                 <label style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}><input type="checkbox" checked={langs.it} onChange={(event) => setLangs({ ...langs, it: event.target.checked })} /> {t.italian}</label>
               </div>
             </div>
-            <button type="button" className="btn btn-primary" onClick={generate}>{t.generateAi}</button>
+            <button type="button" className="btn btn-primary" disabled={aiBusy || busy} onClick={() => void generate()}>{t.generateAi}</button>
           </div>
         </div>
         <div className="card">
@@ -645,7 +679,7 @@ function JobCreate({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }
         </div>
       </div>
     </div>
-    {busy ? <BrandLoader label={t.loading} overlay /> : null}
+    {busy || aiBusy ? <BrandLoader label={t.loading} overlay /> : null}
   </>;
 }
 
@@ -752,7 +786,7 @@ function Applications({ t, locale }: { t: T; locale: Locale }) {
         <tbody>{rows.map((item) => <tr key={item.id} style={{ cursor: "pointer" }}>
           <td><Link href={`/recruiting/applications/${item.id}`}>{item.name}</Link></td>
           <td>{t.depts[item.dept]}</td>
-          <td><span className={`chip ${suggestClass(item.suggestion)}`}>{item.score}</span></td>
+          <td><span className={`chip ${suggestClass(item.suggestion)}`}>{item.aiStatus === "PENDING" ? t.scoringAi : item.score}</span></td>
           <td><span className={`chip ${suggestClass(item.suggestion)}`}>{suggestLabel(t, item.suggestion)}</span></td>
           <td>{stageBadge(t, item.stage)}</td>
           <td>{item.dateDisplay || item.date}</td>
@@ -930,6 +964,19 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
     return () => { ignore = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- load once per id/locale
   }, [id, locale]);
+  useEffect(() => {
+    if (!item || item.aiStatus !== "PENDING") return;
+    const timer = window.setInterval(() => {
+      fetch(`/api/recruiting/applications/${encodeURIComponent(id)}?locale=${locale}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (!data?.application) return;
+          setItem(data.application as Applicant);
+        })
+        .catch(() => undefined);
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, [id, locale, item?.aiStatus]);
   async function uploadCv(file?: File | null) {
     if (!file || !item || cvBusy) return;
     const ok = /\.(pdf|doc|docx)$/i.test(file.name) || ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"].includes(file.type);
@@ -1137,6 +1184,22 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
     }
     setActionBusy(false);
   }
+  async function recheckAi() {
+    if (!item || actionBusy) return;
+    setActionBusy(true);
+    const res = await fetch(`/api/recruiting/applications/${encodeURIComponent(id)}/ai-score?locale=${locale}`, { method: "POST" }).catch(() => null);
+    const data = res ? await res.json().catch(() => null) : null;
+    if (!res?.ok || !data?.application) {
+      showToast({ message: t.recheckFailed, tone: "error" });
+      setActionBusy(false);
+      return;
+    }
+    const next = data.application as Applicant;
+    setItem(next);
+    setApplicants(applicants.map((row) => row.id === id ? next : row));
+    showToast({ message: t.recheckQueued, tone: "success" });
+    setActionBusy(false);
+  }
   if (loading) return <BrandLoader label={t.loading} />;
   if (missing || !item) return <><Back href="/recruiting/applications" label={t.backApplications} /><p className="job-apply-missing">{t.applicationMissing}</p></>;
   const bars: Array<[string, number]> = [[t.social, item.competencies.social], [t.professional, item.competencies.professional], [t.methodical, item.competencies.methodical], [t.personal, item.competencies.personal]];
@@ -1196,7 +1259,7 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
           </div>
         ) : null}
         <div className="card" style={{ marginBottom: 16 }}>
-          <div className="ch"><div className="ct">{t.competencies}</div><div style={{ fontSize: 11.5, color: "var(--text2)", fontWeight: 400 }}>{t.competenciesHint}</div></div>
+          <div className="ch"><div className="ct">{t.competencies}</div><div style={{ fontSize: 11.5, color: "var(--text2)", fontWeight: 400 }}>{item.aiStatus === "FAILED" ? t.scoreFailed : item.aiStatus === "PENDING" ? t.scoringAi : t.competenciesHint}</div></div>
           <div className="cb" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             {bars.map(([label, value]) => <div key={label}><div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>{label}</div><div className="score-bar"><div className={`score-fill ${value >= 75 ? "bar-g" : value >= 50 ? "bar-a" : "bar-r"}`} style={{ width: `${value}%` }} /></div></div>)}
           </div>
@@ -1220,6 +1283,7 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
         <div className="ch"><div className="ct">{t.actions}</div></div>
         <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <div>{stageBadge(t, item.stage)}</div>
+          <button type="button" className="btn btn-ghost" disabled={actionBusy || item.aiStatus === "PENDING"} onClick={() => void recheckAi()}>{t.recheckAi}</button>
           <button type="button" className="btn btn-primary" disabled={actionBusy} onClick={() => void setStage("offer")}>{t.sendOffer}</button>
           <button type="button" className="btn btn-ghost" disabled={actionBusy} onClick={() => void setStage("rejected")}>{t.reject}</button>
           <button type="button" className="btn btn-ghost" disabled={actionBusy} onClick={() => void convert()}>{t.makeEmployee}</button>
@@ -1853,7 +1917,7 @@ function Field({ label, value }: { label: string; value: string }) {
 function suggestClass(suggestion: Applicant["suggestion"]) {
   if (suggestion === "recommended") return "chip-g";
   if (suggestion === "notAFit") return "chip-r";
-  if (suggestion === "manualAdded" || suggestion === "archived") return "chip-n";
+  if (suggestion === "manualAdded" || suggestion === "archived" || suggestion === "pending") return "chip-n";
   return "chip-a";
 }
 
@@ -1863,6 +1927,7 @@ function suggestLabel(t: T, suggestion: Applicant["suggestion"]) {
   if (suggestion === "needsReview") return t.needsReview;
   if (suggestion === "notAFit") return t.notAFit;
   if (suggestion === "archived") return t.stageArchived;
+  if (suggestion === "pending") return t.scoringAi;
   return t.manualAdded;
 }
 

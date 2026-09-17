@@ -10,7 +10,9 @@ export type EmailCat = "received" | "offer" | "reject";
 export type Job = { id: string; slug?: string; format?: "classic" | "quiz"; title: string; dept: string; type: string; start: string; notes: string; description: string; autoMessage: string; location: string; cvRequired: boolean; status: JobStatus; langs: Locale[]; clicks: number; apps: number; conv: string };
 export type Applicant = {
   id: string; initials: string; name: string; role: string; dept: DeptId; stage: AppStage; dateDisplay: string | null;
-  score: string; suggestion: "recommended" | "possible" | "needsReview" | "notAFit" | "manualAdded" | "archived";
+  score: string;
+  suggestion: "recommended" | "possible" | "needsReview" | "notAFit" | "manualAdded" | "archived" | "pending";
+  aiStatus?: "PENDING" | "READY" | "FAILED";
   email: string; phone: string; bestTime: string; date: string; source: string; cv: string | null; message: string;
   competencies: { social: number; professional: number; methodical: number; personal: number };
   tags: string[]; comments: Array<{ text: string; author: string; date: string }>;

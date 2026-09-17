@@ -18,54 +18,36 @@ function text(value: unknown, max: number) {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
 }
 
-function hashInt(seed: string) {
-  let hash = 2166136261;
-  for (let i = 0; i < seed.length; i += 1) {
-    hash ^= seed.charCodeAt(i);
-    hash = Math.imul(hash, 16777619);
-  }
-  return hash >>> 0;
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, value));
-}
-
-/** Deterministic demo AI score from application content (not Math.random). */
-export function demoAiScore(input: {
-  id: string;
-  message: string;
-  cvFileName: string;
-  answers: unknown;
-  manual?: boolean;
-  stage?: AppStage;
-}) {
-  if (input.manual || input.stage === "archived") {
+function mapAi(row: RecruitingApplication, stage: AppStage) {
+  if (row.aiStatus === "READY" && row.aiScore != null && row.aiRecommendation) {
+    const suggestion = (["recommended", "possible", "needsReview", "notAFit"] as const).includes(row.aiRecommendation as Applicant["suggestion"])
+      ? (row.aiRecommendation as Applicant["suggestion"])
+      : "needsReview";
     return {
-      score: "–" as const,
-      suggestion: (input.stage === "archived" ? "archived" : "manualAdded") as Applicant["suggestion"],
-      competencies: { social: 0, professional: 0, methodical: 0, personal: 0 },
+      score: `${row.aiScore}%` as const,
+      suggestion: stage === "archived" ? "archived" as const : suggestion,
+      competencies: {
+        social: row.aiSocial ?? 0,
+        professional: row.aiProfessional ?? 0,
+        methodical: row.aiMethodical ?? 0,
+        personal: row.aiPersonal ?? 0,
+      },
+      aiStatus: "READY" as const,
     };
   }
-  const answersText = typeof input.answers === "string" ? input.answers : JSON.stringify(input.answers ?? []);
-  const seed = `${input.id}|${input.message}|${input.cvFileName}|${answersText}`;
-  const base = hashInt(seed);
-  const messageBoost = Math.min(20, Math.floor(input.message.trim().length / 20));
-  const cvBoost = input.cvFileName.trim() ? 12 : 0;
-  const answersBoost = Array.isArray(input.answers) && input.answers.length ? 10 : 0;
-  const total = clamp(28 + (base % 55) + messageBoost + cvBoost + answersBoost, 20, 96);
-  const suggestion: Applicant["suggestion"] =
-    total >= 80 ? "recommended" : total >= 65 ? "possible" : total >= 45 ? "needsReview" : "notAFit";
-  const offset = (n: number) => clamp(total + ((base >> n) % 17) - 8, 15, 98);
+  if (row.aiStatus === "FAILED") {
+    return {
+      score: "–" as const,
+      suggestion: stage === "archived" ? "archived" as const : "needsReview" as const,
+      competencies: { social: 0, professional: 0, methodical: 0, personal: 0 },
+      aiStatus: "FAILED" as const,
+    };
+  }
   return {
-    score: `${total}%` as const,
-    suggestion,
-    competencies: {
-      social: offset(3),
-      professional: offset(8),
-      methodical: offset(12),
-      personal: offset(16),
-    },
+    score: "…" as const,
+    suggestion: stage === "archived" ? "archived" as const : "pending" as const,
+    competencies: { social: 0, professional: 0, methodical: 0, personal: 0 },
+    aiStatus: "PENDING" as const,
   };
 }
 
@@ -243,14 +225,7 @@ export function toPublicApplicant(
   const stage = mapStage(row.stage);
   const answers = parseQuizAnswers(row.answers);
   const notes = parseApplicationNotes(row.notes);
-  const ai = demoAiScore({
-    id: row.id,
-    message: row.message,
-    cvFileName: row.cvFileName,
-    answers: row.answers,
-    manual: extras?.source === "manual",
-    stage,
-  });
+  const ai = mapAi(row, stage);
   const deptName = pickDeptName(job, locale);
   const jobTitle = pickTitle(job, locale);
   const format = (job?.format || "").toLowerCase();
@@ -267,7 +242,7 @@ export function toPublicApplicant(
     stage,
     dateDisplay: null,
     score: ai.score,
-    suggestion: stage === "archived" ? "archived" : ai.suggestion,
+    suggestion: ai.suggestion,
     email: row.email || "–",
     phone: row.phone || "–",
     bestTime: extras?.bestTime || "–",
@@ -276,6 +251,7 @@ export function toPublicApplicant(
     cv: cv.displayName || null,
     message: row.message || "",
     competencies: ai.competencies,
+    aiStatus: ai.aiStatus,
     tags: extras?.tags ?? notes.tags,
     comments: extras?.comments ?? notes.comments,
     answers,

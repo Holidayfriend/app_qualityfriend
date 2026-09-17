@@ -3,6 +3,7 @@ import { recordAuditLog } from "../../../../lib/audit/audit-service";
 import { recruitingActor } from "../../../../lib/recruiting/access";
 import { parseManualApplication, toPublicApplicant } from "../../../../lib/recruiting/application-fields";
 import { packCvRef, saveRecruitingCv } from "../../../../lib/recruiting/cv-storage";
+import { dispatchRecruitingAiScore } from "../../../../lib/recruiting/dispatch-ai-score";
 
 const jobInclude = {
   select: {
@@ -96,6 +97,7 @@ export async function POST(request: Request) {
     });
     return row;
   });
+  void dispatchRecruitingAiScore(actor.hotel_tenant_id, created.id).catch((error) => console.error("Recruiting AI score dispatch failed", error));
   return Response.json({
     application: toPublicApplicant(created, created.job, input.locale, { source: "manual" }),
   }, { status: 201 });
