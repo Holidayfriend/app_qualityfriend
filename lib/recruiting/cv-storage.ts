@@ -113,6 +113,41 @@ export async function readRecruitingCv(storageKey: string) {
   return readFromRoot(storageRoot(), storageKey, /^[0-9a-f-]{36}\.(pdf|doc|docx)$/i);
 }
 
+function textCacheName(storageKey: string) {
+  return `${storageKey}.txt`;
+}
+
+async function writeTextCache(rootDir: string, storageKey: string, text: string) {
+  if (!/^[0-9a-f-]{36}\.(pdf|doc|docx)$/i.test(storageKey)) return;
+  const root = path.resolve(rootDir);
+  const target = path.resolve(root, textCacheName(storageKey));
+  if (!target.startsWith(root + path.sep)) return;
+  await mkdir(root, { recursive: true });
+  await writeFile(target, text.slice(0, 20000), "utf8");
+}
+
+async function readTextCache(rootDir: string, storageKey: string) {
+  if (!/^[0-9a-f-]{36}\.(pdf|doc|docx)$/i.test(storageKey)) return "";
+  const buffer = await readFromRoot(rootDir, textCacheName(storageKey), /^[0-9a-f-]{36}\.(pdf|doc|docx)\.txt$/i);
+  return buffer ? buffer.toString("utf8").trim() : "";
+}
+
+export async function writeRecruitingCvText(storageKey: string, text: string) {
+  await writeTextCache(storageRoot(), storageKey, text);
+}
+
+export async function readRecruitingCvText(storageKey: string) {
+  return readTextCache(storageRoot(), storageKey);
+}
+
+export async function writeRecruitingExtraText(storageKey: string, text: string) {
+  await writeTextCache(extrasRoot(), storageKey, text);
+}
+
+export async function readRecruitingExtraText(storageKey: string) {
+  return readTextCache(extrasRoot(), storageKey);
+}
+
 export async function readRecruitingExtraFile(storageKey: string) {
   return readFromRoot(extrasRoot(), storageKey, /^[0-9a-f-]{36}\.(pdf|doc|docx|png|jpe?g|webp|gif)$/i);
 }

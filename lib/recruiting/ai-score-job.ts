@@ -1,7 +1,7 @@
 import { createJobPrisma } from "../jobs/prisma";
 import type { RecruitingAiScoreJob } from "../jobs/queue";
 import { parseQuizAnswers } from "./application-fields";
-import { unpackCvRef, readRecruitingCv, readRecruitingExtraFile, fileMime } from "./cv-storage";
+import { unpackCvRef, readRecruitingCv, readRecruitingExtraFile, fileMime, writeRecruitingCvText, writeRecruitingExtraText } from "./cv-storage";
 import { extractRecruitingDocumentText } from "./extract-document";
 
 const SUGGESTIONS = ["recommended", "possible", "needsReview", "notAFit"] as const;
@@ -78,6 +78,7 @@ export async function scoreRecruitingApplication(data: RecruitingAiScoreJob) {
       if (cv.storageKey) {
         const buffer = await readRecruitingCv(cv.storageKey);
         const text = buffer ? await extractRecruitingDocumentText(buffer, fileMime(cv.storageKey), cv.displayName || cv.storageKey) : "";
+        if (text) await writeRecruitingCvText(cv.storageKey, text);
         parts.push(`CV (${cv.displayName}):\n${text.slice(0, 12000) || "(could not extract text)"}`);
       } else {
         parts.push("CV: (none)");
@@ -88,7 +89,10 @@ export async function scoreRecruitingApplication(data: RecruitingAiScoreJob) {
       const buffer = await readRecruitingExtraFile(file.storageKey);
       if (!buffer) continue;
       const text = await extractRecruitingDocumentText(buffer, file.mimeType, file.fileName);
-      if (text) parts.push(`Extra file ${file.fileName}:\n${text.slice(0, 6000)}`);
+      if (text) {
+        await writeRecruitingExtraText(file.storageKey, text);
+        parts.push(`Extra file ${file.fileName}:\n${text.slice(0, 6000)}`);
+      }
     }
     const pack = parts.join("\n\n").slice(0, 18000);
     const parsed = await completeJson([

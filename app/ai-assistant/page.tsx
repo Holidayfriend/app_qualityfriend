@@ -13,10 +13,11 @@ const copy = {
     connected: "Verbunden mit deinen Betriebsdaten · Weihrerhof",
     placeholder: "Frage stellen, Aufgabe beschreiben...",
     send: "Senden",
-    thinking: "Suche in den Handbüchern…",
+    thinking: "Suche in den Hoteldaten…",
     loading: "Unterhaltung wird geladen…",
     failed: "Die Antwort konnte nicht geladen werden.",
     manualsHello: "Ich beantworte Fragen aus euren Handbüchern. Frag zum Beispiel nach einem Ablauf oder einer Richtlinie.",
+    recruitingHello: "Ich helfe mit Stellenanzeigen, Bewerbungen und Lebensläufen. Frag z. B. nach der Anzahl Bewerbungen oder nach der Erfahrung einer Person (mit Namen).",
     demo: "(Demo-Antwort) Ich habe deine Anfrage erhalten: „{text}“. Im echten System würde hier die KI-Antwort basierend auf euren Betriebsdaten erscheinen.",
     assistants: [
       ["✨", "Allgemeiner Assistent", "Fragen, Analysen, Ideen", "general"],
@@ -35,10 +36,11 @@ const copy = {
     connected: "Connected to your operational data · Weihrerhof",
     placeholder: "Ask a question, describe a task...",
     send: "Send",
-    thinking: "Searching the manuals…",
+    thinking: "Searching hotel data…",
     loading: "Loading conversation…",
     failed: "The answer could not be loaded.",
     manualsHello: "I answer from your hotel manuals. Ask about a procedure or policy.",
+    recruitingHello: "I help with job ads, applications, and CVs. Ask for application counts, or name a candidate to check experience.",
     demo: "(Demo response) I received your request: “{text}”. In the real system, the AI response based on your operational data would appear here.",
     assistants: [
       ["✨", "General Assistant", "Questions, analyses, ideas", "general"],
@@ -57,10 +59,11 @@ const copy = {
     connected: "Collegato ai dati operativi · Weihrerhof",
     placeholder: "Fai una domanda, descrivi un'attività...",
     send: "Invia",
-    thinking: "Cerco nei manuali…",
+    thinking: "Cerco nei dati dell’hotel…",
     loading: "Caricamento conversazione…",
     failed: "Impossibile caricare la risposta.",
     manualsHello: "Rispondo usando i vostri manuali. Chiedi una procedura o una policy.",
+    recruitingHello: "Aiuto con annunci, candidature e CV. Chiedi i numeri o indica un candidato per l’esperienza.",
     demo: "(Risposta demo) Ho ricevuto la richiesta: “{text}”. Nel sistema reale apparirebbe qui la risposta IA basata sui dati operativi.",
     assistants: [
       ["✨", "Assistente generale", "Domande, analisi, idee", "general"],
@@ -88,6 +91,7 @@ function clock(value: string | undefined, locale: string) {
 
 function starter(id: string, locale: "en" | "de" | "it", t: (typeof copy)[typeof locale]): Message[] {
   if (id === "manuals") return [{ side: "ai", time: now(locale), body: t.manualsHello }];
+  if (id === "recruiting") return [{ side: "ai", time: now(locale), body: t.recruitingHello }];
   if (id !== "general") return [];
   const body = locale === "de"
     ? "Guten Morgen! Frag mich zu euren Abläufen. Für Handbücher öffne den Assistenten „Handbücher“."
@@ -108,7 +112,7 @@ export default function Page() {
   const [messages, setMessages] = useState<Message[]>([]);
   const assistant = t.assistants[selected];
   const assistantKey = assistant[3];
-  const liveMode = assistantKey === "manuals";
+  const liveMode = assistantKey === "manuals" || assistantKey === "recruiting";
 
   useEffect(() => { if (box.current) box.current.scrollTop = box.current.scrollHeight; }, [messages, busy, loadingThread]);
 

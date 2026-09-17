@@ -5,14 +5,15 @@ import { currentAccessUser } from "../auth/module-access";
 import { prisma } from "../prisma";
 import { manualsViewer } from "../manuals/access";
 import { answerManualQuestion } from "../manuals/chat";
+import { answerRecruitingQuestion } from "../recruiting/chat";
 import { isAssistantKey, type AssistantKey } from "./assistants";
 
 type Locale = "en" | "de" | "it";
 
 const PENDING: Record<Locale, (text: string) => string> = {
-  en: (text) => `(Not connected yet) I received: “${text}”. Only Manuals answers from hotel data today. When this assistant is wired, it will use the same saved conversation.`,
-  de: (text) => `(Noch nicht verbunden) Ich habe erhalten: „${text}“. Nur Handbücher antwortet heute aus Hoteldaten. Derselbe gespeicherte Verlauf gilt später auch hier.`,
-  it: (text) => `(Non ancora collegato) Ho ricevuto: “${text}”. Oggi solo Manuali risponde dai dati dell’hotel. La stessa conversazione salvata varrà anche qui.`,
+  en: (text) => `(Not connected yet) I received: “${text}”. Manuals and Recruiting help use hotel data today.`,
+  de: (text) => `(Noch nicht verbunden) Ich habe erhalten: „${text}“. Handbücher und Recruiting-Hilfe nutzen heute Hoteldaten.`,
+  it: (text) => `(Non ancora collegato) Ho ricevuto: “${text}”. Manuali e Aiuto recruiting usano oggi i dati dell’hotel.`,
 };
 
 function localeOf(value: unknown): Locale {
@@ -53,10 +54,15 @@ export async function loadAssistantConversation(assistantKey: unknown) {
 }
 
 async function produceReply(assistantKey: AssistantKey, message: string, history: { role: "user" | "assistant"; content: string }[], locale: Locale) {
-  if (assistantKey !== "manuals") return { answer: PENDING[locale](message.slice(0, 400)) };
-  const actor = await manualsViewer();
-  if (!actor) return { error: "UNAUTHENTICATED" as const };
-  return answerManualQuestion(actor, message, history, locale);
+  if (assistantKey === "manuals") {
+    const actor = await manualsViewer();
+    if (!actor) return { error: "UNAUTHENTICATED" as const };
+    return answerManualQuestion(actor, message, history, locale);
+  }
+  if (assistantKey === "recruiting") {
+    return answerRecruitingQuestion(message, history, locale);
+  }
+  return { answer: PENDING[locale](message.slice(0, 400)) };
 }
 
 export async function sendAssistantMessage(assistantKey: unknown, message: unknown, locale: unknown) {
