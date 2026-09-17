@@ -4,7 +4,7 @@ Status: agreed direction. AI features in the UI are mostly dummy today. This fil
 
 **Housekeeping backend** is the first data use case, not the limit of the assistant. See also [Housekeeping backend design](housekeeping-backend-design.md).
 
-**Out of scope for this document:** Settings → MCP (external product, their APIs, not our database). This file is only **QualityFriend data + our APIs + the language model**.
+**Out of scope for this document:** the external MCP product. This file is only **QualityFriend data + our APIs + the language model**.
 
 ---
 
@@ -194,9 +194,7 @@ Each tool: purpose, types, permissions, read vs write, bounded lists, structured
 
 ## 12. Provider (OpenAI or similar)
 
-Use a **server-side** key (e.g. `OPENAI_API_KEY` in `.env`). Never send the key to the browser, prompts, or logs. Validity/billing of the local key has not been proven.
-
-Pack-and-send uses the chat/completions (or equivalent) API. Later tools can use the provider’s **function calling**: we execute the function, return the result. See [OpenAI function calling](https://developers.openai.com/api/docs/guides/function-calling). No model version is locked here.
+Use `OPENAI_API_KEY` from the server `.env` (optional `OPENAI_MODEL`). Never send the key to the browser. Pack-and-send posts the question + retrieved chunks to OpenAI chat completions. This is independent of `MCP_API_BASE_URL`.
 
 ---
 

@@ -545,6 +545,7 @@ model HotelTenant {
   recruitingApplicationFiles   RecruitingApplicationFile[]
   hotelNotes                   HotelNote[]
   manualDocuments              ManualDocument[]
+  manualChunks                 ManualChunk[]
   teams                        Team[]
   auditLogs                    AuditLog[]
   rolePermissions              RoleModulePermission[]
@@ -870,14 +871,33 @@ model ManualDocument {
   mimeType      String      @map("mime_type") @db.VarChar(160)
   byteSize      Int         @map("byte_size")
   createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  indexStatus   String      @default("PENDING") @map("index_status") @db.VarChar(20)
+  indexError    String?     @map("index_error") @db.Text
   hotelTenant   HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
   department    Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   createdBy     User        @relation("ManualDocumentAuthor", fields: [createdById], references: [id], onDelete: Restrict)
+  chunks        ManualChunk[]
 
   @@index([hotelTenantId, createdAt])
   @@index([hotelTenantId, departmentId])
   @@index([createdById])
   @@map("manual_documents")
+}
+
+model ManualChunk {
+  id            String         @id @default(uuid()) @db.Uuid
+  hotelTenantId String         @map("hotel_tenant_id") @db.Uuid
+  documentId    String         @map("document_id") @db.Uuid
+  departmentId  String?        @map("department_id") @db.Uuid
+  chunkIndex    Int            @map("chunk_index")
+  content       String         @db.Text
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  hotelTenant   HotelTenant    @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+  document      ManualDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([hotelTenantId, documentId])
+  @@index([hotelTenantId, departmentId])
+  @@map("manual_chunks")
 }
 
 model HotelNote {

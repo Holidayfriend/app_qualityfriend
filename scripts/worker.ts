@@ -3,7 +3,8 @@ import { Pool } from "pg";
 import { importHousekeeping, recordImportFailure, importFailureReason } from "../lib/housekeeping/import-job";
 import type { HousekeepingImportJob } from "../lib/jobs/queue";
 import { createJobPrisma } from "../lib/jobs/prisma";
-import { createJobQueue, initializeQueues, queues, type SmokeJob } from "../lib/jobs/queue";
+import { createJobQueue, initializeQueues, queues, type ManualIndexJob, type SmokeJob } from "../lib/jobs/queue";
+import { indexManualDocument } from "../lib/manuals/index-job";
 import { syncAllHotelWeather } from "../lib/weather/sync";
 
 const boss = createJobQueue(true);
@@ -42,6 +43,12 @@ async function main() {
     if (typeof job.data.message !== "string") throw new Error("Invalid smoke job payload.");
     console.log(`[worker] Completed smoke job ${job.id}`);
     return { message: job.data.message, processedAt: new Date().toISOString() };
+  });
+  await boss.work<ManualIndexJob>(queues.manualIndex, async ([job]) => {
+    if (!job.data?.hotelTenantId || !job.data?.documentId) throw new Error("Invalid manual index payload.");
+    const result = await indexManualDocument(job.data);
+    console.log(`[worker] Manual index ${job.id} completed`, result);
+    return result;
   });
   await boss.schedule(queues.weatherDaily, "0 6,14 * * *", {}, { tz: "UTC", singletonKey: "weather-daily", singletonSeconds: 3600 });
   await boss.work(queues.weatherDaily, async () => {

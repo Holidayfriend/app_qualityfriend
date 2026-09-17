@@ -3,6 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { recordAuditLog } from "../audit/audit-service";
 import { prisma } from "../prisma";
+import { dispatchManualIndex } from "./dispatch";
 import { deleteManualFile, isManualUpload, mimeFor, readManualFile, saveManualFile } from "./storage";
 import type { ManualsActor } from "./access";
 
@@ -199,6 +200,7 @@ export async function createManual(actor: ManualsActor, form: FormData) {
       title,
       department,
     }).catch((error) => console.error("manual notification failed", error));
+    await dispatchManualIndex(actor.hotel_tenant_id, created.id).catch((error) => console.error("manual index dispatch failed", error));
     return { document: created };
   } catch (error) {
     await deleteManualFile(stored.storageKey);
