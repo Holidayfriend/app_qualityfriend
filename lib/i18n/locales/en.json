@@ -248,7 +248,8 @@
       "RECRUITING_EMAIL_TEMPLATE": "email template",
       "RECRUITING_EMPLOYEE": "employee",
       "NOTE": "note",
-      "NOTE_TEMPLATE": "note template"
+      "NOTE_TEMPLATE": "note template",
+      "MANUAL": "manual"
     }
   },
   "settingsPageMessages": {
@@ -821,7 +822,22 @@
     "intro": "These documents come directly from the knowledge base – the same ones the AI assistant uses to answer questions.",
     "search": "Search manuals...",
     "upload": "+ Upload document",
+    "uploadTitle": "Upload document",
     "filterAll": "All",
+    "hotelWide": "Hotel-wide",
+    "department": "Department",
+    "scope": "Assign to",
+    "selectDepartment": "Select department",
+    "docTitle": "Title",
+    "titlePlaceholder": "e.g. Fire evacuation plan",
+    "file": "File",
+    "formats": "PDF, DOC, DOCX or TXT · max. 20 MB",
+    "create": "Create manual",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "deleteConfirm": "Delete this document?",
+    "fileRequired": "Please choose a file.",
+    "departmentRequired": "Please select a department.",
     "categories": {
       "hotel": "Hotel-wide",
       "reception": "Reception",
@@ -840,6 +856,7 @@
     "close": "Close",
     "current": "Current",
     "review": "Review",
-    "outdated": "Outdated"
+    "outdated": "Outdated",
+    "download": "Download"
   }
 }

@@ -2,18 +2,20 @@ import { prisma } from "../../../lib/prisma";
 import { getSessionUserId } from "../../../lib/auth/session";
 import { accessibleModules } from "../../../lib/auth/module-access";
 import { hasTrustedOrigin } from "../../../lib/security/request-origin";
+import { ensureManualNotifications } from "../../../lib/manuals/service";
 
 async function context() {
   const id = await getSessionUserId();
   if (!id) return null;
-  const user = await prisma.user.findFirst({ where: { id, isActive: true, isDeleted: false, hotelTenant: { isActive: true, subscriptionStatus: { in: ["ACTIVE", "COMPED"] } } }, select: { id: true, hotelTenantId: true, role: true } });
+  const user = await prisma.user.findFirst({ where: { id, isActive: true, isDeleted: false, hotelTenant: { isActive: true, subscriptionStatus: { in: ["ACTIVE", "COMPED"] } } }, select: { id: true, hotelTenantId: true, role: true, departmentId: true } });
   if (!user) return null;
+  await ensureManualNotifications({ id: user.id, hotelTenantId: user.hotelTenantId, departmentId: user.departmentId }).catch((error) => console.error("manual notification backfill failed", error));
   const modules = await accessibleModules({ id: user.id, hotel_tenant_id: user.hotelTenantId, role: user.role });
   const fullAccess = user.role === "ADMIN" ? modules : (await prisma.roleModulePermission.findMany({ where: {
     hotelTenantId: user.hotelTenantId, role: user.role, canView: true, scope: "ALL",
   }, select: { moduleKey: true } })).map(item => item.moduleKey);
   return { user, where: { hotelTenantId: user.hotelTenantId, recipientId: user.id, OR: [
-    { moduleKey: "notes" },
+    { moduleKey: { in: ["notes", "manuals"] } },
     { AND: [
       { moduleKey: { in: modules } },
       { OR: [{ requiredScope: "OWN" as const }, { requiredScope: "ALL" as const, moduleKey: { in: fullAccess } }] },

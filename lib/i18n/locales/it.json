@@ -246,7 +246,8 @@
       "RECRUITING_EMAIL_TEMPLATE": "modello e-mail",
       "RECRUITING_EMPLOYEE": "dipendente",
       "NOTE": "nota",
-      "NOTE_TEMPLATE": "modello di nota"
+      "NOTE_TEMPLATE": "modello di nota",
+      "MANUAL": "manuale"
     }
   },
   "settingsPageMessages": {
@@ -819,7 +820,22 @@
     "intro": "Questi documenti provengono direttamente dalla base di conoscenza – gli stessi che l’assistente IA usa per rispondere alle domande.",
     "search": "Cerca nei manuali...",
     "upload": "+ Carica documento",
+    "uploadTitle": "Carica documento",
     "filterAll": "Tutti",
+    "hotelWide": "Tutto l’hotel",
+    "department": "Reparto",
+    "scope": "Assegna a",
+    "selectDepartment": "Seleziona reparto",
+    "docTitle": "Titolo",
+    "titlePlaceholder": "es. Piano di evacuazione",
+    "file": "File",
+    "formats": "PDF, DOC, DOCX o TXT · max. 20 MB",
+    "create": "Crea manuale",
+    "cancel": "Annulla",
+    "delete": "Elimina",
+    "deleteConfirm": "Eliminare questo documento?",
+    "fileRequired": "Scegli un file.",
+    "departmentRequired": "Seleziona un reparto.",
     "categories": {
       "hotel": "Tutto l’hotel",
       "reception": "Reception",
@@ -838,6 +854,7 @@
     "close": "Chiudi",
     "current": "Aggiornato",
     "review": "Da verificare",
-    "outdated": "Obsoleto"
+    "outdated": "Obsoleto",
+    "download": "Scarica"
   }
 }

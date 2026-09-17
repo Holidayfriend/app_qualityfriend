@@ -246,7 +246,8 @@
       "RECRUITING_EMAIL_TEMPLATE": "E-Mail-Vorlage",
       "RECRUITING_EMPLOYEE": "Mitarbeiter",
       "NOTE": "Notiz",
-      "NOTE_TEMPLATE": "Notizvorlage"
+      "NOTE_TEMPLATE": "Notizvorlage",
+      "MANUAL": "Handbuch"
     }
   },
   "settingsPageMessages": {
@@ -819,7 +820,22 @@
     "intro": "Diese Dokumente kommen direkt aus der Wissensbasis – dieselben, die auch der KI-Assistent zum Beantworten von Fragen nutzt.",
     "search": "Handbuch durchsuchen...",
     "upload": "+ Dokument hochladen",
+    "uploadTitle": "Dokument hochladen",
     "filterAll": "Alle",
+    "hotelWide": "Hotel-weit",
+    "department": "Abteilung",
+    "scope": "Zuordnen zu",
+    "selectDepartment": "Abteilung auswählen",
+    "docTitle": "Titel",
+    "titlePlaceholder": "z. B. Evakuierungsplan",
+    "file": "Datei",
+    "formats": "PDF, DOC, DOCX oder TXT · max. 20 MB",
+    "create": "Handbuch erstellen",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "deleteConfirm": "Dieses Dokument löschen?",
+    "fileRequired": "Bitte eine Datei wählen.",
+    "departmentRequired": "Bitte eine Abteilung wählen.",
     "categories": {
       "hotel": "Hotel-weit",
       "reception": "Rezeption",
@@ -838,6 +854,7 @@
     "close": "Schließen",
     "current": "Aktuell",
     "review": "Prüfen",
-    "outdated": "Veraltet"
+    "outdated": "Veraltet",
+    "download": "Herunterladen"
   }
 }
