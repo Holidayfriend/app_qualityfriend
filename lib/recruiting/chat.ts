@@ -14,7 +14,8 @@ const LANGUAGE: Record<ChatLocale, { name: string; rule: string }> = {
   it: { name: "Italian", rule: "The app language is Italian. Write the entire answer in Italian (Italiano)." },
 };
 
-const COUNT = /\b(how many (applications|applicants|jobs|candidates)|application count|wie viele (bewerb|stellen|kandidat)|quante candidature|pipeline|statistik)\b/i;
+const COUNT = /\b(how many.{0,40}(applications|applicants|jobs?|candidates|ads?|anzeigen|stellen)|application count|wie viele.{0,40}(bewerb|stellen|kandidat|anzeigen)|quante.{0,40}(candidature|annunci)|pipeline|statistik)\b/i;
+const JOBS_COUNT = /\b((active|live|open|offene|attive)\s+(jobs?|stellen|ads?|anzeigen)|stellenanzeigen|job ads?|how many.{0,40}jobs?)\b/i;
 const YEARS = /\b((how many|wie viele|quanti|quante).{0,40}(experience|exparence|erfahrung|esperienza|years?|jahre|anni)|(years?|jahre|anni).{0,20}(experience|erfahrung|esperienza)|berufserfahrung)\b/i;
 const FACTS = /\b(experience|exparence|erfahrung|esperienza|years?|jahre|anni|cv|lebenslauf|employer|worked|gearbeitet)\b/i;
 const PERSON = /\b(cv|lebenslauf|experience|exparence|erfahrung|esperienza|candidate|bewerber|candidat|interview|kompetenz|competenc|score|empfohlen|recommended|why .+ best|beste[rn]?)\b/i;
@@ -220,11 +221,44 @@ async function countsPack(hotelTenantId: string) {
   const jobLines = jobs.map((job) => `${job.title} [${job.status}/${job.format}] clicks=${job.clickCount} applications=${job._count.applications}`).join("\n") || "(no jobs)";
   const stageLines = stages.map((row) => `${row.stage}: ${row._count._all}`).join("\n") || "(no applications)";
   const recentLines = recent.map((row) => `${fullName(row)} → ${row.job.title} · ${row.stage} · score ${row.aiScore ?? "–"} ${row.aiRecommendation ?? ""}`).join("\n") || "(none)";
+  const byStatus = { ACTIVE: 0, DRAFT: 0, ARCHIVED: 0 };
+  for (const job of jobs) {
+    if (job.status in byStatus) byStatus[job.status as keyof typeof byStatus] += 1;
+  }
   return [
-    "PACK TYPE: counts from our database. Repeat these numbers; do not invent extra applications.",
+    "PACK TYPE: counts from our database. Repeat these numbers; do not invent extra applications or jobs.",
+    `Job status totals: ACTIVE=${byStatus.ACTIVE} DRAFT=${byStatus.DRAFT} ARCHIVED=${byStatus.ARCHIVED} (ACTIVE means live/published).`,
     `Pipeline by stage:\n${stageLines}`,
     `Jobs:\n${jobLines}`,
     `Latest applications:\n${recentLines}`,
+  ].join("\n\n");
+}
+
+async function jobsCountPack(hotelTenantId: string) {
+  const [byStatus, active] = await Promise.all([
+    prisma.recruitingJob.groupBy({
+      by: ["status"],
+      where: { hotelTenantId },
+      _count: { _all: true },
+    }),
+    prisma.recruitingJob.findMany({
+      where: { hotelTenantId, status: "ACTIVE" },
+      select: { title: true, format: true, clickCount: true, _count: { select: { applications: true } } },
+      orderBy: { updatedAt: "desc" },
+      take: 80,
+    }),
+  ]);
+  const totals = { ACTIVE: 0, DRAFT: 0, ARCHIVED: 0 };
+  for (const row of byStatus) {
+    if (row.status in totals) totals[row.status as keyof typeof totals] = row._count._all;
+  }
+  const list = active.map((job) => `${job.title} · ${job.format} · clicks ${job.clickCount} · applications ${job._count.applications}`).join("\n") || "(none)";
+  return [
+    "PACK TYPE: job counts. ACTIVE = live ads. Do not list candidates. Do not invent jobs.",
+    `ACTIVE jobs: ${totals.ACTIVE}`,
+    `DRAFT jobs: ${totals.DRAFT}`,
+    `ARCHIVED jobs: ${totals.ARCHIVED}`,
+    `Active job titles:\n${list}`,
   ].join("\n\n");
 }
 
@@ -309,14 +343,20 @@ export async function answerRecruitingQuestion(question: string, history: ChatTu
   }
 
   const historyText = history.slice(-6).map((turn) => turn.content).join("\n");
+  const jobsQuestion = JOBS_COUNT.test(query) || (COUNT.test(query) && /\b(jobs?|stellen|anzeigen|ads?|annunci)\b/i.test(query) && !YEARS.test(query));
+  const countsQuestion = COUNT.test(query) && !YEARS.test(query);
   const namedNow = applicants.filter((row) => matchesPerson(row, query));
-  const namedHistory = namedNow.length ? namedNow : applicants.filter((row) => matchesPerson(row, historyText));
-  const uniqueNamed = [...new Map(namedHistory.map((row) => [row.id, row])).values()];
+  const personFollowUp = !jobsQuestion && !countsQuestion && namedNow.length === 0 && (FACTS.test(query) || YEARS.test(query) || PERSON.test(query));
+  const namedPool = namedNow.length ? namedNow : personFollowUp ? applicants.filter((row) => matchesPerson(row, historyText)) : [];
+  const uniqueNamed = [...new Map(namedPool.map((row) => [row.id, row])).values()];
 
   let pack: string;
   let instruction: string;
 
-  if (COUNT.test(query) && uniqueNamed.length !== 1) {
+  if (jobsQuestion) {
+    pack = await jobsCountPack(actor.hotel_tenant_id);
+    instruction = "Answer with the ACTIVE job count from the pack. You may list those titles. Do not mention candidates unless asked.";
+  } else if (countsQuestion) {
     pack = await countsPack(actor.hotel_tenant_id);
     instruction = "Use only these database counts. Do not invent people or jobs.";
   } else if (uniqueNamed.length > 1) {
@@ -363,7 +403,7 @@ export async function answerRecruitingQuestion(question: string, history: ChatTu
   }
 
   try {
-    const prior = FACTS.test(query)
+    const prior = FACTS.test(query) || YEARS.test(query) || JOBS_COUNT.test(query) || COUNT.test(query)
       ? history.slice(-6).filter((turn) => turn.role === "user").map((turn) => ({ role: turn.role, content: turn.content.slice(0, 2000) }))
       : history.slice(-6).map((turn) => ({ role: turn.role, content: turn.content.slice(0, 2000) }));
     const answer = await completeWithOpenAi([
