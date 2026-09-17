@@ -80,7 +80,7 @@ export async function generateJobCopy(input: {
     {
       role: "user",
       content: `App language: ${language}. Every JSON string must be in ${language}.
-Create a job listing from this title. Improve the title so it is clear and attractive, still one line, in ${language}.
+Create a complete job listing from this title. Improve the title so it is clear and attractive, still one line, in ${language}.
 Hotel: ${hotelName}
 Address: ${address}
 Location field must be: ${location}
@@ -90,17 +90,28 @@ Title: ${input.title}
 
 Return JSON:
 {"title":"","startFrom":"","benefits":"","descriptionHtml":"","thankYouHtml":""}
+
 startFrom: short start date/availability in ${language}.
-benefits: short job benefits line in ${language}.
-descriptionHtml: 2–4 short HTML paragraphs and an optional <ul> of tasks in ${language}. No scripts.
-thankYouHtml: short HTML thank-you after applying in ${language}, use the hotel name.`,
+benefits: a richer benefits line in ${language} (several perks, comma or middot separated).
+
+descriptionHtml: HTML for a WYSIWYG editor. Must be substantial (about 180–350 words), not a stub.
+Use <p>, <strong>, <em>, <ul>, <li>, optional <h3>. Sprinkle fitting emoji as icons (e.g. 🏨 ✨ ✅ 📍 🤝 🍽️ 🧹) next to headings or list items — not on every word.
+Structure:
+1) Warm intro about the hotel and role (bold the role and hotel name).
+2) <h3> with icon + Your tasks, then 6–10 <li> items.
+3) <h3> with icon + What we offer, then 4–7 <li> items (team, meals, location — do not invent a fake city).
+4) Closing paragraph inviting the applicant to apply.
+No scripts, no images, no links.
+
+thankYouHtml: HTML for the same editor. Must be a full confirmation (about 80–140 words), not one sentence.
+Use <p>, <strong>, emoji icons (e.g. ✅ 🙏 📬). Thank them by name-generic, bold the hotel name, say the application arrived, explain we will review and contact them, offer a friendly closing. No scripts.`,
     },
   ]);
   const title = text(parsed.title, 180) || input.title;
   const startFrom = text(parsed.startFrom, 120);
-  const benefits = text(parsed.benefits, 180);
-  const descriptionHtml = sanitizeHtml(text(parsed.descriptionHtml, 12000));
-  const thankYouHtml = sanitizeHtml(text(parsed.thankYouHtml, 4000));
+  const benefits = text(parsed.benefits, 400);
+  const descriptionHtml = sanitizeHtml(text(parsed.descriptionHtml, 20000));
+  const thankYouHtml = sanitizeHtml(text(parsed.thankYouHtml, 8000));
   if (!descriptionHtml) throw new Error("Empty job description.");
   return { title, startFrom, benefits, location, descriptionHtml, thankYouHtml };
 }

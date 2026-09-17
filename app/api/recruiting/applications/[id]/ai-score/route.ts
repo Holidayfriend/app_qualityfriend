@@ -1,6 +1,8 @@
+import { after } from "next/server";
 import { NextResponse } from "next/server";
 import { prisma } from "../../../../../lib/prisma";
 import { recruitingActor } from "../../../../../lib/recruiting/access";
+import { scoreRecruitingApplication } from "../../../../../lib/recruiting/ai-score-job";
 import { isUuid, toPublicApplicant } from "../../../../../lib/recruiting/application-fields";
 import { dispatchRecruitingAiScore } from "../../../../../lib/recruiting/dispatch-ai-score";
 
@@ -31,10 +33,14 @@ export async function POST(request: Request, context: Context) {
     where: { id },
     data: { aiStatus: "PENDING", aiError: null },
   });
+  const payload = { hotelTenantId: actor.hotel_tenant_id, applicationId: id };
   try {
-    await dispatchRecruitingAiScore(actor.hotel_tenant_id, id);
+    const queued = await dispatchRecruitingAiScore(actor.hotel_tenant_id, id);
+    if (!queued) {
+      after(() => scoreRecruitingApplication(payload).catch((error) => console.error("Recruiting AI score fallback failed", error)));
+    }
   } catch {
-    return NextResponse.json({ error: "QUEUE_FAILED" }, { status: 502 });
+    after(() => scoreRecruitingApplication(payload).catch((error) => console.error("Recruiting AI score fallback failed", error)));
   }
   const updated = await prisma.recruitingApplication.findFirst({
     where: { id, hotelTenantId: actor.hotel_tenant_id },

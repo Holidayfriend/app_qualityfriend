@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { recruitingActor } from "../../../../lib/recruiting/access";
-import { generateJobCopy } from "../../../../lib/recruiting/generate-job";
+import { recruitingActor } from "@/lib/recruiting/access";
+import { generateJobCopy } from "@/lib/recruiting/generate-job";
 
 export const runtime = "nodejs";
 
