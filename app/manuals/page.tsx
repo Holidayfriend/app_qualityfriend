@@ -1,1 +1,7 @@
-"use client"; import {ModulePlaceholder} from "../../components/dashboard/module-placeholder"; import {useI18n} from "../../components/i18n/i18n-provider"; export default function Page(){const{dictionary:d}=useI18n();return <ModulePlaceholder activeItem="manuals" icon="📖" title={d.navigation.manuals} underDevelopment={d.common.underDevelopment}/>}
+"use client";
+
+import { ManualsPage } from "../../components/manuals/manuals-ui";
+
+export default function Page() {
+  return <ManualsPage />;
+}

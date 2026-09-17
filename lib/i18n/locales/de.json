@@ -813,5 +813,31 @@
       "seaspa": "SeaSpa",
       "administration": "Administration"
     }
+  },
+  "manualsMessages": {
+    "pageTitle": "Handbücher & Dokumente",
+    "intro": "Diese Dokumente kommen direkt aus der Wissensbasis – dieselben, die auch der KI-Assistent zum Beantworten von Fragen nutzt.",
+    "search": "Handbuch durchsuchen...",
+    "upload": "+ Dokument hochladen",
+    "filterAll": "Alle",
+    "categories": {
+      "hotel": "Hotel-weit",
+      "reception": "Rezeption",
+      "housekeeping": "Housekeeping",
+      "restaurant": "Restaurant/Service",
+      "kitchen": "Küche",
+      "administration": "Administration",
+      "marketing": "Marketing"
+    },
+    "empty": "Keine Dokumente gefunden.",
+    "updated": "Aktualisiert",
+    "loading": "Laden…",
+    "failed": "Dokumente konnten nicht geladen werden.",
+    "previewTitle": "Dokumentenvorschau",
+    "previewBody": "Im echten System wird das PDF direkt angezeigt. Die Dateivorschau wird hier angebunden.",
+    "close": "Schließen",
+    "current": "Aktuell",
+    "review": "Prüfen",
+    "outdated": "Veraltet"
   }
 }

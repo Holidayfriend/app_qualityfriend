@@ -259,6 +259,17 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 .qf-dashboard .note-title { font-size:13.5px;font-weight:700;margin-bottom:6px }
 .qf-dashboard .note-body { font-size:12.5px;line-height:1.5;opacity:.85 }
 .qf-dashboard .note-meta { font-size:11px;opacity:.6;margin-top:10px }
+.qf-dashboard .hb-intro { font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.5 }
+.qf-dashboard .hb-toolbar { display:flex;gap:10px;margin-bottom:18px;align-items:center }
+.qf-dashboard .hb-search { flex:1;padding:8px 14px;border:1px solid var(--border);border-radius:7px;font-size:13.5px;outline:none;font-family:inherit;background:var(--surface);color:var(--text) }
+.qf-dashboard .hb-cat { display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px }
+.qf-dashboard .hb-cat-btn { padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text2);display:flex;align-items:center;gap:6px;font-family:inherit }
+.qf-dashboard .hb-cat-btn.active { background:var(--accent-light);color:var(--accent);border-color:#E8D5A0 }
+.qf-dashboard .hb-item { display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;cursor:pointer }
+.qf-dashboard .hb-item:hover { border-color:var(--accent);background:var(--accent-light) }
+.qf-dashboard .hb-ic { width:38px;height:38px;border-radius:8px;background:var(--accent-light);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0 }
+.qf-dashboard .hb-t { font-size:13.5px;font-weight:600 }
+.qf-dashboard .hb-m { font-size:12px;color:var(--text2);margin-top:2px }
 @media (max-width: 980px) {
   .qf-dashboard .note-grid { grid-template-columns:1fr }
 }

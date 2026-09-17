@@ -51,5 +51,7 @@ export { scheduleMessages, getScheduleMessages } from "./schedule-messages";
 export type { ScheduleMessages } from "./schedule-messages";
 export { notesMessages, getNotesMessages } from "./notes-messages";
 export type { NotesMessages } from "./notes-messages";
+export { manualsMessages, getManualsMessages } from "./manuals-messages";
+export type { ManualsMessages } from "./manuals-messages";
 export { recruitingMessages } from "./recruiting-messages";
 export type { RecruitingMessages } from "./recruiting-messages";

@@ -815,5 +815,31 @@
       "seaspa": "SeaSpa",
       "administration": "Administration"
     }
+  },
+  "manualsMessages": {
+    "pageTitle": "Manuals & Documents",
+    "intro": "These documents come directly from the knowledge base – the same ones the AI assistant uses to answer questions.",
+    "search": "Search manuals...",
+    "upload": "+ Upload document",
+    "filterAll": "All",
+    "categories": {
+      "hotel": "Hotel-wide",
+      "reception": "Reception",
+      "housekeeping": "Housekeeping",
+      "restaurant": "Restaurant/Service",
+      "kitchen": "Kitchen",
+      "administration": "Administration",
+      "marketing": "Marketing"
+    },
+    "empty": "No documents found.",
+    "updated": "Updated",
+    "loading": "Loading…",
+    "failed": "Documents could not be loaded.",
+    "previewTitle": "Document preview",
+    "previewBody": "In the live system this opens the PDF. File preview will be connected here.",
+    "close": "Close",
+    "current": "Current",
+    "review": "Review",
+    "outdated": "Outdated"
   }
 }
