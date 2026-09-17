@@ -1,137 +1,232 @@
-# Internal AI Assistant — product-wide architecture
+# Internal AI Assistant — how everything works
 
-Status: agreed architectural direction; AI implementation is deferred. This document is the shared reference for every new module and backend change. Housekeeping is the first use case, not the boundary of the assistant.
+Status: agreed direction. AI features in the UI are mostly dummy today. This file is the memory of **how our hotel data talks to the model**. Implementation is deferred until a module’s ordinary backend is solid.
 
-## Purpose
+**Housekeeping backend** is the first data use case, not the limit of the assistant. See also [Housekeeping backend design](housekeeping-backend-design.md).
 
-The Internal AI Assistant is a core capability of the whole QualityFriend product. It will understand authorized system data, answer questions, summarize information, recommend changes, and perform authorized actions across modules.
+**Out of scope for this document:** Settings → MCP (external product, their APIs, not our database). This file is only **QualityFriend data + our APIs + the language model**.
 
-It is separate from the existing external MCP integration. Function calling can connect the assistant to application services directly; a dedicated internal MCP interface is optional later. Neither the database nor module services should depend on that transport choice.
+---
 
-## Expected capabilities
+## 1. One rule (never change this)
 
-| Area | Examples |
+The model **does not** get access to MySQL. There is no “link ChatGPT to the database.”
+
+QualityFriend **chooses** a small pack of facts for **this job**, **sends** that pack with the question (server-side API key), and **shows** the reply.
+
+```
+Our data (DB, ASA, CV files, manuals)
+        ↓
+Backend builds a pack for THIS job only
+        ↓
+Language model (OpenAI / Claude / …) — key stays on the server
+        ↓
+Answer / score / draft / suggestion on the screen
+```
+
+- Do not dump every table into one prompt.
+- If it is not in the pack, the model should say it does not know — not invent it.
+- Writes (assign a job, save a score) go through **our** APIs after permission checks, not through the model “editing the DB.”
+
+From the **user’s** view it is always: question in → help out. Staff never see “tools” or “RAG.”
+
+---
+
+## 2. Chosen approach
+
+Staff see one assistant. We build **two layers of the same idea**, not two products.
+
+| Layer | When | What we send |
+| --- | --- | --- |
+| **A — Pack-and-send (default, build first)** | We already know the pack | This CV, this review, today’s briefing numbers, the matching manual **sections** + the question (+ last chat turns) |
+| **B — Internal tools (later)** | One bag is too big, or we must **save** an assignment | Model may request named operations (`getRooms`, `assignExtraJob`). **We** run them on **our** data. Still no full DB access. |
+
+Build **A** first: manuals Q&A, recruiting score, dashboard briefing, handover summary, review draft.
+
+Add **B** later: housekeeping allocate that actually creates/assigns extras, multi-step “what’s going on today.”
+
+Do not start with a full tool platform. Pack-and-send and tools are not different AIs.
+
+---
+
+## 3. RAG (what the client said)
+
+**RAG** = **Retrieval-Augmented Generation** = search first, then answer.
+
+Without RAG: you only ask the model. It uses **generic** knowledge. It does not know Weihrerhof handbooks.
+
+**RAG style (client confirmed):**
+
+1. **Retrieval** — find the **relevant sections** of **our** documents (not all files).
+2. **Augmented** — add those sections to the question.
+3. **Generation** — the model writes the answer from that pack.
+
+Example: “What is the fire procedure?” → pull Brandschutz chunks → send question + chunks → answer from **our** docs.
+
+Department filter: search Housekeeping manuals for a housekeeper; do not search the whole unsorted pile.
+
+---
+
+## 4. Manuals = the knowledge base for questions
+
+### What the client confirmed
+
+- Pick **department** (Reception, Housekeeping, Kitchen, Technik, …) **or hotel-wide**, **then** add the document. Intentional: otherwise one pile, wrong team, nobody owns updates.
+- Those Manuals/Documents **are** the knowledge base for AI replies (RAG, scoped by department).
+- Upload **once**. Same files for staff reading **and** for AI. No second “AI-only” library.
+
+### Two views, one store (our store)
+
+| View | Who | What |
+| --- | --- | --- |
+| Settings knowledge | Admin / Management | Create department (or hotel-wide) bucket, upload, delete |
+| `/manuals` | Roles that can see Manuals | Search, filter by department, read |
+
+Intro on Manuals is correct: documents come from the knowledge base; the AI assistant uses the same ones.
+
+### Chat: do not send all 10 PDFs every time
+
+Index **once** on upload: extract text, split into chunks, store with hotel + department + document + page. **Our** index.
+
+**Each message:**
+
+1. Staff asks.
+2. Search the index → a **few** matching chunks.
+3. Send: **this question + last few turns of this chat + those chunks**.
+4. Answer from that pack.
+
+**Follow-up** (“and wheelchair guests?”): we keep **conversation history** on our server. Retrieve new chunks if needed. Send history + new bits. **Not** all 10 files again.
+
+**New chat:** empty history; search only for the new question.
+
+The model does not stay “logged into” the library. **We** remember the thread. The library stays in **our** store.
+
+If it is not in the manuals (or not retrieved), say so — do not invent hotel procedure.
+
+---
+
+## 5. Same idea for a person (CV + extra files)
+
+Question: “How many years of experience does she have?”
+
+Pack: **that** application’s CV + extra files (certificates, letter, quiz) + the question.
+
+Answer from **those files**, same as a manuals question from handbook pages.
+
+Recruiting UI today: dummy **AI score**, **AI recommendation**, **AI competency assessment**. Real version: pass job + CV (+ extras), save structured `{ score, recommendation, competencies }`.
+
+---
+
+## 6. `/ai-assistant` (dummy now — all of this is possible)
+
+One chat. Left list = **different packs**, not different products.
+
+| Assistant | Pack we send | Example |
+| --- | --- | --- |
+| General | Today’s ops + permitted manual chunks | Daily issues / fire procedure (RAG) |
+| Write a handover | Today’s tasks, rooms, notes | Draft shift handover |
+| Reply to a review | That review text | Wagner TripAdvisor draft (demo already) |
+| Budget | Budget/forecast numbers | Explain actual vs plan |
+| Recruiting | Job + CV / extras | Experience, fit, interview help |
+| Optimize schedule | Shifts, absences | Cover for Zorah |
+
+Screen today: demo echo. Live: load the slice, call the model, show the reply.
+
+---
+
+## 7. Other screens (same pattern; mostly dummy)
+
+| Where | Pack we send | What we get |
+| --- | --- | --- |
+| Dashboard AI daily analysis | Arrivals/departures, room status, open tasks, roster, reviews | Short briefing (express rooms, missing breakfast cover, unanswered review) |
+| Handovers ✨ AI summary | That handover + related facts | Summary for next shift |
+| Housekeeping schedule AI allocate | Cleaners, rooms, extras, occupancy, weather, upcoming guests | **Suggest** extras and assignees; **create/assign only** via our HK APIs after confirmation |
+| `/revenue` | Occupancy, rates, competitors when specified | Commentary — **paused** in the handoff; mock is not a spec |
+
+Handoff: Handbooks are in current scope. Budget / Dienstplan / Analytics / AI Revenue Forecast were deferred or incomplete.
+
+---
+
+## 8. Queries, suggestions, actions
+
+**Query** — read permitted facts, answer. Example: fire procedure from manuals; CV years of experience.
+
+**Suggestion** — propose, do not write yet. Example: HK allocate plan.
+
+**Action** — change records through **our** validated commands (permissions, confirmation/policy, check current state so a stale suggestion cannot overwrite newer work). Partial failure (create shift but fail assign) must be explicit, not “success.”
+
+---
+
+## 9. What each pack is allowed to contain
+
+- Tenant/hotel from **server session**, never from the model.
+- Module + record permissions: opening the assistant does not grant Budget or other people’s CVs.
+- Filter facts **before** they reach the model. A briefing must not leak revenue or private notes the user cannot see.
+- Send only what the job needs. No credentials, no extra personal data in prompts or logs.
+- Documents, extracted text, chat history, scores, caches: same tenant isolation as the source records.
+- Summaries are **not** the source of truth. Live rooms/shifts/money come from live queries. Docs supply written procedure.
+
+---
+
+## 10. Data we need (ordinary backend first)
+
+AI does not need a second “AI database.” It needs queryable facts in the real modules.
+
+| Need | Meaning |
 | --- | --- |
-| Housekeeping | Allocate jobs, explain room status, summarize workload, recommend cleaning priorities. |
-| Jobs | Create, assign, prioritize, and manage jobs using operational context. |
-| Shifts | Use demand and availability to suggest or automatically create shifts under an authorized policy. |
-| PDFs/documents | Retrieve and understand permitted documents, supporting answers with source/page references. |
-| Dashboard | Combine daily facts, unresolved issues, alerts, and recommendations across permitted modules. |
-| Revenue | Calculate metrics, identify trends, explain changes, and suggest actions. |
-| Future modules | Add domain tools to the shared assistant without creating a separate assistant architecture. |
+| Identity | Stable IDs, tenant-scoped FKs; names are not IDs |
+| Structured facts | Statuses, dates, numbers, units, relationships |
+| Time | UTC + hotel-local “today” |
+| Metrics | Defined counts/totals in **our** code, not invented by the model |
+| History | Who changed what, when |
+| Completeness | Zero vs unknown vs stale vs partial |
+| Documents | Tenant, department/hotel-wide, version, page refs on chunks |
 
-## Shared architecture
+---
 
-Request flow:
+## 11. Internal tools (later only)
 
-1. The server authenticates the user and establishes hotel, permissions, time zone, and request context.
-2. A shared assistant service sends the question and relevant tool definitions to the model.
-3. The model requests a named tool with structured arguments.
-4. The server validates the arguments and authorization, then runs the owning module's query or command service.
-5. The service returns structured results with source references and freshness information.
-6. The assistant explains the results, presents a proposal, or reports the outcome of an authorized action.
+Illustrative names, not built: `getDepartures`, `getOpenJobs`, `getStaffAvailability`, `searchManualChunks`, `createJob`, `getRevenueMetrics`.
 
-The model does not receive database credentials or unrestricted SQL access. Tool definitions describe available operations; they do not grant authorization. The backend remains authoritative for permissions, calculations, constraints, and record changes.
+Each tool: purpose, types, permissions, read vs write, bounded lists, structured result with sources and as-of time, no `runSql`. Backend rejects invalid or unauthorized calls even if the model asks.
 
-Shared components belong outside any individual module:
+---
 
-- Provider adapter and assistant orchestration.
-- Tool registry and argument/result contracts.
-- Authorization context and execution policy.
-- Conversation storage, document retrieval, and source references.
-- Execution audit, background execution context, usage limits, and error handling.
+## 12. Provider (OpenAI or similar)
 
-Each module owns its facts and business rules. Its ordinary HTTP APIs and future assistant tools call the same backend services. Cross-module workflows compose those services instead of duplicating business logic.
+Use a **server-side** key (e.g. `OPENAI_API_KEY` in `.env`). Never send the key to the browser, prompts, or logs. Validity/billing of the local key has not been proven.
 
-## Multi-tenancy and permissions are mandatory
+Pack-and-send uses the chat/completions (or equivalent) API. Later tools can use the provider’s **function calling**: we execute the function, return the result. See [OpenAI function calling](https://developers.openai.com/api/docs/guides/function-calling). No model version is locked here.
 
-- Obtain tenant and actor identity from trusted server context. Never accept model-provided tenant IDs as authority.
-- Enforce tenant, module, action, and record-scope permissions on every query and command. Being able to open the assistant or dashboard does not grant access to all modules.
-- Validate related record IDs within the same tenant. Prefer database constraints that also prevent cross-tenant relationships.
-- Apply equivalent isolation to document files, extracted text, retrieval indexes, conversations, generated summaries, caches, exports, and background jobs.
-- Preserve tenant/actor context in queued work and recheck relevant authorization before execution. Scheduled automation needs an explicit tenant-bound execution identity and policy.
-- Filter unauthorized facts before they reach the model. A generated summary must not indirectly disclose restricted revenue, personnel, or guest information.
-- Send only the data needed for the task. Keep credentials and unnecessary personal information out of prompts, tool results, and logs.
+---
 
-## Database requirements for every module
+## 13. Checklist before a module is “AI-ready”
 
-Design a reliable ordinary backend first. AI readiness means clear, queryable facts and reusable services, not a duplicate AI database.
+- List the questions, suggestions, and actions for this module.
+- Name the authoritative facts and who owns them.
+- Tenant, permissions, “today,” metric definitions.
+- Normal query/command APIs **without** AI first.
+- For documents: upload → chunk index → retrieve-by-question.
+- For chat: store thread history; never resend the whole library.
+- Writes: validation, audit, conflicts, confirmation policy.
+- Missing data → partial/unavailable, not fake alerts.
 
-| Requirement | Expected design |
-| --- | --- |
-| Identity | Stable record IDs and tenant-scoped foreign keys; display names are not identifiers. |
-| Structured facts | Typed statuses, dates, numeric values, units, and relationships for searchable operational facts. Use JSON for suitable metadata, not as the sole store for core operations. |
-| Time | UTC instants plus explicit hotel-local service dates where needed. Resolve “today” using the hotel's configured time zone. |
-| Metrics | Define what is counted, included, excluded, and grouped. Calculate counts and financial totals in backend code/database queries. Include currency and period for revenue metrics. |
-| History | Record actor, creation/update times, meaningful status changes, and actions. Preserve history when master data is archived. |
-| Provenance | Record external source IDs, import/sync timestamps, and relevant data ownership. |
-| Completeness | Distinguish zero, unknown, unavailable, stale, and partial results. |
-| Reliability | Use transactions, idempotency, and conflict detection for writes and repeated background work. |
-| Query efficiency | Index common tenant/date/status/assignee filters and bound list results. |
+Do not invent UI or speculative AI tables without authorization. Existing screens stay dummy until that module is authorized.
 
-Do not copy operational records into unstructured summaries as their source of truth. Document retrieval can supply written guidance; live queries should supply current room counts, shift availability, and revenue calculations.
+---
 
-## Tool contracts
+## 14. Delivery order
 
-Expose narrow domain operations such as `getDepartures`, `getOpenJobs`, `getStaffAvailability`, `createJob`, or `getRevenueMetrics`. These names are illustrative, not implemented endpoints.
+1. Ordinary module backends (Housekeeping first).
+2. **Pack-and-send:** document index + RAG chat; recruiting score; dashboard briefing; handover summary; review draft.
+3. Suggestions that still need a human confirm (HK allocate).
+4. Authorized actions through our APIs.
+5. Internal tools only where pack-and-send is not enough.
 
-Each tool should define:
+---
 
-- Purpose, input types, required permissions, and whether it reads or changes data.
-- Validated dates, filters, record IDs, bounded pagination, and supported scopes.
-- Structured output with explicit metric definitions/units, source record references, as-of time, and completeness where relevant.
-- Predictable validation, forbidden, missing-record, stale-data, and conflict errors.
-- For writes: idempotency strategy, transaction boundary, audit behavior, and applicable execution policy.
+## 15. Client quote (Manuals)
 
-The backend must enforce these rules even if the model supplies invalid arguments or calls a tool unexpectedly. Avoid generic tools such as unrestricted `runSql` or arbitrary record updates.
+> Documents are assigned to a department first, and then added under that department. This is intentional: without a department structure, all manuals would end up in one large, unsorted pile. Assigning documents to departments keeps each team’s manuals scoped to what they need, and makes it clear who keeps which documents up to date.
 
-## Queries, suggestions, and actions
-
-**Queries** read permitted facts and produce answers. Example: scheduled departing stays today, their room numbers, and the count definition.
-
-**Suggestions** propose changes without applying them. Example: allocating cleaning jobs using real availability, estimated durations, deadlines, and existing assignments. Record assumptions and missing inputs; do not invent staff availability.
-
-**Actions** change records through ordinary validated commands. They require user authorization or an explicit configured automation policy. Whether confirmation is needed depends on that policy and the action; already-authorized automation does not require a prompt for every step. Check current state before applying a proposal so stale recommendations cannot overwrite newer work.
-
-Cross-module actions need an explicit failure strategy. For example, creating shifts and assigning jobs must handle partial completion, retries, and recovery rather than claiming success when only one operation finished.
-
-## Documents and cross-module summaries
-
-The shared document service should retain tenant ownership, access scope, source/version, and page references for extracted content. Apply permissions during retrieval and handle archive/deletion or permission changes in any derived index.
-
-Treat document text, notes, reviews, and imported content as evidence, not instructions that can override application rules or request unauthorized tool execution.
-
-Dashboard summaries compose authorized facts from their owning modules. A statement about departures needs stay records; a statement about missing breakfast cover needs shifts/absence records; a review awaiting reply needs actual review and response state. Missing sources produce partial/unavailable results, not fabricated alerts.
-
-Generated output should carry enough source/freshness information to be checked and refreshed. Stored summaries and conversations must not become a way around later permission changes.
-
-## OpenAI connection
-
-A secret-safe local check confirmed a populated `OPENAI_API_KEY` in `.env`. Its validity, billing access, and model availability have not been tested. Keep provider access server-side and never expose the key to browser code, prompts, or logs.
-
-A direct OpenAI adapter can serve the Internal AI Assistant independently of the external MCP integration. Reusing the external provider service instead would require verifying its inference and tool-calling support; it is not a prerequisite for this architecture.
-
-OpenAI supports application-defined function tools: the application executes requested calls and returns their results. See [official function-calling documentation](https://developers.openai.com/api/docs/guides/function-calling). Verify current API documentation before implementing the provider adapter. No specific model or API migration is selected here.
-
-## Checklist for every new module
-
-Before finalizing its database/backend design:
-
-- Read this document and list the module's future questions, suggestions, and actions.
-- Identify authoritative facts, data sources, missing inputs, and shared entities owned by other modules.
-- Define tenant boundaries, permissions, record scope, time semantics, and metric definitions.
-- Create structured models, history, and reusable query/command services independently of AI.
-- Document the future tool contracts and source references those services can provide.
-- Define write validation, audit, retry/conflict behavior, and any intended automation policy.
-- Verify tenant isolation, restricted-user access, calculations, unavailable-data behavior, and important write invariants when implementing the backend.
-- Record unresolved gaps in the module's design document. Do not change existing UI or invent missing controls without authorization.
-
-This checklist guides backend design; it does not require implementing AI tools or speculative tables for every future feature immediately.
-
-## Delivery boundaries
-
-Current work starts with the ordinary Housekeeping backend. AI implementation remains deferred, and the existing UI must remain unchanged unless explicitly authorized.
-
-Later delivery can add the shared assistant foundation, read-only tools, document retrieval and summaries, then suggestions and authorized actions as each module's data becomes reliable. Keep the existing external MCP integration separate throughout.
-
-Module reference: [Housekeeping backend design](housekeeping-backend-design.md).
+> These Manuals/Documents will later serve as the knowledge base for AI replies. The plan is a RAG-style setup: when a staff member asks a question, the relevant document sections get pulled and passed to the model as context, so the AI answers using our actual internal documentation. The department structure also lets us scope AI answers to the right department’s documents rather than searching across everything.
