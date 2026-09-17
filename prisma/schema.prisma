@@ -546,6 +546,7 @@ model HotelTenant {
   hotelNotes                   HotelNote[]
   manualDocuments              ManualDocument[]
   manualChunks                 ManualChunk[]
+  aiConversations              AiConversation[]
   teams                        Team[]
   auditLogs                    AuditLog[]
   rolePermissions              RoleModulePermission[]
@@ -745,6 +746,7 @@ model User {
   hotelNoteComments HotelNoteComment[]
   hotelNoteShares   HotelNoteShareUser[]
   manualsCreated    ManualDocument[]     @relation("ManualDocumentAuthor")
+  aiConversations   AiConversation[]
 
   @@index([hotelTenantId])
   @@index([hotelTenantId, isActive])
@@ -898,6 +900,34 @@ model ManualChunk {
   @@index([hotelTenantId, documentId])
   @@index([hotelTenantId, departmentId])
   @@map("manual_chunks")
+}
+
+model AiConversation {
+  id            String                   @id @default(uuid()) @db.Uuid
+  hotelTenantId String                   @map("hotel_tenant_id") @db.Uuid
+  userId        String                   @map("user_id") @db.Uuid
+  assistantKey  String                   @map("assistant_key") @db.VarChar(40)
+  createdAt     DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant   HotelTenant              @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+  user          User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages      AiConversationMessage[]
+
+  @@unique([hotelTenantId, userId, assistantKey])
+  @@index([hotelTenantId, userId])
+  @@map("ai_conversations")
+}
+
+model AiConversationMessage {
+  id             String         @id @default(uuid()) @db.Uuid
+  conversationId String         @map("conversation_id") @db.Uuid
+  role           String         @db.VarChar(20)
+  content        String         @db.Text
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("ai_conversation_messages")
 }
 
 model HotelNote {

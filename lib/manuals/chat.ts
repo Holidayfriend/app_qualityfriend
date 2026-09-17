@@ -3,7 +3,7 @@ import "server-only";
 import { prisma } from "../prisma";
 import type { ManualsActor } from "./access";
 
-type ChatTurn = { role: "user" | "assistant"; content: string };
+export type ChatTurn = { role: "user" | "assistant"; content: string };
 type ChatLocale = "en" | "de" | "it";
 
 const STOP = new Set([

@@ -95,7 +95,9 @@ Index **once** on upload: extract text, split into chunks, store with hotel + de
 3. Send: **this question + last few turns of this chat + those chunks**.
 4. Answer from that pack.
 
-**Follow-up** (“and wheelchair guests?”): we keep **conversation history** on our server. Retrieve new chunks if needed. Send history + new bits. **Not** all 10 files again.
+**Follow-up** (“and wheelchair guests?”): we keep **conversation history** on our server (`ai_conversations` + `ai_conversation_messages`). One saved thread per user per assistant (the 7 items in `/ai-assistant`). Retrieve new chunks if needed. Send history + new bits. **Not** all 10 files again.
+
+To add a live assistant later: implement a reply in `lib/ai/conversations.ts` (`produceReply`). Manuals is the only live pack today.
 
 **New chat:** empty history; search only for the new question.
 
