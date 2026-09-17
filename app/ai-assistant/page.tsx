@@ -119,14 +119,14 @@ export default function Page() {
       return;
     }
     setBusy(true);
-    const history = [...messages, { side: "user" as const, body: text, time }]
-      .filter((item) => item.body)
+    const history = messages
+      .filter((item) => item.body && item.body !== t.manualsHello)
       .map((item) => ({ role: item.side === "user" ? "user" as const : "assistant" as const, content: item.body }));
     try {
       const response = await fetch("/api/ai/manuals/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, history: history.slice(0, -1) }),
+        body: JSON.stringify({ message: text, locale, history }),
       });
       const data = await response.json();
       setMessages((current) => [...current, { side: "ai", body: response.ok && typeof data.answer === "string" ? data.answer : t.failed, time: now(locale) }]);

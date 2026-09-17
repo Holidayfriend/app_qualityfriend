@@ -16,7 +16,7 @@ export async function POST(request: Request) {
       })
     : [];
   try {
-    const result = await answerManualQuestion(actor, message, history);
+    const result = await answerManualQuestion(actor, message, history, body?.locale);
     if ("error" in result) return NextResponse.json({ error: result.error }, { status: result.error === "EMPTY" ? 400 : 502 });
     return NextResponse.json({ answer: result.answer });
   } catch {
