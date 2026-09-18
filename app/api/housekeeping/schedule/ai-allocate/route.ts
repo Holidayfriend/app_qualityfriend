@@ -1,5 +1,5 @@
 import { housekeepingAccess } from "../../../../../lib/housekeeping/access";
-import { runHousekeepingAiAllocation } from "../../../../../lib/housekeeping/ai-allocate";
+import { dispatchHousekeepingAiAllocate } from "../../../../../lib/housekeeping/dispatch-ai-allocate";
 import { getSessionUserId } from "../../../../../lib/auth/session";
 import { prisma } from "../../../../../lib/prisma";
 
@@ -16,11 +16,6 @@ async function actor() {
 export async function POST() {
   const user = await actor();
   if (!user) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
-  try {
-    const result = await runHousekeepingAiAllocation(prisma, user.hotelTenantId, user.hotelTenant.timeZone?.trim() || "UTC");
-    return Response.json(result, { headers: { "Cache-Control": "no-store" } });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "ALLOCATION_FAILED";
-    return Response.json({ error: message }, { status: 500 });
-  }
+  const jobId = await dispatchHousekeepingAiAllocate(user.hotelTenantId, user.hotelTenant.timeZone?.trim() || "UTC");
+  return Response.json({ queued: true, jobId: jobId ?? null }, { headers: { "Cache-Control": "no-store" } });
 }

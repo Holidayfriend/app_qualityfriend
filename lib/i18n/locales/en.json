@@ -487,6 +487,7 @@
     "extraAssign": "Assign additional jobs",
     "aiSuggest": "AI allocation",
     "aiAllocateDone": "Today’s housekeeping allocation was saved.",
+    "aiAllocateQueued": "AI allocation started in the background. Refresh this page in a moment.",
     "aiAllocateFailed": "AI allocation failed. Try again.",
     "aiAllocating": "Allocating…",
     "minutes": "min",

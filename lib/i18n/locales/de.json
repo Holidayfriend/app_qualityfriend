@@ -485,6 +485,7 @@
     "extraAssign": "Zusatzaufgaben zuweisen",
     "aiSuggest": "KI-Vorschlag verteilen",
     "aiAllocateDone": "Die heutige Housekeeping-Zuteilung wurde gespeichert.",
+    "aiAllocateQueued": "KI-Zuteilung läuft im Hintergrund. Seite in einem Moment neu laden.",
     "aiAllocateFailed": "KI-Zuteilung fehlgeschlagen. Bitte erneut versuchen.",
     "aiAllocating": "Wird zugeteilt…",
     "minutes": "Min.",

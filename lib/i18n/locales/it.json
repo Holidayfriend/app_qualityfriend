@@ -485,6 +485,7 @@
     "extraAssign": "Assegna lavori aggiuntivi",
     "aiSuggest": "Assegnazione IA",
     "aiAllocateDone": "L’assegnazione housekeeping di oggi è stata salvata.",
+    "aiAllocateQueued": "Assegnazione IA avviata in background. Aggiorna la pagina tra poco.",
     "aiAllocateFailed": "Assegnazione IA non riuscita. Riprova.",
     "aiAllocating": "Assegnazione…",
     "minutes": "min",

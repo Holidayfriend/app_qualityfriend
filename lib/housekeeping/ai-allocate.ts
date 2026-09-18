@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { PrismaClient } from "../../app/generated/prisma/client";
 import { cleaningPlan, hotelLocalDate } from "./daily-plan";
-import { housekeepingAccess } from "./access";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -52,14 +51,15 @@ export async function housekeepingUsers(prisma: PrismaClient, hotelTenantId: str
     orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
     select: { id: true, firstName: true, lastName: true, role: true },
   });
-  const access = await Promise.all(users.map(async (user) => ({
-    user,
-    allowed: user.role !== "ADMIN" && (await housekeepingAccess({ id: user.id, hotel_tenant_id: hotelTenantId, role: user.role })).housekeeper,
-  })));
-  return access.filter((entry) => entry.allowed).map((entry) => ({
-    id: entry.user.id,
-    name: `${entry.user.firstName} ${entry.user.lastName}`.trim(),
-  }));
+  const overrides = await prisma.roleModulePermission.findMany({
+    where: { hotelTenantId, moduleKey: "housekeeper" },
+    select: { role: true, canView: true },
+  });
+  const byRole = new Map(overrides.map((row) => [row.role, row.canView]));
+  const defaultHousekeeper: Record<string, boolean> = { EMPLOYEE: true, TEAM_LEAD: false, MANAGEMENT: false, ADMIN: false };
+  return users
+    .filter((user) => user.role !== "ADMIN" && (byRole.get(user.role) ?? defaultHousekeeper[user.role] ?? false))
+    .map((user) => ({ id: user.id, name: `${user.firstName} ${user.lastName}`.trim() }));
 }
 
 type ExtraCatalog = { id: string; descriptionEn: string; descriptionDe: string; descriptionIt: string; minutes: number };
@@ -70,12 +70,11 @@ function extraLabels(job: ExtraCatalog) {
 
 function matchExtra(catalog: ExtraCatalog[], extraId: unknown, description: unknown) {
   if (typeof extraId === "string" && uuid.test(extraId)) {
-    const hit = catalog.find((job) => job.id === extraId);
-    if (hit) return hit;
+    return catalog.find((job) => job.id === extraId) ?? null;
   }
   const needle = typeof description === "string" ? normalize(description) : "";
   if (!needle) return null;
-  return catalog.find((job) => extraLabels(job).some((label) => label === needle || label.includes(needle) || (needle.length > 8 && needle.includes(label)))) ?? null;
+  return catalog.find((job) => extraLabels(job).includes(needle)) ?? null;
 }
 
 function stayKind(arrival: string, departure: string, day: string) {
@@ -298,6 +297,7 @@ export async function runHousekeepingAiAllocation(prisma: PrismaClient, hotelTen
   const employeeIds = new Set(facts.employees.map((employee) => employee.id));
   const roomById = new Map(facts.rooms.map((room) => [room.roomId, room]));
   let plan = fallbackPlan(facts);
+  let usedModel = false;
   try {
     const parsed = await completeJson([
       {
@@ -313,14 +313,19 @@ Rules:
 - Keep existing assignedToId unless the load is very uneven or a VIP/birthday/departure needs a stronger cleaner.
 - Balance toward 480 minutes.
 - Use weather, VIP, birthdays, reservation notes, yesterday and tomorrow arrivals/departures, DND, breakfast-in-room, and room moves (fromRoom/toRoom) to decide extras.
-- extras[].extraId must be from extraCatalog when a listed job fits (windows, corridors, sauna, etc.).
-- If you must create a job, set description plus descriptionEn/De/It and minutes 10-60.
+- If extraCatalog already has the task, set extras[].extraId to that catalog id and do not create a new job.
+- If no catalog extra matches (birthday setup, VIP amenity, pet hair, allergy, special note, etc.), omit extraId and set description, descriptionEn, descriptionDe, descriptionIt, minutes 10-60. The server will create that extra job and assign it today only.
 - Max 8 extras. Do not duplicate extrasAlreadyAssigned unless more people are needed.
-Return {"rooms":[{"roomId":"...","employeeId":"..."}],"extras":[{"extraId":"...","employeeIds":["..."],"reason":"..."}]}\n\nFacts:\n${JSON.stringify(facts).slice(0, 24000)}`,
+Return JSON:
+{"rooms":[{"roomId":"...","employeeId":"..."}],"extras":[{"extraId":"...","employeeIds":["..."],"reason":"..."},{"description":"Birthday amenities room 12","descriptionEn":"...","descriptionDe":"...","descriptionIt":"...","minutes":15,"employeeIds":["..."],"reason":"birthday"}]}
+
+Facts:
+${JSON.stringify(facts).slice(0, 24000)}`,
       },
     ]);
     const fromModel = parsePlan(parsed);
     if (fromModel.rooms.length || fromModel.extras.length) plan = fromModel;
+    usedModel = Boolean(fromModel.rooms.length || fromModel.extras.length);
   } catch {
     plan = fallbackPlan(facts);
   }
@@ -346,8 +351,9 @@ Return {"rooms":[{"roomId":"...","employeeId":"..."}],"extras":[{"extraId":"..."
   for (const item of plan.extras) {
     let extra = matchExtra(catalog, item.extraId, item.description || item.descriptionEn);
     if (!extra) {
+      const descriptionEn = item.descriptionEn || item.description;
+      if (!descriptionEn) continue;
       const minutes = Math.max(10, Math.min(60, Math.round(item.minutes || 20)));
-      const descriptionEn = item.descriptionEn || item.description || "Extra job";
       extra = await prisma.extraJob.create({
         data: {
           hotelTenantId,
@@ -370,5 +376,5 @@ Return {"rooms":[{"roomId":"...","employeeId":"..."}],"extras":[{"extraId":"..."
     }
   }
 
-  return { date, roomsAssigned, extrasAssigned, extrasCreated, usedModel: Boolean(process.env.OPENAI_API_KEY?.trim()) };
+  return { date, roomsAssigned, extrasAssigned, extrasCreated, usedModel };
 }

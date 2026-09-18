@@ -3,9 +3,10 @@ import { Pool } from "pg";
 import { importHousekeeping, recordImportFailure, importFailureReason } from "../lib/housekeeping/import-job";
 import type { HousekeepingImportJob } from "../lib/jobs/queue";
 import { createJobPrisma } from "../lib/jobs/prisma";
-import { createJobQueue, initializeQueues, queues, type ManualIndexJob, type RecruitingAiScoreJob, type SmokeJob } from "../lib/jobs/queue";
+import { createJobQueue, initializeQueues, queues, type HousekeepingAiAllocateJob, type ManualIndexJob, type RecruitingAiScoreJob, type SmokeJob } from "../lib/jobs/queue";
 import { indexManualDocument } from "../lib/manuals/index-job";
 import { generateAllHotelAiRecommendations } from "../lib/ai/daily-recommendations";
+import { runHousekeepingAiAllocation } from "../lib/housekeeping/ai-allocate";
 import { scoreRecruitingApplication } from "../lib/recruiting/ai-score-job";
 import { syncAllHotelWeather } from "../lib/weather/sync";
 
@@ -57,6 +58,17 @@ async function main() {
     const result = await scoreRecruitingApplication(job.data);
     console.log(`[worker] Recruiting AI score ${job.id} completed`, result);
     return result;
+  });
+  await boss.work<HousekeepingAiAllocateJob>(queues.housekeepingAiAllocate, async ([job]) => {
+    if (!job.data?.hotelTenantId || typeof job.data.timeZone !== "string") throw new Error("Invalid housekeeping AI allocate payload.");
+    const prisma = createJobPrisma(2);
+    try {
+      const result = await runHousekeepingAiAllocation(prisma, job.data.hotelTenantId, job.data.timeZone);
+      console.log(`[worker] Housekeeping AI allocate ${job.id} completed`, result);
+      return result;
+    } finally {
+      await prisma.$disconnect();
+    }
   });
   await boss.schedule(queues.weatherDaily, "0 6,14 * * *", {}, { tz: "UTC", singletonKey: "weather-daily", singletonSeconds: 3600 });
   await boss.work(queues.weatherDaily, async () => {
