@@ -1,6 +1,6 @@
 import { PgBoss } from "pg-boss";
 
-export const queues = { smoke: "qualityfriend-smoke", housekeeping: "housekeeping-import", housekeepingFailed: "housekeeping-import-failed", weatherDaily: "weather-daily", manualIndex: "manual-index", recruitingAiScore: "recruiting-ai-score" } as const;
+export const queues = { smoke: "qualityfriend-smoke", housekeeping: "housekeeping-import", housekeepingFailed: "housekeeping-import-failed", weatherDaily: "weather-daily", manualIndex: "manual-index", recruitingAiScore: "recruiting-ai-score", aiRecommendationDaily: "ai-recommendation-daily" } as const;
 export type HousekeepingImportJob = { hotelTenantId: string; actorId: string; xmlName: string; runId: string; sourceId: string };
 export type SmokeJob = { message: string };
 export type ManualIndexJob = { hotelTenantId: string; documentId: string };
@@ -46,6 +46,13 @@ export async function initializeQueues(boss: PgBoss) {
     retryDelay: 20,
     retryBackoff: true,
     expireInSeconds: 180,
+    deleteAfterSeconds: 7 * 24 * 60 * 60,
+  });
+  await boss.createQueue(queues.aiRecommendationDaily, {
+    policy: "exclusive",
+    retryLimit: 1,
+    retryDelay: 60,
+    expireInSeconds: 900,
     deleteAfterSeconds: 7 * 24 * 60 * 60,
   });
 }

@@ -26,11 +26,18 @@ After initial setup, `docker compose up -d` starts the worker with the other ser
 docker compose logs -f worker
 docker compose exec worker npm run jobs:smoke
 docker compose exec worker npm run weather:daily
+docker compose exec app npm run ai_recomendation:daily
 ```
 
 `weather:daily` geocodes each active hotel address (once, then reused), fetches
 Open-Meteo weather, and upserts `hotel_weather`. The dashboard reads that row
 only. The same job also runs from the worker schedule at 06:00 and 14:00 UTC.
+
+`ai_recomendation:daily` writes one AI recommendation row per hotel and place
+into `hotel_ai_recommendations` (EN/DE/IT). Today only `RECRUITING` is generated
+(from live jobs, applications, scores, and offers). `DASHBOARD` is reserved for
+the same job later. The recruiting hub banner reads the recruiting row. The
+worker also runs this job at 06:00 UTC.
 
 The smoke command queues a harmless job and waits up to 45 seconds for the
 separate worker to finish it. Use `-- --dispatch-only` to queue without waiting,

@@ -5,6 +5,7 @@ import type { HousekeepingImportJob } from "../lib/jobs/queue";
 import { createJobPrisma } from "../lib/jobs/prisma";
 import { createJobQueue, initializeQueues, queues, type ManualIndexJob, type RecruitingAiScoreJob, type SmokeJob } from "../lib/jobs/queue";
 import { indexManualDocument } from "../lib/manuals/index-job";
+import { generateAllHotelAiRecommendations } from "../lib/ai/daily-recommendations";
 import { scoreRecruitingApplication } from "../lib/recruiting/ai-score-job";
 import { syncAllHotelWeather } from "../lib/weather/sync";
 
@@ -62,8 +63,19 @@ async function main() {
     const prisma = createJobPrisma(2);
     try {
       const results = await syncAllHotelWeather(prisma);
-      console.log(`[worker] Weather daily completed`, { hotels: results.length, failed: results.filter((item) => !item.ok).length });
+      console.log(`[worker] Weather daily completed`, { hotels: results.length, failed: results.filter((item) => item.ok === false).length });
       return { hotels: results.length };
+    } finally {
+      await prisma.$disconnect();
+    }
+  });
+  await boss.schedule(queues.aiRecommendationDaily, "0 6 * * *", {}, { tz: "UTC", singletonKey: "ai-recommendation-daily", singletonSeconds: 3600 });
+  await boss.work(queues.aiRecommendationDaily, async () => {
+    const prisma = createJobPrisma(2);
+    try {
+      const results = await generateAllHotelAiRecommendations(prisma);
+      console.log(`[worker] AI recommendation daily completed`, { items: results.length, failed: results.filter((item) => item.ok === false).length });
+      return { items: results.length };
     } finally {
       await prisma.$disconnect();
     }

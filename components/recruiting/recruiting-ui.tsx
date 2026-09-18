@@ -81,18 +81,21 @@ function Back({ href, label }: { href: string; label: string }) {
 
 function Hub({ t, locale }: { t: T; locale: Locale }) {
   const { jobs, setJobs, applicants, setApplicants, employees, setEmployees } = useRecruiting();
+  const [briefing, setBriefing] = useState("");
   useEffect(() => {
     let ignore = false;
     Promise.all([
       fetch(`/api/recruiting/jobs?locale=${locale}`).then((res) => (res.ok ? res.json() : null)),
       fetch(`/api/recruiting/applications?locale=${locale}`).then((res) => (res.ok ? res.json() : null)),
       fetch(`/api/recruiting/employees?locale=${locale}`).then((res) => (res.ok ? res.json() : null)),
+      fetch(`/api/recruiting/briefing?locale=${locale}`).then((res) => (res.ok ? res.json() : null)),
     ])
-      .then(([jobsData, appsData, empData]) => {
+      .then(([jobsData, appsData, empData, briefData]) => {
         if (ignore) return;
         if (Array.isArray(jobsData?.jobs)) setJobs(jobsData.jobs);
         if (Array.isArray(appsData?.applications)) setApplicants(appsData.applications);
         if (Array.isArray(empData?.employees)) setEmployees(empData.employees);
+        setBriefing(typeof briefData?.briefing === "string" ? briefData.briefing : "");
       })
       .catch(() => undefined);
     return () => { ignore = true; };
@@ -120,7 +123,7 @@ function Hub({ t, locale }: { t: T; locale: Locale }) {
   return <>
     <div className="ai-banner">
       <div style={{ fontSize: 20 }}>✨</div>
-      <div style={{ flex: 1 }}><div className="ai-title">{t.aiTitle}</div><div className="ai-body">{t.aiBody}</div></div>
+      <div style={{ flex: 1 }}><div className="ai-title">{t.aiTitle}</div><div className="ai-body">{briefing || t.aiBody}</div></div>
       <Link href="/recruiting/jobs/new" className="ai-btn">{t.createJob}</Link>
     </div>
     <div className="kpi-row">

@@ -540,6 +540,7 @@ model HotelTenant {
   recruitingJobs               RecruitingJob[]
   recruitingApplications       RecruitingApplication[]
   recruitingSettings           RecruitingSettings?
+  hotelAiRecommendations       HotelAiRecommendation[]
   recruitingEmailTemplates     RecruitingEmailTemplate[]
   recruitingEmployees          RecruitingEmployee[]
   recruitingApplicationFiles   RecruitingApplicationFile[]
@@ -1234,6 +1235,26 @@ model RecruitingSettings {
   hotelTenant   HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@map("recruiting_settings")
+}
+
+enum AiRecommendationPlace {
+  RECRUITING
+  DASHBOARD
+}
+
+model HotelAiRecommendation {
+  id            String                 @id @default(uuid()) @db.Uuid
+  hotelTenantId String                 @map("hotel_tenant_id") @db.Uuid
+  place         AiRecommendationPlace
+  bodyEn        String                 @default("") @map("body_en") @db.Text
+  bodyDe        String                 @default("") @map("body_de") @db.Text
+  bodyIt        String                 @default("") @map("body_it") @db.Text
+  generatedAt   DateTime               @map("generated_at") @db.Timestamptz(3)
+  hotelTenant   HotelTenant            @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([hotelTenantId, place])
+  @@index([hotelTenantId])
+  @@map("hotel_ai_recommendations")
 }
 
 enum RecruitingEmailCategory {
