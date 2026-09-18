@@ -1189,6 +1189,9 @@ model RecruitingApplication {
   aiProfessional   Int?                        @map("ai_professional")
   aiMethodical     Int?                        @map("ai_methodical")
   aiPersonal       Int?                        @map("ai_personal")
+  aiSummaryEn      String                      @default("") @map("ai_summary_en") @db.Text
+  aiSummaryDe      String                      @default("") @map("ai_summary_de") @db.Text
+  aiSummaryIt      String                      @default("") @map("ai_summary_it") @db.Text
   aiScoredAt       DateTime?                   @map("ai_scored_at") @db.Timestamptz(3)
   createdAt        DateTime                    @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt        DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(3)

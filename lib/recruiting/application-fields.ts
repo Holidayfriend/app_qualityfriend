@@ -33,6 +33,9 @@ function mapAi(row: RecruitingApplication, stage: AppStage) {
         personal: row.aiPersonal ?? 0,
       },
       aiStatus: "READY" as const,
+      aiSummaryEn: row.aiSummaryEn ?? "",
+      aiSummaryDe: row.aiSummaryDe ?? "",
+      aiSummaryIt: row.aiSummaryIt ?? "",
     };
   }
   if (row.aiStatus === "FAILED") {
@@ -41,6 +44,9 @@ function mapAi(row: RecruitingApplication, stage: AppStage) {
       suggestion: stage === "archived" ? "archived" as const : "needsReview" as const,
       competencies: { social: 0, professional: 0, methodical: 0, personal: 0 },
       aiStatus: "FAILED" as const,
+      aiSummaryEn: "",
+      aiSummaryDe: "",
+      aiSummaryIt: "",
     };
   }
   return {
@@ -48,6 +54,9 @@ function mapAi(row: RecruitingApplication, stage: AppStage) {
     suggestion: stage === "archived" ? "archived" as const : "pending" as const,
     competencies: { social: 0, professional: 0, methodical: 0, personal: 0 },
     aiStatus: "PENDING" as const,
+    aiSummaryEn: "",
+    aiSummaryDe: "",
+    aiSummaryIt: "",
   };
 }
 
@@ -74,6 +83,12 @@ export function toDbStage(stage: string): RecruitingApplicationStage | null {
 
 function initials(first: string, last: string) {
   return `${first[0] ?? ""}${last[0] ?? ""}`.toUpperCase() || "?";
+}
+
+function pickAiSummary(row: RecruitingApplication, locale?: string) {
+  if (locale === "de" && row.aiSummaryDe.trim()) return row.aiSummaryDe;
+  if (locale === "it" && row.aiSummaryIt.trim()) return row.aiSummaryIt;
+  return row.aiSummaryEn.trim() || row.aiSummaryDe.trim() || row.aiSummaryIt.trim();
 }
 
 function pickTitle(job: ApplicationJobInfo | null | undefined, locale?: string) {
@@ -252,6 +267,7 @@ export function toPublicApplicant(
     message: row.message || "",
     competencies: ai.competencies,
     aiStatus: ai.aiStatus,
+    aiSummary: pickAiSummary(row, locale),
     tags: extras?.tags ?? notes.tags,
     comments: extras?.comments ?? notes.comments,
     answers,

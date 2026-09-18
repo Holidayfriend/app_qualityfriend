@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "../../../../../../lib/prisma";
 import { recruitingActor } from "../../../../../../lib/recruiting/access";
 import { isUuid, toPublicApplicant } from "../../../../../../lib/recruiting/application-fields";
-import { dispatchRecruitingAiScore } from "../../../../../../lib/recruiting/dispatch-ai-score";
+import { scoreRecruitingApplicationCached } from "../../../../../../lib/recruiting/score-application";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -29,15 +30,18 @@ export async function POST(request: Request, context: Context) {
     include: { job: jobInclude },
   });
   if (!row) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
-  await prisma.recruitingApplication.update({
-    where: { id },
-    data: { aiStatus: "PENDING", aiError: null },
-  });
   try {
-    await dispatchRecruitingAiScore(actor.hotel_tenant_id, id);
+    await scoreRecruitingApplicationCached(prisma, actor.hotel_tenant_id, id);
   } catch (error) {
-    console.error("Recruiting AI score dispatch failed", error);
-    return NextResponse.json({ error: "QUEUE_FAILED" }, { status: 502 });
+    console.error("Recruiting AI score failed", error);
+    const failed = await prisma.recruitingApplication.findFirst({
+      where: { id, hotelTenantId: actor.hotel_tenant_id },
+      include: { job: jobInclude },
+    });
+    return NextResponse.json(
+      { error: "SCORE_FAILED", application: failed ? toPublicApplicant(failed, failed.job, locale) : undefined },
+      { status: 502 },
+    );
   }
   const updated = await prisma.recruitingApplication.findFirst({
     where: { id, hotelTenantId: actor.hotel_tenant_id },

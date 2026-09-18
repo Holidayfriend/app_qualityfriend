@@ -15,6 +15,7 @@ export type Applicant = {
   aiStatus?: "PENDING" | "READY" | "FAILED";
   email: string; phone: string; bestTime: string; date: string; source: string; cv: string | null; message: string;
   competencies: { social: number; professional: number; methodical: number; personal: number };
+  aiSummary?: string;
   tags: string[]; comments: Array<{ text: string; author: string; date: string }>;
   answers?: Array<{ pageName: string; prompt: string; value: string; type: string }>;
   /** ISO timestamps from DB – used for hub KPIs (7d apps, time-to-hire). */

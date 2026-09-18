@@ -1264,6 +1264,10 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
             {bars.map(([label, value]) => <div key={label}><div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>{label}</div><div className="score-bar"><div className={`score-fill ${value >= 75 ? "bar-g" : value >= 50 ? "bar-a" : "bar-r"}`} style={{ width: `${value}%` }} /></div></div>)}
           </div>
         </div>
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="ch"><div className="ct">{t.aiSummary}</div></div>
+          <div className="cb" style={{ fontSize: 13.5, lineHeight: 1.6, whiteSpace: "pre-line" }}>{item.aiSummary?.trim() ? item.aiSummary : item.aiStatus === "FAILED" ? t.scoreFailed : t.scoringAi}</div>
+        </div>
         <div className="card">
           <div className="ch"><div className="ct">{t.notesTags}</div><div style={{ fontSize: 11.5, color: "var(--text2)", fontWeight: 400 }}>{t.notesHint}</div></div>
           <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -1283,7 +1287,7 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
         <div className="ch"><div className="ct">{t.actions}</div></div>
         <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <div>{stageBadge(t, item.stage)}</div>
-          <button type="button" className="btn btn-ghost" disabled={actionBusy} onClick={() => void recheckAi()}>{t.recheckAi}</button>
+          <button type="button" className="btn btn-ghost" disabled={actionBusy || item.aiStatus === "PENDING"} onClick={() => void recheckAi()}>{t.recheckAi}</button>
           <button type="button" className="btn btn-primary" disabled={actionBusy} onClick={() => void setStage("offer")}>{t.sendOffer}</button>
           <button type="button" className="btn btn-ghost" disabled={actionBusy} onClick={() => void setStage("rejected")}>{t.reject}</button>
           <button type="button" className="btn btn-ghost" disabled={actionBusy} onClick={() => void convert()}>{t.makeEmployee}</button>
