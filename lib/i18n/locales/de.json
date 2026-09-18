@@ -889,6 +889,7 @@
   },
   "repairsMessages": {
     "pageTitle": "Reparaturen",
+    "loading": "Wird geladen…",
     "listTitle": "Reparaturen verwalten",
     "createTitle": "Reparatur erstellen",
     "detailTitle": "Reparatur",
@@ -974,6 +975,8 @@
     "saveTemplate": "💾 Als Vorlage speichern",
     "draftSaved": "Als Entwurf gespeichert.",
     "templateSaved": "Als Vorlage gespeichert.",
+    "translating": "Wird in die anderen Sprachen übersetzt…",
+    "saveFailed": "Die Reparatur konnte nicht gespeichert werden. Bitte erneut versuchen.",
     "saved": "Reparatur gespeichert.",
     "savedEdit": "Reparatur gespeichert – bestehender Status wurde beibehalten.",
     "comments": "Kommentare",

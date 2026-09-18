@@ -9,7 +9,7 @@ import { useI18n } from "../i18n/i18n-provider";
 import { aiApiSettingsMessages, moduleNavigationMessages, roleLevelNames } from "../../lib/i18n/dictionaries";
 
 type AppShellProps = { activeItem: string; children: ReactNode; pageTitle?: string };
-type ShellUser = { first_name: string; last_name: string; role: string; language: "EN" | "DE" | "IT"; hotel_name_en: string; hotel_name_de: string; hotel_name_it: string; allowed_modules: string[]; ai_key_configured?: boolean };
+type ShellUser = { first_name: string; last_name: string; role: string; language: "EN" | "DE" | "IT"; hotel_name_en: string; hotel_name_de: string; hotel_name_it: string; allowed_modules: string[]; ai_key_configured?: boolean; repairs_open?: number };
 
 const CACHE_KEY = "qf-shell-user";
 let memoryUser: ShellUser | null = null;
@@ -52,22 +52,34 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/me").then(async (response) => {
-      if (!response.ok) {
-        writeCachedUser(null);
+    async function loadUser() {
+      try {
+        const response = await fetch("/api/me", { cache: "no-store" });
+        if (!response.ok) {
+          writeCachedUser(null);
+          if (!cancelled) router.replace("/login");
+          return;
+        }
+        const user = await response.json() as ShellUser;
+        writeCachedUser(user);
+        if (cancelled) return;
+        setCurrentUser(user);
+        const nextLocale = user.language.toLowerCase();
+        if ((nextLocale === "en" || nextLocale === "de" || nextLocale === "it") && nextLocale !== locale) setLocale(nextLocale);
+      } catch {
         if (!cancelled) router.replace("/login");
-        return;
       }
-      const user = await response.json() as ShellUser;
-      writeCachedUser(user);
-      if (cancelled) return;
-      setCurrentUser(user);
-      setLocale(user.language.toLowerCase());
-    }).catch(() => {
-      if (!cancelled) router.replace("/login");
-    });
-    return () => { cancelled = true; };
-  }, [router, setLocale]);
+    }
+    void loadUser();
+    const refresh = () => { void loadUser(); };
+    window.addEventListener("qf-shell-refresh", refresh);
+    window.addEventListener("focus", refresh);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("qf-shell-refresh", refresh);
+      window.removeEventListener("focus", refresh);
+    };
+  }, [locale, pathname, router, setLocale]);
 
   useEffect(() => {
     let active = true;
@@ -100,7 +112,7 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
   ];
   const groups = [
     { title: n.overview, items: [["dashboard", "🏠", n.dashboard, ""], ["ai", "✨", n.aiAssistant, n.new]] },
-    { title: n.operations, items: [["handovers", "🤝", n.handovers, ""], ["tasks", "✅", n.tasks, "7"], ["housekeeping", "🧹", n.housekeeping, ""], ["repairs", "🔧", n.repairs, "2"], ["notes", "📝", n.notes, ""]] },
+    { title: n.operations, items: [["handovers", "🤝", n.handovers, ""], ["tasks", "✅", n.tasks, "7"], ["housekeeping", "🧹", n.housekeeping, ""], ["repairs", "🔧", n.repairs, currentUser?.repairs_open ? String(Math.min(currentUser.repairs_open, 99)) : ""], ["notes", "📝", n.notes, ""]] },
     { title: n.staff, items: [["schedule", "📅", n.schedule, ""], ["recruiting", "🔍", n.recruiting, ""], ["manuals", "📖", n.manuals, ""]] },
     { title: n.strategy, items: [["budget", "📊", n.budget, ""], ["revenue", "🎯", n.revenue, ""], ["competitors", "🏆", moduleNavigation.competitors, ""]] },
     { title: n.administration, items: [["settings", "⚙️", n.settings, ""]] },
@@ -121,7 +133,7 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
   function canShow(id: string) {
     if (!currentUser) return false;
     if (currentUser.role === "ADMIN") return true;
-    if (id === "notes" || id === "manuals") return true;
+    if (id === "notes" || id === "manuals" || id === "repairs") return true;
     const modules = currentUser.allowed_modules;
     if (id === "housekeeping") return modules.includes("housekeeping") || modules.includes("housekeeper");
     return modules.includes(id === "ai" ? "aiAssistant" : id);
@@ -142,7 +154,7 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
   useEffect(() => {
     const activeKey = pathname === "/settings/activity-log" ? "activityLog" : pathname === "/settings/recycle-bin" ? "recycleBin" : activeItem === "ai" ? "aiAssistant" : activeItem;
     const allowed = currentUser?.allowed_modules ?? [];
-    const canViewActive = pathname === "/settings/ai-keys" || currentUser?.role === "ADMIN" || allowed.includes(activeKey) || activeKey === "notes" || activeKey === "manuals" || (activeKey === "housekeeping" && allowed.includes("housekeeper"));
+    const canViewActive = pathname === "/settings/ai-keys" || currentUser?.role === "ADMIN" || allowed.includes(activeKey) || activeKey === "notes" || activeKey === "manuals" || activeKey === "repairs" || (activeKey === "housekeeping" && allowed.includes("housekeeper"));
     if (currentUser && !canViewActive) router.replace("/access-denied");
     const chatButton = document.querySelector<HTMLButtonElement>(`button[aria-label="${moduleNavigation.chat}"]`);
     if (chatButton) { chatButton.dataset.chatButton = "true"; chatButton.hidden = !(currentUser?.role === "ADMIN" || currentUser?.allowed_modules.includes("chat")); }
@@ -152,7 +164,7 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
     {menuOpen ? <button aria-label="Close menu" className="fixed inset-0 z-40 cursor-pointer bg-black/40 lg:hidden" onClick={() => setMenuOpen(false)} /> : null}
     <aside className={`fixed inset-y-0 left-0 z-50 flex w-[220px] flex-col overflow-y-auto bg-[var(--qf-navy)] text-white transition-transform lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${menuOpen ? "translate-x-0" : "-translate-x-full"}`}>
       <div className="flex items-center gap-2 border-b border-white/[.07] px-[18px] pb-4 pt-5"><div className="rounded-md bg-white p-px"><Image src="/logo-icon.png" alt="" width={20} height={20} className="h-5 w-5 rounded object-contain" /></div><div className="min-w-0"><p className="qf-nav-hotel truncate text-[13.5px] font-medium leading-tight">{hotelName || "QualityFriend"}</p><p className="mt-0.5 text-[9px] font-normal leading-tight text-white/35">{dictionary.common.brandSubtitle}</p></div></div>
-      <nav className="flex-1 py-1">{groups.map((group) => <div key={group.title} className="px-2.5 pb-1 pt-3.5"><p className="qf-nav-section px-2 pb-[7px] text-[10px] font-semibold uppercase tracking-[1.2px] text-white/30">{group.title}</p>{group.items.map(([id, icon, label, badge]) => { const active = selectedItem === id; return <button key={id} type="button" onClick={() => navigate(id)} className={`mb-px flex w-full cursor-pointer items-center gap-2 whitespace-nowrap rounded-[7px] px-3 py-1.5 text-left text-[13.5px] font-normal leading-none transition ${active ? "bg-[var(--qf-accent)] text-white" : "text-white/60 hover:bg-[var(--qf-navy-hover)] hover:text-white"}`}><span className="qf-nav-ic w-[18px] shrink-0 text-center text-[15px]">{icon}</span><span className="flex-1 text-[13.5px] font-normal">{label}</span>{badge ? <span className={`qf-nav-badge shrink-0 rounded-full px-1.5 py-px text-[10.5px] font-normal text-white ${badge === n.new ? "bg-[#7c3aed]" : badge === "2" ? "bg-[var(--qf-danger)]" : "bg-[#d97706]"}`}>{badge}</span> : null}</button>; })}</div>)}</nav>
+      <nav className="flex-1 py-1">{groups.map((group) => <div key={group.title} className="px-2.5 pb-1 pt-3.5"><p className="qf-nav-section px-2 pb-[7px] text-[10px] font-semibold uppercase tracking-[1.2px] text-white/30">{group.title}</p>{group.items.map(([id, icon, label, badge]) => { const active = selectedItem === id; return <button key={id} type="button" onClick={() => navigate(id)} className={`mb-px flex w-full cursor-pointer items-center gap-2 whitespace-nowrap rounded-[7px] px-3 py-1.5 text-left text-[13.5px] font-normal leading-none transition ${active ? "bg-[var(--qf-accent)] text-white" : "text-white/60 hover:bg-[var(--qf-navy-hover)] hover:text-white"}`}><span className="qf-nav-ic w-[18px] shrink-0 text-center text-[15px]">{icon}</span><span className="flex-1 text-[13.5px] font-normal">{label}</span>{badge ? <span className={`qf-nav-badge shrink-0 rounded-full px-1.5 py-px text-[10.5px] font-normal text-white ${badge === n.new ? "bg-[#7c3aed]" : id === "repairs" || badge === "2" ? "bg-[var(--qf-danger)]" : "bg-[#d97706]"}`}>{badge}</span> : null}</button>; })}</div>)}</nav>
       <div className="border-t border-white/[.07] p-2.5"><button type="button" onClick={() => { setMenuOpen(false); router.push("/settings/account"); }} aria-label={`${fullName} account settings`} className="flex w-full cursor-pointer items-center gap-2.5 rounded-[7px] px-2.5 py-2 text-left text-[10px] font-normal transition hover:bg-[var(--qf-navy-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--qf-accent)]"><div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-[var(--qf-accent)] text-[10px] font-medium">{initials || "·"}</div><div className="min-w-0 flex-1"><p className="truncate text-[10px] font-normal text-white/85">{fullName || "…"}</p><p className="text-[9px] font-normal text-white/35">{roleName || "…"}</p></div><span aria-hidden className="text-[10px] text-white/30">›</span></button></div>
     </aside>
     {mobileMoreOpen ? <section className="fixed inset-x-0 bottom-[calc(68px+env(safe-area-inset-bottom))] top-14 z-30 overflow-y-auto bg-[var(--qf-background)] p-4 lg:hidden" aria-label="Mehr">

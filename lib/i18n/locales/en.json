@@ -891,6 +891,7 @@
   },
   "repairsMessages": {
     "pageTitle": "Repairs",
+    "loading": "Loading…",
     "listTitle": "Manage repairs",
     "createTitle": "Create repair",
     "detailTitle": "Repair",
@@ -976,6 +977,8 @@
     "saveTemplate": "💾 Save as template",
     "draftSaved": "Draft saved.",
     "templateSaved": "Saved as template.",
+    "translating": "Translating into the other languages…",
+    "saveFailed": "Could not save the repair. Please try again.",
     "saved": "Repair saved.",
     "savedEdit": "Repair saved – existing status was kept.",
     "comments": "Comments",

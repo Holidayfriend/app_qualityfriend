@@ -889,6 +889,7 @@
   },
   "repairsMessages": {
     "pageTitle": "Riparazioni",
+    "loading": "Caricamento…",
     "listTitle": "Gestisci riparazioni",
     "createTitle": "Crea riparazione",
     "detailTitle": "Riparazione",
@@ -974,6 +975,8 @@
     "saveTemplate": "💾 Salva come modello",
     "draftSaved": "Bozza salvata.",
     "templateSaved": "Salvato come modello.",
+    "translating": "Traduzione nelle altre lingue…",
+    "saveFailed": "Impossibile salvare la riparazione. Riprova.",
     "saved": "Riparazione salvata.",
     "savedEdit": "Riparazione salvata – lo stato esistente è stato mantenuto.",
     "comments": "Commenti",

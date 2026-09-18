@@ -1,98 +1,78 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useI18n } from "../i18n/i18n-provider";
-import { seedRepairs, type Repair, type RepairComment, type RepairFile, type RepairStatus } from "../../lib/repairs/demo-data";
-
-const STORAGE = "qf-repairs-demo";
 
 export type HotelDept = { id: string; name: string };
 export type HotelUser = { id: string; name: string };
 export type HotelRoom = { id: string; number: string };
+export type PublicRepair = {
+  id: string;
+  kind?: string;
+  title: string;
+  location: string;
+  locationKey: string;
+  desc: string;
+  tags: string[];
+  creator: string;
+  date: string;
+  status: string;
+  assignee: string;
+  assigneeId: string;
+  visibility: "alle" | "dept";
+  depts: string[];
+  comments: { text: string; author: string; date: string }[];
+  origLang?: string;
+};
 
 type Ctx = {
-  repairs: Repair[];
+  repairs: PublicRepair[];
+  templates: PublicRepair[];
   rooms: HotelRoom[];
   departments: HotelDept[];
   users: HotelUser[];
+  canManage: boolean;
   ready: boolean;
-  upsert: (repair: Repair) => void;
-  setStatus: (id: string, status: RepairStatus) => void;
-  setAssignee: (id: string, assignee: string) => void;
-  addComment: (id: string, comment: RepairComment) => void;
+  avgResponseDays: number | null;
+  reload: () => Promise<void>;
 };
 
 const RepairsContext = createContext<Ctx | null>(null);
 
-function withLocation(row: Repair, fallback = ""): Repair {
-  return { ...row, location: row.location || fallback };
-}
-
-function load(): Repair[] {
-  if (typeof window === "undefined") return seedRepairs;
-  try {
-    const raw = localStorage.getItem(STORAGE);
-    if (!raw) return seedRepairs;
-    const parsed = JSON.parse(raw) as Repair[];
-    if (!Array.isArray(parsed) || !parsed.length) return seedRepairs;
-    const seedById = new Map(seedRepairs.map((item) => [item.id, item]));
-    return parsed.map((row) => withLocation(row, seedById.get(row.id)?.location ?? ""));
-  } catch {
-    return seedRepairs;
-  }
-}
-
 export function RepairsProvider({ children }: { children: ReactNode }) {
   const { locale } = useI18n();
-  const [repairs, setRepairs] = useState<Repair[]>(seedRepairs);
+  const [repairs, setRepairs] = useState<PublicRepair[]>([]);
+  const [templates, setTemplates] = useState<PublicRepair[]>([]);
   const [rooms, setRooms] = useState<HotelRoom[]>([]);
   const [departments, setDepartments] = useState<HotelDept[]>([]);
   const [users, setUsers] = useState<HotelUser[]>([]);
+  const [canManage, setCanManage] = useState(false);
   const [ready, setReady] = useState(false);
+  const [avgResponseDays, setAvgResponseDays] = useState<number | null>(null);
 
-  useEffect(() => {
-    setRepairs(load());
+  const reload = useCallback(async () => {
+    const [listRes, tplRes, locRes] = await Promise.all([
+      fetch(`/api/repairs?locale=${locale}`, { cache: "no-store" }),
+      fetch(`/api/repairs?locale=${locale}&kind=template`, { cache: "no-store" }),
+      fetch(`/api/repairs/locations?locale=${locale}`, { cache: "no-store" }),
+    ]);
+    const list = listRes.ok ? await listRes.json() as { repairs?: PublicRepair[]; canManage?: boolean; avgResponseDays?: number | null } : null;
+    const tpls = tplRes.ok ? await tplRes.json() as { repairs?: PublicRepair[] } : null;
+    const loc = locRes.ok ? await locRes.json() as { rooms?: HotelRoom[]; departments?: HotelDept[]; users?: HotelUser[] } : null;
+    setRepairs(Array.isArray(list?.repairs) ? list.repairs : []);
+    setTemplates(Array.isArray(tpls?.repairs) ? tpls.repairs : []);
+    setRooms(Array.isArray(loc?.rooms) ? loc.rooms : []);
+    setDepartments(Array.isArray(loc?.departments) ? loc.departments : []);
+    setUsers(Array.isArray(loc?.users) ? loc.users : []);
+    setCanManage(Boolean(list?.canManage));
+    setAvgResponseDays(typeof list?.avgResponseDays === "number" ? list.avgResponseDays : null);
     setReady(true);
-  }, []);
-
-  useEffect(() => {
-    if (!ready) return;
-    localStorage.setItem(STORAGE, JSON.stringify(repairs));
-  }, [ready, repairs]);
-
-  useEffect(() => {
-    let active = true;
-    fetch(`/api/repairs/locations?locale=${locale}`, { cache: "no-store" }).then(async (response) => {
-      const data = await response.json().catch(() => null);
-      if (!active || !response.ok) return;
-      setRooms(Array.isArray(data?.rooms) ? data.rooms : []);
-      setDepartments(Array.isArray(data?.departments) ? data.departments : []);
-      setUsers(Array.isArray(data?.users) ? data.users : []);
-    }).catch(() => undefined);
-    return () => { active = false; };
+    if (typeof window !== "undefined") window.dispatchEvent(new Event("qf-shell-refresh"));
   }, [locale]);
 
-  const value = useMemo<Ctx>(() => ({
-    repairs,
-    rooms,
-    departments,
-    users,
-    ready,
-    upsert: (repair) => setRepairs((list) => {
-      const index = list.findIndex((item) => item.id === repair.id);
-      if (index < 0) return [repair, ...list];
-      return list.map((item) => item.id === repair.id ? repair : item);
-    }),
-    setStatus: (id, status) => setRepairs((list) => list.map((item) => item.id === id ? { ...item, status } : item)),
-    setAssignee: (id, assignee) => setRepairs((list) => list.map((item) => {
-      if (item.id !== id) return item;
-      const next: Repair = { ...item, assignee };
-      if (item.status === "neu" && assignee) next.status = "uebernommen";
-      return next;
-    })),
-    addComment: (id, comment) => setRepairs((list) => list.map((item) => item.id === id ? { ...item, comments: [...item.comments, comment] } : item)),
-  }), [departments, ready, repairs, rooms, users]);
+  useEffect(() => { void reload(); }, [reload]);
 
+  const value = useMemo<Ctx>(() => ({ repairs, templates, rooms, departments, users, canManage, ready, avgResponseDays, reload }), [avgResponseDays, canManage, departments, ready, reload, repairs, rooms, templates, users]);
   return <RepairsContext.Provider value={value}>{children}</RepairsContext.Provider>;
 }
 
@@ -101,5 +81,3 @@ export function useRepairs() {
   if (!ctx) throw new Error("useRepairs");
   return ctx;
 }
-
-export type { RepairFile };

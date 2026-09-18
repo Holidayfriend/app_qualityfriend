@@ -1,14 +1,11 @@
-import { currentAccessUser, accessibleModules } from "../../../../lib/auth/module-access";
+import { repairsViewer } from "../../../../lib/repairs/access";
 import { pickLocalized } from "../../../../lib/recruiting/job-fields";
 import { supportedLocales } from "../../../../lib/i18n/dictionaries";
 import { prisma } from "../../../../lib/prisma";
 
 export async function GET(request: Request) {
-  const user = await currentAccessUser();
+  const user = await repairsViewer();
   if (!user) return Response.json({ error: "UNAUTHENTICATED" }, { status: 401 });
-  if (user.role !== "ADMIN" && !(await accessibleModules(user)).includes("repairs")) {
-    return Response.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
   const locale = new URL(request.url).searchParams.get("locale") ?? "";
   const lang = supportedLocales.includes(locale as (typeof supportedLocales)[number]) ? locale : "en";
   const [rooms, departments, users] = await Promise.all([
