@@ -54,5 +54,7 @@ export { notesMessages, getNotesMessages } from "./notes-messages";
 export type { NotesMessages } from "./notes-messages";
 export { manualsMessages, getManualsMessages } from "./manuals-messages";
 export type { ManualsMessages } from "./manuals-messages";
+export { repairsMessages, getRepairsMessages } from "./repairs-messages";
+export type { RepairsMessages } from "./repairs-messages";
 export { recruitingMessages } from "./recruiting-messages";
 export type { RecruitingMessages } from "./recruiting-messages";

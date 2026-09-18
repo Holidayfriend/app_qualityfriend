@@ -274,6 +274,13 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 .qf-dashboard .hb-item .hb-actions { margin-left:auto;display:flex;align-items:center;gap:4px;flex-shrink:0 }
 .qf-dashboard.hb-view { padding:0;display:flex;flex-direction:column;min-height:calc(100vh - 56px);overflow:hidden }
 .qf-dashboard .hb-view-frame { flex:1;width:100%;border:0;min-height:calc(100vh - 56px);background:#525659 }
+.qf-dashboard .rep { display:flex;align-items:flex-start;gap:12px;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:10px;cursor:pointer;width:100%;text-align:left;font:inherit;color:inherit }
+.qf-dashboard .rep:hover { border-color:var(--accent) }
+.qf-dashboard .rep-prio { width:4px;border-radius:2px;align-self:stretch;flex-shrink:0 }
+.qf-dashboard .rep-prio.h { background:var(--red) }
+.qf-dashboard .rep-prio.m { background:var(--amber) }
+.qf-dashboard .rep-prio.l { background:var(--green) }
+.qf-dashboard .rep-ic { width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0 }
 @media (max-width: 980px) {
   .qf-dashboard .note-grid { grid-template-columns:1fr }
 }
@@ -281,6 +288,7 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 .qf-dashboard .ch { padding:14px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border) }
 .qf-dashboard .ct { font-size:14px;font-weight:700 }
 .qf-dashboard .ca { font-size:12.5px;color:var(--accent);font-weight:600;cursor:pointer }
+.qf-dashboard a.ca { text-decoration:none }
 .qf-dashboard .cb { padding:16px 20px }
 .qf-dashboard .ai-banner { display:flex;align-items:center;gap:14px;padding:14px 20px;background:linear-gradient(135deg,#1e1b4b,#312e81);border-radius:var(--r);color:#fff;margin-bottom:18px;border:1px solid rgba(139,92,246,.3) }
 .qf-dashboard .ai-body { font-size:12.5px;opacity:.8;margin-top:3px;line-height:1.5 }
@@ -328,6 +336,7 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 .qf-dashboard .status-pill.active { background:var(--green-bg);color:var(--green) }
 .qf-dashboard .status-pill.inactive { background:#F3F4F6;color:var(--text3) }
 .qf-dashboard .icon-btn { width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--surface);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:12px;color:var(--text2);padding:0 }
+.qf-dashboard a.icon-btn { text-decoration:none;color:var(--text2) }
 .qf-dashboard .icon-btn:hover { border-color:var(--accent);color:var(--accent) }
 .qf-dashboard .icon-btn.danger:hover { border-color:var(--red);color:var(--red) }
 .qf-dashboard .u-row-name { display:flex;align-items:center;gap:10px }
