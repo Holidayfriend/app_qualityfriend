@@ -14,12 +14,12 @@ const LANGUAGE: Record<ChatLocale, { name: string; rule: string }> = {
   it: { name: "Italian", rule: "The app language is Italian. Write the entire answer in Italian (Italiano)." },
 };
 
-const COUNT = /\b(how many.{0,40}(applications|applicants|jobs?|candidates|ads?|anzeigen|stellen)|application count|wie viele.{0,40}(bewerb|stellen|kandidat|anzeigen)|quante.{0,40}(candidature|annunci)|pipeline|statistik)\b/i;
-const JOBS_COUNT = /\b((active|live|open|offene|attive)\s+(jobs?|stellen|ads?|anzeigen)|stellenanzeigen|job ads?|how many.{0,40}jobs?)\b/i;
+const COUNT = /\b(how many.{0,40}(applications|applicants|jobs?|candidates|ads?|anzeigen|stellen)|application count|wie viele.{0,40}(bewerb|stellen|kandidat|anzeigen|jobs?)|quante.{0,40}(candidature|annunci|offerte)|quanti.{0,40}(lavori|annunci)|pipeline|statistik|übersicht|uebersicht)\b/i;
+const JOBS_COUNT = /\b((active|live|open|offene|aktive|attive)\s+(jobs?|stellen|ads?|anzeigen|offerte)|stellenanzeigen|job ads?|offene stellen|(how many|wie viele|quante|quanti).{0,40}(jobs?|stellen|anzeigen|annunci|offerte))\b/i;
 const YEARS = /\b((how many|wie viele|quanti|quante).{0,40}(experience|exparence|erfahrung|esperienza|years?|jahre|anni)|(years?|jahre|anni).{0,20}(experience|erfahrung|esperienza)|berufserfahrung)\b/i;
-const FACTS = /\b(experience|exparence|erfahrung|esperienza|years?|jahre|anni|cv|lebenslauf|employer|worked|gearbeitet)\b/i;
-const PERSON = /\b(cv|lebenslauf|experience|exparence|erfahrung|esperienza|candidate|bewerber|candidat|interview|kompetenz|competenc|score|empfohlen|recommended|why .+ best|beste[rn]?)\b/i;
-const JOB_FOCUS = /\b(job ad|stellenanzeige|annuncio|posting|optimize|optimier|wording|quiz|funnel)\b/i;
+const FACTS = /\b(experience|exparence|erfahrung|esperienza|years?|jahre|anni|cv|lebenslauf|employer|worked|gearbeitet|lavorato)\b/i;
+const PERSON = /\b(cv|lebenslauf|experience|exparence|erfahrung|esperienza|candidate|bewerber|candidat|interview|gespräch|colloquio|kompetenz|competenc|score|empfohlen|recommended|consigliat|why .+ best|beste[rn]?)\b/i;
+const JOB_FOCUS = /\b(job ad|stellenanzeige|annuncio|posting|optimize|optimier|wording|quiz|funnel|anzeigentext)\b/i;
 
 function stripHtml(value: string) {
   return value.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
