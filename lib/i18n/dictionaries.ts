@@ -31,6 +31,7 @@ export const moduleNavigationMessages = byLocale("moduleNavigationMessages");
 export const accessDeniedMessages = byLocale("accessDeniedMessages");
 export const mcpSettingsMessages = byLocale("mcpSettingsMessages");
 export const integrationSettingsMessages = byLocale("integrationSettingsMessages");
+export const aiApiSettingsMessages = byLocale("aiApiSettingsMessages");
 
 type Catalog = typeof catalogs;
 type CatalogKey = Exclude<keyof Catalog["en"], "dictionary">;

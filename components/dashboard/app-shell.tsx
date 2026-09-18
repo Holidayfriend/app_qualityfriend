@@ -6,10 +6,10 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { LanguageSwitcher } from "../i18n/language-switcher";
 import { useI18n } from "../i18n/i18n-provider";
-import { moduleNavigationMessages, roleLevelNames } from "../../lib/i18n/dictionaries";
+import { aiApiSettingsMessages, moduleNavigationMessages, roleLevelNames } from "../../lib/i18n/dictionaries";
 
 type AppShellProps = { activeItem: string; children: ReactNode; pageTitle?: string };
-type ShellUser = { first_name: string; last_name: string; role: string; language: "EN" | "DE" | "IT"; hotel_name_en: string; hotel_name_de: string; hotel_name_it: string; allowed_modules: string[] };
+type ShellUser = { first_name: string; last_name: string; role: string; language: "EN" | "DE" | "IT"; hotel_name_en: string; hotel_name_de: string; hotel_name_it: string; allowed_modules: string[]; ai_key_configured?: boolean };
 
 const CACHE_KEY = "qf-shell-user";
 let memoryUser: ShellUser | null = null;
@@ -142,7 +142,7 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
   useEffect(() => {
     const activeKey = pathname === "/settings/activity-log" ? "activityLog" : pathname === "/settings/recycle-bin" ? "recycleBin" : activeItem === "ai" ? "aiAssistant" : activeItem;
     const allowed = currentUser?.allowed_modules ?? [];
-    const canViewActive = currentUser?.role === "ADMIN" || allowed.includes(activeKey) || activeKey === "notes" || activeKey === "manuals" || (activeKey === "housekeeping" && allowed.includes("housekeeper"));
+    const canViewActive = pathname === "/settings/ai-keys" || currentUser?.role === "ADMIN" || allowed.includes(activeKey) || activeKey === "notes" || activeKey === "manuals" || (activeKey === "housekeeping" && allowed.includes("housekeeper"));
     if (currentUser && !canViewActive) router.replace("/access-denied");
     const chatButton = document.querySelector<HTMLButtonElement>(`button[aria-label="${moduleNavigation.chat}"]`);
     if (chatButton) { chatButton.dataset.chatButton = "true"; chatButton.hidden = !(currentUser?.role === "ADMIN" || currentUser?.allowed_modules.includes("chat")); }
@@ -166,6 +166,20 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
       {mobileNavigation.map(([id, icon, label]) => <button key={id} type="button" onClick={() => navigate(id)} className={`flex min-h-11 flex-1 cursor-pointer flex-col items-center justify-center gap-[3px] border-0 bg-transparent px-0 text-[10px] font-semibold ${!mobileMoreOpen && selectedItem === id ? "text-[var(--qf-accent)]" : "text-[var(--qf-text-light)]"}`}><span aria-hidden className="text-[21px] leading-none">{icon}</span><span>{label}</span></button>)}
       <button type="button" onClick={() => setMobileMoreOpen(true)} className={`flex min-h-11 flex-1 cursor-pointer flex-col items-center justify-center gap-[3px] border-0 bg-transparent px-0 text-[10px] font-semibold ${mobileMoreOpen ? "text-[var(--qf-accent)]" : "text-[var(--qf-text-light)]"}`}><span aria-hidden className="text-[21px] leading-none">⋯</span><span>Mehr</span></button>
     </nav>
-    <div className="min-w-0 flex-1"><header className="sticky top-0 z-30 flex min-h-14 items-center gap-3 border-b border-[var(--qf-border)] bg-white px-4 lg:px-7"><button type="button" onClick={() => setMenuOpen(true)} className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--qf-border)] text-lg lg:hidden" aria-label="Open menu">☰</button><div className="min-w-0"><p className="truncate text-[16px] font-bold">{pageTitle || `${greeting}${currentUser ? `, ${currentUser.first_name}` : ""}`}</p><p className="text-[11px] text-[var(--qf-text-muted)] sm:hidden">{d.date}</p></div><p className="hidden text-[13px] text-[var(--qf-text-muted)] sm:block">{d.date}</p><div className="ml-auto flex items-center gap-2"><button type="button" onClick={() => navigate("chat")} aria-label={moduleNavigation.chat} title={moduleNavigation.chat} className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--qf-border)] bg-white text-base transition hover:border-[var(--qf-accent)] hover:bg-[var(--qf-accent-soft)]">💬</button><div className="hidden xl:block"><LanguageSwitcher iconOnly /></div><button type="button" className="hidden h-9 cursor-pointer items-center gap-1.5 rounded-[7px] bg-[#7c3aed] px-3.5 text-[13px] font-semibold text-white md:flex">⚡ {d.report}</button><button type="button" className="hidden h-9 cursor-pointer items-center rounded-[7px] bg-[var(--qf-accent)] px-3.5 text-[13px] font-semibold text-white sm:flex">+ {d.addTask}</button><NotificationDropdown /><button type="button" onClick={() => void logout()} disabled={loggingOut} aria-label={dictionary.common.logout} title={dictionary.common.logout} className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--qf-border)] bg-white text-[var(--qf-text-muted)] transition hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:cursor-wait disabled:opacity-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px]" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 5H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4"/><path d="m15 8 4 4-4 4"/><path d="M19 12H9"/></svg></button></div></header>{children}</div>
+    <div className="min-w-0 flex-1">
+      <div className="sticky top-0 z-30">
+      {currentUser && currentUser.ai_key_configured === false && pathname !== "/settings/ai-keys" ? (
+        <button
+          type="button"
+          onClick={() => router.push("/settings/ai-keys")}
+          className="flex w-full cursor-pointer items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-left lg:px-7"
+        >
+          <span className="text-[12.5px] font-semibold text-amber-900">{aiApiSettingsMessages[locale].missingKeyBanner}</span>
+          <span className="shrink-0 text-[12px] font-bold text-amber-800">{aiApiSettingsMessages[locale].missingKeyAction} →</span>
+        </button>
+      ) : null}
+      <header className="flex min-h-14 items-center gap-3 border-b border-[var(--qf-border)] bg-white px-4 lg:px-7"><button type="button" onClick={() => setMenuOpen(true)} className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--qf-border)] text-lg lg:hidden" aria-label="Open menu">☰</button><div className="min-w-0"><p className="truncate text-[16px] font-bold">{pageTitle || `${greeting}${currentUser ? `, ${currentUser.first_name}` : ""}`}</p><p className="text-[11px] text-[var(--qf-text-muted)] sm:hidden">{d.date}</p></div><p className="hidden text-[13px] text-[var(--qf-text-muted)] sm:block">{d.date}</p><div className="ml-auto flex items-center gap-2"><button type="button" onClick={() => navigate("chat")} aria-label={moduleNavigation.chat} title={moduleNavigation.chat} className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--qf-border)] bg-white text-base transition hover:border-[var(--qf-accent)] hover:bg-[var(--qf-accent-soft)]">💬</button><div className="hidden xl:block"><LanguageSwitcher iconOnly /></div><button type="button" className="hidden h-9 cursor-pointer items-center gap-1.5 rounded-[7px] bg-[#7c3aed] px-3.5 text-[13px] font-semibold text-white md:flex">⚡ {d.report}</button><button type="button" className="hidden h-9 cursor-pointer items-center rounded-[7px] bg-[var(--qf-accent)] px-3.5 text-[13px] font-semibold text-white sm:flex">+ {d.addTask}</button><NotificationDropdown /><button type="button" onClick={() => void logout()} disabled={loggingOut} aria-label={dictionary.common.logout} title={dictionary.common.logout} className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--qf-border)] bg-white text-[var(--qf-text-muted)] transition hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:cursor-wait disabled:opacity-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px]" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 5H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4"/><path d="m15 8 4 4-4 4"/><path d="M19 12H9"/></svg></button></div></header>
+      </div>
+      {children}</div>
   </div>;
 }

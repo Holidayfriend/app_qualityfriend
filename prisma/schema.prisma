@@ -541,6 +541,8 @@ model HotelTenant {
   recruitingApplications       RecruitingApplication[]
   recruitingSettings           RecruitingSettings?
   hotelAiRecommendations       HotelAiRecommendation[]
+  hotelAiSettings              HotelAiSettings?
+  hotelAiProviderCredentials   HotelAiProviderCredential[]
   recruitingEmailTemplates     RecruitingEmailTemplate[]
   recruitingEmployees          RecruitingEmployee[]
   recruitingApplicationFiles   RecruitingApplicationFile[]
@@ -1240,6 +1242,30 @@ model RecruitingSettings {
 enum AiRecommendationPlace {
   RECRUITING
   DASHBOARD
+}
+
+model HotelAiSettings {
+  hotelTenantId  String      @id @map("hotel_tenant_id") @db.Uuid
+  activeProvider String      @default("openai") @map("active_provider") @db.VarChar(40)
+  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant    HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@map("hotel_ai_settings")
+}
+
+model HotelAiProviderCredential {
+  id               String      @id @default(uuid()) @db.Uuid
+  hotelTenantId    String      @map("hotel_tenant_id") @db.Uuid
+  provider         String      @db.VarChar(40)
+  model            String      @db.VarChar(80)
+  apiKeyEncrypted  String      @default("") @map("api_key_encrypted") @db.Text
+  apiKeyLast4      String      @default("") @map("api_key_last4") @db.VarChar(8)
+  updatedAt        DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant      HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@unique([hotelTenantId, provider])
+  @@index([hotelTenantId])
+  @@map("hotel_ai_provider_credentials")
 }
 
 model HotelAiRecommendation {

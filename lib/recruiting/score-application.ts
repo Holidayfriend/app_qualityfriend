@@ -1,9 +1,12 @@
 import { parseQuizAnswers } from "./application-fields";
 import { readRecruitingCvText, readRecruitingExtraText, unpackCvRef } from "./cv-storage";
+import { completeHotelChatJson } from "../ai/complete";
 
 const SUGGESTIONS = ["recommended", "possible", "needsReview", "notAFit"] as const;
 
 type ScoreDb = {
+  hotelAiSettings: unknown;
+  hotelAiProviderCredential: unknown;
   recruitingApplication: {
     findFirst: (args: object) => Promise<ApplicationRow | null>;
     update: (args: object) => Promise<unknown>;
@@ -33,30 +36,10 @@ function clamp(value: unknown) {
   return Math.max(0, Math.min(100, Math.round(number)));
 }
 
-async function completeJson(messages: { role: string; content: string }[]) {
-  const apiKey = process.env.OPENAI_API_KEY?.trim();
-  if (!apiKey) throw new Error("OPENAI_API_KEY is not configured.");
-  const model = process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model,
-      temperature: 0.1,
-      response_format: { type: "json_object" },
-      messages,
-    }),
-    cache: "no-store",
-    signal: AbortSignal.timeout(60_000),
-  });
-  const data = (await response.json().catch(() => null)) as {
-    choices?: { message?: { content?: string } }[];
-    error?: { message?: string };
-  } | null;
-  if (!response.ok) throw new Error(data?.error?.message || "OpenAI request failed.");
-  const content = data?.choices?.[0]?.message?.content?.trim();
-  if (!content) throw new Error("Empty model reply.");
-  return JSON.parse(content) as Record<string, unknown>;
+async function completeJson(prisma: ScoreDb, hotelTenantId: string, messages: { role: string; content: string }[]) {
+  const parsed = await completeHotelChatJson(prisma as never, hotelTenantId, messages, { temperature: 0.1, required: true });
+  if (!parsed) throw new Error("Hotel AI API key is not configured.");
+  return parsed;
 }
 
 export async function ensureAiSummaryColumns(prisma: ScoreDb) {
@@ -102,9 +85,9 @@ export async function applicantMaterialFromCache(application: ApplicationRow) {
   return parts.join("\n\n").slice(0, 18000);
 }
 
-export async function applyRecruitingAiScore(prisma: ScoreDb, application: ApplicationRow, pack: string) {
+export async function applyRecruitingAiScore(prisma: ScoreDb, hotelTenantId: string, application: ApplicationRow, pack: string) {
   const jobText = jobPostingText(application.job);
-  const parsed = await completeJson([
+  const parsed = await completeJson(prisma, hotelTenantId, [
     {
       role: "system",
       content: "You score hotel job applications. Use only the provided job posting and applicant material. Do not invent employers, years, or skills. Return JSON only.",
@@ -166,7 +149,7 @@ export async function scoreRecruitingApplicationCached(prisma: ScoreDb, hotelTen
   });
   try {
     const pack = await applicantMaterialFromCache(application);
-    return await applyRecruitingAiScore(prisma, application, pack);
+    return await applyRecruitingAiScore(prisma, hotelTenantId, application, pack);
   } catch (error) {
     await prisma.recruitingApplication.updateMany({
       where: { id: applicationId, hotelTenantId },

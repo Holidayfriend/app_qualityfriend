@@ -51,7 +51,7 @@ export async function scoreRecruitingApplication(data: RecruitingAiScoreJob) {
         parts.push(`Extra file ${file.fileName}:\n${text.slice(0, 6000)}`);
       }
     }
-    return await applyRecruitingAiScore(prisma, application, parts.join("\n\n").slice(0, 18000));
+    return await applyRecruitingAiScore(prisma, data.hotelTenantId, application, parts.join("\n\n").slice(0, 18000));
   } catch (error) {
     await prisma.recruitingApplication.updateMany({
       where: { id: data.applicationId, hotelTenantId: data.hotelTenantId },

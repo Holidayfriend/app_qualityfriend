@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { PrismaClient } from "../../app/generated/prisma/client";
 import { cleaningPlan, hotelLocalDate } from "./daily-plan";
+import { completeHotelChatJson } from "../ai/complete";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -25,24 +26,6 @@ function isBirthdayOn(dateOfBirth: Date | null, day: string) {
 
 function normalize(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9äöüßàèéìòù]+/gi, " ").replace(/\s+/g, " ").trim();
-}
-
-async function completeJson(messages: { role: string; content: string }[]) {
-  const apiKey = process.env.OPENAI_API_KEY?.trim();
-  if (!apiKey) return null;
-  const model = process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ model, temperature: 0.1, response_format: { type: "json_object" }, messages }),
-    cache: "no-store",
-    signal: AbortSignal.timeout(90_000),
-  });
-  const data = (await response.json().catch(() => null)) as { choices?: { message?: { content?: string } }[]; error?: { message?: string } } | null;
-  if (!response.ok) throw new Error(data?.error?.message || "OpenAI request failed.");
-  const content = data?.choices?.[0]?.message?.content?.trim();
-  if (!content) throw new Error("Empty model reply.");
-  return JSON.parse(content) as Record<string, unknown>;
 }
 
 export async function housekeepingUsers(prisma: PrismaClient, hotelTenantId: string) {
@@ -299,7 +282,7 @@ export async function runHousekeepingAiAllocation(prisma: PrismaClient, hotelTen
   let plan = fallbackPlan(facts);
   let usedModel = false;
   try {
-    const parsed = await completeJson([
+    const parsed = await completeHotelChatJson(prisma, hotelTenantId, [
       {
         role: "system",
         content: "You allocate hotel housekeeping work for today. Use only the JSON facts. Never invent rooms, employees, or extra job ids. Extra jobs are always for today only (not permanent). Prefer extraCatalog ids. Create a new extra only when nothing in the catalog matches. Return JSON only.",
@@ -322,7 +305,7 @@ Return JSON:
 Facts:
 ${JSON.stringify(facts).slice(0, 24000)}`,
       },
-    ]);
+    ], { temperature: 0.1, timeoutMs: 90_000 });
     const fromModel = parsePlan(parsed);
     if (fromModel.rooms.length || fromModel.extras.length) plan = fromModel;
     usedModel = Boolean(fromModel.rooms.length || fromModel.extras.length);

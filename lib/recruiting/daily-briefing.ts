@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { PrismaClient } from "../../app/generated/prisma/client";
+import { completeHotelChatJson } from "../ai/complete";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -28,32 +29,6 @@ type Facts = {
 
 function daysBetween(from: Date, to: Date) {
   return Math.max(0, Math.round((to.getTime() - from.getTime()) / DAY));
-}
-
-async function completeJson(messages: { role: string; content: string }[]) {
-  const apiKey = process.env.OPENAI_API_KEY?.trim();
-  if (!apiKey) return null;
-  const model = process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model,
-      temperature: 0.2,
-      response_format: { type: "json_object" },
-      messages,
-    }),
-    cache: "no-store",
-    signal: AbortSignal.timeout(60_000),
-  });
-  const data = (await response.json().catch(() => null)) as {
-    choices?: { message?: { content?: string } }[];
-    error?: { message?: string };
-  } | null;
-  if (!response.ok) throw new Error(data?.error?.message || "OpenAI request failed.");
-  const content = data?.choices?.[0]?.message?.content?.trim();
-  if (!content) throw new Error("Empty model reply.");
-  return JSON.parse(content) as Record<string, unknown>;
 }
 
 export async function collectRecruitingFacts(prisma: PrismaClient, hotelTenantId: string): Promise<Facts> {
@@ -206,7 +181,7 @@ export async function generateHotelRecruitingBriefing(prisma: PrismaClient, hote
   const facts = await collectRecruitingFacts(prisma, hotelTenantId);
   const fallback = fallbackBodies(facts);
   try {
-    const parsed = await completeJson([
+    const parsed = await completeHotelChatJson(prisma, hotelTenantId, [
       {
         role: "system",
         content: "You rewrite an internal recruiting operations note for hotel managers. Keep numbers and names. Never write a job ad, never invite people to apply, never say join our team. Return JSON only.",

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { prisma } from "../prisma";
+import { completeHotelChat } from "../ai/complete";
 import type { ChatTurn } from "../manuals/chat";
 import { recruitingActor } from "./access";
 import { parseQuizAnswers } from "./application-fields";
@@ -33,25 +34,8 @@ function hay(...parts: string[]) {
   return parts.join(" ").toLowerCase().normalize("NFKD");
 }
 
-async function completeWithOpenAi(messages: { role: string; content: string }[]) {
-  const apiKey = process.env.OPENAI_API_KEY?.trim();
-  if (!apiKey) return null;
-  const model = process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ model, temperature: 0, messages }),
-    cache: "no-store",
-    signal: AbortSignal.timeout(60_000),
-  });
-  const data = (await response.json().catch(() => null)) as {
-    choices?: { message?: { content?: string } }[];
-    error?: { message?: string };
-  } | null;
-  if (!response.ok) throw new Error(data?.error?.message || "OpenAI request failed.");
-  const content = data?.choices?.[0]?.message?.content?.trim();
-  if (!content) throw new Error("Empty model reply.");
-  return content;
+async function completeWithOpenAi(hotelTenantId: string, messages: { role: string; content: string }[]) {
+  return completeHotelChat(prisma, hotelTenantId, messages, { temperature: 0 });
 }
 
 type ApplicantRow = {
@@ -406,7 +390,7 @@ export async function answerRecruitingQuestion(question: string, history: ChatTu
     const prior = FACTS.test(query) || YEARS.test(query) || JOBS_COUNT.test(query) || COUNT.test(query)
       ? history.slice(-6).filter((turn) => turn.role === "user").map((turn) => ({ role: turn.role, content: turn.content.slice(0, 2000) }))
       : history.slice(-6).map((turn) => ({ role: turn.role, content: turn.content.slice(0, 2000) }));
-    const answer = await completeWithOpenAi([
+    const answer = await completeWithOpenAi(actor.hotel_tenant_id, [
       {
         role: "system",
         content: `${language.rule} Never switch language. Hotel recruiting assistant. ${instruction} If a fact is missing, say you do not know. Do not invent employers, years, or job titles for the candidate.`,

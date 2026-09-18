@@ -1,6 +1,7 @@
 import "server-only";
 
 import { prisma } from "../prisma";
+import { completeHotelChat } from "../ai/complete";
 import type { ManualsActor } from "./access";
 
 export type ChatTurn = { role: "user" | "assistant"; content: string };
@@ -54,25 +55,8 @@ function parseLocale(value: unknown): ChatLocale {
   return value === "de" || value === "it" || value === "en" ? value : "en";
 }
 
-async function completeWithOpenAi(messages: { role: string; content: string }[]) {
-  const apiKey = process.env.OPENAI_API_KEY?.trim();
-  if (!apiKey) return null;
-  const model = process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ model, temperature: 0.1, messages }),
-    cache: "no-store",
-    signal: AbortSignal.timeout(60_000),
-  });
-  const data = (await response.json().catch(() => null)) as {
-    choices?: { message?: { content?: string } }[];
-    error?: { message?: string };
-  } | null;
-  if (!response.ok) throw new Error(data?.error?.message || "OpenAI request failed.");
-  const content = data?.choices?.[0]?.message?.content?.trim();
-  if (!content) throw new Error("Empty model reply.");
-  return content;
+async function completeWithOpenAi(hotelTenantId: string, messages: { role: string; content: string }[]) {
+  return completeHotelChat(prisma, hotelTenantId, messages, { temperature: 0.1 });
 }
 
 export async function answerManualQuestion(actor: ManualsActor, question: string, history: ChatTurn[], locale?: unknown) {
@@ -105,7 +89,7 @@ export async function answerManualQuestion(actor: ManualsActor, question: string
   const pack = selected.map((chunk, index) => `[${index + 1}] ${chunk.document.title}\n${chunk.content}`).join("\n\n").slice(0, 12000);
   const language = LANGUAGE[chatLocale];
   try {
-    const answer = await completeWithOpenAi([
+    const answer = await completeWithOpenAi(actor.hotel_tenant_id, [
       {
         role: "system",
         content: `${language.rule} Never switch language, even if the question, handbook, or earlier messages are in another language. Translate facts from the excerpts into ${language.name} when needed. You are the hotel manuals assistant. Answer only from the handbook excerpts. If the answer is not in the excerpts, say you do not know. Do not invent procedures.`,
