@@ -1,12 +1,20 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useI18n } from "../i18n/i18n-provider";
 import { seedRepairs, type Repair, type RepairComment, type RepairFile, type RepairStatus } from "../../lib/repairs/demo-data";
 
 const STORAGE = "qf-repairs-demo";
 
+export type HotelDept = { id: string; name: string };
+export type HotelUser = { id: string; name: string };
+export type HotelRoom = { id: string; number: string };
+
 type Ctx = {
   repairs: Repair[];
+  rooms: HotelRoom[];
+  departments: HotelDept[];
+  users: HotelUser[];
   ready: boolean;
   upsert: (repair: Repair) => void;
   setStatus: (id: string, status: RepairStatus) => void;
@@ -17,7 +25,7 @@ type Ctx = {
 const RepairsContext = createContext<Ctx | null>(null);
 
 function withLocation(row: Repair, fallback = ""): Repair {
-  return { ...row, location: typeof row.location === "string" ? row.location : fallback };
+  return { ...row, location: row.location || fallback };
 }
 
 function load(): Repair[] {
@@ -35,7 +43,11 @@ function load(): Repair[] {
 }
 
 export function RepairsProvider({ children }: { children: ReactNode }) {
+  const { locale } = useI18n();
   const [repairs, setRepairs] = useState<Repair[]>(seedRepairs);
+  const [rooms, setRooms] = useState<HotelRoom[]>([]);
+  const [departments, setDepartments] = useState<HotelDept[]>([]);
+  const [users, setUsers] = useState<HotelUser[]>([]);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -48,8 +60,23 @@ export function RepairsProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE, JSON.stringify(repairs));
   }, [ready, repairs]);
 
+  useEffect(() => {
+    let active = true;
+    fetch(`/api/repairs/locations?locale=${locale}`, { cache: "no-store" }).then(async (response) => {
+      const data = await response.json().catch(() => null);
+      if (!active || !response.ok) return;
+      setRooms(Array.isArray(data?.rooms) ? data.rooms : []);
+      setDepartments(Array.isArray(data?.departments) ? data.departments : []);
+      setUsers(Array.isArray(data?.users) ? data.users : []);
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, [locale]);
+
   const value = useMemo<Ctx>(() => ({
     repairs,
+    rooms,
+    departments,
+    users,
     ready,
     upsert: (repair) => setRepairs((list) => {
       const index = list.findIndex((item) => item.id === repair.id);
@@ -64,7 +91,7 @@ export function RepairsProvider({ children }: { children: ReactNode }) {
       return next;
     })),
     addComment: (id, comment) => setRepairs((list) => list.map((item) => item.id === id ? { ...item, comments: [...item.comments, comment] } : item)),
-  }), [ready, repairs]);
+  }), [departments, ready, repairs, rooms, users]);
 
   return <RepairsContext.Provider value={value}>{children}</RepairsContext.Provider>;
 }

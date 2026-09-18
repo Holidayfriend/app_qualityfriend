@@ -13,14 +13,14 @@ export type Repair = {
   status: RepairStatus;
   assignee: string;
   visibility: RepairVisibility;
-  depts: RepairDept[];
+  depts: string[];
   tags: string[];
   desc: string;
   attachments: RepairFile[];
   comments: RepairComment[];
 };
 
-export type RepairTemplate = { id: string; title: string; desc: string; visibility: RepairVisibility; depts: RepairDept[] };
+export type RepairTemplate = { id: string; title: string; desc: string; visibility: RepairVisibility; depts: string[] };
 
 export const REPAIR_ASSIGNEES = ["Klaus Pichler", "Thomas Gruber", "Maria Rieder", "Sabine Moser", "Luca Bianchi"];
 export const REPAIR_AREA_KEYS = ["hall-2", "boiler", "basement", "garden", "restaurant", "spa"] as const;
