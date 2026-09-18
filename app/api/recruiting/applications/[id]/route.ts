@@ -18,6 +18,23 @@ const jobInclude = {
   },
 } as const;
 
+function clampScore(value: unknown) {
+  const number = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  if (!Number.isFinite(number)) return null;
+  return Math.max(0, Math.min(100, Math.round(number)));
+}
+
+function parseCompetencies(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const body = value as Record<string, unknown>;
+  const social = clampScore(body.social);
+  const professional = clampScore(body.professional);
+  const methodical = clampScore(body.methodical);
+  const personal = clampScore(body.personal);
+  if (social == null || professional == null || methodical == null || personal == null) return null;
+  return { social, professional, methodical, personal };
+}
+
 export async function GET(request: Request, context: Context) {
   const actor = await recruitingActor();
   if (!actor) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
@@ -39,17 +56,31 @@ export async function PATCH(request: Request, context: Context) {
   if (!isUuid(id)) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== "object") return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
-  const data = body as { stage?: string; locale?: string; tags?: unknown; comments?: unknown };
+  const data = body as { stage?: string; locale?: string; tags?: unknown; comments?: unknown; competencies?: unknown };
   const stage = typeof data.stage === "string" ? toDbStage(data.stage) : null;
   const hasNotes = "tags" in data || "comments" in data;
-  if (!stage && !hasNotes) return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
+  const competencies = parseCompetencies(data.competencies);
+  if (!stage && !hasNotes && !competencies) return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
   const locale = typeof data.locale === "string" ? data.locale : "";
 
   const updated = await prisma.$transaction(async (tx) => {
     const before = await tx.recruitingApplication.findFirst({ where: { id, hotelTenantId: actor.hotel_tenant_id } });
     if (!before) return null;
-    const patch: { stage?: typeof stage; notes?: Prisma.InputJsonValue } = {};
+    const patch: {
+      stage?: typeof stage;
+      notes?: Prisma.InputJsonValue;
+      aiSocial?: number;
+      aiProfessional?: number;
+      aiMethodical?: number;
+      aiPersonal?: number;
+    } = {};
     if (stage) patch.stage = stage;
+    if (competencies) {
+      patch.aiSocial = competencies.social;
+      patch.aiProfessional = competencies.professional;
+      patch.aiMethodical = competencies.methodical;
+      patch.aiPersonal = competencies.personal;
+    }
     if (hasNotes) {
       const current = parseApplicationNotes(before.notes);
       const tags = Array.isArray(data.tags)
@@ -72,8 +103,8 @@ export async function PATCH(request: Request, context: Context) {
       entityType: "RECRUITING_APPLICATION",
       entityId: id,
       changes: {
-        before: stage ? { stage: before.stage } : { notes: before.notes },
-        after: stage ? { stage: after.stage } : { notes: after.notes },
+        before: stage ? { stage: before.stage } : competencies ? { competencies: { social: before.aiSocial, professional: before.aiProfessional, methodical: before.aiMethodical, personal: before.aiPersonal } } : { notes: before.notes },
+        after: stage ? { stage: after.stage } : competencies ? { competencies } : { notes: after.notes },
       },
     });
     return { after, previousStage: before.stage };

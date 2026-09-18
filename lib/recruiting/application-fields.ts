@@ -19,6 +19,12 @@ function text(value: unknown, max: number) {
 }
 
 function mapAi(row: RecruitingApplication, stage: AppStage) {
+  const competencies = {
+    social: row.aiSocial ?? 0,
+    professional: row.aiProfessional ?? 0,
+    methodical: row.aiMethodical ?? 0,
+    personal: row.aiPersonal ?? 0,
+  };
   if (row.aiStatus === "READY" && row.aiScore != null && row.aiRecommendation) {
     const suggestion = (["recommended", "possible", "needsReview", "notAFit"] as const).includes(row.aiRecommendation as Applicant["suggestion"])
       ? (row.aiRecommendation as Applicant["suggestion"])
@@ -26,37 +32,23 @@ function mapAi(row: RecruitingApplication, stage: AppStage) {
     return {
       score: `${row.aiScore}%` as const,
       suggestion: stage === "archived" ? "archived" as const : suggestion,
-      competencies: {
-        social: row.aiSocial ?? 0,
-        professional: row.aiProfessional ?? 0,
-        methodical: row.aiMethodical ?? 0,
-        personal: row.aiPersonal ?? 0,
-      },
+      competencies,
       aiStatus: "READY" as const,
-      aiSummaryEn: row.aiSummaryEn ?? "",
-      aiSummaryDe: row.aiSummaryDe ?? "",
-      aiSummaryIt: row.aiSummaryIt ?? "",
     };
   }
   if (row.aiStatus === "FAILED") {
     return {
       score: "–" as const,
       suggestion: stage === "archived" ? "archived" as const : "needsReview" as const,
-      competencies: { social: 0, professional: 0, methodical: 0, personal: 0 },
+      competencies,
       aiStatus: "FAILED" as const,
-      aiSummaryEn: "",
-      aiSummaryDe: "",
-      aiSummaryIt: "",
     };
   }
   return {
     score: "…" as const,
     suggestion: stage === "archived" ? "archived" as const : "pending" as const,
-    competencies: { social: 0, professional: 0, methodical: 0, personal: 0 },
+    competencies,
     aiStatus: "PENDING" as const,
-    aiSummaryEn: "",
-    aiSummaryDe: "",
-    aiSummaryIt: "",
   };
 }
 

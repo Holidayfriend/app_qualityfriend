@@ -923,6 +923,9 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
   const [notesBusy, setNotesBusy] = useState(false);
   const [notesError, setNotesError] = useState("");
   const [notesOk, setNotesOk] = useState("");
+  const [comps, setComps] = useState({ social: 0, professional: 0, methodical: 0, personal: 0 });
+  const [compBusy, setCompBusy] = useState(false);
+  const [compMsg, setCompMsg] = useState("");
   const [actionBusy, setActionBusy] = useState(false);
   const [authorName, setAuthorName] = useState("Team");
   const [cvBusy, setCvBusy] = useState(false);
@@ -977,6 +980,10 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
     }, 3000);
     return () => window.clearInterval(timer);
   }, [id, locale, item?.aiStatus]);
+  useEffect(() => {
+    if (!item) return;
+    setComps(item.competencies);
+  }, [item?.id, item?.competencies.social, item?.competencies.professional, item?.competencies.methodical, item?.competencies.personal]);
   async function uploadCv(file?: File | null) {
     if (!file || !item || cvBusy) return;
     const ok = /\.(pdf|doc|docx)$/i.test(file.name) || ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"].includes(file.type);
@@ -1120,6 +1127,33 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
     setComment("");
     await persistNotes(item.tags, nextComments);
   }
+  async function saveCompetencies() {
+    if (!item || compBusy || item.aiStatus === "PENDING") return;
+    setCompBusy(true);
+    setCompMsg("");
+    try {
+      const res = await fetch(`/api/recruiting/applications/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ competencies: comps, locale }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.application) {
+        showToast({ message: t.competenciesSaveFailed, tone: "error" });
+        setCompBusy(false);
+        return;
+      }
+      const next = data.application as Applicant;
+      setItem(next);
+      setComps(next.competencies);
+      setApplicants(applicants.map((row) => row.id === id ? next : row));
+      setCompMsg(t.competenciesSaved);
+      showToast({ message: t.competenciesSaved, tone: "success" });
+    } catch {
+      showToast({ message: t.competenciesSaveFailed, tone: "error" });
+    }
+    setCompBusy(false);
+  }
   async function setStage(stage: AppStage) {
     if (!item || actionBusy) return;
     setActionBusy(true);
@@ -1202,7 +1236,12 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
   }
   if (loading) return <BrandLoader label={t.loading} />;
   if (missing || !item) return <><Back href="/recruiting/applications" label={t.backApplications} /><p className="job-apply-missing">{t.applicationMissing}</p></>;
-  const bars: Array<[string, number]> = [[t.social, item.competencies.social], [t.professional, item.competencies.professional], [t.methodical, item.competencies.methodical], [t.personal, item.competencies.personal]];
+  const barKeys = [
+    ["social", t.social],
+    ["professional", t.professional],
+    ["methodical", t.methodical],
+    ["personal", t.personal],
+  ] as const;
   return <>
     <Back href="/recruiting/applications" label={t.backApplications} />
     <div className="g2">
@@ -1261,7 +1300,48 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="ch"><div className="ct">{t.competencies}</div><div style={{ fontSize: 11.5, color: "var(--text2)", fontWeight: 400 }}>{item.aiStatus === "FAILED" ? t.scoreFailed : item.aiStatus === "PENDING" ? t.scoringAi : t.competenciesHint}</div></div>
           <div className="cb" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            {bars.map(([label, value]) => <div key={label}><div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4 }}>{label}</div><div className="score-bar"><div className={`score-fill ${value >= 75 ? "bar-g" : value >= 50 ? "bar-a" : "bar-r"}`} style={{ width: `${value}%` }} /></div></div>)}
+            {barKeys.map(([key, label]) => {
+              const value = comps[key];
+              const fillClass = value >= 75 ? "bar-g" : value >= 50 ? "bar-a" : "bar-r";
+              return (
+                <div key={key}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600 }}>{label}</div>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      disabled={compBusy || item.aiStatus === "PENDING"}
+                      value={value}
+                      onChange={(event) => {
+                        const next = Number(event.target.value);
+                        setComps((current) => ({ ...current, [key]: Number.isFinite(next) ? Math.max(0, Math.min(100, Math.round(next))) : 0 }));
+                      }}
+                      style={{ width: 52, fontSize: 12, padding: "2px 6px", border: "1px solid var(--border)", borderRadius: 6, textAlign: "right" }}
+                    />
+                  </div>
+                  <div style={{ position: "relative", height: 16, display: "flex", alignItems: "center" }}>
+                    <div className="score-bar" style={{ width: "100%" }}>
+                      <div className={`score-fill ${fillClass}`} style={{ width: `${value}%` }} />
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      disabled={compBusy || item.aiStatus === "PENDING"}
+                      value={value}
+                      aria-label={label}
+                      onChange={(event) => setComps((current) => ({ ...current, [key]: Number(event.target.value) }))}
+                      style={{ position: "absolute", inset: 0, width: "100%", margin: 0, opacity: 0, cursor: item.aiStatus === "PENDING" ? "default" : "pointer" }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="cb" style={{ display: "flex", alignItems: "center", gap: 12, paddingTop: 0 }}>
+            <button type="button" className="btn btn-primary" disabled={compBusy || item.aiStatus === "PENDING"} onClick={() => void saveCompetencies()}>{t.save}</button>
+            {compMsg ? <p style={{ margin: 0, fontSize: 12.5, color: "var(--green)" }}>{compMsg}</p> : null}
           </div>
         </div>
         <div className="card" style={{ marginBottom: 16 }}>
