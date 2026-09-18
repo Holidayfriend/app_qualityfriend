@@ -328,7 +328,7 @@ export async function createRepair(actor: RepairsActor, body: Record<string, unk
       action: "CREATE",
       entityType: kind === "TEMPLATE" ? "REPAIR_TEMPLATE" : "REPAIR",
       entityId: id,
-      changes: { after: { title: locales.title.en } },
+      changes: { after: locales.title },
     });
     await notifyRepair(tx, {
       actor, repairId: id, kind, visibility, departmentIds, assigneeId, title: locales.title.en, event: "create",
@@ -391,7 +391,7 @@ export async function updateRepair(actor: RepairsActor, id: string, body: Record
       action: "UPDATE",
       entityType: "REPAIR",
       entityId: id,
-      changes: { before: { title: existing.title }, after: { title: locales.title.en } },
+      changes: { before: { en: existing.title, de: existing.titleDe, it: existing.titleIt }, after: locales.title },
     });
     await notifyRepair(tx, {
       actor, repairId: id, kind: "REPAIR", visibility, departmentIds, assigneeId, title: locales.title.en, event: "update",

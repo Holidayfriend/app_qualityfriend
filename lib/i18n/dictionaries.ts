@@ -56,5 +56,7 @@ export { manualsMessages, getManualsMessages } from "./manuals-messages";
 export type { ManualsMessages } from "./manuals-messages";
 export { repairsMessages, getRepairsMessages } from "./repairs-messages";
 export type { RepairsMessages } from "./repairs-messages";
+export { handoversMessages, getHandoversMessages } from "./handovers-messages";
+export type { HandoversMessages } from "./handovers-messages";
 export { recruitingMessages } from "./recruiting-messages";
 export type { RecruitingMessages } from "./recruiting-messages";

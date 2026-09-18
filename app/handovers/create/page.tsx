@@ -1,2 +1,5 @@
-import HandoversPage from "../page";
-export default function HandoversCreatePage(){return <HandoversPage/>}
+import { redirect } from "next/navigation";
+
+export default function Page() {
+  redirect("/handovers/new");
+}

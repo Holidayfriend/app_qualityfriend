@@ -548,6 +548,7 @@ model HotelTenant {
   recruitingApplicationFiles   RecruitingApplicationFile[]
   hotelNotes                   HotelNote[]
   repairs                      Repair[]
+  handovers                    Handover[]
   manualDocuments              ManualDocument[]
   manualChunks                 ManualChunk[]
   aiConversations              AiConversation[]
@@ -752,6 +753,8 @@ model User {
   repairsCreated    Repair[] @relation("RepairAuthor")
   repairsAssigned   Repair[] @relation("RepairAssignee")
   repairComments    RepairComment[]
+  handoversCreated  Handover[] @relation("HandoverAuthor")
+  handoversCompleted Handover[] @relation("HandoverCompletedBy")
   manualsCreated    ManualDocument[]     @relation("ManualDocumentAuthor")
   aiConversations   AiConversation[]
 
@@ -877,6 +880,7 @@ model Department {
   recruitingEmployees       RecruitingEmployee[]
   hotelNoteShares           HotelNoteShareDepartment[]
   repairShares              RepairShareDepartment[]
+  handoverShares            HandoverShareDepartment[]
   manuals                   ManualDocument[]
 
   @@unique([hotelTenantId, nameEn])
@@ -1039,6 +1043,23 @@ model HotelNoteComment {
   @@map("hotel_note_comments")
 }
 
+enum HandoverKind {
+  HANDOVER
+  TEMPLATE
+}
+
+enum HandoverStatus {
+  OPEN
+  DONE
+  DRAFT
+}
+
+enum HandoverVisibility {
+  ALL
+  DEPARTMENT
+  PRIVATE
+}
+
 model Repair {
   id              String              @id @default(uuid()) @db.Uuid
   hotelTenantId   String              @map("hotel_tenant_id") @db.Uuid
@@ -1100,6 +1121,50 @@ model RepairComment {
   @@index([repairId, createdAt])
   @@index([authorId])
   @@map("repair_comments")
+}
+
+model Handover {
+  id              String              @id @default(uuid()) @db.Uuid
+  hotelTenantId   String              @map("hotel_tenant_id") @db.Uuid
+  createdById     String              @map("created_by_id") @db.Uuid
+  kind            HandoverKind        @default(HANDOVER)
+  status          HandoverStatus      @default(OPEN)
+  visibility      HandoverVisibility  @default(ALL)
+  pinned          Boolean             @default(false)
+  title           String              @db.VarChar(180)
+  titleDe         String              @map("title_de") @db.VarChar(180)
+  titleIt         String              @map("title_it") @db.VarChar(180)
+  description     String              @db.Text
+  descriptionDe   String              @map("description_de") @db.Text
+  descriptionIt   String              @map("description_it") @db.Text
+  tags            String[]            @default([])
+  tagsDe          String[]            @default([]) @map("tags_de")
+  tagsIt          String[]            @default([]) @map("tags_it")
+  originalLocale  String              @default("en") @map("original_locale") @db.VarChar(8)
+  completedAt     DateTime?           @map("completed_at") @db.Timestamptz(3)
+  completedById   String?             @map("completed_by_id") @db.Uuid
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant     HotelTenant         @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+  createdBy       User                @relation("HandoverAuthor", fields: [createdById], references: [id], onDelete: Restrict)
+  completedBy     User?               @relation("HandoverCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+  departments     HandoverShareDepartment[]
+
+  @@index([hotelTenantId, kind, status, pinned, createdAt])
+  @@index([createdById])
+  @@index([completedById])
+  @@map("handovers")
+}
+
+model HandoverShareDepartment {
+  handoverId   String     @map("handover_id") @db.Uuid
+  departmentId String     @map("department_id") @db.Uuid
+  handover     Handover   @relation(fields: [handoverId], references: [id], onDelete: Cascade)
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@id([handoverId, departmentId])
+  @@index([departmentId])
+  @@map("handover_share_departments")
 }
 
 model Team {

@@ -15,7 +15,7 @@ async function context() {
     hotelTenantId: user.hotelTenantId, role: user.role, canView: true, scope: "ALL",
   }, select: { moduleKey: true } })).map(item => item.moduleKey);
   return { user, where: { hotelTenantId: user.hotelTenantId, recipientId: user.id, OR: [
-    { moduleKey: { in: ["notes", "manuals", "repairs"] } },
+    { moduleKey: { in: ["notes", "manuals", "repairs", "handovers"] } },
     { AND: [
       { moduleKey: { in: modules } },
       { OR: [{ requiredScope: "OWN" as const }, { requiredScope: "ALL" as const, moduleKey: { in: fullAccess } }] },
