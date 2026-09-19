@@ -1,7 +1,7 @@
-export type RepairStatus = "neu" | "uebernommen" | "in_arbeit" | "wartet" | "erledigt";
+export type RepairStatus = "neu" | "uebernommen" | "in_arbeit" | "wartet" | "erledigt" | "draft";
 export type RepairVisibility = "alle" | "dept";
 export type RepairDept = "reception" | "housekeeping" | "restaurant" | "kitchen" | "maintenance" | "seaspa" | "administration";
-export type RepairFile = { name: string; type: "photo" | "video" | "voice" };
+export type RepairFile = { id?: string; name: string; type: "photo" | "video" | "voice"; url?: string };
 export type RepairComment = { text: string; author: string; date: string };
 
 export type Repair = {
@@ -32,6 +32,7 @@ export const STATUS_CHIP: Record<RepairStatus, string> = {
   in_arbeit: "chip-a",
   wartet: "chip-n",
   erledigt: "chip-g",
+  draft: "chip-a",
 };
 
 export const repairTemplates: RepairTemplate[] = [

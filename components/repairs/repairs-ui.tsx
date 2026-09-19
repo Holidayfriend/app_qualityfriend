@@ -20,11 +20,11 @@ function useT() {
 }
 
 function asStatus(status: string): RepairStatus {
-  return (["neu", "uebernommen", "in_arbeit", "wartet", "erledigt"].includes(status) ? status : "neu") as RepairStatus;
+  return (["neu", "uebernommen", "in_arbeit", "wartet", "erledigt", "draft"].includes(status) ? status : "neu") as RepairStatus;
 }
 
 function statusLabel(status: string, t: T) {
-  return { neu: t.statusNeu, uebernommen: t.statusUebernommen, in_arbeit: t.statusInArbeit, wartet: t.statusWartet, erledigt: t.statusErledigt }[asStatus(status)];
+  return { neu: t.statusNeu, uebernommen: t.statusUebernommen, in_arbeit: t.statusInArbeit, wartet: t.statusWartet, erledigt: t.statusErledigt, draft: t.statusDraft }[asStatus(status)];
 }
 
 function deptName(id: string, departments: HotelDept[], t: T) {
@@ -85,7 +85,7 @@ export function RepairsDashboardPage() {
   const t = useT();
   const { repairs, departments, canManage, ready, avgResponseDays } = useRepairs();
   if (!ready) return <Shell title={t.pageTitle}><BrandLoader label={t.loading} /></Shell>;
-  const open = repairs.filter((item) => item.status !== "erledigt");
+  const open = repairs.filter((item) => item.status !== "erledigt" && item.status !== "draft");
   const inArbeit = repairs.filter((item) => item.status === "in_arbeit").length;
   const done = repairs.filter((item) => item.status === "erledigt").length;
   const avg = avgResponseDays == null ? "–" : String(avgResponseDays);
@@ -156,7 +156,7 @@ export function RepairsListPage() {
     const text = `${item.title}${item.location}${item.creator}${item.assignee}${item.tags.join("")}`.toLowerCase();
     return statusOk && (!query || text.includes(query.toLowerCase()));
   });
-  const filters: [Filter, string][] = [["alle", t.filterAll], ["neu", t.statusNeu], ["uebernommen", t.statusUebernommen], ["in_arbeit", t.statusInArbeit], ["wartet", t.statusWartet], ["erledigt", t.statusErledigt]];
+  const filters: [Filter, string][] = [["alle", t.filterAll], ["neu", t.statusNeu], ["uebernommen", t.statusUebernommen], ["in_arbeit", t.statusInArbeit], ["wartet", t.statusWartet], ["erledigt", t.statusErledigt], ...(canManage ? [["draft", t.statusDraft] as [Filter, string]] : [])];
 
   return <Shell title={t.listTitle}>
     <Link href="/repairs" className="back-link">{t.back}</Link>
@@ -204,7 +204,8 @@ export function RepairsFormPage({ id }: { id?: string }) {
   const [assignee, setAssignee] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
-  const [attachments, setAttachments] = useState<RepairFile[]>([]);
+  const [kept, setKept] = useState<RepairFile[]>([]);
+  const [uploads, setUploads] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -219,6 +220,8 @@ export function RepairsFormPage({ id }: { id?: string }) {
     setDepts(existing.depts);
     setAssignee(existing.assigneeId || assigneeSelectValue(existing.assignee, users));
     setTags(existing.tags);
+    setKept(existing.attachments ?? []);
+    setUploads([]);
   }, [existing, users]);
 
   function applyTemplate(value: string) {
@@ -233,6 +236,8 @@ export function RepairsFormPage({ id }: { id?: string }) {
     setVisibility(selected.visibility);
     setDepts(selected.depts);
     setTags(selected.tags);
+    setKept(selected.attachments ?? []);
+    setUploads([]);
   }
 
   function addTag() {
@@ -244,29 +249,10 @@ export function RepairsFormPage({ id }: { id?: string }) {
 
   function onFiles(files: FileList | null) {
     if (!files?.length) return;
-    const extra: RepairFile[] = [...files].map((file) => ({
-      name: file.name,
-      type: file.type.startsWith("video") ? "video" : file.type.startsWith("audio") ? "voice" : "photo",
-    }));
-    setAttachments((current) => [...current, ...extra]);
+    setUploads((current) => [...current, ...files].slice(0, 10));
   }
 
-  function payload(kind: "repair" | "template") {
-    const savedLocation = (location === "__custom__" ? customLocation : location).trim();
-    return {
-      title: title.trim(),
-      description: desc,
-      locationKey: savedLocation,
-      locationLabel: locationLabel(savedLocation, t),
-      tags,
-      visibility,
-      departmentIds: visibility === "dept" ? depts : [],
-      assigneeId: kind === "template" ? "" : assignee,
-      kind,
-    };
-  }
-
-  async function persist(kind: "repair" | "template") {
+  async function persist(kind: "repair" | "template", status?: "draft") {
     if (!title.trim()) { toast({ message: t.titleRequired, tone: "error" }); return; }
     const savedLocation = (location === "__custom__" ? customLocation : location).trim();
     if (!savedLocation || savedLocation === "__custom__") { toast({ message: t.locationRequired, tone: "error" }); return; }
@@ -274,10 +260,22 @@ export function RepairsFormPage({ id }: { id?: string }) {
     toast({ message: t.translating });
     try {
       const isEdit = Boolean(existing) && kind === "repair";
+      const form = new FormData();
+      form.set("title", title.trim());
+      form.set("description", desc);
+      form.set("locationKey", savedLocation);
+      form.set("locationLabel", locationLabel(savedLocation, t));
+      form.set("tags", JSON.stringify(tags));
+      form.set("visibility", visibility);
+      form.set("departmentIds", JSON.stringify(visibility === "dept" ? depts : []));
+      form.set("assigneeId", kind === "template" ? "" : assignee);
+      form.set("kind", kind);
+      if (status) form.set("status", status);
+      form.set("keepAttachmentIds", JSON.stringify(kept.map((file) => file.id).filter(Boolean)));
+      for (const file of uploads) form.append("files", file);
       const res = await fetch(isEdit ? `/api/repairs/${existing!.id}?locale=${locale}` : `/api/repairs?locale=${locale}`, {
         method: isEdit ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload(kind)),
+        body: form,
       });
       if (!res.ok) { toast({ message: t.saveFailed, tone: "error" }); return; }
       await reload();
@@ -285,7 +283,7 @@ export function RepairsFormPage({ id }: { id?: string }) {
         toast({ message: t.templateSaved, tone: "success" });
         return;
       }
-      toast({ message: existing ? t.savedEdit : t.saved, tone: "success" });
+      toast({ message: status === "draft" ? t.draftSaved : existing ? t.savedEdit : t.saved, tone: "success" });
       router.push("/repairs/list");
     } finally {
       setBusy(false);
@@ -340,7 +338,10 @@ export function RepairsFormPage({ id }: { id?: string }) {
             <label className="field-lbl">{t.attachment}</label>
             <button type="button" className="dropzone" style={{ marginBottom: 0 }} onClick={() => fileInput.current?.click()}>{t.dropzone}<br /><span style={{ fontSize: 11 }}>{t.dropHint}</span></button>
             <input ref={fileInput} type="file" hidden multiple accept="image/*,video/*,audio/*" onChange={(event) => { onFiles(event.target.files); event.target.value = ""; }} />
-            <div style={{ marginTop: 10 }}>{attachments.map((file, index) => <div key={`${file.name}-${index}`} className="doc-row"><div className="doc-ic">{fileIcon(file.type)}</div><div className="doc-name">{file.name}</div><button type="button" className="icon-btn danger" onClick={() => setAttachments(attachments.filter((_, i) => i !== index))}>🗑️</button></div>)}</div>
+            <div style={{ marginTop: 10 }}>
+              {kept.map((file) => <div key={file.id ?? file.name} className="doc-row"><div className="doc-ic">{fileIcon(file.type)}</div><div className="doc-name">{file.name}</div><button type="button" className="icon-btn danger" onClick={() => setKept(kept.filter((item) => item !== file))}>🗑️</button></div>)}
+              {uploads.map((file, index) => <div key={`${file.name}-${index}`} className="doc-row"><div className="doc-ic">{fileIcon(file.type.startsWith("video") ? "video" : file.type.startsWith("audio") ? "voice" : "photo")}</div><div className="doc-name">{file.name}</div><button type="button" className="icon-btn danger" onClick={() => setUploads(uploads.filter((_, i) => i !== index))}>🗑️</button></div>)}
+            </div>
           </div>
         </div>
       </div>
@@ -376,7 +377,7 @@ export function RepairsFormPage({ id }: { id?: string }) {
         <div className="card">
           <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <button type="submit" className="btn btn-primary" disabled={busy}>{t.save}</button>
-            <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => toast({ message: t.draftSaved })}>{t.saveDraft}</button>
+            <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void persist("repair", "draft")}>{t.saveDraft}</button>
             <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void persist("template")}>{t.saveTemplate}</button>
           </div>
         </div>
@@ -416,14 +417,15 @@ export function RepairsDetailPage({ id }: { id: string }) {
       </div>
       <div className="cb" style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
         <div style={{ flex: 1, minWidth: 180 }}><label className="field-lbl" style={{ marginBottom: 4 }}>{t.assignee}</label>
-          <select className="field-select" disabled={busy} value={assigneeSelectValue(item.assigneeId || item.assignee, users)} onChange={(event) => void run({ action: "assignee", assigneeId: event.target.value })}>
+          <select className="field-select" disabled={busy || item.status === "draft"} value={assigneeSelectValue(item.assigneeId || item.assignee, users)} onChange={(event) => void run({ action: "assignee", assigneeId: event.target.value })}>
             <option value="">{t.unassigned}</option>
             {item.assignee && !users.some((user) => user.id === item.assigneeId || user.name === item.assignee) ? <option value={item.assigneeId || item.assignee}>{item.assignee}</option> : null}
             {users.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}
           </select>
         </div>
         <div style={{ flex: 1, minWidth: 180 }}><label className="field-lbl" style={{ marginBottom: 4 }}>{t.colStatus}</label>
-          <select className="field-select" disabled={busy} value={item.status} onChange={(event) => void run({ action: "status", status: event.target.value })}>
+          <select className="field-select" disabled={busy || item.status === "draft"} value={item.status} onChange={(event) => void run({ action: "status", status: event.target.value })}>
+            {item.status === "draft" ? <option value="draft">{t.statusDraft}</option> : null}
             <option value="neu">{t.statusNeu}</option>
             <option value="uebernommen">{t.statusUebernommen}</option>
             <option value="in_arbeit">{t.statusInArbeit}</option>
@@ -436,13 +438,26 @@ export function RepairsDetailPage({ id }: { id: string }) {
         <div style={{ fontSize: 13.5, lineHeight: 1.7, whiteSpace: "pre-line", marginBottom: 14 }}>{item.desc}</div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>{item.depts.length ? item.depts.map((dept) => <span key={dept} className="chip chip-n">{deptName(dept, departments, t)}</span>) : <span className="chip chip-n">{t.visibleAll}</span>}</div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{item.tags.map((tag) => <span key={tag} className="chip chip-b">{tag}</span>)}</div>
+        {item.status === "erledigt" && item.completedAt ? <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 12 }}>{t.completedMeta.replace("{when}", item.completedAt).replace("{name}", item.completedBy || "–")}</div> : null}
+        {(item.attachments ?? []).length ? <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+          {(item.attachments ?? []).map((file) => {
+            const href = file.url || "#";
+            return <a key={file.id ?? file.name} href={href} target="_blank" rel="noreferrer" className="doc-row" style={{ textDecoration: "none" }}>
+              <div className="doc-ic">{fileIcon(file.type)}</div>
+              <div className="doc-name">{file.name}</div>
+            </a>;
+          })}
+          {(item.attachments ?? []).filter((file) => file.type === "photo" && file.url).map((file) => <a key={`${file.id}-img`} href={file.url} target="_blank" rel="noreferrer"><img src={file.url} alt={file.name} style={{ maxWidth: "100%", maxHeight: 280, borderRadius: 8, marginTop: 4 }} /></a>)}
+          {(item.attachments ?? []).filter((file) => file.type === "video" && file.url).map((file) => <video key={`${file.id}-vid`} src={file.url} controls style={{ maxWidth: "100%", maxHeight: 280, borderRadius: 8 }} />)}
+          {(item.attachments ?? []).filter((file) => file.type === "voice" && file.url).map((file) => <audio key={`${file.id}-aud`} src={file.url} controls style={{ width: "100%" }} />)}
+        </div> : null}
       </div>
       <div className="cb" style={{ borderTop: "1px solid var(--border)" }}>
         <label className="field-lbl" style={{ marginBottom: 6 }}>{t.comments}</label>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 10 }}>
           {item.comments.length ? item.comments.map((row, index) => <div key={index} style={{ background: "var(--bg)", borderRadius: 8, padding: "10px 12px" }}><div style={{ fontSize: 12.5, lineHeight: 1.5 }}>{row.text}</div><div style={{ fontSize: 11, color: "var(--text3)", marginTop: 4 }}>{row.author} · {row.date}</div></div>) : <div style={{ fontSize: 12, color: "var(--text3)" }}>{t.noComments}</div>}
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        {item.status !== "draft" ? <div style={{ display: "flex", gap: 8 }}>
           <input className="field-input" placeholder={t.commentPlaceholder} value={comment} onChange={(event) => setComment(event.target.value)} />
           <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => {
             const text = comment.trim();
@@ -450,7 +465,7 @@ export function RepairsDetailPage({ id }: { id: string }) {
             setComment("");
             void run({ action: "comment", text });
           }}>{t.add}</button>
-        </div>
+        </div> : null}
       </div>
     </div>
   </Shell>;

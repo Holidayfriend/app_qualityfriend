@@ -752,6 +752,7 @@ model User {
   hotelNoteShares   HotelNoteShareUser[]
   repairsCreated    Repair[] @relation("RepairAuthor")
   repairsAssigned   Repair[] @relation("RepairAssignee")
+  repairsCompleted  Repair[] @relation("RepairCompletedBy")
   repairComments    RepairComment[]
   handoversCreated  Handover[] @relation("HandoverAuthor")
   handoversCompleted Handover[] @relation("HandoverCompletedBy")
@@ -816,6 +817,7 @@ enum RepairTicketStatus {
   IN_ARBEIT
   WARTET
   ERLEDIGT
+  DRAFT
 }
 
 enum RepairVisibility {
@@ -1082,17 +1084,22 @@ model Repair {
   tagsDe          String[]            @default([]) @map("tags_de")
   tagsIt          String[]            @default([]) @map("tags_it")
   originalLocale  String              @default("en") @map("original_locale") @db.VarChar(8)
+  completedAt     DateTime?           @map("completed_at") @db.Timestamptz(3)
+  completedById   String?             @map("completed_by_id") @db.Uuid
   createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
   hotelTenant     HotelTenant         @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
   createdBy       User                @relation("RepairAuthor", fields: [createdById], references: [id], onDelete: Restrict)
   assignee        User?               @relation("RepairAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  completedBy     User?               @relation("RepairCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
   departments     RepairShareDepartment[]
   comments        RepairComment[]
+  attachments     RepairAttachment[]
 
   @@index([hotelTenantId, kind, status, createdAt])
   @@index([createdById])
   @@index([assigneeId])
+  @@index([completedById])
   @@map("repairs")
 }
 
@@ -1121,6 +1128,20 @@ model RepairComment {
   @@index([repairId, createdAt])
   @@index([authorId])
   @@map("repair_comments")
+}
+
+model RepairAttachment {
+  id         String   @id @default(uuid()) @db.Uuid
+  repairId   String   @map("repair_id") @db.Uuid
+  fileName   String   @map("file_name") @db.VarChar(180)
+  storageKey String   @map("storage_key") @db.VarChar(80)
+  mimeType   String   @map("mime_type") @db.VarChar(120)
+  byteSize   Int      @map("byte_size")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  repair     Repair   @relation(fields: [repairId], references: [id], onDelete: Cascade)
+
+  @@index([repairId])
+  @@map("repair_attachments")
 }
 
 model Handover {

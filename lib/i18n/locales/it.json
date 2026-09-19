@@ -926,6 +926,7 @@
     "statusWartet": "In attesa",
     "statusWartetLong": "In attesa (ricambio/esterno)",
     "statusErledigt": "Chiusa",
+    "statusDraft": "Bozza",
     "search": "🔍 Cerca...",
     "colTitle": "Titolo",
     "colAuthor": "Autore",
@@ -987,6 +988,7 @@
     "noComments": "Nessun commento.",
     "commentPlaceholder": "Aggiungi un commento...",
     "add": "Aggiungi",
+    "completedMeta": "Completata {when} da {name}",
     "visibleAll": "Visibile a tutti",
     "depts": {
       "reception": "Reception",

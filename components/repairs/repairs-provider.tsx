@@ -23,6 +23,9 @@ export type PublicRepair = {
   depts: string[];
   comments: { text: string; author: string; date: string }[];
   origLang?: string;
+  completedAt?: string;
+  completedBy?: string;
+  attachments?: { id?: string; name: string; type: "photo" | "video" | "voice"; url?: string }[];
 };
 
 type Ctx = {

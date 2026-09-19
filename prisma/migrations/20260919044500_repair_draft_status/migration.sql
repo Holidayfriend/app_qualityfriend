@@ -1,0 +1,1 @@
+ALTER TYPE "RepairTicketStatus" ADD VALUE IF NOT EXISTS 'DRAFT';

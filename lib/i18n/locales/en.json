@@ -928,6 +928,7 @@
     "statusWartet": "Waiting",
     "statusWartetLong": "Waiting (spare part/external)",
     "statusErledigt": "Done",
+    "statusDraft": "Draft",
     "search": "🔍 Search...",
     "colTitle": "Title",
     "colAuthor": "Author",
@@ -989,6 +990,7 @@
     "noComments": "No comments yet.",
     "commentPlaceholder": "Add a comment...",
     "add": "Add",
+    "completedMeta": "Completed {when} by {name}",
     "visibleAll": "Visible to everyone",
     "depts": {
       "reception": "Reception",
