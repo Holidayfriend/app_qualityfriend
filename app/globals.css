@@ -253,6 +253,15 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 .qf-dashboard .chip-r { background:var(--red-bg);color:var(--red) }
 .qf-dashboard .chip-b { background:var(--blue-bg);color:var(--blue) }
 .qf-dashboard .g2 { display:grid;grid-template-columns:1fr 380px;gap:18px;margin-bottom:18px }
+.qf-dashboard .g2e { display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px }
+.qf-dashboard .todo { display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border) }
+.qf-dashboard .todo:last-child { border-bottom:none }
+.qf-dashboard .todo-cb { width:18px;height:18px;border-radius:5px;border:2px solid var(--border);flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center }
+.qf-dashboard .todo-cb.done { background:var(--green);border-color:var(--green);color:#fff;font-size:11px }
+.qf-dashboard .todo-cb.exception { background:var(--red);border-color:var(--red);color:#fff;font-size:11px }
+.qf-dashboard .todo-t { flex:1;font-size:13.5px }
+.qf-dashboard .todo-t.done { text-decoration:line-through;color:var(--text3) }
+.qf-dashboard .todo-dept { font-size:11px;color:var(--text3);min-width:80px }
 .qf-dashboard .note-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px }
 .qf-dashboard .note-card { border-radius:8px;padding:14px;cursor:pointer;min-height:120px;position:relative;border:0;text-align:left;font:inherit;color:inherit;width:100%;display:block }
 .qf-dashboard .note-card:hover { opacity:.9 }
@@ -342,7 +351,7 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 .qf-dashboard .u-row-name { display:flex;align-items:center;gap:10px }
 .qf-dashboard .u-av { width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;font-size:10.5px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0 }
 .qf-dashboard .filter-row { display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap }
-.qf-dashboard .filter-btn { padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text2);font-family:inherit }
+.qf-dashboard .filter-btn { padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text2);font-family:inherit;text-decoration:none;display:inline-flex;align-items:center }
 .qf-dashboard .filter-btn.active { background:var(--accent);color:#fff;border-color:var(--accent) }
 .qf-dashboard .bud-table { width:100%;border-collapse:collapse;font-size:13px }
 .qf-dashboard .bud-table th { padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);background:#F9F8F6 }
@@ -567,7 +576,7 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 .qf-dashboard .al-ic.p { background:var(--purple-bg) }
 @media (max-width: 980px) {
   .qf-dashboard .kpi-row { grid-template-columns:1fr 1fr }
-  .qf-dashboard .settings-grid,.qf-dashboard .g2,.qf-dashboard .g2-quiz,.qf-dashboard .field-row { grid-template-columns:1fr }
+  .qf-dashboard .settings-grid,.qf-dashboard .g2,.qf-dashboard .g2e,.qf-dashboard .g2-quiz,.qf-dashboard .field-row { grid-template-columns:1fr }
 }
 
 .job-apply { min-height:100vh; background:#f7f6f3; color:#1c2233; font-family:var(--qf-font,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif) }

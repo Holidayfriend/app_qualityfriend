@@ -1,1 +1,7 @@
-"use client"; import {ModulePlaceholder} from "../../components/dashboard/module-placeholder"; import {useI18n} from "../../components/i18n/i18n-provider"; export default function Page(){const{dictionary:d}=useI18n();return <ModulePlaceholder activeItem="tasks" icon="✅" title={d.navigation.tasks} underDevelopment={d.common.underDevelopment}/>}
+"use client";
+
+import { TasksDashboardPage } from "../../components/tasks/tasks-ui";
+
+export default function Page() {
+  return <TasksDashboardPage />;
+}
