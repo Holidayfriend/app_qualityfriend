@@ -12,10 +12,15 @@ export async function GET(request: Request) {
   const actor = await repairsViewer();
   if (!actor) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   const kind = new URL(request.url).searchParams.get("kind") === "template" ? "TEMPLATE" : "REPAIR";
-  if (kind === "TEMPLATE" && !actor.canManage) return NextResponse.json({ repairs: [] });
-  const repairs = await listRepairs(actor, localeOf(request), kind);
-  const avgResponseDays = kind === "REPAIR" ? await averageResponseDays(actor) : null;
-  return NextResponse.json({ repairs, canManage: actor.canManage, avgResponseDays });
+  if (kind === "TEMPLATE" && !actor.canManage) return NextResponse.json({ repairs: [], canManage: actor.canManage });
+  try {
+    const repairs = await listRepairs(actor, localeOf(request), kind);
+    const avgResponseDays = kind === "REPAIR" ? await averageResponseDays(actor) : null;
+    return NextResponse.json({ repairs, canManage: actor.canManage, avgResponseDays });
+  } catch (error) {
+    console.error("List repairs failed", error);
+    return NextResponse.json({ repairs: [], canManage: actor.canManage, avgResponseDays: null });
+  }
 }
 
 export async function POST(request: Request) {
