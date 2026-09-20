@@ -445,9 +445,10 @@ export function ChecklistFormPage({ id }: { id?: string }) {
             <label className="field-lbl">{t.points}</label>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
               {items.map((item, index) => (
-                <div key={`${item}-${index}`} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <input className="field-input" value={item} onChange={(event) => setItems(items.map((row, i) => i === index ? event.target.value : row))} />
-                  <button type="button" className="icon-btn danger" onClick={() => setItems(items.filter((_, i) => i !== index))}>✕</button>
+                <div key={`${item}-${index}`} className="doc-row" style={{ padding: "8px 10px" }}>
+                  <div className="doc-ic" style={{ width: 26, height: 26, fontSize: 12 }}>{index + 1}</div>
+                  <div className="doc-name">{item}</div>
+                  <button type="button" className="icon-btn danger" onClick={() => setItems(items.filter((_, i) => i !== index))}>🗑️</button>
                 </div>
               ))}
             </div>
