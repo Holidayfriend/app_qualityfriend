@@ -256,10 +256,10 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 .qf-dashboard .g2e { display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px }
 .qf-dashboard .todo { display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border) }
 .qf-dashboard .todo:last-child { border-bottom:none }
-.qf-dashboard .todo-cb { width:18px;height:18px;border-radius:5px;border:2px solid var(--border);flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center }
+.qf-dashboard .todo-cb { width:18px;height:18px;border-radius:5px;border:2px solid var(--border);flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;background:transparent;appearance:none }
 .qf-dashboard .todo-cb.done { background:var(--green);border-color:var(--green);color:#fff;font-size:11px }
 .qf-dashboard .todo-cb.exception { background:var(--red);border-color:var(--red);color:#fff;font-size:11px }
-.qf-dashboard .todo-t { flex:1;font-size:13.5px }
+.qf-dashboard .todo-t { flex:1;font-size:13.5px;text-decoration:none;color:inherit }
 .qf-dashboard .todo-t.done { text-decoration:line-through;color:var(--text3) }
 .qf-dashboard .todo-dept { font-size:11px;color:var(--text3);min-width:80px }
 .qf-dashboard .note-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px }

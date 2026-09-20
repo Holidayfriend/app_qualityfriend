@@ -13,6 +13,8 @@ export type PublicTask = {
   dueIso: string;
   origin: string;
   creator: string;
+  completedAt: string;
+  completedBy: string;
 };
 export type PublicChecklistItem = { id: string; text: string; state: "open" | "done" | "exception"; comment: string };
 export type PublicChecklist = {
@@ -93,13 +95,13 @@ export function seedTasks(locale: string): PublicTask[] {
     return { dueIso: value, due: value };
   };
   return [
-    { id: "task-1", title: pick(copy.t1, locale), note: "", status: "open", assignType: "dept", assignee: pick(demoDepartments[1].name, locale), assigneeId: "", departmentId: "d-hk", ...due(0), origin: "", creator: "Maria Rieder" },
-    { id: "task-2", title: pick(copy.t2, locale), note: "", status: "open", assignType: "dept", assignee: pick(demoDepartments[3].name, locale), assigneeId: "", departmentId: "d-admin", ...due(0), origin: "", creator: "Klaus Pichler" },
-    { id: "task-3", title: pick(copy.t3, locale), note: "", status: "open", assignType: "dept", assignee: pick(demoDepartments[2].name, locale), assigneeId: "", departmentId: "d-rest", ...due(0), origin: "", creator: "Sabine Moser" },
-    { id: "task-4", title: pick(copy.t4, locale), note: "", status: "open", assignType: "dept", assignee: pick(demoDepartments[4].name, locale), assigneeId: "", departmentId: "d-kit", ...due(1), origin: "", creator: "Nina Gasser" },
-    { id: "task-5", title: pick(copy.t5, locale), note: "", status: "open", assignType: "dept", assignee: pick(demoDepartments[5].name, locale), assigneeId: "", departmentId: "d-tech", ...due(1), origin: "", creator: "Thomas Gruber" },
-    { id: "task-6", title: pick(copy.t6, locale), note: "", status: "open", assignType: "dept", assignee: pick(demoDepartments[6].name, locale), assigneeId: "", departmentId: "d-sec", ...due(3), origin: "", creator: "Klaus Pichler" },
-    { id: "task-7", title: pick(copy.t7, locale), note: "", status: "done", assignType: "dept", assignee: pick(demoDepartments[6].name, locale), assigneeId: "", departmentId: "d-sec", ...due(-1), origin: "", creator: "Maria Rieder" },
+    { id: "task-1", title: pick(copy.t1, locale), note: "", status: "open", assignType: "dept", assignee: pick(demoDepartments[1].name, locale), assigneeId: "", departmentId: "d-hk", ...due(0), origin: "", creator: "Maria Rieder", completedAt: "", completedBy: "" },
+    { id: "task-2", title: pick(copy.t2, locale), note: "", status: "open", assignType: "dept", assignee: pick(demoDepartments[3].name, locale), assigneeId: "", departmentId: "d-admin", ...due(0), origin: "", creator: "Klaus Pichler", completedAt: "", completedBy: "" },
+    { id: "task-3", title: pick(copy.t3, locale), note: "", status: "open", assignType: "dept", assignee: pick(demoDepartments[2].name, locale), assigneeId: "", departmentId: "d-rest", ...due(0), origin: "", creator: "Sabine Moser", completedAt: "", completedBy: "" },
+    { id: "task-4", title: pick(copy.t4, locale), note: "", status: "open", assignType: "dept", assignee: pick(demoDepartments[4].name, locale), assigneeId: "", departmentId: "d-kit", ...due(1), origin: "", creator: "Nina Gasser", completedAt: "", completedBy: "" },
+    { id: "task-5", title: pick(copy.t5, locale), note: "", status: "open", assignType: "dept", assignee: pick(demoDepartments[5].name, locale), assigneeId: "", departmentId: "d-tech", ...due(1), origin: "", creator: "Thomas Gruber", completedAt: "", completedBy: "" },
+    { id: "task-6", title: pick(copy.t6, locale), note: "", status: "open", assignType: "dept", assignee: pick(demoDepartments[6].name, locale), assigneeId: "", departmentId: "d-sec", ...due(3), origin: "", creator: "Klaus Pichler", completedAt: "", completedBy: "" },
+    { id: "task-7", title: pick(copy.t7, locale), note: "", status: "done", assignType: "dept", assignee: pick(demoDepartments[6].name, locale), assigneeId: "", departmentId: "d-sec", ...due(-1), origin: "", creator: "Maria Rieder", completedAt: "", completedBy: "" },
   ];
 }
 

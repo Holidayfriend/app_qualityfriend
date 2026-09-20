@@ -3,10 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useI18n } from "../i18n/i18n-provider";
 import {
-  demoDepartments,
-  demoUsers,
   seedChecklists,
-  seedTasks,
   seedTemplates,
   type HotelDept,
   type HotelUser,
@@ -58,8 +55,8 @@ type Ctx = {
   doneWeek: number;
   totalWeek: number;
   periodic: PublicChecklist[];
-  saveTask: (id: string | undefined, input: TaskInput) => string;
-  toggleTask: (id: string) => void;
+  saveTask: (id: string | undefined, input: TaskInput) => Promise<string | null>;
+  toggleTask: (id: string) => Promise<boolean>;
   saveChecklist: (id: string | undefined, input: ChecklistInput) => string;
   toggleItem: (checklistId: string, itemId: string) => void;
   completeChecklist: (id: string, comment: string) => void;
@@ -86,46 +83,68 @@ export function TasksProvider({ children }: { children: ReactNode }) {
   const [tasks, setTasks] = useState<PublicTask[]>([]);
   const [checklists, setChecklists] = useState<PublicChecklist[]>([]);
   const [templates, setTemplates] = useState<PublicChecklist[]>([]);
+  const [departments, setDepartments] = useState<HotelDept[]>([]);
+  const [users, setUsers] = useState<HotelUser[]>([]);
+  const [canManage, setCanManage] = useState(false);
   const [ready, setReady] = useState(false);
 
-  useEffect(() => {
-    setTasks(seedTasks(locale));
-    setChecklists(seedChecklists(locale));
-    setTemplates(seedTemplates(locale));
-    setReady(true);
+  const reload = useCallback(async () => {
+    try {
+      const [listRes, optRes, meRes] = await Promise.all([
+        fetch(`/api/tasks?locale=${locale}`, { cache: "no-store" }),
+        fetch(`/api/tasks/options?locale=${locale}`, { cache: "no-store" }),
+        fetch("/api/me", { cache: "no-store" }),
+      ]);
+      const list = listRes.ok ? await listRes.json() as { tasks?: PublicTask[]; canManage?: boolean } : null;
+      const opt = optRes.ok ? await optRes.json() as { departments?: HotelDept[]; users?: HotelUser[] } : null;
+      const me = meRes.ok ? await meRes.json() as { role?: string; allowed_modules?: string[] } : null;
+      setTasks(Array.isArray(list?.tasks) ? list.tasks : []);
+      setDepartments(Array.isArray(opt?.departments) ? opt.departments : []);
+      setUsers(Array.isArray(opt?.users) ? opt.users : []);
+      setCanManage(Boolean(list?.canManage) || me?.role === "ADMIN" || Boolean(me?.allowed_modules?.includes("tasks")));
+    } catch {
+      setTasks([]);
+    } finally {
+      setChecklists(seedChecklists(locale));
+      setTemplates(seedTemplates(locale));
+      setReady(true);
+      if (typeof window !== "undefined") window.dispatchEvent(new Event("qf-shell-refresh"));
+    }
   }, [locale]);
 
-  const departments = useMemo<HotelDept[]>(() => demoDepartments.map((item) => ({
-    id: item.id,
-    name: locale === "de" ? item.name.de : locale === "it" ? item.name.it : item.name.en,
-  })), [locale]);
-  const users = demoUsers;
+  useEffect(() => { void reload(); }, [reload]);
 
-  const saveTask = useCallback((id: string | undefined, input: TaskInput) => {
-    const nextId = id || nid();
-    const dept = departments.find((item) => item.id === input.departmentId);
-    const person = users.find((item) => item.id === input.assigneeId);
-    const row: PublicTask = {
-      id: nextId,
-      title: input.title.trim(),
-      note: input.note,
-      status: "open",
-      assignType: input.assignType,
-      assignee: input.assignType === "person" ? (person?.name ?? "") : (dept?.name ?? ""),
-      assigneeId: input.assigneeId,
-      departmentId: input.departmentId,
-      due: input.dueIso,
-      dueIso: input.dueIso,
-      origin: "",
-      creator: "You",
-    };
-    setTasks((prev) => id ? prev.map((item) => item.id === id ? { ...row, status: item.status } : item) : [row, ...prev]);
-    return nextId;
-  }, [departments, users]);
+  const saveTask = useCallback(async (id: string | undefined, input: TaskInput) => {
+    const res = await fetch(id ? `/api/tasks/${id}?locale=${locale}` : `/api/tasks?locale=${locale}`, {
+      method: id ? "PATCH" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) return null;
+    const data = await res.json() as { task?: { id: string } };
+    await reload();
+    return data.task?.id ?? id ?? null;
+  }, [locale, reload]);
 
-  const toggleTask = useCallback((id: string) => {
-    setTasks((prev) => prev.map((item) => item.id === id ? { ...item, status: item.status === "done" ? "open" : "done" } : item));
-  }, []);
+  const toggleTask = useCallback(async (id: string) => {
+    let next: "open" | "done" = "done";
+    setTasks((prev) => {
+      const current = prev.find((item) => item.id === id);
+      next = current?.status === "done" ? "open" : "done";
+      return prev.map((item) => item.id === id ? { ...item, status: next } : item);
+    });
+    const res = await fetch(`/api/tasks/${id}?locale=${locale}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: next }),
+    });
+    if (!res.ok) {
+      await reload();
+      return false;
+    }
+    await reload();
+    return true;
+  }, [locale, reload]);
 
   const saveChecklist = useCallback((id: string | undefined, input: ChecklistInput) => {
     const nextId = id || nid();
@@ -194,7 +213,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
   const periodic = checklists.filter((item) => item.status === "active" && item.nextDueIso && item.nextDueIso >= isoOffset(-1) && item.nextDueIso < week);
 
   const value = useMemo<Ctx>(() => ({
-    tasks, checklists, templates, departments, users, canManage: true, ready,
+    tasks, checklists, templates, departments, users, canManage, ready,
     openCount: open.length,
     overdueCount: overdue.length,
     dueTodayCount: dueToday.length,
@@ -203,7 +222,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     totalWeek: doneWeek + open.length,
     periodic,
     saveTask, toggleTask, saveChecklist, toggleItem, completeChecklist,
-  }), [checklists, completeChecklist, departments, doneWeek, dueToday.length, dueWeek.length, open.length, overdue.length, periodic, ready, saveChecklist, saveTask, tasks, templates, toggleItem, toggleTask, users]);
+  }), [canManage, checklists, completeChecklist, departments, doneWeek, dueToday.length, dueWeek.length, open.length, overdue.length, periodic, ready, saveChecklist, saveTask, tasks, templates, toggleItem, toggleTask, users]);
 
   return <TasksContext.Provider value={value}>{children}</TasksContext.Provider>;
 }

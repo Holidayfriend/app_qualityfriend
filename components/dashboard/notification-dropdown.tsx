@@ -9,7 +9,7 @@ import { notificationMessages, requestMessages } from "../../lib/i18n/dictionari
 import { BrandLoader } from "../ui/brand-loader";
 
 type Notification = { id:string; title:string; detail:string; icon:string; destination:string; read:boolean; createdAt:string };
-const icons:Record<string,{icon:string;background:string}>={housekeeping:{icon:"🧹",background:"#DCFCE7"},jobs:{icon:"📋",background:"#FEF3C7"},schedule:{icon:"📅",background:"#DBEAFE"},revenue:{icon:"📈",background:"#EDE9FE"},notes:{icon:"📝",background:"#FEF9E7"},manuals:{icon:"📖",background:"#F5E8CC"},repairs:{icon:"🔧",background:"#FEE2E2"},handovers:{icon:"🤝",background:"#E0E7FF"},"📝":{icon:"📝",background:"#FEF9E7"}};
+const icons:Record<string,{icon:string;background:string}>={housekeeping:{icon:"🧹",background:"#DCFCE7"},jobs:{icon:"📋",background:"#FEF3C7"},schedule:{icon:"📅",background:"#DBEAFE"},revenue:{icon:"📈",background:"#EDE9FE"},notes:{icon:"📝",background:"#FEF9E7"},manuals:{icon:"📖",background:"#F5E8CC"},repairs:{icon:"🔧",background:"#FEE2E2"},handovers:{icon:"🤝",background:"#E0E7FF"},tasks:{icon:"✅",background:"#DCFCE7"},"📝":{icon:"📝",background:"#FEF9E7"}};
 
 export function NotificationDropdown({ fullPage = false }: { fullPage?: boolean }) {
   const router=useRouter();

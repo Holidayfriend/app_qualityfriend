@@ -253,7 +253,8 @@
       "REPAIR": "Reparatur",
       "REPAIR_TEMPLATE": "Reparaturvorlage",
       "HANDOVER": "Übergabe",
-      "HANDOVER_TEMPLATE": "Übergabevorlage"
+      "HANDOVER_TEMPLATE": "Übergabevorlage",
+      "TASK": "Aufgabe"
     }
   },
   "settingsPageMessages": {
@@ -1113,11 +1114,15 @@
     "note": "Notiz",
     "noteOptional": "optional",
     "save": "Speichern",
-    "saveFailed": "Speichern fehlgeschlagen.",
+    "saveFailed": "Aufgabe konnte nicht gespeichert werden. Bitte erneut versuchen.",
+    "translating": "Wird in die anderen Sprachen übersetzt…",
+    "saved": "Aufgabe gespeichert.",
+    "savedEdit": "Aufgabe gespeichert.",
     "responsible": "Zuständig:",
     "dueLabel": "Fällig am:",
     "noteLabel": "Notiz:",
     "markDone": "✓ Als erledigt markieren",
+    "completedMeta": "Erledigt {when} von {name}",
     "reopen": "Wieder öffnen",
     "edit": "✏️ Bearbeiten",
     "statusOpen": "Offen",

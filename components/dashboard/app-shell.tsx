@@ -9,7 +9,7 @@ import { useI18n } from "../i18n/i18n-provider";
 import { aiApiSettingsMessages, moduleNavigationMessages, roleLevelNames } from "../../lib/i18n/dictionaries";
 
 type AppShellProps = { activeItem: string; children: ReactNode; pageTitle?: string };
-type ShellUser = { first_name: string; last_name: string; role: string; language: "EN" | "DE" | "IT"; hotel_name_en: string; hotel_name_de: string; hotel_name_it: string; allowed_modules: string[]; ai_key_configured?: boolean; repairs_open?: number };
+type ShellUser = { first_name: string; last_name: string; role: string; language: "EN" | "DE" | "IT"; hotel_name_en: string; hotel_name_de: string; hotel_name_it: string; allowed_modules: string[]; ai_key_configured?: boolean; repairs_open?: number; tasks_open?: number };
 
 const CACHE_KEY = "qf-shell-user";
 let memoryUser: ShellUser | null = null;
@@ -112,7 +112,7 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
   ];
   const groups = [
     { title: n.overview, items: [["dashboard", "🏠", n.dashboard, ""], ["ai", "✨", n.aiAssistant, n.new]] },
-    { title: n.operations, items: [["handovers", "🤝", n.handovers, ""], ["tasks", "✅", n.tasks, "7"], ["housekeeping", "🧹", n.housekeeping, ""], ["repairs", "🔧", n.repairs, currentUser?.repairs_open ? String(Math.min(currentUser.repairs_open, 99)) : ""], ["notes", "📝", n.notes, ""]] },
+    { title: n.operations, items: [["handovers", "🤝", n.handovers, ""], ["tasks", "✅", n.tasks, currentUser?.tasks_open ? String(Math.min(currentUser.tasks_open, 99)) : ""], ["housekeeping", "🧹", n.housekeeping, ""], ["repairs", "🔧", n.repairs, currentUser?.repairs_open ? String(Math.min(currentUser.repairs_open, 99)) : ""], ["notes", "📝", n.notes, ""]] },
     { title: n.staff, items: [["schedule", "📅", n.schedule, ""], ["recruiting", "🔍", n.recruiting, ""], ["manuals", "📖", n.manuals, ""]] },
     { title: n.strategy, items: [["budget", "📊", n.budget, ""], ["revenue", "🎯", n.revenue, ""], ["competitors", "🏆", moduleNavigation.competitors, ""]] },
     { title: n.administration, items: [["settings", "⚙️", n.settings, ""]] },

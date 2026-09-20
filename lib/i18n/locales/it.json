@@ -253,7 +253,8 @@
       "REPAIR": "riparazione",
       "REPAIR_TEMPLATE": "modello di riparazione",
       "HANDOVER": "consegna",
-      "HANDOVER_TEMPLATE": "modello di consegna"
+      "HANDOVER_TEMPLATE": "modello di consegna",
+      "TASK": "compito"
     }
   },
   "settingsPageMessages": {
@@ -1113,11 +1114,15 @@
     "note": "Nota",
     "noteOptional": "opzionale",
     "save": "Salva",
-    "saveFailed": "Salvataggio non riuscito.",
+    "saveFailed": "Impossibile salvare il compito. Riprova.",
+    "translating": "Traduzione nelle altre lingue…",
+    "saved": "Compito salvato.",
+    "savedEdit": "Compito salvato.",
     "responsible": "Responsabile:",
     "dueLabel": "Scadenza:",
     "noteLabel": "Nota:",
     "markDone": "✓ Segna come completato",
+    "completedMeta": "Completato {when} da {name}",
     "reopen": "Riapri",
     "edit": "✏️ Modifica",
     "statusOpen": "Aperto",

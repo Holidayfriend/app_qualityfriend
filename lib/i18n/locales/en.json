@@ -255,7 +255,8 @@
       "REPAIR": "repair",
       "REPAIR_TEMPLATE": "repair template",
       "HANDOVER": "handover",
-      "HANDOVER_TEMPLATE": "handover template"
+      "HANDOVER_TEMPLATE": "handover template",
+      "TASK": "task"
     }
   },
   "settingsPageMessages": {
@@ -1115,11 +1116,15 @@
     "note": "Note",
     "noteOptional": "optional",
     "save": "Save",
-    "saveFailed": "Could not save.",
+    "saveFailed": "Could not save the task. Please try again.",
+    "translating": "Translating into the other languages…",
+    "saved": "Task saved.",
+    "savedEdit": "Task saved.",
     "responsible": "Assignee:",
     "dueLabel": "Due on:",
     "noteLabel": "Note:",
     "markDone": "✓ Mark as done",
+    "completedMeta": "Completed {when} by {name}",
     "reopen": "Reopen",
     "edit": "✏️ Edit",
     "statusOpen": "Open",

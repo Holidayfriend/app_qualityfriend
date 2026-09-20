@@ -74,24 +74,28 @@ function aiToday(tasks: PublicTask[]) {
 
 export function TasksDashboardPage() {
   const t = useT();
-  const { tasks, templates, departments, canManage, ready, openCount, overdueCount, dueTodayCount, dueWeekCount, doneWeek, totalWeek, periodic } = useTasks();
+  const { tasks, templates, canManage, ready, openCount, overdueCount, dueTodayCount, dueWeekCount, doneWeek, totalWeek, periodic, toggleTask } = useTasks();
   const [dept, setDept] = useState("all");
   if (!ready) return <Shell title={t.pageTitle}><BrandLoader label={t.loading} /></Shell>;
   const today = aiToday(tasks);
   const deptNames = [...new Set(today.map((item) => item.assignee).filter(Boolean))];
   const shown = today.filter((item) => dept === "all" || item.assignee === dept);
   const pct = totalWeek ? Math.round((doneWeek / totalWeek) * 100) : 0;
-  const deptBars = departments.slice(0, 3).map((item) => {
-    const rows = tasks.filter((task) => task.departmentId === item.id || task.assignee === item.name);
-    const done = rows.filter((task) => task.status === "done").length;
-    return { name: item.name, done, total: rows.length || 0 };
-  }).filter((item) => item.total);
+  const weekBars = [...tasks.reduce((map, task) => {
+    const name = task.assignee.trim();
+    if (!name) return map;
+    const entry = map.get(name) ?? { name, done: 0, total: 0 };
+    entry.total += 1;
+    if (task.status === "done") entry.done += 1;
+    map.set(name, entry);
+    return map;
+  }, new Map<string, { name: string; done: number; total: number }>()).values()].sort((a, b) => b.total - a.total);
 
   return <Shell title={t.pageTitle}>
     <div className="filter-row" style={{ marginBottom: 18 }}>
       <Link href="/tasks" className="filter-btn active" style={{ padding: "8px 16px", fontSize: 13 }}>{t.tabToday}</Link>
       <Link href="/tasks/list" className="filter-btn" style={{ padding: "8px 16px", fontSize: 13 }}>{t.tabTasks}</Link>
-      <Link href="/tasks/checklists" className="filter-btn" style={{ padding: "8px 16px", fontSize: 13 }}>{t.tabChecklists}</Link>
+      {canManage ? <Link href="/tasks/checklists" className="filter-btn" style={{ padding: "8px 16px", fontSize: 13 }}>{t.tabChecklists}</Link> : null}
     </div>
     <div className="ai-banner" style={{ marginBottom: 18 }}>
       <div style={{ fontSize: 20 }}>✨</div>
@@ -117,16 +121,16 @@ export function TasksDashboardPage() {
             {shown.length ? shown.map((item) => {
               const tag = prio(item, t);
               const done = item.status === "done";
-              return <Link key={item.id} href={`/tasks/${item.id}`} className="todo" style={{ textDecoration: "none", color: "inherit" }}>
-                <div className={`todo-cb${done ? " done" : ""}`}>{done ? "✓" : ""}</div>
-                <div className={`todo-t${done ? " done" : ""}`}>{item.title}</div>
+              return <div key={item.id} className="todo">
+                <button type="button" className={`todo-cb${done ? " done" : ""}`} aria-label={done ? t.reopen : t.markDone} onClick={() => void toggleTask(item.id)}>{done ? "✓" : ""}</button>
+                <Link href={`/tasks/${item.id}`} className={`todo-t${done ? " done" : ""}`}>{item.title}</Link>
                 <div className="todo-dept">{item.assignee}</div>
                 <span className={`chip ${tag.chip}`}>{tag.label}</span>
-              </Link>;
+              </div>;
             }) : <div style={{ fontSize: 12.5, color: "var(--text3)" }}>{t.emptyTasks}</div>}
           </div>
         </div>
-        <div className="card">
+        {canManage ? <div className="card">
           <div className="ch"><div className="ct">{t.periodic}</div></div>
           <div className="cb">
             {periodic.length ? periodic.map((item) => {
@@ -139,36 +143,36 @@ export function TasksDashboardPage() {
               </Link>;
             }) : <div style={{ fontSize: 12.5, color: "var(--text3)" }}>{t.emptyChecklists}</div>}
           </div>
-        </div>
+        </div> : null}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-        <div className="card">
+        {canManage ? <div className="card">
           <div className="ch"><div className="ct">{t.weekCard}</div></div>
           <div className="cb">
             <div style={{ marginBottom: 12 }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}><span>{t.weekDone}</span><span style={{ fontWeight: 600 }}>{doneWeek}/{totalWeek}</span></div>
               <div className="progress-bar"><div className="progress-fill bar-g" style={{ width: `${pct || 0}%` }} /></div>
             </div>
-            {deptBars.map((item, index) => {
+            {weekBars.map((item, index) => {
               const bars = ["bar-g", "bar-a", "bar-r"];
               const width = item.total ? Math.round((item.done / item.total) * 100) : 0;
-              return <div key={item.name} style={{ marginBottom: index === deptBars.length - 1 ? 0 : 12 }}>
+              return <div key={item.name} style={{ marginBottom: index === weekBars.length - 1 ? 0 : 12 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}><span>{item.name}</span><span style={{ fontWeight: 600 }}>{item.done}/{item.total}</span></div>
-                <div className="progress-bar"><div className={`progress-fill ${bars[index] || "bar-g"}`} style={{ width: `${width}%` }} /></div>
+                <div className="progress-bar"><div className={`progress-fill ${bars[index % bars.length]}`} style={{ width: `${width}%` }} /></div>
               </div>;
             })}
           </div>
-        </div>
-        <div className="card">
+        </div> : null}
+        {canManage ? <div className="card">
           <div className="ch"><div className="ct">{t.aiCreate}</div></div>
           <div className="cb">
             <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 12 }}>{t.aiCreateHint}</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {templates.map((item) => <Link key={item.id} href={`/tasks/checklists/new?template=${item.id}`} className="btn btn-ghost" style={{ justifyContent: "flex-start" }}>📋 {item.title}</Link>)}
-              {canManage ? <Link href="/tasks/checklists/new?kind=template" className="btn btn-primary" style={{ justifyContent: "flex-start" }}>{t.ownTemplate}</Link> : null}
+              <Link href="/tasks/checklists/new?kind=template" className="btn btn-primary" style={{ justifyContent: "flex-start" }}>{t.ownTemplate}</Link>
             </div>
           </div>
-        </div>
+        </div> : null}
       </div>
     </div>
   </Shell>;
@@ -185,7 +189,7 @@ export function TasksListPage() {
     <div className="filter-row" style={{ marginBottom: 18 }}>
       <Link href="/tasks" className="filter-btn" style={{ padding: "8px 16px", fontSize: 13 }}>{t.tabToday}</Link>
       <Link href="/tasks/list" className="filter-btn active" style={{ padding: "8px 16px", fontSize: 13 }}>{t.tabTasks}</Link>
-      <Link href="/tasks/checklists" className="filter-btn" style={{ padding: "8px 16px", fontSize: 13 }}>{t.tabChecklists}</Link>
+      {canManage ? <Link href="/tasks/checklists" className="filter-btn" style={{ padding: "8px 16px", fontSize: 13 }}>{t.tabChecklists}</Link> : null}
     </div>
     <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
       <div className="filter-row" style={{ marginBottom: 0 }}>
@@ -246,13 +250,16 @@ export function TaskFormPage({ id }: { id?: string }) {
     event.preventDefault();
     if (!title.trim()) { toast({ message: t.titleRequired, tone: "error" }); return; }
     setBusy(true);
-    const nextId = saveTask(id, { title, assignType, departmentId, assigneeId, dueIso, note });
+    const nextId = await saveTask(id, { title, assignType, departmentId, assigneeId, dueIso, note });
     setBusy(false);
-    router.push(`/tasks/${nextId}`);
+    if (!nextId) { toast({ message: t.saveFailed, tone: "error" }); return; }
+    toast({ message: id ? t.savedEdit : t.saved, tone: "success" });
+    router.push("/tasks/list");
   }
 
   if (!ready) return <Shell title={id ? t.editTask : t.createTask}><BrandLoader label={t.loading} /></Shell>;
   return <Shell title={id ? t.editTask : t.createTask}>
+    {busy ? <BrandLoader label={t.translating} overlay /> : null}
     <Link href="/tasks/list" className="back-link">{t.backTasks}</Link>
     <form className="card" style={{ maxWidth: 460 }} onSubmit={onSubmit}>
       <div className="ch"><div className="ct">{id ? t.editTask : t.createTask}</div></div>
@@ -275,13 +282,18 @@ export function TaskFormPage({ id }: { id?: string }) {
 
 export function TaskDetailPage({ id }: { id: string }) {
   const t = useT();
+  const toast = useToast();
   const { tasks, canManage, ready, toggleTask } = useTasks();
+  const [busy, setBusy] = useState(false);
   const item = tasks.find((row) => row.id === id);
   if (!ready) return <Shell title={t.pageTitle}><BrandLoader label={t.loading} /></Shell>;
   if (!item) return <Shell title={t.pageTitle}><Link href="/tasks/list" className="back-link">{t.backTasks}</Link><div className="card" style={{ maxWidth: 460 }}><div className="cb">{t.emptyTasks}</div></div></Shell>;
 
   async function toggle() {
-    toggleTask(id);
+    setBusy(true);
+    const ok = await toggleTask(id);
+    setBusy(false);
+    if (!ok) toast({ message: t.saveFailed, tone: "error" });
   }
 
   return <Shell title={item.title}>
@@ -293,9 +305,10 @@ export function TaskDetailPage({ id }: { id: string }) {
         <div><span style={{ color: "var(--text3)" }}>{t.dueLabel}</span> {item.due || "–"}</div>
         <div><span style={{ color: "var(--text3)" }}>{t.noteLabel}</span> {item.note || "–"}</div>
         {item.origin ? <div style={{ fontSize: 11.5, color: "var(--accent)" }}>{item.origin}</div> : null}
+        {item.status === "done" && item.completedAt ? <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 4 }}>{t.completedMeta.replace("{when}", item.completedAt).replace("{name}", item.completedBy || "–")}</div> : null}
       </div>
       <div className="cb" style={{ borderTop: "1px solid var(--border)", display: "flex", gap: 10 }}>
-        <button type="button" className="btn btn-primary" onClick={() => void toggle()}>{item.status === "done" ? t.reopen : t.markDone}</button>
+        <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void toggle()}>{item.status === "done" ? t.reopen : t.markDone}</button>
         {canManage ? <Link href={`/tasks/${id}/edit`} className="btn btn-ghost">{t.edit}</Link> : null}
       </div>
     </div>
