@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { AppShell } from "../dashboard/app-shell";
+import { BrandLoader } from "../ui/brand-loader";
 import { useI18n } from "../i18n/i18n-provider";
 import { getScheduleMessages, type ScheduleMessages } from "../../lib/i18n/schedule-messages";
-import { DEPT_HOURS, type AbsenceCategory, type AbsenceStatus, type Employee, type ShiftKey } from "../../lib/schedule/demo-data";
+import { type AbsenceCategory, type AbsenceStatus, type Employee, type ShiftKey } from "../../lib/schedule/demo-data";
+import { formatDayHeader, formatWeekRange } from "../../lib/schedule/week";
 import { useSchedule } from "./schedule-provider";
 
 type T = ScheduleMessages;
@@ -69,12 +71,18 @@ function Shell({ title, children, tabs }: { title: string; children: ReactNode; 
   </AppShell>;
 }
 
+function deptLabel(emp: Employee, t: T) {
+  return emp.departmentName || t.noDepartment;
+}
+
 export function SchedulePlanPage() {
   const t = useT();
+  const { locale } = useI18n();
   const router = useRouter();
-  const { isPlanner, employees } = useSchedule();
+  const { isPlanner, ready, employees, departments, weekStartIso, weekDates, goToPrevWeek, goToNextWeek } = useSchedule();
   const [deptFilter, setDeptFilter] = useState("all");
-  const visible = employees.filter((emp) => deptFilter === "all" || emp.dept === deptFilter);
+  const visible = employees.filter((emp) => deptFilter === "all" || (deptFilter === "none" ? !emp.departmentId : emp.departmentId === deptFilter));
+  const dayLabels = weekDates.map((iso) => formatDayHeader(iso, locale));
 
   function copyWeek() {
     const target = window.prompt(t.copyPrompt, t.copyPromptValue);
@@ -88,6 +96,7 @@ export function SchedulePlanPage() {
     window.alert(fill(t.exportDone, { format: format.toUpperCase() }));
   }
 
+  if (!ready) return <Shell title={t.pageTitle} tabs><BrandLoader label={t.loading} /></Shell>;
   if (!isPlanner) {
     router.replace("/schedule/own");
     return <Shell title={t.pageTitle} tabs><p style={{ fontSize: 13, color: "var(--text2)" }}>{t.tabOwn}</p></Shell>;
@@ -95,22 +104,20 @@ export function SchedulePlanPage() {
 
   return <Shell title={t.pageTitle} tabs>
     <div className="kpi-row" style={{ gridTemplateColumns: "repeat(3,1fr)", marginBottom: 18 }}>
-      <div className="kpi"><div className="kpi-lbl">{t.kpiStaffWeek}</div><div className="kpi-val">8</div><div className="kpi-sub">{t.kpiStaffSub}</div></div>
+      <div className="kpi"><div className="kpi-lbl">{t.kpiStaffWeek}</div><div className="kpi-val">{employees.length}</div><div className="kpi-sub">{t.kpiStaffSub}</div></div>
       <div className="kpi"><div className="kpi-lbl">{t.kpiHours}</div><div className="kpi-val">312<span>{t.hoursUnit}</span></div><div className="kpi-sub"><span className="chip chip-g">{t.kpiHoursChip}</span></div></div>
       <div className="kpi"><div className="kpi-lbl">{t.kpiOpenShifts}</div><div className="kpi-val" style={{ color: "var(--amber)" }}>1</div><div className="kpi-sub"><span className="chip chip-a">{t.kpiOpenChip}</span></div></div>
     </div>
     <div className="card" style={{ marginBottom: 18 }}>
       <div className="ch" style={{ flexWrap: "wrap", gap: 8 }}>
-        <div className="ct">{t.weekPlan}</div>
+        <div className="ct">{fill(t.weekPlan, { range: formatWeekRange(weekStartIso, locale) })}</div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          <button type="button" className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => window.alert(t.alertPrevWeek)}>{t.prevWeek}</button>
-          <button type="button" className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => window.alert(t.alertNextWeek)}>{t.nextWeek}</button>
+          <button type="button" className="btn btn-ghost" style={{ fontSize: 12 }} onClick={goToPrevWeek}>{t.prevWeek}</button>
+          <button type="button" className="btn btn-ghost" style={{ fontSize: 12 }} onClick={goToNextWeek}>{t.nextWeek}</button>
           <select className="field-select" style={{ marginBottom: 0, padding: "6px 10px", fontSize: 12, width: "auto" }} value={deptFilter} onChange={(event) => setDeptFilter(event.target.value)}>
             <option value="all">{t.allDepartments}</option>
-            <option value="reception">{t.depts.reception}</option>
-            <option value="housekeeping">{t.depts.housekeeping}</option>
-            <option value="restaurant">{t.depts.restaurant}</option>
-            <option value="management">{t.depts.management}</option>
+            {departments.map((dept) => <option key={dept.id} value={dept.id}>{dept.name}</option>)}
+            {employees.some((emp) => !emp.departmentId) ? <option value="none">{t.noDepartment}</option> : null}
           </select>
           <Link href="/schedule/templates" className="btn btn-ghost" style={{ fontSize: 12 }}>{t.templatesBtn}</Link>
           <button type="button" className="btn btn-ghost" style={{ fontSize: 12 }} onClick={copyWeek}>{t.copyWeek}</button>
@@ -122,8 +129,8 @@ export function SchedulePlanPage() {
       <div className="cb" style={{ overflowX: "auto" }}>
         <div className="dp-grid">
           <div className="dp-head" style={{ textAlign: "left" }}>{t.employeeCol}</div>
-          {t.days.map((day) => <div key={day} className="dp-head">{day}</div>)}
-          {visible.map((emp) => <EmployeeRow key={emp.key} emp={emp} t={t} />)}
+          {dayLabels.map((day, index) => <div key={weekDates[index]} className="dp-head">{day}</div>)}
+          {visible.length ? visible.map((emp) => <EmployeeRow key={emp.key} emp={emp} t={t} />) : <div className="dp-name" style={{ gridColumn: "1 / -1", color: "var(--text3)", padding: "16px 0" }}>{t.emptyEmployees}</div>}
         </div>
       </div>
     </div>
@@ -136,7 +143,7 @@ export function SchedulePlanPage() {
 
 function EmployeeRow({ emp, t }: { emp: Employee; t: T }) {
   return <>
-    <div className="dp-name">{emp.name}<div className="dp-dept">{t.depts[emp.dept]}</div></div>
+    <div className="dp-name">{emp.name}<div className="dp-dept">{deptLabel(emp, t)}</div></div>
     {emp.shifts.map((shift, index) => {
       const meta = shiftMeta(shift, t);
       return <Link key={`${emp.key}-${index}`} href={`/schedule/shift?employee=${emp.key}&day=${index}`} className="dp-cell"><div className={`dp-shift ${meta.cls}`}>{meta.label}</div></Link>;
@@ -146,24 +153,27 @@ function EmployeeRow({ emp, t }: { emp: Employee; t: T }) {
 
 export function ScheduleOwnPage() {
   const t = useT();
-  const { fullName, employees } = useSchedule();
-  const own = employees.find((item) => item.key === "klaus") ?? employees[0];
+  const { locale } = useI18n();
+  const { ready, currentUserId, fullName, employees, weekDates } = useSchedule();
+  const own = employees.find((item) => item.key === currentUserId) ?? employees[0];
+  const dayLabels = weekDates.map((iso) => formatDayHeader(iso, locale));
+  if (!ready) return <Shell title={t.pageTitle} tabs><BrandLoader label={t.loading} /></Shell>;
   return <Shell title={t.pageTitle} tabs>
     <section className="card" style={{ marginBottom: 16 }}>
       <div className="ch">
-        <div className="ct">{fill(t.ownWeek, { name: fullName || own.name })}</div>
+        <div className="ct">{fill(t.ownWeek, { name: fullName || own?.name || "" })}</div>
         <Link href="/schedule/request" className="btn btn-primary" style={{ fontSize: 12 }}>{t.requestBtn}</Link>
       </div>
       <div className="cb">
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 8 }}>
-          {t.days.map((day, index) => {
-            const meta = shiftMeta(own.shifts[index], t);
+        {own ? <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 8 }}>
+          {dayLabels.map((day, index) => {
+            const meta = shiftMeta(own.shifts[index] ?? "off", t);
             return <div key={day} style={{ textAlign: "center" }}>
               <div style={{ fontSize: 11, color: "var(--text3)", fontWeight: 600, marginBottom: 6 }}>{day}</div>
               <div className={`dp-shift ${meta.cls}`}>{meta.label}</div>
             </div>;
           })}
-        </div>
+        </div> : <p style={{ fontSize: 13, color: "var(--text3)" }}>{t.emptyEmployees}</p>}
       </div>
     </section>
   </Shell>;
@@ -171,17 +181,18 @@ export function ScheduleOwnPage() {
 
 export function ScheduleAbsencesPage() {
   const t = useT();
-  const { isPlanner, absences, setAbsences, decideAbsence, employees } = useSchedule();
+  const { isPlanner, ready, absences, setAbsences, decideAbsence, employees, currentUserId } = useSchedule();
   const [filter, setFilter] = useState<"all" | AbsenceStatus>("all");
-  const own = employees.find((item) => item.key === "klaus") ?? employees[0];
+  const own = employees.find((item) => item.key === currentUserId) ?? employees[0];
   const rows = absences.filter((item) => filter === "all" || item.status === filter);
+  if (!ready) return <Shell title={t.pageTitle} tabs><BrandLoader label={t.loading} /></Shell>;
   return <Shell title={t.pageTitle} tabs>
     <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
       <div className="filter-row" style={{ marginBottom: 0 }}>
         {([["all", t.filterAll], ["open", t.filterOpen], ["approved", t.filterApproved], ["rejected", t.filterRejected]] as const).map(([id, label]) =>
           <button key={id} type="button" className={`filter-btn${filter === id ? " active" : ""}`} onClick={() => setFilter(id)}>{label}</button>)}
       </div>
-      <Link href={`/schedule/request?employee=${own.key}`} className="btn btn-primary" style={{ marginLeft: "auto" }}>{t.addAbsence}</Link>
+      <Link href={`/schedule/request${own ? `?employee=${own.key}` : ""}`} className="btn btn-primary" style={{ marginLeft: "auto" }}>{t.addAbsence}</Link>
     </div>
     <div className="card">
       <table className="bud-table" style={{ width: "100%" }}>
@@ -211,25 +222,26 @@ export function ScheduleAbsencesPage() {
 export function ScheduleStatsPage() {
   const t = useT();
   const router = useRouter();
-  const { isPlanner } = useSchedule();
+  const { isPlanner, ready, departments } = useSchedule();
+  if (!ready) return <Shell title={t.pageTitle} tabs><BrandLoader label={t.loading} /></Shell>;
   if (!isPlanner) {
     router.replace("/schedule/own");
     return <Shell title={t.pageTitle} tabs />;
   }
   return <Shell title={t.pageTitle} tabs>
     <div className="kpi-row" style={{ marginBottom: 18 }}>
-      <div className="kpi"><div className="kpi-lbl">{t.kpiTotalHours}</div><div className="kpi-val">312<span>{t.hoursUnit}</span></div></div>
-      <div className="kpi"><div className="kpi-lbl">{t.kpiAvgHours}</div><div className="kpi-val">39<span>{t.hoursUnit}</span></div></div>
-      <div className="kpi"><div className="kpi-lbl">{t.kpiOvertime}</div><div className="kpi-val" style={{ color: "var(--amber)" }}>6<span>{t.hoursUnit}</span></div></div>
-      <div className="kpi"><div className="kpi-lbl">{t.kpiAbsenceDays}</div><div className="kpi-val">5<span>{t.daysUnit}</span></div></div>
+      <div className="kpi"><div className="kpi-lbl">{t.kpiTotalHours}</div><div className="kpi-val">0<span>{t.hoursUnit}</span></div></div>
+      <div className="kpi"><div className="kpi-lbl">{t.kpiAvgHours}</div><div className="kpi-val">0<span>{t.hoursUnit}</span></div></div>
+      <div className="kpi"><div className="kpi-lbl">{t.kpiOvertime}</div><div className="kpi-val">0<span>{t.hoursUnit}</span></div></div>
+      <div className="kpi"><div className="kpi-lbl">{t.kpiAbsenceDays}</div><div className="kpi-val">0<span>{t.daysUnit}</span></div></div>
     </div>
     <div className="card">
       <div className="ch"><div className="ct">{t.hoursByDept}</div></div>
       <div className="cb">
-        {DEPT_HOURS.map((row, index) => <div key={row.dept} style={{ marginBottom: index === DEPT_HOURS.length - 1 ? 0 : 10 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}><span>{t.depts[row.dept]}</span><span>{row.hours}</span></div>
-          <div className="progress-bar"><div className={`progress-fill ${row.bar}`} style={{ width: row.width }} /></div>
-        </div>)}
+        {departments.length ? departments.map((dept, index) => <div key={dept.id} style={{ marginBottom: index === departments.length - 1 ? 0 : 10 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}><span>{dept.name}</span><span>{t.dash}</span></div>
+          <div className="progress-bar"><div className="progress-fill bar-a" style={{ width: "0%" }} /></div>
+        </div>) : <p style={{ fontSize: 13, color: "var(--text3)" }}>{t.empty}</p>}
       </div>
     </div>
   </Shell>;
@@ -237,9 +249,11 @@ export function ScheduleStatsPage() {
 
 export function ScheduleShiftPage({ employee, day }: { employee: string; day: number }) {
   const t = useT();
+  const { locale } = useI18n();
   const router = useRouter();
-  const { employees, templates, saveShift } = useSchedule();
+  const { ready, employees, templates, saveShift, weekDates } = useSchedule();
   const emp = employees.find((item) => item.key === employee) ?? employees[0];
+  const dayLabel = weekDates[day] ? formatDayHeader(weekDates[day], locale) : t.days[day] ?? t.days[0];
   const [form, setForm] = useState({ template: "", start: "09:00", end: "17:00", pause: "", note: "", repeat: "none" });
 
   function applyTemplate(value: string) {
@@ -254,15 +268,19 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
   }
 
   function save() {
+    if (!emp) return;
     saveShift(emp.key, day, form.start, form.end, form.template);
     window.alert(form.repeat === "4weeks" ? t.savedRepeat4 : form.repeat === "month" ? t.savedRepeatMonth : t.saved);
     router.push("/schedule");
   }
 
+  if (!ready) return <Shell title={t.shiftTitle}><BrandLoader label={t.loading} /></Shell>;
+  if (!emp) return <Shell title={t.shiftTitle}><Link href="/schedule" className="back-link">{t.back}</Link><p style={{ fontSize: 13, color: "var(--text3)" }}>{t.emptyEmployees}</p></Shell>;
+
   return <Shell title={t.shiftTitle}>
     <Link href="/schedule" className="back-link">{t.back}</Link>
     <section className="card" style={{ maxWidth: 460 }}>
-      <div className="ch"><div className="ct">{emp.name} · {t.days[day] ?? t.days[0]}</div></div>
+      <div className="ch"><div className="ct">{emp.name} · {dayLabel}</div></div>
       <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div><label className="field-lbl">{t.presetShift}</label>
           <select className="field-select" value={form.template} onChange={(event) => applyTemplate(event.target.value)}>
@@ -322,14 +340,26 @@ export function ScheduleTemplatesPage() {
 export function ScheduleRequestPage({ employee }: { employee?: string }) {
   const t = useT();
   const router = useRouter();
-  const { employees, isPlanner, setAbsences } = useSchedule();
+  const { ready, employees, isPlanner, currentUserId, setAbsences } = useSchedule();
   const [form, setForm] = useState({
-    empKey: employee || "klaus",
+    empKey: employee || "",
     category: "vacation" as AbsenceCategory,
     start: "",
     end: "",
     note: "",
   });
+
+  useEffect(() => {
+    setForm((current) => {
+      if (current.empKey && employees.some((item) => item.key === current.empKey)) return current;
+      const next = employee && employees.some((item) => item.key === employee)
+        ? employee
+        : currentUserId && employees.some((item) => item.key === currentUserId)
+          ? currentUserId
+          : employees[0]?.key ?? "";
+      return current.empKey === next ? current : { ...current, empKey: next };
+    });
+  }, [currentUserId, employee, employees]);
 
   function save(event: FormEvent) {
     event.preventDefault();
@@ -350,6 +380,8 @@ export function ScheduleRequestPage({ employee }: { employee?: string }) {
     window.alert(t.requestSent);
     router.push(isPlanner ? "/schedule/absences" : "/schedule/own");
   }
+
+  if (!ready) return <Shell title={t.requestTitle}><BrandLoader label={t.loading} /></Shell>;
 
   return <Shell title={t.requestTitle}>
     <Link href="/schedule" className="back-link">{t.back}</Link>
