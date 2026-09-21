@@ -8,6 +8,7 @@ import { indexManualDocument } from "../lib/manuals/index-job";
 import { generateAllHotelAiRecommendations } from "../lib/ai/daily-recommendations";
 import { runHousekeepingAiAllocation } from "../lib/housekeeping/ai-allocate";
 import { scoreRecruitingApplication } from "../lib/recruiting/ai-score-job";
+import { spawnAllHotelChecklists } from "../lib/checklists/spawn";
 import { syncAllHotelWeather } from "../lib/weather/sync";
 
 const boss = createJobQueue(true);
@@ -66,6 +67,17 @@ async function main() {
       const result = await runHousekeepingAiAllocation(prisma, job.data.hotelTenantId, job.data.timeZone);
       console.log(`[worker] Housekeeping AI allocate ${job.id} completed`, result);
       return result;
+    } finally {
+      await prisma.$disconnect();
+    }
+  });
+  await boss.schedule(queues.checklistsDaily, "0 6 * * *", {}, { tz: "UTC", singletonKey: "checklists-daily", singletonSeconds: 3600 });
+  await boss.work(queues.checklistsDaily, async () => {
+    const prisma = createJobPrisma(2);
+    try {
+      const results = await spawnAllHotelChecklists(prisma);
+      console.log(`[worker] Checklists daily completed`, { hotels: results.filter((item) => item.ok).length, failed: results.filter((item) => item.ok === false).length });
+      return { hotels: results.length };
     } finally {
       await prisma.$disconnect();
     }

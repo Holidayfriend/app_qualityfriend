@@ -550,6 +550,7 @@ model HotelTenant {
   repairs                      Repair[]
   handovers                    Handover[]
   hotelTasks                   HotelTask[]
+  hotelChecklists              HotelChecklist[]
   manualDocuments              ManualDocument[]
   manualChunks                 ManualChunk[]
   aiConversations              AiConversation[]
@@ -760,6 +761,10 @@ model User {
   hotelTasksCreated   HotelTask[] @relation("HotelTaskAuthor")
   hotelTasksAssigned  HotelTask[] @relation("HotelTaskAssignee")
   hotelTasksCompleted HotelTask[] @relation("HotelTaskCompletedBy")
+  hotelChecklistsCreated   HotelChecklist[] @relation("HotelChecklistAuthor")
+  hotelChecklistsAssigned  HotelChecklist[] @relation("HotelChecklistAssignee")
+  hotelChecklistsCompleted HotelChecklist[] @relation("HotelChecklistCompletedBy")
+  hotelChecklistCompletions HotelChecklistCompletion[]
   manualsCreated    ManualDocument[]     @relation("ManualDocumentAuthor")
   aiConversations   AiConversation[]
 
@@ -888,6 +893,7 @@ model Department {
   repairShares              RepairShareDepartment[]
   handoverShares            HandoverShareDepartment[]
   hotelTasks                HotelTask[]
+  hotelChecklists           HotelChecklist[]
   manuals                   ManualDocument[]
 
   @@unique([hotelTenantId, nameEn])
@@ -1567,4 +1573,125 @@ model HotelTask {
   @@index([completedById])
   @@index([departmentId])
   @@map("hotel_tasks")
+}
+
+enum HotelChecklistKind {
+  CHECKLIST
+  TEMPLATE
+}
+
+enum HotelChecklistStatus {
+  ACTIVE
+  DRAFT
+  ARCHIVED
+}
+
+enum HotelChecklistAssignType {
+  ALL
+  DEPT
+  PERSON
+}
+
+enum HotelChecklistDueType {
+  ONCE
+  RECURRING
+}
+
+enum HotelChecklistRecurrence {
+  ONCE
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum HotelChecklistOrigin {
+  ORIGINAL
+  RUN
+}
+
+enum HotelChecklistItemState {
+  OPEN
+  DONE
+  EXCEPTION
+}
+
+model HotelChecklist {
+  id              String                    @id @default(uuid()) @db.Uuid
+  hotelTenantId   String                    @map("hotel_tenant_id") @db.Uuid
+  createdById     String                    @map("created_by_id") @db.Uuid
+  originalId      String?                   @map("original_id") @db.Uuid
+  assigneeId      String?                   @map("assignee_id") @db.Uuid
+  departmentId    String?                   @map("department_id") @db.Uuid
+  completedById   String?                   @map("completed_by_id") @db.Uuid
+  origin          HotelChecklistOrigin      @default(ORIGINAL)
+  kind            HotelChecklistKind        @default(CHECKLIST)
+  status          HotelChecklistStatus      @default(ACTIVE)
+  assignType      HotelChecklistAssignType  @default(ALL) @map("assign_type")
+  dueType         HotelChecklistDueType     @default(ONCE) @map("due_type")
+  recurrence      HotelChecklistRecurrence  @default(ONCE)
+  title           String                    @db.VarChar(180)
+  titleDe         String                    @map("title_de") @db.VarChar(180)
+  titleIt         String                    @map("title_it") @db.VarChar(180)
+  description     String                    @default("") @db.Text
+  descriptionDe   String                    @default("") @map("description_de") @db.Text
+  descriptionIt   String                    @default("") @map("description_it") @db.Text
+  weekdays        String[]                  @default([])
+  startAt         DateTime?                 @map("start_at") @db.Date
+  endAt           DateTime?                 @map("end_at") @db.Date
+  dueAt           DateTime?                 @map("due_at") @db.Date
+  originalLocale  String                    @default("en") @map("original_locale") @db.VarChar(8)
+  completedAt     DateTime?                 @map("completed_at") @db.Timestamptz(3)
+  createdAt       DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant     HotelTenant               @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+  createdBy       User                      @relation("HotelChecklistAuthor", fields: [createdById], references: [id], onDelete: Restrict)
+  assignee        User?                     @relation("HotelChecklistAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  completedBy     User?                     @relation("HotelChecklistCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+  department      Department?               @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  original        HotelChecklist?           @relation("ChecklistRuns", fields: [originalId], references: [id], onDelete: Cascade)
+  runs            HotelChecklist[]          @relation("ChecklistRuns")
+  items           HotelChecklistItem[]
+  completions     HotelChecklistCompletion[]
+
+  @@unique([originalId, dueAt])
+  @@index([hotelTenantId, kind, status])
+  @@index([hotelTenantId, origin, completedAt])
+  @@index([createdById])
+  @@index([assigneeId])
+  @@index([completedById])
+  @@index([departmentId])
+  @@map("hotel_checklists")
+}
+
+model HotelChecklistItem {
+  id           String                   @id @default(uuid()) @db.Uuid
+  checklistId  String                   @map("checklist_id") @db.Uuid
+  sortOrder    Int                      @default(0) @map("sort_order")
+  text         String                   @db.VarChar(300)
+  textDe       String                   @map("text_de") @db.VarChar(300)
+  textIt       String                   @map("text_it") @db.VarChar(300)
+  state        HotelChecklistItemState  @default(OPEN)
+  comment      String                   @default("") @db.Text
+  createdAt    DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+  checklist    HotelChecklist           @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+
+  @@index([checklistId, sortOrder])
+  @@map("hotel_checklist_items")
+}
+
+model HotelChecklistCompletion {
+  id           String         @id @default(uuid()) @db.Uuid
+  checklistId  String         @map("checklist_id") @db.Uuid
+  authorId     String         @map("author_id") @db.Uuid
+  comment      String         @default("") @db.Text
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  checklist    HotelChecklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  author       User           @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([checklistId, createdAt])
+  @@index([authorId])
+  @@map("hotel_checklist_completions")
 }

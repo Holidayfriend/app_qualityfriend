@@ -11,6 +11,7 @@
     "jobs:smoke": "tsx scripts/jobs-smoke.ts",
     "housekeeping:daily": "tsx scripts/housekeeping-daily.ts",
     "weather:daily": "tsx scripts/weather-daily.ts",
+    "checklists:daily": "tsx scripts/checklists-daily.ts",
     "ai_recomendation:daily": "tsx scripts/ai-recommendation-daily.ts",
     "test:housekeeping": "tsx --test tests/housekeeping-asa-file.test.ts tests/housekeeping-import.test.ts tests/housekeeping-daily-plan.test.ts",
     "test:weather": "tsx --test tests/weather-daily.test.ts"

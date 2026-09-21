@@ -19,6 +19,9 @@ export type PublicTask = {
 export type PublicChecklistItem = { id: string; text: string; state: "open" | "done" | "exception"; comment: string };
 export type PublicChecklist = {
   id: string;
+  originalId: string;
+  origin: "original" | "run";
+  isOriginal: boolean;
   kind: "checklist" | "template";
   title: string;
   desc: string;
@@ -35,6 +38,8 @@ export type PublicChecklist = {
   endIso: string;
   nextDue: string;
   nextDueIso: string;
+  completedAt: string;
+  completedBy: string;
   items: PublicChecklistItem[];
   progress: string;
   completions: { id: string; result: string; author: string; date: string }[];
@@ -110,29 +115,29 @@ export function seedChecklists(locale: string): PublicChecklist[] {
   const item = (id: string, text: L, state: "open" | "done" | "exception" = "open") => ({ id, text: pick(text, locale), state, comment: "" });
   return [
     {
-      id: "cl-1", kind: "checklist", title: pick(copy.c1, locale), desc: "", status: "active", assignType: "dept",
+      id: "cl-1", originalId: "", origin: "original", isOriginal: true, kind: "checklist", title: pick(copy.c1, locale), desc: "", status: "active", assignType: "dept",
       assignee: pick(demoDepartments[6].name, locale), assigneeId: "", departmentId: "d-sec", dueType: "recurring", recurrence: "weekly",
       weekdays: ["mo"], dueIso: "", startIso: today(), endIso: "", nextDue: wd(-2), nextDueIso: wd(-2),
-      items: [item("i-1a", copy.c1, "done")], progress: "1/1",
+      items: [item("i-1a", copy.c1, "done")], progress: "1/1", completedAt: "", completedBy: "",
       completions: [{ id: "h1", result: "done", author: "Maria Rieder", date: wd(-2) }],
     },
     {
-      id: "cl-2", kind: "checklist", title: pick(copy.c2, locale), desc: "", status: "active", assignType: "dept",
+      id: "cl-2", originalId: "", origin: "original", isOriginal: true, kind: "checklist", title: pick(copy.c2, locale), desc: "", status: "active", assignType: "dept",
       assignee: pick(demoDepartments[5].name, locale), assigneeId: "", departmentId: "d-tech", dueType: "recurring", recurrence: "weekly",
       weekdays: ["we"], dueIso: "", startIso: today(), endIso: "", nextDue: wd(2), nextDueIso: wd(2),
-      items: [item("i-2a", copy.c2)], progress: "0/1", completions: [],
+      items: [item("i-2a", copy.c2)], progress: "0/1", completions: [], completedAt: "", completedBy: "",
     },
     {
-      id: "cl-3", kind: "checklist", title: pick(copy.c3, locale), desc: "", status: "active", assignType: "dept",
+      id: "cl-3", originalId: "", origin: "original", isOriginal: true, kind: "checklist", title: pick(copy.c3, locale), desc: "", status: "active", assignType: "dept",
       assignee: pick(demoDepartments[6].name, locale), assigneeId: "", departmentId: "d-sec", dueType: "recurring", recurrence: "weekly",
       weekdays: ["fr"], dueIso: "", startIso: today(), endIso: "", nextDue: wd(4), nextDueIso: wd(4),
-      items: [item("i-3a", copy.c3)], progress: "0/1", completions: [],
+      items: [item("i-3a", copy.c3)], progress: "0/1", completions: [], completedAt: "", completedBy: "",
     },
     {
-      id: "cl-4", kind: "checklist", title: pick(copy.c4, locale), desc: "", status: "active", assignType: "all",
+      id: "cl-4", originalId: "", origin: "original", isOriginal: true, kind: "checklist", title: pick(copy.c4, locale), desc: "", status: "active", assignType: "all",
       assignee: "", assigneeId: "", departmentId: "", dueType: "recurring", recurrence: "weekly",
       weekdays: ["sa"], dueIso: "", startIso: today(), endIso: "", nextDue: wd(5), nextDueIso: wd(5),
-      items: [item("i-4a", copy.c4)], progress: "0/1", completions: [],
+      items: [item("i-4a", copy.c4)], progress: "0/1", completions: [], completedAt: "", completedBy: "",
     },
   ];
 }
@@ -140,8 +145,8 @@ export function seedChecklists(locale: string): PublicChecklist[] {
 export function seedTemplates(locale: string): PublicChecklist[] {
   const item = (id: string, text: string) => ({ id, text, state: "open" as const, comment: "" });
   return [
-    { id: "tpl-1", kind: "template", title: copy.tpl1[locale as keyof L] ?? copy.tpl1.en, desc: "", status: "active", assignType: "all", assignee: "", assigneeId: "", departmentId: "", dueType: "recurring", recurrence: "weekly", weekdays: ["mo"], dueIso: "", startIso: "", endIso: "", nextDue: "", nextDueIso: "", items: [item("t1a", copy.c1[locale as keyof L] ?? copy.c1.en), item("t1b", copy.c3[locale as keyof L] ?? copy.c3.en), item("t1c", copy.c4[locale as keyof L] ?? copy.c4.en)], progress: "0/3", completions: [] },
-    { id: "tpl-2", kind: "template", title: copy.tpl2[locale as keyof L] ?? copy.tpl2.en, desc: "", status: "active", assignType: "dept", assignee: "", assigneeId: "", departmentId: "d-hk", dueType: "once", recurrence: "once", weekdays: [], dueIso: "", startIso: "", endIso: "", nextDue: "", nextDueIso: "", items: [item("t2a", copy.tpl2[locale as keyof L] ?? copy.tpl2.en)], progress: "0/1", completions: [] },
-    { id: "tpl-3", kind: "template", title: copy.tpl3[locale as keyof L] ?? copy.tpl3.en, desc: "", status: "active", assignType: "all", assignee: "", assigneeId: "", departmentId: "", dueType: "once", recurrence: "once", weekdays: [], dueIso: "", startIso: "", endIso: "", nextDue: "", nextDueIso: "", items: [item("t3a", copy.tpl3[locale as keyof L] ?? copy.tpl3.en)], progress: "0/1", completions: [] },
+    { id: "tpl-1", originalId: "", origin: "original", isOriginal: false, kind: "template", title: copy.tpl1[locale as keyof L] ?? copy.tpl1.en, desc: "", status: "active", assignType: "all", assignee: "", assigneeId: "", departmentId: "", dueType: "recurring", recurrence: "weekly", weekdays: ["mo"], dueIso: "", startIso: "", endIso: "", nextDue: "", nextDueIso: "", completedAt: "", completedBy: "", items: [item("t1a", copy.c1[locale as keyof L] ?? copy.c1.en), item("t1b", copy.c3[locale as keyof L] ?? copy.c3.en), item("t1c", copy.c4[locale as keyof L] ?? copy.c4.en)], progress: "0/3", completions: [] },
+    { id: "tpl-2", originalId: "", origin: "original", isOriginal: false, kind: "template", title: copy.tpl2[locale as keyof L] ?? copy.tpl2.en, desc: "", status: "active", assignType: "dept", assignee: "", assigneeId: "", departmentId: "d-hk", dueType: "once", recurrence: "once", weekdays: [], dueIso: "", startIso: "", endIso: "", nextDue: "", nextDueIso: "", completedAt: "", completedBy: "", items: [item("t2a", copy.tpl2[locale as keyof L] ?? copy.tpl2.en)], progress: "0/1", completions: [] },
+    { id: "tpl-3", originalId: "", origin: "original", isOriginal: false, kind: "template", title: copy.tpl3[locale as keyof L] ?? copy.tpl3.en, desc: "", status: "active", assignType: "all", assignee: "", assigneeId: "", departmentId: "", dueType: "once", recurrence: "once", weekdays: [], dueIso: "", startIso: "", endIso: "", nextDue: "", nextDueIso: "", completedAt: "", completedBy: "", items: [item("t3a", copy.tpl3[locale as keyof L] ?? copy.tpl3.en)], progress: "0/1", completions: [] },
   ];
 }

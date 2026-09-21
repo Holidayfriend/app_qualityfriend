@@ -3,8 +3,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useI18n } from "../i18n/i18n-provider";
 import {
-  seedChecklists,
-  seedTemplates,
   type HotelDept,
   type HotelUser,
   type PublicChecklist,
@@ -57,9 +55,10 @@ type Ctx = {
   periodic: PublicChecklist[];
   saveTask: (id: string | undefined, input: TaskInput) => Promise<string | null>;
   toggleTask: (id: string) => Promise<boolean>;
-  saveChecklist: (id: string | undefined, input: ChecklistInput) => string;
-  toggleItem: (checklistId: string, itemId: string) => void;
-  completeChecklist: (id: string, comment: string) => void;
+  saveChecklist: (id: string | undefined, input: ChecklistInput) => Promise<string | null>;
+  setChecklistStatus: (id: string, status: "active" | "archived") => Promise<boolean>;
+  toggleItem: (checklistId: string, itemId: string) => Promise<boolean>;
+  completeChecklist: (id: string, comment: string) => Promise<boolean>;
 };
 
 const TasksContext = createContext<Ctx | null>(null);
@@ -74,10 +73,6 @@ function weekEndIso() {
   return date.toISOString().slice(0, 10);
 }
 
-function nid() {
-  return `ui-${Math.random().toString(36).slice(2, 10)}`;
-}
-
 export function TasksProvider({ children }: { children: ReactNode }) {
   const { locale } = useI18n();
   const [tasks, setTasks] = useState<PublicTask[]>([]);
@@ -90,23 +85,27 @@ export function TasksProvider({ children }: { children: ReactNode }) {
 
   const reload = useCallback(async () => {
     try {
-      const [listRes, optRes, meRes] = await Promise.all([
+      const [listRes, optRes, meRes, clRes] = await Promise.all([
         fetch(`/api/tasks?locale=${locale}`, { cache: "no-store" }),
         fetch(`/api/tasks/options?locale=${locale}`, { cache: "no-store" }),
         fetch("/api/me", { cache: "no-store" }),
+        fetch(`/api/checklists?locale=${locale}`, { cache: "no-store" }),
       ]);
       const list = listRes.ok ? await listRes.json() as { tasks?: PublicTask[]; canManage?: boolean } : null;
       const opt = optRes.ok ? await optRes.json() as { departments?: HotelDept[]; users?: HotelUser[] } : null;
       const me = meRes.ok ? await meRes.json() as { role?: string; allowed_modules?: string[] } : null;
+      const cl = clRes.ok ? await clRes.json() as { checklists?: PublicChecklist[]; templates?: PublicChecklist[]; canManage?: boolean } : null;
       setTasks(Array.isArray(list?.tasks) ? list.tasks : []);
+      setChecklists(Array.isArray(cl?.checklists) ? cl.checklists : []);
+      setTemplates(Array.isArray(cl?.templates) ? cl.templates : []);
       setDepartments(Array.isArray(opt?.departments) ? opt.departments : []);
       setUsers(Array.isArray(opt?.users) ? opt.users : []);
-      setCanManage(Boolean(list?.canManage) || me?.role === "ADMIN" || Boolean(me?.allowed_modules?.includes("tasks")));
+      setCanManage(Boolean(list?.canManage || cl?.canManage) || me?.role === "ADMIN" || Boolean(me?.allowed_modules?.includes("tasks")));
     } catch {
       setTasks([]);
+      setChecklists([]);
+      setTemplates([]);
     } finally {
-      setChecklists(seedChecklists(locale));
-      setTemplates(seedTemplates(locale));
       setReady(true);
       if (typeof window !== "undefined") window.dispatchEvent(new Event("qf-shell-refresh"));
     }
@@ -146,62 +145,47 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     return true;
   }, [locale, reload]);
 
-  const saveChecklist = useCallback((id: string | undefined, input: ChecklistInput) => {
-    const nextId = id || nid();
-    const dept = departments.find((item) => item.id === input.departmentId);
-    const person = users.find((item) => item.id === input.assigneeId);
-    const items = input.items.filter(Boolean).map((text, index) => ({ id: `${nextId}-${index}`, text, state: "open" as const, comment: "" }));
-    const row: PublicChecklist = {
-      id: nextId,
-      kind: input.kind,
-      title: input.title.trim(),
-      desc: input.desc,
-      status: input.status,
-      assignType: input.assignType,
-      assignee: input.assignType === "person" ? (person?.name ?? "") : input.assignType === "dept" ? (dept?.name ?? "") : "",
-      assigneeId: input.assigneeId,
-      departmentId: input.departmentId,
-      dueType: input.dueType,
-      recurrence: input.dueType === "once" ? "once" : input.recurrence,
-      weekdays: input.weekdays,
-      dueIso: input.dueIso,
-      startIso: input.startIso,
-      endIso: input.noEnd ? "" : input.endIso,
-      nextDue: input.dueType === "once" ? input.dueIso : input.startIso || todayIso(),
-      nextDueIso: input.dueType === "once" ? input.dueIso : input.startIso || todayIso(),
-      items,
-      progress: `0/${items.length}`,
-      completions: [],
-    };
-    if (input.kind === "template") {
-      setTemplates((prev) => id ? prev.map((item) => item.id === id ? row : item) : [row, ...prev]);
-    } else {
-      setChecklists((prev) => id ? prev.map((item) => item.id === id ? { ...row, completions: item.completions, items: item.items.length === items.length ? item.items.map((cur, i) => ({ ...cur, text: items[i]?.text ?? cur.text })) : items } : item) : [row, ...prev]);
-    }
-    return nextId;
-  }, [departments, users]);
+  const saveChecklist = useCallback(async (id: string | undefined, input: ChecklistInput) => {
+    const res = await fetch(id ? `/api/checklists/${id}?locale=${locale}` : `/api/checklists?locale=${locale}`, {
+      method: id ? "PATCH" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) return null;
+    const data = await res.json() as { checklist?: { id: string } };
+    await reload();
+    return data.checklist?.id ?? id ?? null;
+  }, [locale, reload]);
 
-  const toggleItem = useCallback((checklistId: string, itemId: string) => {
-    setChecklists((prev) => prev.map((row) => {
-      if (row.id !== checklistId) return row;
-      const items = row.items.map((item) => item.id !== itemId ? item : { ...item, state: item.state === "open" ? "done" : item.state === "done" ? "exception" : "open" });
-      const done = items.filter((item) => item.state === "done").length;
-      return { ...row, items, progress: `${done}/${items.length}` };
-    }));
-  }, []);
+  const setChecklistStatus = useCallback(async (id: string, status: "active" | "archived") => {
+    const res = await fetch(`/api/checklists/${id}?locale=${locale}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    await reload();
+    return res.ok;
+  }, [locale, reload]);
 
-  const completeChecklist = useCallback((id: string, comment: string) => {
-    setChecklists((prev) => prev.map((row) => {
-      if (row.id !== id) return row;
-      const items = row.dueType === "recurring" ? row.items.map((item) => ({ ...item, state: "open" as const, comment: item.state === "exception" ? comment : item.comment })) : row.items;
-      return {
-        ...row,
-        items,
-        status: row.dueType === "once" ? "archived" : row.status,
-        completions: [{ id: nid(), result: "done", author: "You", date: todayIso() }, ...row.completions].slice(0, 8),
-      };
-    }));
-  }, []);
+  const toggleItem = useCallback(async (checklistId: string, itemId: string) => {
+    const res = await fetch(`/api/checklists/${checklistId}?locale=${locale}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ itemId }),
+    });
+    await reload();
+    return res.ok;
+  }, [locale, reload]);
+
+  const completeChecklist = useCallback(async (id: string, comment: string) => {
+    const res = await fetch(`/api/checklists/${id}?locale=${locale}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ complete: true, comment }),
+    });
+    await reload();
+    return res.ok;
+  }, [locale, reload]);
 
   const today = todayIso();
   const week = weekEndIso();
@@ -210,7 +194,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
   const dueToday = open.filter((item) => item.dueIso === today);
   const dueWeek = open.filter((item) => item.dueIso && item.dueIso >= today && item.dueIso < week);
   const doneWeek = tasks.filter((item) => item.status === "done").length;
-  const periodic = checklists.filter((item) => item.status === "active" && item.nextDueIso && item.nextDueIso >= isoOffset(-1) && item.nextDueIso < week);
+  const periodic = checklists.filter((item) => item.kind === "checklist" && item.status === "active" && !item.completedAt && (item.origin === "run" || (item.origin === "original" && Boolean(item.nextDueIso) && item.nextDueIso < week)));
 
   const value = useMemo<Ctx>(() => ({
     tasks, checklists, templates, departments, users, canManage, ready,
@@ -221,16 +205,10 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     doneWeek,
     totalWeek: doneWeek + open.length,
     periodic,
-    saveTask, toggleTask, saveChecklist, toggleItem, completeChecklist,
-  }), [canManage, checklists, completeChecklist, departments, doneWeek, dueToday.length, dueWeek.length, open.length, overdue.length, periodic, ready, saveChecklist, saveTask, tasks, templates, toggleItem, toggleTask, users]);
+    saveTask, toggleTask, saveChecklist, setChecklistStatus, toggleItem, completeChecklist,
+  }), [canManage, checklists, completeChecklist, departments, doneWeek, dueToday.length, dueWeek.length, open.length, overdue.length, periodic, ready, saveChecklist, saveTask, setChecklistStatus, tasks, templates, toggleItem, toggleTask, users]);
 
   return <TasksContext.Provider value={value}>{children}</TasksContext.Provider>;
-}
-
-function isoOffset(days: number) {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
 }
 
 export function useTasks() {

@@ -47,7 +47,7 @@ function weekdayLabel(key: string, t: T) {
 
 function recurrenceLabel(item: PublicChecklist, t: T) {
   if (item.dueType === "once") return t.repeatOnce;
-  return { daily: t.daily, weekly: t.weekly, monthly: t.monthly, quarterly: t.quarterly, yearly: t.yearly }[item.recurrence] ?? t.weekly;
+  return { once: t.repeatOnce, daily: t.daily, weekly: t.weekly, monthly: t.monthly, quarterly: t.quarterly, yearly: t.yearly }[item.recurrence] ?? t.weekly;
 }
 
 function statusChip(status: PublicChecklist["status"]) {
@@ -95,7 +95,7 @@ export function TasksDashboardPage() {
     <div className="filter-row" style={{ marginBottom: 18 }}>
       <Link href="/tasks" className="filter-btn active" style={{ padding: "8px 16px", fontSize: 13 }}>{t.tabToday}</Link>
       <Link href="/tasks/list" className="filter-btn" style={{ padding: "8px 16px", fontSize: 13 }}>{t.tabTasks}</Link>
-      {canManage ? <Link href="/tasks/checklists" className="filter-btn" style={{ padding: "8px 16px", fontSize: 13 }}>{t.tabChecklists}</Link> : null}
+      <Link href="/tasks/checklists" className="filter-btn" style={{ padding: "8px 16px", fontSize: 13 }}>{t.tabChecklists}</Link>
     </div>
     <div className="ai-banner" style={{ marginBottom: 18 }}>
       <div style={{ fontSize: 20 }}>✨</div>
@@ -130,7 +130,7 @@ export function TasksDashboardPage() {
             }) : <div style={{ fontSize: 12.5, color: "var(--text3)" }}>{t.emptyTasks}</div>}
           </div>
         </div>
-        {canManage ? <div className="card">
+        <div className="card">
           <div className="ch"><div className="ct">{t.periodic}</div></div>
           <div className="cb">
             {periodic.length ? periodic.map((item) => {
@@ -143,7 +143,7 @@ export function TasksDashboardPage() {
               </Link>;
             }) : <div style={{ fontSize: 12.5, color: "var(--text3)" }}>{t.emptyChecklists}</div>}
           </div>
-        </div> : null}
+        </div>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
         {canManage ? <div className="card">
@@ -189,7 +189,7 @@ export function TasksListPage() {
     <div className="filter-row" style={{ marginBottom: 18 }}>
       <Link href="/tasks" className="filter-btn" style={{ padding: "8px 16px", fontSize: 13 }}>{t.tabToday}</Link>
       <Link href="/tasks/list" className="filter-btn active" style={{ padding: "8px 16px", fontSize: 13 }}>{t.tabTasks}</Link>
-      {canManage ? <Link href="/tasks/checklists" className="filter-btn" style={{ padding: "8px 16px", fontSize: 13 }}>{t.tabChecklists}</Link> : null}
+      <Link href="/tasks/checklists" className="filter-btn" style={{ padding: "8px 16px", fontSize: 13 }}>{t.tabChecklists}</Link>
     </div>
     <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
       <div className="filter-row" style={{ marginBottom: 0 }}>
@@ -318,19 +318,24 @@ export function TaskDetailPage({ id }: { id: string }) {
 export function ChecklistsListPage() {
   const t = useT();
   const router = useRouter();
-  const { checklists, canManage, ready } = useTasks();
+  const { checklists, canManage, ready, setChecklistStatus } = useTasks();
   const [filter, setFilter] = useState<"all" | "active" | "draft" | "archived">("all");
   const [query, setQuery] = useState("");
   if (!ready) return <Shell title={t.listTitle}><BrandLoader label={t.loading} /></Shell>;
   const rows = checklists.filter((item) => {
-    const statusOk = filter === "all" || item.status === filter;
+    if (item.kind !== "checklist") return false;
+    if (item.origin === "run") return !item.completedAt && (filter === "all" || filter === "active") && (!query || item.title.toLowerCase().includes(query.toLowerCase()));
+    const statusOk = filter === "all" || (filter === "active" ? item.status === "active" && !item.completedAt : item.status === filter);
     return statusOk && (!query || item.title.toLowerCase().includes(query.toLowerCase()));
   });
+  function openRow(item: PublicChecklist) {
+    router.push(`/tasks/checklists/${item.id}`);
+  }
   return <Shell title={t.listTitle}>
     <Link href="/tasks" className="back-link">{t.backTasks}</Link>
     <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
       <div className="filter-row" style={{ marginBottom: 0 }}>
-        {([["all", t.filterAll], ["active", t.filterActive], ["draft", t.filterDraft], ["archived", t.filterArchived]] as const).map(([id, label]) => (
+        {([["all", t.filterAll], ["active", t.filterActive], ...(canManage ? [["draft", t.filterDraft], ["archived", t.filterArchived]] as const : [])] as const).map(([id, label]) => (
           <button key={id} type="button" className={`filter-btn${filter === id ? " active" : ""}`} onClick={() => setFilter(id)}>{label}</button>
         ))}
       </div>
@@ -342,13 +347,23 @@ export function ChecklistsListPage() {
         <thead><tr><th>{t.colTitle}</th><th>{t.colAssignee}</th><th>{t.colRepeat}</th><th>{t.colNext}</th><th>{t.colStatus}</th>{canManage ? <th style={{ textAlign: "right" }}>{t.colActions}</th> : null}</tr></thead>
         <tbody>
           {rows.length ? rows.map((item) => (
-            <tr key={item.id} onClick={() => router.push(`/tasks/checklists/${item.id}`)} style={{ cursor: "pointer" }}>
+            <tr key={item.id} onClick={() => openRow(item)} style={{ cursor: "pointer" }}>
               <td>{item.title}</td>
               <td>{item.assignType === "all" ? t.everyone : item.assignee || "–"}</td>
               <td>{recurrenceLabel(item, t)}</td>
               <td>{item.nextDue || "–"}</td>
-              <td><span className={`chip ${statusChip(item.status)}`}>{statusLabel(item.status, t)}</span></td>
-              {canManage ? <td style={{ textAlign: "right" }}><Link href={`/tasks/checklists/${item.id}/edit`} className="icon-btn" onClick={(event) => event.stopPropagation()}>✏️</Link></td> : null}
+              <td><span className={`chip ${item.completedAt ? "chip-g" : statusChip(item.status)}`}>{item.completedAt ? t.statusDone : statusLabel(item.status, t)}</span></td>
+              {canManage ? <td style={{ textAlign: "right", whiteSpace: "nowrap" }} onClick={(event) => event.stopPropagation()}>
+                {item.origin === "original" ? <>
+                  <button
+                    type="button"
+                    className="icon-btn"
+                    title={item.status === "active" ? t.setArchived : t.setActive}
+                    onClick={() => void setChecklistStatus(item.id, item.status === "active" ? "archived" : "active")}
+                  >{item.status === "active" ? "🗄️" : "↩️"}</button>
+                  <Link href={`/tasks/checklists/${item.id}/edit`} className="icon-btn" style={{ marginLeft: 6 }}>✏️</Link>
+                </> : null}
+              </td> : null}
             </tr>
           )) : <tr><td colSpan={canManage ? 6 : 5} style={{ fontSize: 12.5, color: "var(--text3)" }}>{t.emptyChecklists}</td></tr>}
         </tbody>
@@ -384,26 +399,31 @@ export function ChecklistFormPage({ id }: { id?: string }) {
   const [busy, setBusy] = useState(false);
   const [picked, setPicked] = useState("");
 
+  function fillFrom(selected: PublicChecklist) {
+    setTitle(selected.title);
+    setDesc(selected.desc);
+    setItems(selected.items.map((row) => row.text));
+    setAssignType(selected.assignType);
+    setDepartmentId(selected.departmentId || departments[0]?.id || "");
+    setAssigneeId(selected.assigneeId || users[0]?.id || "");
+    setDueType(selected.dueType);
+    setRecurrence(selected.recurrence === "once" ? "weekly" : selected.recurrence);
+    setWeekdays(selected.weekdays ?? []);
+    setDueIso(selected.dueIso);
+    setStartIso(selected.startIso);
+    setEndIso(selected.endIso);
+    setNoEnd(!selected.endIso);
+  }
+
   useEffect(() => {
     if (source) {
-      setTitle(source.title);
-      setDesc(source.desc);
-      setItems(source.items.map((row) => row.text));
-      setAssignType(source.assignType);
-      setDepartmentId(source.departmentId);
-      setAssigneeId(source.assigneeId);
-      setDueType(source.dueType);
-      setRecurrence(source.recurrence === "once" ? "weekly" : source.recurrence);
-      setWeekdays(source.weekdays);
-      setDueIso(source.dueIso);
-      setStartIso(source.startIso);
-      setEndIso(source.endIso);
-      setNoEnd(!source.endIso);
+      fillFrom(source);
+      if (templateId) setPicked(templateId);
       return;
     }
     setDepartmentId((prev) => prev || departments[0]?.id || "");
     setAssigneeId((prev) => prev || users[0]?.id || "");
-  }, [departments, source, users]);
+  }, [departments, source, templateId, users]);
 
   function addItem() {
     const value = itemInput.trim();
@@ -416,18 +436,18 @@ export function ChecklistFormPage({ id }: { id?: string }) {
     setPicked(value);
     const selected = templates.find((item) => item.id === value);
     if (!selected) return;
-    setTitle(selected.title);
-    setDesc(selected.desc);
-    setItems(selected.items.map((item) => item.text));
+    fillFrom(selected);
   }
 
   async function save(status: "active" | "draft", kind: "checklist" | "template") {
     if (!title.trim()) { toast({ message: t.titleRequired, tone: "error" }); return; }
     setBusy(true);
-    const nextId = saveChecklist(id && !asTemplate ? id : undefined, {
+    const nextId = await saveChecklist(id && !asTemplate ? id : undefined, {
       title, desc, items, assignType, departmentId, assigneeId, dueType, recurrence: recurrence as PublicChecklist["recurrence"], weekdays, dueIso, startIso, endIso, noEnd, status, kind,
     });
     setBusy(false);
+    if (!nextId) { toast({ message: t.checklistSaveFailed, tone: "error" }); return; }
+    toast({ message: t.checklistSaved, tone: "success" });
     if (kind === "template") router.push("/tasks");
     else router.push(`/tasks/checklists/${nextId}`);
   }
@@ -438,6 +458,7 @@ export function ChecklistFormPage({ id }: { id?: string }) {
 
   if (!ready) return <Shell title={t.createChecklist}><BrandLoader label={t.loading} /></Shell>;
   return <Shell title={t.createChecklist}>
+    {busy ? <BrandLoader label={t.translating} overlay /> : null}
     <Link href="/tasks/checklists" className="back-link">{t.backChecklists}</Link>
     <div className="g2">
       <div>
@@ -538,18 +559,25 @@ export function ChecklistFormPage({ id }: { id?: string }) {
 
 export function ChecklistDetailPage({ id }: { id: string }) {
   const t = useT();
-  const { checklists, canManage, ready, toggleItem, completeChecklist } = useTasks();
+  const toast = useToast();
+  const { checklists, templates, canManage, ready, toggleItem, completeChecklist } = useTasks();
   const [comment, setComment] = useState("");
-  const item = checklists.find((row) => row.id === id);
+  const [busy, setBusy] = useState(false);
+  const item = checklists.find((row) => row.id === id) || templates.find((row) => row.id === id);
   if (!ready) return <Shell title={t.listTitle}><BrandLoader label={t.loading} /></Shell>;
   if (!item) return <Shell title={t.listTitle}><Link href="/tasks/checklists" className="back-link">{t.backChecklists}</Link><div className="card"><div className="cb">{t.emptyChecklists}</div></div></Shell>;
+  const canComplete = item.kind === "checklist" && !item.completedAt;
 
   async function toggle(itemId: string) {
-    toggleItem(id, itemId);
+    if (!canComplete) return;
+    await toggleItem(id, itemId);
   }
 
   async function complete() {
-    completeChecklist(id, comment);
+    setBusy(true);
+    const ok = await completeChecklist(id, comment);
+    setBusy(false);
+    if (!ok) toast({ message: t.checklistSaveFailed, tone: "error" });
   }
 
   return <Shell title={item.title}>
@@ -563,28 +591,32 @@ export function ChecklistDetailPage({ id }: { id: string }) {
               <div style={{ fontSize: 11.5, color: "var(--text2)", fontWeight: 400, marginTop: 2 }}>
                 {item.assignType === "all" ? t.everyone : item.assignee} · {recurrenceLabel(item, t)} · {item.nextDue || "–"}
               </div>
+              {item.assignType !== "person" && !item.completedAt ? <div style={{ fontSize: 12, color: "var(--text2)", fontWeight: 400, marginTop: 6 }}>{item.assignType === "dept" ? fill(t.sharedDept, { name: item.assignee || t.assignDept }) : t.sharedAll}</div> : null}
             </div>
-            <span className={`status-pill ${item.status === "active" ? "active" : "inactive"}`}>{statusLabel(item.status, t)}</span>
+            <span className={`status-pill ${item.status === "active" ? "active" : "inactive"}`}>{item.completedAt ? t.statusDone : statusLabel(item.status, t)}</span>
           </div>
           <div className="cb">
             <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 14, lineHeight: 1.6 }}>{item.desc}</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               {item.items.map((row) => (
-                <button key={row.id} type="button" className="todo" style={{ width: "100%", background: "none", border: 0, textAlign: "left", font: "inherit", color: "inherit", cursor: "pointer" }} onClick={() => void toggle(row.id)}>
+                <button key={row.id} type="button" className="todo" style={{ width: "100%", background: "none", border: 0, textAlign: "left", font: "inherit", color: "inherit", cursor: canComplete ? "pointer" : "default" }} onClick={() => void toggle(row.id)}>
                   <div className={`todo-cb${row.state === "done" ? " done" : row.state === "exception" ? " exception" : ""}`}>{row.state === "done" ? "✓" : row.state === "exception" ? "!" : ""}</div>
                   <div className={`todo-t${row.state === "done" ? " done" : ""}`}>{row.text}</div>
                 </button>
               ))}
             </div>
+            {item.completedAt ? <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 12 }}>{t.completedMeta.replace("{when}", item.completedAt).replace("{name}", item.completedBy || "–")}</div> : null}
           </div>
-          <div className="cb" style={{ borderTop: "1px solid var(--border)" }}>
-            <label className="field-lbl" style={{ marginBottom: 6 }}>{t.comment}</label>
-            <textarea className="field-input" style={{ minHeight: 60, resize: "vertical" }} value={comment} onChange={(event) => setComment(event.target.value)} />
-          </div>
-          <div className="cb" style={{ borderTop: "1px solid var(--border)", display: "flex", gap: 10 }}>
-            <button type="button" className="btn btn-primary" onClick={() => void complete()}>{t.complete}</button>
-            {canManage ? <Link href={`/tasks/checklists/${id}/edit`} className="btn btn-ghost">{t.edit}</Link> : null}
-          </div>
+          {canComplete ? <>
+            <div className="cb" style={{ borderTop: "1px solid var(--border)" }}>
+              <label className="field-lbl" style={{ marginBottom: 6 }}>{t.comment}</label>
+              <textarea className="field-input" style={{ minHeight: 60, resize: "vertical" }} value={comment} onChange={(event) => setComment(event.target.value)} />
+            </div>
+            <div className="cb" style={{ borderTop: "1px solid var(--border)", display: "flex", gap: 10 }}>
+              <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void complete()}>{t.complete}</button>
+              {canManage && item.origin === "original" ? <Link href={`/tasks/checklists/${id}/edit`} className="btn btn-ghost">{t.edit}</Link> : null}
+            </div>
+          </> : canManage && item.origin === "original" ? <div className="cb" style={{ borderTop: "1px solid var(--border)" }}><Link href={`/tasks/checklists/${id}/edit`} className="btn btn-ghost">{t.edit}</Link></div> : null}
         </div>
       </div>
       <div>
