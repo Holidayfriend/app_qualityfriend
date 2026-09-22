@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { useI18n } from "../i18n/i18n-provider";
 import {
   EMPTY_CELL, EMPTY_SHIFTS, INITIAL_ABSENCES, INITIAL_TEMPLATES,
-  type Absence, type AbsenceStatus, type Employee, type ScheduleDepartment, type ShiftCell, type Template,
+  type Absence, type AbsenceStatus, type Employee, type LeaveCategory, type LeaveDuration, type ScheduleDepartment, type ShiftCell, type Template,
 } from "../../lib/schedule/demo-data";
 import { addDaysIso, localTodayIso, mondayOfIso, weekIsoDates } from "../../lib/schedule/week";
 
@@ -18,6 +18,19 @@ type ShiftInput = {
   note: string;
   template: string;
   repeatWeeks: number;
+  leaveCategory: LeaveCategory;
+  leaveDuration: LeaveDuration;
+};
+type AbsenceInput = {
+  userId: string;
+  start: string;
+  end: string;
+  category: LeaveCategory;
+  duration: LeaveDuration;
+  startTime: string;
+  endTime: string;
+  note: string;
+  applyDirect: boolean;
 };
 
 type PublicShift = {
@@ -29,6 +42,8 @@ type PublicShift = {
   breakMins: number;
   note: string;
   templateId: string;
+  leaveCategory?: LeaveCategory | "";
+  leaveDuration?: LeaveDuration | "";
 };
 
 type Store = {
@@ -47,9 +62,9 @@ type Store = {
   absences: Absence[];
   templates: Template[];
   setEmployees: (employees: Employee[] | ((current: Employee[]) => Employee[])) => void;
-  setAbsences: (absences: Absence[] | ((current: Absence[]) => Absence[])) => void;
   saveShift: (input: ShiftInput) => Promise<number | null>;
-  decideAbsence: (index: number, status: AbsenceStatus) => void;
+  saveAbsence: (input: AbsenceInput) => Promise<boolean>;
+  decideAbsence: (id: string, status: AbsenceStatus) => Promise<boolean>;
   saveTemplate: (id: string | undefined, input: TemplateInput) => Promise<string | null>;
   deleteTemplate: (id: string) => Promise<boolean>;
 };
@@ -79,11 +94,19 @@ function asTemplates(value: unknown): Template[] {
   });
 }
 
+function asLeaveCategory(value: unknown): LeaveCategory | "" {
+  return value === "paid" || value === "unpaid" || value === "paidSick" ? value : "";
+}
+
+function asLeaveDuration(value: unknown): LeaveDuration | "" {
+  return value === "full" || value === "partial" ? value : "";
+}
+
 function asShifts(value: unknown): PublicShift[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((item) => {
     if (!item || typeof item !== "object") return [];
-    const row = item as Partial<PublicShift>;
+    const row = item as Partial<PublicShift> & { leaveCategory?: unknown; leaveDuration?: unknown };
     if (typeof row.userId !== "string" || typeof row.date !== "string") return [];
     const kind = row.kind === "off" || row.kind === "vac" ? row.kind : "work";
     return [{
@@ -95,6 +118,33 @@ function asShifts(value: unknown): PublicShift[] {
       breakMins: typeof row.breakMins === "number" ? row.breakMins : 0,
       note: typeof row.note === "string" ? row.note : "",
       templateId: typeof row.templateId === "string" ? row.templateId : "",
+      leaveCategory: asLeaveCategory(row.leaveCategory),
+      leaveDuration: asLeaveDuration(row.leaveDuration),
+    }];
+  });
+}
+
+function asAbsences(value: unknown): Absence[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const row = item as Partial<Absence>;
+    if (typeof row.id !== "string" || typeof row.empKey !== "string" || typeof row.start !== "string") return [];
+    const category = asLeaveCategory(row.category);
+    if (!category) return [];
+    return [{
+      id: row.id,
+      employee: typeof row.employee === "string" ? row.employee : "",
+      empKey: row.empKey,
+      category,
+      duration: asLeaveDuration(row.duration) || "full",
+      start: row.start,
+      end: typeof row.end === "string" ? row.end : row.start,
+      startTime: typeof row.startTime === "string" ? row.startTime : "",
+      endTime: typeof row.endTime === "string" ? row.endTime : "",
+      note: typeof row.note === "string" ? row.note : "",
+      status: row.status === "approved" || row.status === "rejected" ? row.status : "open",
+      source: row.source === "direct" ? "direct" : "request",
     }];
   });
 }
@@ -108,6 +158,8 @@ function cellFromShift(row: PublicShift | undefined): ShiftCell {
     breakMins: row.breakMins,
     note: row.note,
     templateId: row.templateId,
+    leaveCategory: row.leaveCategory || "",
+    leaveDuration: row.leaveDuration || "",
   };
 }
 
@@ -139,7 +191,8 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
       fetch("/api/me", { cache: "no-store", signal: controller.signal }),
       fetch(`/api/schedule/staff?locale=${locale}`, { cache: "no-store", signal: controller.signal }),
       fetch(`/api/schedule/templates?locale=${locale}`, { cache: "no-store", signal: controller.signal }),
-    ]).then(async ([meRes, staffRes, tplRes]) => {
+      fetch(`/api/schedule/absences?locale=${locale}`, { cache: "no-store", signal: controller.signal }),
+    ]).then(async ([meRes, staffRes, tplRes, absRes]) => {
       if (controller.signal.aborted) return;
       if (meRes.ok) {
         const user = await meRes.json() as { id?: string; first_name: string; last_name: string; role: string; allowed_modules?: string[] };
@@ -171,6 +224,12 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
         if (!controller.signal.aborted) setTemplates(asTemplates(body.templates));
       } else {
         setTemplates([]);
+      }
+      if (absRes.ok) {
+        const body = await absRes.json() as { absences?: unknown };
+        if (!controller.signal.aborted) setAbsences(asAbsences(body.absences));
+      } else {
+        setAbsences([]);
       }
     }).catch(() => undefined).finally(() => {
       if (!controller.signal.aborted) setReady(true);
@@ -215,6 +274,8 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
         note: input.note,
         template: input.template,
         repeatWeeks: input.repeatWeeks,
+        leaveCategory: input.leaveCategory,
+        leaveDuration: input.leaveDuration,
       }),
     });
     if (!response.ok) return null;
@@ -223,21 +284,31 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
     return typeof body.repeatWeeks === "number" ? body.repeatWeeks : input.repeatWeeks;
   }, [locale, reloadWeekShifts, weekDates]);
 
-  function decideAbsence(index: number, status: AbsenceStatus) {
-    setAbsences((current) => current.map((item, i) => i === index ? { ...item, status } : item));
-    const item = absences[index];
-    if (status === "approved" && item?.category === "vacation" && item.empKey) {
-      setEmployees((current) => current.map((emp) => {
-        if (emp.key !== item.empKey) return emp;
-        return {
-          ...emp,
-          shifts: emp.shifts.map((shift, i) => weekDates[i] >= item.start && weekDates[i] <= item.end
-            ? { ...EMPTY_CELL, kind: "vac" as const }
-            : shift),
-        };
-      }));
-    }
-  }
+  const saveAbsence = useCallback(async (input: AbsenceInput) => {
+    const response = await fetch(`/api/schedule/absences?locale=${locale}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    if (!response.ok) return false;
+    const body = await response.json() as { absence?: Absence };
+    if (body.absence) setAbsences((current) => [body.absence as Absence, ...current.filter((item) => item.id !== body.absence?.id)]);
+    if (input.applyDirect) await reloadWeekShifts().catch(() => undefined);
+    return true;
+  }, [locale, reloadWeekShifts]);
+
+  const decideAbsence = useCallback(async (id: string, status: AbsenceStatus) => {
+    const response = await fetch(`/api/schedule/absences/${id}?locale=${locale}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    if (!response.ok) return false;
+    const body = await response.json() as { absence?: Absence };
+    if (body.absence) setAbsences((current) => current.map((item) => item.id === id ? body.absence as Absence : item));
+    if (status === "approved") await reloadWeekShifts().catch(() => undefined);
+    return true;
+  }, [locale, reloadWeekShifts]);
 
   const saveTemplate = useCallback(async (id: string | undefined, input: TemplateInput) => {
     const payload = { name: input.name, start: input.start, end: input.end, breakMins: input.breakMins, note: input.note };
@@ -269,8 +340,8 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
     goToPrevWeek: () => setWeekStartIso((current) => addDaysIso(current, -7)),
     goToNextWeek: () => setWeekStartIso((current) => addDaysIso(current, 7)),
     departments, employees, absences, templates,
-    setEmployees, setAbsences, saveShift, decideAbsence, saveTemplate, deleteTemplate,
-  }), [absences, canManageSchedule, currentUserId, deleteTemplate, departments, employees, fullName, isPlanner, ready, role, saveShift, saveTemplate, shiftsReady, templates, weekDates, weekStartIso]);
+    setEmployees, saveShift, saveAbsence, decideAbsence, saveTemplate, deleteTemplate,
+  }), [absences, currentUserId, decideAbsence, deleteTemplate, departments, employees, fullName, isPlanner, ready, role, saveAbsence, saveShift, saveTemplate, shiftsReady, templates, weekDates, weekStartIso]);
 
   return <ScheduleContext.Provider value={value}>{children}</ScheduleContext.Provider>;
 }
