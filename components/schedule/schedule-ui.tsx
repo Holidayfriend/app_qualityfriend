@@ -13,7 +13,7 @@ import { formatDayHeader, formatWeekRange } from "../../lib/schedule/week";
 import { useSchedule } from "./schedule-provider";
 
 type T = ScheduleMessages;
-type Tab = "plan" | "own" | "absence" | "stats";
+type Tab = "plan" | "own" | "absence" | "swap" | "stats";
 
 function fill(template: string, vars: Record<string, string>) {
   return Object.entries(vars).reduce((text, [key, value]) => text.replaceAll(`{${key}}`, value), template);
@@ -69,11 +69,12 @@ function Shell({ title, children, tabs }: { title: string; children: ReactNode; 
   const t = useT();
   const pathname = usePathname();
   const { isPlanner } = useSchedule();
-  const tab: Tab = pathname.startsWith("/schedule/stats") ? "stats" : pathname.startsWith("/schedule/absences") ? "absence" : pathname.startsWith("/schedule/own") ? "own" : "plan";
+  const tab: Tab = pathname.startsWith("/schedule/stats") ? "stats" : pathname.startsWith("/schedule/swaps") ? "swap" : pathname.startsWith("/schedule/absences") ? "absence" : pathname.startsWith("/schedule/own") ? "own" : "plan";
   const items = isPlanner ? [
     ["/schedule", t.tabPlan, "plan"] as const,
     ["/schedule/own", t.tabOwn, "own"] as const,
     ["/schedule/absences", t.tabAbsence, "absence"] as const,
+    ["/schedule/swaps", t.tabSwap, "swap"] as const,
     ["/schedule/stats", t.tabStats, "stats"] as const,
   ] : [
     ["/schedule/own", t.tabOwn, "own"] as const,
@@ -222,14 +223,19 @@ export function ScheduleOwnPage() {
   </Shell>;
 }
 
-export function ScheduleAbsencesPage() {
+export function ScheduleAbsencesPage({ board }: { board?: "swap" }) {
   const t = useT();
   const toast = useToast();
   const { isPlanner, ready, absences, decideAbsence, employees, currentUserId } = useSchedule();
   const [filter, setFilter] = useState<"all" | AbsenceStatus>("all");
   const [busyId, setBusyId] = useState("");
   const own = employees.find((item) => item.key === currentUserId) ?? employees[0];
-  const rows = absences.filter((item) => filter === "all" || item.status === filter);
+  const swapBoard = board === "swap";
+  const rows = absences.filter((item) => {
+    if (isPlanner && swapBoard && item.category !== "swap") return false;
+    if (isPlanner && !swapBoard && item.category === "swap") return false;
+    return filter === "all" || item.status === filter;
+  });
 
   async function decide(id: string, status: AbsenceStatus) {
     if (busyId) return;
@@ -252,7 +258,9 @@ export function ScheduleAbsencesPage() {
       </div>
       <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
         {isPlanner
-          ? <Link href={`/schedule/request${own ? `?employee=${own.key}` : ""}`} className="btn btn-primary">{t.addAbsence}</Link>
+          ? swapBoard
+            ? <Link href={`/schedule/request?type=swap${own ? `&employee=${own.key}` : ""}`} className="btn btn-primary">{t.addSwap}</Link>
+            : <Link href={`/schedule/request?type=leave${own ? `&employee=${own.key}` : ""}`} className="btn btn-primary">{t.addAbsence}</Link>
           : <>
             <Link href="/schedule/request?type=leave" className="btn btn-primary">{t.requestLeaveBtn}</Link>
             <Link href="/schedule/request?type=swap" className="btn btn-ghost">{t.requestSwapBtn}</Link>
@@ -655,18 +663,22 @@ export function ScheduleRequestPage({ employee, requestType }: { employee?: stri
         return;
       }
       toast({ message: isPlanner ? t.absenceRecorded : t.requestSent, tone: "success" });
-      router.push("/schedule/absences");
+      router.push(isPlanner && isSwap ? "/schedule/swaps" : "/schedule/absences");
     } finally {
       setBusy(false);
     }
   }
 
-  const title = lockedSwap ? t.requestSwapTitle : lockedLeave ? t.requestLeaveTitle : isPlanner ? t.addAbsence : t.requestTitle;
+  const title = lockedSwap
+    ? (isPlanner ? t.recordSwapTitle : t.requestSwapTitle)
+    : lockedLeave
+      ? (isPlanner ? t.addAbsence : t.requestLeaveTitle)
+      : isPlanner ? t.addAbsence : t.requestTitle;
   if (!ready) return <Shell title={title}><BrandLoader label={t.loading} /></Shell>;
 
   return <Shell title={title}>
     {busy ? <BrandLoader label={t.translating} overlay /> : null}
-    <Link href="/schedule/absences" className="back-link">{t.back}</Link>
+    <Link href={isPlanner && lockedSwap ? "/schedule/swaps" : "/schedule/absences"} className="back-link">{t.back}</Link>
     <form className="card" style={{ maxWidth: 460 }} onSubmit={(event) => void save(event)}>
       <div className="ch"><div className="ct">{title}</div></div>
       <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -676,12 +688,11 @@ export function ScheduleRequestPage({ employee, requestType }: { employee?: stri
           </select>
         </div>
         <div><label className="field-lbl">{t.leaveCategory}</label>
-          <select className="field-select" disabled={lockedSwap || lockedLeave} value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value as LeaveCategory }))}>
+          <select className="field-select" disabled={lockedSwap} value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value as LeaveCategory }))}>
             {lockedSwap ? <option value="swap">{t.leaveSwap}</option> : <>
               <option value="paid">{t.leavePaid}</option>
               <option value="unpaid">{t.leaveUnpaid}</option>
               <option value="paidSick">{t.leavePaidSick}</option>
-              {!lockedLeave ? <option value="swap">{t.leaveSwap}</option> : null}
             </>}
           </select>
         </div>
