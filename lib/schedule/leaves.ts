@@ -8,7 +8,7 @@ import { translateShiftNote } from "./translate";
 import { applyOffDays, ensureShiftTable, parseTime } from "./shifts";
 import type { ScheduleActor } from "./access";
 import {
-  asLeaveCategory, asLeaveDuration, datesInclusive, fromDbCategory, fromDbDuration,
+  asLeaveCategory, asLeaveDuration, datesInclusive, fromDbCategory, fromDbDuration, personName, toDbCategory, toDbDuration,
   type LeaveCategory, type LeaveDuration,
 } from "./leave-fields";
 
@@ -28,6 +28,7 @@ export type PublicAbsence = {
   note: string;
   status: "open" | "approved" | "rejected";
   source: "request" | "direct";
+  decidedBy: string;
 };
 
 async function ensureTable() {
@@ -79,6 +80,7 @@ function asPublic(row: {
   status: string;
   source: string;
   user: { firstName: string; lastName: string };
+  decidedBy?: { firstName: string; lastName: string } | null;
 }, locale: string): PublicAbsence {
   const status = row.status === "APPROVED" ? "approved" : row.status === "REJECTED" ? "rejected" : "open";
   return {
@@ -94,6 +96,7 @@ function asPublic(row: {
     note: pickLocalized(row.note, row.noteDe, row.noteIt, locale),
     status,
     source: row.source === "DIRECT" ? "direct" : "request",
+    decidedBy: personName(row.decidedBy),
   };
 }
 
@@ -103,7 +106,7 @@ export async function listAbsences(actor: ScheduleActor, locale: string) {
     where: actor.canManage
       ? { hotelTenantId: actor.hotel_tenant_id }
       : { hotelTenantId: actor.hotel_tenant_id, userId: actor.id },
-    include: { user: { select: { firstName: true, lastName: true } } },
+    include: { user: { select: { firstName: true, lastName: true } }, decidedBy: { select: { firstName: true, lastName: true } } },
     orderBy: [{ createdAt: "desc" }],
   });
   return rows.map((row) => asPublic(row, locale));
@@ -128,8 +131,8 @@ export async function createAbsence(actor: ScheduleActor, body: Record<string, u
   if (!dates.length) return { error: "INVALID_DATES" as const };
 
   const category = asLeaveCategory(body.category);
-  const duration = asLeaveDuration(body.duration) ?? "full";
   if (!category) return { error: "INVALID_CATEGORY" as const };
+  const duration = category === "swap" ? "full" : asLeaveDuration(body.duration) ?? "full";
   const startTime = parseTime(typeof body.startTime === "string" ? body.startTime : "");
   const endTime = parseTime(typeof body.endTime === "string" ? body.endTime : "");
   if (duration === "partial" && (!startTime || !endTime)) return { error: "INVALID_TIMES" as const };
@@ -151,8 +154,8 @@ export async function createAbsence(actor: ScheduleActor, body: Record<string, u
         decidedById: applyNow ? actor.id : null,
         startDate: new Date(`${start}T00:00:00.000Z`),
         endDate: new Date(`${end}T00:00:00.000Z`),
-        category: category === "unpaid" ? "UNPAID" : category === "paidSick" ? "PAID_SICK" : "PAID",
-        duration: duration === "partial" ? "PARTIAL" : "FULL",
+        category: toDbCategory(category),
+        duration: toDbDuration(duration),
         startTime: duration === "partial" ? startTime : "",
         endTime: duration === "partial" ? endTime : "",
         originalLocale: sourceLang,
@@ -162,9 +165,9 @@ export async function createAbsence(actor: ScheduleActor, body: Record<string, u
         status,
         source,
       },
-      include: { user: { select: { firstName: true, lastName: true } } },
+      include: { user: { select: { firstName: true, lastName: true } }, decidedBy: { select: { firstName: true, lastName: true } } },
     });
-    if (applyNow) {
+    if (applyNow && category !== "swap") {
       await applyOffDays(tx, actor, {
         userId, dates, category, duration, startTime, endTime, notes, locale: sourceLang,
       });
@@ -189,27 +192,30 @@ export async function decideAbsence(actor: ScheduleActor, id: string, status: "a
   const result = await prisma.$transaction(async (tx) => {
     const previous = await tx.hotelLeaveRequest.findFirst({
       where: { id, hotelTenantId: actor.hotel_tenant_id },
-      include: { user: { select: { firstName: true, lastName: true } } },
+      include: { user: { select: { firstName: true, lastName: true } }, decidedBy: { select: { firstName: true, lastName: true } } },
     });
     if (!previous || previous.status !== "OPEN") return null;
     const updated = await tx.hotelLeaveRequest.update({
       where: { id },
       data: { status: nextStatus, decidedById: actor.id },
-      include: { user: { select: { firstName: true, lastName: true } } },
+      include: { user: { select: { firstName: true, lastName: true } }, decidedBy: { select: { firstName: true, lastName: true } } },
     });
     if (status === "approved") {
-      const start = isoDate(previous.startDate);
-      const end = isoDate(previous.endDate);
-      await applyOffDays(tx, actor, {
-        userId: previous.userId,
-        dates: datesInclusive(start, end),
-        category: fromDbCategory(previous.category),
-        duration: fromDbDuration(previous.duration),
-        startTime: previous.startTime,
-        endTime: previous.endTime,
-        notes: { en: previous.note, de: previous.noteDe, it: previous.noteIt },
-        locale: previous.originalLocale === "de" || previous.originalLocale === "it" ? previous.originalLocale : "en",
-      });
+      const category = fromDbCategory(previous.category);
+      if (category !== "swap") {
+        const start = isoDate(previous.startDate);
+        const end = isoDate(previous.endDate);
+        await applyOffDays(tx, actor, {
+          userId: previous.userId,
+          dates: datesInclusive(start, end),
+          category,
+          duration: fromDbDuration(previous.duration),
+          startTime: previous.startTime,
+          endTime: previous.endTime,
+          notes: { en: previous.note, de: previous.noteDe, it: previous.noteIt },
+          locale: previous.originalLocale === "de" || previous.originalLocale === "it" ? previous.originalLocale : "en",
+        });
+      }
     }
     await recordAuditLog(tx, {
       hotelTenantId: actor.hotel_tenant_id,

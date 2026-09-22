@@ -1,9 +1,9 @@
-export type LeaveCategory = "paid" | "unpaid" | "paidSick";
+export type LeaveCategory = "paid" | "unpaid" | "paidSick" | "swap";
 export type LeaveDuration = "full" | "partial";
 export type AbsenceStatus = "open" | "approved" | "rejected";
 
 export function asLeaveCategory(value: unknown): LeaveCategory | null {
-  return value === "paid" || value === "unpaid" || value === "paidSick" ? value : null;
+  return value === "paid" || value === "unpaid" || value === "paidSick" || value === "swap" ? value : null;
 }
 
 export function asLeaveDuration(value: unknown): LeaveDuration | null {
@@ -13,12 +13,14 @@ export function asLeaveDuration(value: unknown): LeaveDuration | null {
 export function toDbCategory(value: LeaveCategory) {
   if (value === "unpaid") return "UNPAID";
   if (value === "paidSick") return "PAID_SICK";
+  if (value === "swap") return "SWAP";
   return "PAID";
 }
 
 export function fromDbCategory(value: string): LeaveCategory {
   if (value === "UNPAID" || value === "unpaid") return "unpaid";
   if (value === "PAID_SICK" || value === "paidSick") return "paidSick";
+  if (value === "SWAP" || value === "swap") return "swap";
   return "paid";
 }
 
@@ -28,6 +30,11 @@ export function toDbDuration(value: LeaveDuration) {
 
 export function fromDbDuration(value: string): LeaveDuration {
   return value === "PARTIAL" || value === "partial" ? "partial" : "full";
+}
+
+export function personName(user?: { firstName: string; lastName: string } | null) {
+  if (!user) return "";
+  return `${user.firstName} ${user.lastName}`.trim();
 }
 
 export function datesInclusive(start: string, end: string) {

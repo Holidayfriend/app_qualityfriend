@@ -17,7 +17,7 @@ type ShiftInput = {
   breakMins: string;
   note: string;
   template: string;
-  repeatWeeks: number;
+  repeat: string;
   leaveCategory: LeaveCategory;
   leaveDuration: LeaveDuration;
 };
@@ -44,6 +44,7 @@ type PublicShift = {
   templateId: string;
   leaveCategory?: LeaveCategory | "";
   leaveDuration?: LeaveDuration | "";
+  updatedBy?: string;
 };
 
 type Store = {
@@ -95,7 +96,7 @@ function asTemplates(value: unknown): Template[] {
 }
 
 function asLeaveCategory(value: unknown): LeaveCategory | "" {
-  return value === "paid" || value === "unpaid" || value === "paidSick" ? value : "";
+  return value === "paid" || value === "unpaid" || value === "paidSick" || value === "swap" ? value : "";
 }
 
 function asLeaveDuration(value: unknown): LeaveDuration | "" {
@@ -120,6 +121,7 @@ function asShifts(value: unknown): PublicShift[] {
       templateId: typeof row.templateId === "string" ? row.templateId : "",
       leaveCategory: asLeaveCategory(row.leaveCategory),
       leaveDuration: asLeaveDuration(row.leaveDuration),
+      updatedBy: typeof row.updatedBy === "string" ? row.updatedBy : "",
     }];
   });
 }
@@ -145,6 +147,7 @@ function asAbsences(value: unknown): Absence[] {
       note: typeof row.note === "string" ? row.note : "",
       status: row.status === "approved" || row.status === "rejected" ? row.status : "open",
       source: row.source === "direct" ? "direct" : "request",
+      decidedBy: typeof row.decidedBy === "string" ? row.decidedBy : "",
     }];
   });
 }
@@ -160,6 +163,7 @@ function cellFromShift(row: PublicShift | undefined): ShiftCell {
     templateId: row.templateId,
     leaveCategory: row.leaveCategory || "",
     leaveDuration: row.leaveDuration || "",
+    updatedBy: row.updatedBy || "",
   };
 }
 
@@ -273,15 +277,15 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
         breakMins: input.breakMins,
         note: input.note,
         template: input.template,
-        repeatWeeks: input.repeatWeeks,
+        repeat: input.repeat,
         leaveCategory: input.leaveCategory,
         leaveDuration: input.leaveDuration,
       }),
     });
     if (!response.ok) return null;
-    const body = await response.json() as { repeatWeeks?: number };
+    const body = await response.json() as { dayCount?: number };
     await reloadWeekShifts().catch(() => undefined);
-    return typeof body.repeatWeeks === "number" ? body.repeatWeeks : input.repeatWeeks;
+    return typeof body.dayCount === "number" ? body.dayCount : 1;
   }, [locale, reloadWeekShifts, weekDates]);
 
   const saveAbsence = useCallback(async (input: AbsenceInput) => {

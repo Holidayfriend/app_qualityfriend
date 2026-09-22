@@ -773,6 +773,7 @@ model User {
   hotelShiftTemplatesCreated HotelShiftTemplate[] @relation("HotelShiftTemplateAuthor")
   hotelShiftsAssigned HotelShift[] @relation("HotelShiftEmployee")
   hotelShiftsCreated HotelShift[] @relation("HotelShiftAuthor")
+  hotelShiftsUpdated HotelShift[] @relation("HotelShiftUpdatedBy")
   hotelLeaveRequests HotelLeaveRequest[] @relation("HotelLeaveEmployee")
   hotelLeaveRequestsCreated HotelLeaveRequest[] @relation("HotelLeaveAuthor")
   hotelLeaveRequestsDecided HotelLeaveRequest[] @relation("HotelLeaveDecidedBy")
@@ -1749,9 +1750,11 @@ model HotelShift {
   originalLocale String              @default("en") @map("original_locale") @db.VarChar(8)
   createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedById    String?             @map("updated_by_id") @db.Uuid
   hotelTenant    HotelTenant         @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
   user           User                @relation("HotelShiftEmployee", fields: [userId], references: [id], onDelete: Cascade)
   createdBy      User                @relation("HotelShiftAuthor", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy      User?               @relation("HotelShiftUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   template       HotelShiftTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
 
   @@unique([hotelTenantId, userId, workDate])
@@ -1759,6 +1762,7 @@ model HotelShift {
   @@index([userId, workDate])
   @@index([createdById])
   @@index([templateId])
+  @@index([updatedById])
   @@map("hotel_shifts")
 }
 

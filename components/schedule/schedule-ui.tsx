@@ -51,6 +51,7 @@ function shiftMeta(cell: ShiftCell | undefined, t: T) {
 function categoryLabel(category: LeaveCategory, t: T) {
   if (category === "unpaid") return t.leaveUnpaid;
   if (category === "paidSick") return t.leavePaidSick;
+  if (category === "swap") return t.leaveSwap;
   return t.leavePaid;
 }
 
@@ -76,6 +77,7 @@ function Shell({ title, children, tabs }: { title: string; children: ReactNode; 
     ["/schedule/stats", t.tabStats, "stats"] as const,
   ] : [
     ["/schedule/own", t.tabOwn, "own"] as const,
+    ["/schedule/absences", t.myRequests, "absence"] as const,
   ];
   return <AppShell activeItem="schedule" pageTitle={title}>
     <main className="qf-dashboard pb-24 lg:pb-[24px]">
@@ -169,15 +171,19 @@ function EmployeeRow({ emp, t }: { emp: Employee; t: T }) {
 export function ScheduleOwnPage() {
   const t = useT();
   const { locale } = useI18n();
-  const { ready, currentUserId, fullName, employees, weekDates } = useSchedule();
+  const { ready, currentUserId, fullName, employees, weekDates, absences } = useSchedule();
   const own = employees.find((item) => item.key === currentUserId) ?? employees[0];
   const dayLabels = weekDates.map((iso) => formatDayHeader(iso, locale));
+  const ownRequests = absences.filter((item) => item.empKey === currentUserId || item.empKey === own?.key);
   if (!ready) return <Shell title={t.pageTitle} tabs><BrandLoader label={t.loading} /></Shell>;
   return <Shell title={t.pageTitle} tabs>
     <section className="card" style={{ marginBottom: 16 }}>
-      <div className="ch">
+      <div className="ch" style={{ flexWrap: "wrap", gap: 8 }}>
         <div className="ct">{fill(t.ownWeek, { name: fullName || own?.name || "" })}</div>
-        <Link href="/schedule/request" className="btn btn-primary" style={{ fontSize: 12 }}>{t.requestBtn}</Link>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <Link href="/schedule/request?type=leave" className="btn btn-primary" style={{ fontSize: 12 }}>{t.requestLeaveBtn}</Link>
+          <Link href="/schedule/request?type=swap" className="btn btn-ghost" style={{ fontSize: 12 }}>{t.requestSwapBtn}</Link>
+        </div>
       </div>
       <div className="cb">
         {own ? <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 8 }}>
@@ -189,6 +195,28 @@ export function ScheduleOwnPage() {
             </div>;
           })}
         </div> : <p style={{ fontSize: 13, color: "var(--text3)" }}>{t.emptyEmployees}</p>}
+      </div>
+    </section>
+    <section className="card">
+      <div className="ch">
+        <div className="ct">{t.myRequests}</div>
+        <Link href="/schedule/absences" className="btn btn-ghost" style={{ fontSize: 12 }}>{t.viewAllRequests}</Link>
+      </div>
+      <div className="cb" style={{ padding: 0 }}>
+        <table className="bud-table" style={{ width: "100%", margin: 0 }}>
+          <thead><tr><th>{t.colCategory}</th><th>{t.colPeriod}</th><th>{t.colStatus}</th><th>{t.colDecidedBy}</th></tr></thead>
+          <tbody>
+            {ownRequests.length ? ownRequests.slice(0, 8).map((item) => {
+              const status = statusMeta(item.status, t);
+              return <tr key={item.id}>
+                <td>{categoryLabel(item.category, t)}</td>
+                <td>{item.start}{item.end !== item.start ? ` ${t.dash} ${item.end}` : ""}</td>
+                <td><span className={`chip ${status.cls}`}>{status.label}</span></td>
+                <td>{item.status === "approved" && item.decidedBy ? fill(t.approvedBy, { name: item.decidedBy }) : item.status === "rejected" && item.decidedBy ? fill(t.rejectedBy, { name: item.decidedBy }) : t.dash}</td>
+              </tr>;
+            }) : <tr><td colSpan={4} style={{ textAlign: "center", color: "var(--text3)", padding: 20 }}>{t.empty}</td></tr>}
+          </tbody>
+        </table>
       </div>
     </section>
   </Shell>;
@@ -222,26 +250,34 @@ export function ScheduleAbsencesPage() {
         {([["all", t.filterAll], ["open", t.filterOpen], ["approved", t.filterApproved], ["rejected", t.filterRejected]] as const).map(([id, label]) =>
           <button key={id} type="button" className={`filter-btn${filter === id ? " active" : ""}`} onClick={() => setFilter(id)}>{label}</button>)}
       </div>
-      <Link href={`/schedule/request${own ? `?employee=${own.key}` : ""}`} className="btn btn-primary" style={{ marginLeft: "auto" }}>{isPlanner ? t.addAbsence : t.requestBtn}</Link>
+      <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {isPlanner
+          ? <Link href={`/schedule/request${own ? `?employee=${own.key}` : ""}`} className="btn btn-primary">{t.addAbsence}</Link>
+          : <>
+            <Link href="/schedule/request?type=leave" className="btn btn-primary">{t.requestLeaveBtn}</Link>
+            <Link href="/schedule/request?type=swap" className="btn btn-ghost">{t.requestSwapBtn}</Link>
+          </>}
+      </div>
     </div>
     <div className="card">
       <table className="bud-table" style={{ width: "100%" }}>
-        <thead><tr><th>{t.colEmployee}</th><th>{t.colCategory}</th><th>{t.colDuration}</th><th>{t.colPeriod}</th><th>{t.colNote}</th><th>{t.colStatus}</th><th style={{ textAlign: "right" }}>{t.colActions}</th></tr></thead>
+        <thead><tr><th>{t.colEmployee}</th><th>{t.colCategory}</th><th>{t.colDuration}</th><th>{t.colPeriod}</th><th>{t.colNote}</th><th>{t.colStatus}</th><th>{t.colDecidedBy}</th><th style={{ textAlign: "right" }}>{t.colActions}</th></tr></thead>
         <tbody>
           {rows.length ? rows.map((item) => {
             const status = statusMeta(item.status, t);
             return <tr key={item.id}>
               <td>{item.employee}</td>
               <td>{categoryLabel(item.category, t)}</td>
-              <td>{durationLabel(item.duration, t)}{item.duration === "partial" && item.startTime && item.endTime ? ` (${item.startTime}–${item.endTime})` : ""}</td>
+              <td>{item.category === "swap" ? t.dash : durationLabel(item.duration, t)}{item.category !== "swap" && item.duration === "partial" && item.startTime && item.endTime ? ` (${item.startTime}–${item.endTime})` : ""}</td>
               <td>{item.start}{item.end !== item.start ? ` ${t.dash} ${item.end}` : ""}</td>
               <td>{item.note || t.dash}</td>
               <td><span className={`chip ${status.cls}`}>{status.label}</span></td>
+              <td>{item.status === "approved" && item.decidedBy ? fill(t.approvedBy, { name: item.decidedBy }) : item.status === "rejected" && item.decidedBy ? fill(t.rejectedBy, { name: item.decidedBy }) : t.dash}</td>
               <td style={{ textAlign: "right" }}>{isPlanner && item.status === "open"
                 ? <><button type="button" className="icon-btn" disabled={Boolean(busyId)} onClick={() => void decide(item.id, "approved")}>✅</button> <button type="button" className="icon-btn danger" disabled={Boolean(busyId)} onClick={() => void decide(item.id, "rejected")}>✖️</button></>
                 : t.dash}</td>
             </tr>;
-          }) : <tr><td colSpan={7} style={{ textAlign: "center", color: "var(--text3)", padding: 20 }}>{t.empty}</td></tr>}
+          }) : <tr><td colSpan={8} style={{ textAlign: "center", color: "var(--text3)", padding: 20 }}>{t.empty}</td></tr>}
         </tbody>
       </table>
     </div>
@@ -351,7 +387,6 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
     }
     setBusy(true);
     try {
-      const repeatWeeks = form.repeat === "none" ? 1 : Number(form.repeat);
       const saved = await saveShift({
         empKey: emp.key,
         day,
@@ -360,7 +395,7 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
         breakMins: form.pause,
         note: form.note,
         template: form.template,
-        repeatWeeks,
+        repeat: form.repeat,
         leaveCategory: form.leaveCategory,
         leaveDuration: form.leaveDuration,
       });
@@ -369,7 +404,7 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
         return;
       }
       toast({
-        message: saved > 1 ? fill(t.savedRepeatWeeks, { n: String(saved) }) : t.saved,
+        message: form.repeat === "none" ? t.saved : form.repeat === "thisWeek" ? t.savedRepeatThisWeek : fill(t.savedRepeatWeeks, { n: form.repeat }),
         tone: "success",
       });
       router.push("/schedule");
@@ -391,6 +426,7 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
     <section className="card" style={{ maxWidth: 460 }}>
       <div className="ch"><div className="ct">{emp.name} · {dayLabel}</div></div>
       <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {emp.shifts[day]?.updatedBy ? <p style={{ fontSize: 12, color: "var(--text3)", margin: 0 }}>{fill(t.lastUpdatedBy, { name: emp.shifts[day].updatedBy })}</p> : null}
         <div><label className="field-lbl">{t.presetShift}</label>
           <select className="field-select" value={form.template} onChange={(event) => applyTemplate(event.target.value)}>
             <option value="">{t.manual}</option>
@@ -435,6 +471,7 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
         <div><label className="field-lbl">{t.repeat}</label>
           <select className="field-select" value={form.repeat} onChange={(event) => setForm((current) => ({ ...current, repeat: event.target.value }))}>
             <option value="none">{t.repeatNone}</option>
+            <option value="thisWeek">{t.repeatThisWeek}</option>
             {REPEAT_WEEKS.map((weeks) => <option key={weeks} value={String(weeks)}>{repeatLabels[weeks]}</option>)}
           </select>
         </div>
@@ -557,15 +594,17 @@ export function ScheduleTemplateFormPage({ id }: { id?: string }) {
   </Shell>;
 }
 
-export function ScheduleRequestPage({ employee }: { employee?: string }) {
+export function ScheduleRequestPage({ employee, requestType }: { employee?: string; requestType?: string }) {
   const t = useT();
   const router = useRouter();
   const toast = useToast();
   const { ready, employees, isPlanner, currentUserId, saveAbsence } = useSchedule();
+  const lockedSwap = requestType === "swap";
+  const lockedLeave = requestType === "leave";
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
     empKey: employee || "",
-    category: "paid" as LeaveCategory,
+    category: (lockedSwap ? "swap" : "paid") as LeaveCategory,
     duration: "full" as LeaveDuration,
     start: "",
     end: "",
@@ -592,7 +631,8 @@ export function ScheduleRequestPage({ employee }: { employee?: string }) {
       toast({ message: t.needStart, tone: "error" });
       return;
     }
-    if (form.duration === "partial" && (!form.startTime || !form.endTime)) {
+    const isSwap = form.category === "swap";
+    if (!isSwap && form.duration === "partial" && (!form.startTime || !form.endTime)) {
       toast({ message: t.needShiftTimes, tone: "error" });
       return;
     }
@@ -604,7 +644,7 @@ export function ScheduleRequestPage({ employee }: { employee?: string }) {
         start: form.start,
         end: form.end || form.start,
         category: form.category,
-        duration: form.duration,
+        duration: isSwap ? "full" : form.duration,
         startTime: form.startTime,
         endTime: form.endTime,
         note: form.note,
@@ -615,19 +655,20 @@ export function ScheduleRequestPage({ employee }: { employee?: string }) {
         return;
       }
       toast({ message: isPlanner ? t.absenceRecorded : t.requestSent, tone: "success" });
-      router.push(isPlanner ? "/schedule/absences" : "/schedule/own");
+      router.push("/schedule/absences");
     } finally {
       setBusy(false);
     }
   }
 
-  if (!ready) return <Shell title={t.requestTitle}><BrandLoader label={t.loading} /></Shell>;
+  const title = lockedSwap ? t.requestSwapTitle : lockedLeave ? t.requestLeaveTitle : isPlanner ? t.addAbsence : t.requestTitle;
+  if (!ready) return <Shell title={title}><BrandLoader label={t.loading} /></Shell>;
 
-  return <Shell title={t.requestTitle}>
+  return <Shell title={title}>
     {busy ? <BrandLoader label={t.translating} overlay /> : null}
-    <Link href={isPlanner ? "/schedule/absences" : "/schedule/own"} className="back-link">{t.back}</Link>
+    <Link href="/schedule/absences" className="back-link">{t.back}</Link>
     <form className="card" style={{ maxWidth: 460 }} onSubmit={(event) => void save(event)}>
-      <div className="ch"><div className="ct">{isPlanner ? t.addAbsence : t.requestTitle}</div></div>
+      <div className="ch"><div className="ct">{title}</div></div>
       <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div><label className="field-lbl">{t.employee}</label>
           <select className="field-select" disabled={!isPlanner} value={form.empKey} onChange={(event) => setForm((current) => ({ ...current, empKey: event.target.value }))}>
@@ -635,23 +676,26 @@ export function ScheduleRequestPage({ employee }: { employee?: string }) {
           </select>
         </div>
         <div><label className="field-lbl">{t.leaveCategory}</label>
-          <select className="field-select" value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value as LeaveCategory }))}>
-            <option value="paid">{t.leavePaid}</option>
-            <option value="unpaid">{t.leaveUnpaid}</option>
-            <option value="paidSick">{t.leavePaidSick}</option>
+          <select className="field-select" disabled={lockedSwap || lockedLeave} value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value as LeaveCategory }))}>
+            {lockedSwap ? <option value="swap">{t.leaveSwap}</option> : <>
+              <option value="paid">{t.leavePaid}</option>
+              <option value="unpaid">{t.leaveUnpaid}</option>
+              <option value="paidSick">{t.leavePaidSick}</option>
+              {!lockedLeave ? <option value="swap">{t.leaveSwap}</option> : null}
+            </>}
           </select>
         </div>
-        <div><label className="field-lbl">{t.leaveDuration}</label>
+        {form.category !== "swap" ? <div><label className="field-lbl">{t.leaveDuration}</label>
           <select className="field-select" value={form.duration} onChange={(event) => setForm((current) => ({ ...current, duration: event.target.value as LeaveDuration }))}>
             <option value="full">{t.durationFull}</option>
             <option value="partial">{t.durationPartial}</option>
           </select>
-        </div>
+        </div> : null}
         <div className="field-row">
           <div><label className="field-lbl">{t.from}</label><input className="field-input" type="date" value={form.start} onChange={(event) => setForm((current) => ({ ...current, start: event.target.value }))} /></div>
           <div><label className="field-lbl">{t.to}</label><input className="field-input" type="date" value={form.end} onChange={(event) => setForm((current) => ({ ...current, end: event.target.value }))} /></div>
         </div>
-        {form.duration === "partial" ? <div className="field-row">
+        {form.category !== "swap" && form.duration === "partial" ? <div className="field-row">
           <div><label className="field-lbl">{t.workTimes}</label><input className="field-input" type="time" value={form.startTime} onChange={(event) => setForm((current) => ({ ...current, startTime: event.target.value }))} /></div>
           <div><label className="field-lbl">{t.end}</label><input className="field-input" type="time" value={form.endTime} onChange={(event) => setForm((current) => ({ ...current, endTime: event.target.value }))} /></div>
         </div> : null}

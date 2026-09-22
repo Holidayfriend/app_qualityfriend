@@ -30,6 +30,20 @@ export function weekIsoDates(mondayIso: string) {
   return Array.from({ length: 7 }, (_, index) => addDaysIso(mondayIso, index));
 }
 
+/** From `startIso` through Sunday of the Nth week of that ISO week (N=1 is rest of this week). */
+export function datesFromThroughWeeks(startIso: string, weeks: number) {
+  const count = Number.isInteger(weeks) && weeks >= 1 && weeks <= 8 ? weeks : 1;
+  const weekStart = mondayOfIso(startIso);
+  const lastSunday = addDaysIso(weekStart, count * 7 - 1);
+  const dates: string[] = [];
+  let current = startIso;
+  while (current <= lastSunday && dates.length < 56) {
+    dates.push(current);
+    current = addDaysIso(current, 1);
+  }
+  return dates;
+}
+
 function monthName(iso: string, locale: Locale) {
   return new Intl.DateTimeFormat(locale, { month: "long", timeZone: "UTC" }).format(parseIsoDate(iso));
 }

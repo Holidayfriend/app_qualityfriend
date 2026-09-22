@@ -14,9 +14,10 @@ export type ShiftCell = {
   templateId: string;
   leaveCategory: LeaveCategory | "";
   leaveDuration: LeaveDuration | "";
+  updatedBy: string;
 };
 export type Employee = { key: string; name: string; departmentId: string; departmentName: string; shifts: ShiftCell[] };
-export const EMPTY_CELL: ShiftCell = { kind: "empty", start: "", end: "", breakMins: 0, note: "", templateId: "", leaveCategory: "", leaveDuration: "" };
+export const EMPTY_CELL: ShiftCell = { kind: "empty", start: "", end: "", breakMins: 0, note: "", templateId: "", leaveCategory: "", leaveDuration: "", updatedBy: "" };
 export const EMPTY_SHIFTS: ShiftCell[] = Array.from({ length: 7 }, () => ({ ...EMPTY_CELL }));
 export type Absence = {
   id: string;
@@ -31,6 +32,7 @@ export type Absence = {
   note: string;
   status: AbsenceStatus;
   source: "request" | "direct";
+  decidedBy: string;
 };
 export type Template = { id: string; name: string; start: string; end: string; breakMins: number; note: string };
 

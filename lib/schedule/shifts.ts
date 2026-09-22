@@ -4,11 +4,11 @@ import { randomUUID } from "node:crypto";
 import { prisma } from "../prisma";
 import { recordAuditLog } from "../audit/audit-service";
 import { pickLocalized } from "../recruiting/job-fields";
-import { addDaysIso } from "./week";
+import { addDaysIso, datesFromThroughWeeks } from "./week";
 import { translateShiftNote } from "./translate";
 import type { Prisma } from "../../app/generated/prisma/client";
 import {
-  asLeaveCategory, asLeaveDuration, fromDbCategory, fromDbDuration, toDbCategory, toDbDuration,
+  asLeaveCategory, asLeaveDuration, fromDbCategory, fromDbDuration, personName, toDbCategory, toDbDuration,
   type LeaveCategory, type LeaveDuration,
 } from "./leave-fields";
 
@@ -26,6 +26,7 @@ export type PublicShift = {
   templateId: string;
   leaveCategory: LeaveCategory | "";
   leaveDuration: LeaveDuration | "";
+  updatedBy: string;
 };
 
 export function parseTime(value: string) {
@@ -56,6 +57,8 @@ function asPublic(row: {
   templateId: string | null;
   leaveCategory?: string;
   leaveDuration?: string;
+  createdBy?: { firstName: string; lastName: string } | null;
+  updatedBy?: { firstName: string; lastName: string } | null;
 }, locale: string): PublicShift {
   const kind = row.kind === "OFF" ? "off" : row.kind === "VACATION" ? "vac" : "work";
   const leaveCategory = kind === "off" ? fromDbCategory(row.leaveCategory ?? "") : "";
@@ -71,6 +74,7 @@ function asPublic(row: {
     templateId: row.templateId ?? "",
     leaveCategory: kind === "off" ? leaveCategory : "",
     leaveDuration: kind === "off" ? leaveDuration : "",
+    updatedBy: personName(row.updatedBy) || personName(row.createdBy),
   };
 }
 
@@ -100,6 +104,7 @@ export async function ensureShiftTable() {
   `);
   await prisma.$executeRawUnsafe(`ALTER TABLE "hotel_shifts" ADD COLUMN IF NOT EXISTS "leave_category" VARCHAR(20) NOT NULL DEFAULT ''`);
   await prisma.$executeRawUnsafe(`ALTER TABLE "hotel_shifts" ADD COLUMN IF NOT EXISTS "leave_duration" VARCHAR(20) NOT NULL DEFAULT ''`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "hotel_shifts" ADD COLUMN IF NOT EXISTS "updated_by_id" UUID`);
   await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "hotel_shifts_hotel_tenant_id_user_id_work_date_key" ON "hotel_shifts"("hotel_tenant_id", "user_id", "work_date")`);
   await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "hotel_shifts_hotel_tenant_id_work_date_idx" ON "hotel_shifts"("hotel_tenant_id", "work_date")`);
   await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "hotel_shifts_user_id_work_date_idx" ON "hotel_shifts"("user_id", "work_date")`);
@@ -133,13 +138,14 @@ export async function upsertShiftDays(
       select: { id: true },
     });
     const row = existing
-      ? await tx.hotelShift.update({ where: { id: existing.id }, data })
+      ? await tx.hotelShift.update({ where: { id: existing.id }, data: { ...data, updatedById: actor.id } })
       : await tx.hotelShift.create({
         data: {
           id: randomUUID(),
           hotelTenantId: actor.hotel_tenant_id,
           userId,
           createdById: actor.id,
+          updatedById: actor.id,
           workDate: workDateValue,
           ...data,
         },
@@ -169,6 +175,7 @@ export async function applyOffDays(
     locale: string;
   },
 ) {
+  if (input.category === "swap") return;
   const partial = input.duration === "partial";
   await upsertShiftDays(tx, actor, input.userId, input.dates, {
     kind: "OFF",
@@ -192,6 +199,10 @@ export async function listWeekShifts(actor: ScheduleActor, weekStart: string, lo
   const to = new Date(`${addDaysIso(weekStart, 6)}T00:00:00.000Z`);
   const rows = await prisma.hotelShift.findMany({
     where: { hotelTenantId: actor.hotel_tenant_id, workDate: { gte: from, lte: to } },
+    include: {
+      createdBy: { select: { firstName: true, lastName: true } },
+      updatedBy: { select: { firstName: true, lastName: true } },
+    },
   });
   return rows.map((row) => asPublic(row, locale));
 }
@@ -240,9 +251,12 @@ export async function saveShiftAssignment(actor: ScheduleActor, body: Record<str
   const source = locale === "de" || locale === "it" ? locale : "en";
   const notes = await translateShiftNote(actor.hotel_tenant_id, source, note);
 
-  const rawRepeat = Number(body.repeatWeeks);
-  const repeatWeeks = Number.isInteger(rawRepeat) && rawRepeat >= 1 && rawRepeat <= 8 ? rawRepeat : 1;
-  const dates = Array.from({ length: repeatWeeks }, (_, index) => addDaysIso(date, index * 7));
+  const repeat = typeof body.repeat === "string" ? body.repeat : "";
+  const dates = repeat === "thisWeek"
+    ? datesFromThroughWeeks(date, 1)
+    : Number.isInteger(Number(repeat)) && Number(repeat) >= 2 && Number(repeat) <= 8
+      ? datesFromThroughWeeks(date, Number(repeat))
+      : [date];
   const keepTimes = kind === "WORK" || leaveDuration === "PARTIAL";
 
   await prisma.$transaction(async (tx) => {
@@ -260,5 +274,5 @@ export async function saveShiftAssignment(actor: ScheduleActor, body: Record<str
       noteIt: notes.it,
     });
   });
-  return { ok: true as const, dates, repeatWeeks };
+  return { ok: true as const, dates, dayCount: dates.length, repeat: dates.length === 1 ? "none" : repeat || "none" };
 }
