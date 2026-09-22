@@ -551,6 +551,8 @@ model HotelTenant {
   handovers                    Handover[]
   hotelTasks                   HotelTask[]
   hotelChecklists              HotelChecklist[]
+  hotelShiftTemplates          HotelShiftTemplate[]
+  hotelShifts                  HotelShift[]
   manualDocuments              ManualDocument[]
   manualChunks                 ManualChunk[]
   aiConversations              AiConversation[]
@@ -767,6 +769,9 @@ model User {
   hotelChecklistCompletions HotelChecklistCompletion[]
   manualsCreated    ManualDocument[]     @relation("ManualDocumentAuthor")
   aiConversations   AiConversation[]
+  hotelShiftTemplatesCreated HotelShiftTemplate[] @relation("HotelShiftTemplateAuthor")
+  hotelShiftsAssigned HotelShift[] @relation("HotelShiftEmployee")
+  hotelShiftsCreated HotelShift[] @relation("HotelShiftAuthor")
 
   @@index([hotelTenantId])
   @@index([hotelTenantId, isActive])
@@ -1695,3 +1700,59 @@ model HotelChecklistCompletion {
   @@index([authorId])
   @@map("hotel_checklist_completions")
 }
+
+model HotelShiftTemplate {
+  id             String      @id @default(uuid()) @db.Uuid
+  hotelTenantId  String      @map("hotel_tenant_id") @db.Uuid
+  createdById    String      @map("created_by_id") @db.Uuid
+  name           String      @db.VarChar(180)
+  nameDe         String      @map("name_de") @db.VarChar(180)
+  nameIt         String      @map("name_it") @db.VarChar(180)
+  startTime      String      @map("start_time") @db.VarChar(5)
+  endTime        String      @map("end_time") @db.VarChar(5)
+  breakMinutes   Int         @default(0) @map("break_minutes")
+  note           String      @default("") @db.Text
+  noteDe         String      @default("") @map("note_de") @db.Text
+  noteIt         String      @default("") @map("note_it") @db.Text
+  originalLocale String      @default("en") @map("original_locale") @db.VarChar(8)
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant    HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+  createdBy      User        @relation("HotelShiftTemplateAuthor", fields: [createdById], references: [id], onDelete: Restrict)
+  assignments    HotelShift[]
+
+  @@index([hotelTenantId, name])
+  @@index([createdById])
+  @@map("hotel_shift_templates")
+}
+
+model HotelShift {
+  id             String              @id @default(uuid()) @db.Uuid
+  hotelTenantId  String              @map("hotel_tenant_id") @db.Uuid
+  userId         String              @map("user_id") @db.Uuid
+  createdById    String              @map("created_by_id") @db.Uuid
+  templateId     String?             @map("template_id") @db.Uuid
+  workDate       DateTime            @map("work_date") @db.Date
+  kind           String              @db.VarChar(20)
+  startTime      String              @default("") @map("start_time") @db.VarChar(5)
+  endTime        String              @default("") @map("end_time") @db.VarChar(5)
+  breakMinutes   Int                 @default(0) @map("break_minutes")
+  note           String              @default("") @db.Text
+  noteDe         String              @default("") @map("note_de") @db.Text
+  noteIt         String              @default("") @map("note_it") @db.Text
+  originalLocale String              @default("en") @map("original_locale") @db.VarChar(8)
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant    HotelTenant         @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+  user           User                @relation("HotelShiftEmployee", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy      User                @relation("HotelShiftAuthor", fields: [createdById], references: [id], onDelete: Restrict)
+  template       HotelShiftTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  @@unique([hotelTenantId, userId, workDate])
+  @@index([hotelTenantId, workDate])
+  @@index([userId, workDate])
+  @@index([createdById])
+  @@index([templateId])
+  @@map("hotel_shifts")
+}
+

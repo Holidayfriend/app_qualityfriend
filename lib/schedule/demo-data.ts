@@ -3,10 +3,19 @@ export type ShiftKey = "f" | "m" | "s" | "off" | "vac" | "k" | "open";
 export type AbsenceStatus = "open" | "approved" | "rejected";
 export type AbsenceCategory = "vacation" | "sick" | "swap";
 export type ScheduleDepartment = { id: string; name: string };
-export type Employee = { key: string; name: string; departmentId: string; departmentName: string; shifts: ShiftKey[] };
-export const EMPTY_SHIFTS: ShiftKey[] = ["off", "off", "off", "off", "off", "off", "off"];
+export type ShiftCell = {
+  kind: "empty" | "off" | "vac" | "work";
+  start: string;
+  end: string;
+  breakMins: number;
+  note: string;
+  templateId: string;
+};
+export type Employee = { key: string; name: string; departmentId: string; departmentName: string; shifts: ShiftCell[] };
+export const EMPTY_CELL: ShiftCell = { kind: "empty", start: "", end: "", breakMins: 0, note: "", templateId: "" };
+export const EMPTY_SHIFTS: ShiftCell[] = Array.from({ length: 7 }, () => ({ ...EMPTY_CELL }));
 export type Absence = { employee: string; empKey: string; category: AbsenceCategory; start: string; end: string; note: string; status: AbsenceStatus };
-export type Template = { name: string; start: string; end: string };
+export type Template = { id: string; name: string; start: string; end: string; breakMins: number; note: string };
 
 export const DAY_DATES = ["2026-08-19", "2026-08-20", "2026-08-21", "2026-08-22", "2026-08-23", "2026-08-24", "2026-08-25"];
 
@@ -14,11 +23,7 @@ export const INITIAL_EMPLOYEES: Employee[] = [];
 
 export const INITIAL_ABSENCES: Absence[] = [];
 
-export const INITIAL_TEMPLATES: Template[] = [
-  { name: "early", start: "07:00", end: "15:00" },
-  { name: "mid", start: "11:00", end: "19:00" },
-  { name: "late", start: "15:00", end: "23:00" },
-];
+export const INITIAL_TEMPLATES: Template[] = [];
 
 export const DEPT_HOURS: { dept: Dept; hours: string; width: string; bar: "bar-a" | "bar-g" | "bar-b" }[] = [
   { dept: "reception", hours: "78h", width: "70%", bar: "bar-a" },

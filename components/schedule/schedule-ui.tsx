@@ -5,9 +5,10 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { AppShell } from "../dashboard/app-shell";
 import { BrandLoader } from "../ui/brand-loader";
+import { useToast } from "../ui/toast-provider";
 import { useI18n } from "../i18n/i18n-provider";
 import { getScheduleMessages, type ScheduleMessages } from "../../lib/i18n/schedule-messages";
-import { type AbsenceCategory, type AbsenceStatus, type Employee, type ShiftKey } from "../../lib/schedule/demo-data";
+import { type AbsenceCategory, type AbsenceStatus, type Employee, type ShiftCell } from "../../lib/schedule/demo-data";
 import { formatDayHeader, formatWeekRange } from "../../lib/schedule/week";
 import { useSchedule } from "./schedule-provider";
 
@@ -30,14 +31,14 @@ function templateLabel(name: string, t: T) {
   return name;
 }
 
-function shiftMeta(key: ShiftKey, t: T) {
-  if (key === "f") return { label: "07–15", cls: "dp-f" };
-  if (key === "m") return { label: "11–19", cls: "dp-m" };
-  if (key === "s") return { label: "17–23", cls: "dp-s" };
-  if (key === "off") return { label: t.shiftOff, cls: "dp-off" };
-  if (key === "vac") return { label: t.shiftVac, cls: "dp-vac" };
-  if (key === "open") return { label: t.shiftOpen, cls: "dp-open" };
-  return { label: "09–18", cls: "dp-k" };
+function shiftMeta(cell: ShiftCell | undefined, t: T) {
+  if (!cell || cell.kind === "empty") return { label: t.dash, cls: "dp-off" };
+  if (cell.kind === "off") return { label: t.shiftOff, cls: "dp-off" };
+  if (cell.kind === "vac") return { label: t.shiftVac, cls: "dp-vac" };
+  const start = cell.start.slice(0, 5);
+  const end = cell.end.slice(0, 5);
+  const cls = start <= "08:00" ? "dp-f" : start <= "13:00" ? "dp-m" : "dp-s";
+  return { label: start && end ? `${start}–${end}` : t.dash, cls };
 }
 
 function categoryLabel(category: AbsenceCategory, t: T) {
@@ -57,11 +58,13 @@ function Shell({ title, children, tabs }: { title: string; children: ReactNode; 
   const pathname = usePathname();
   const { isPlanner } = useSchedule();
   const tab: Tab = pathname.startsWith("/schedule/stats") ? "stats" : pathname.startsWith("/schedule/absences") ? "absence" : pathname.startsWith("/schedule/own") ? "own" : "plan";
-  const items = [
-    ...(isPlanner ? [["/schedule", t.tabPlan, "plan"] as const] : []),
+  const items = isPlanner ? [
+    ["/schedule", t.tabPlan, "plan"] as const,
     ["/schedule/own", t.tabOwn, "own"] as const,
     ["/schedule/absences", t.tabAbsence, "absence"] as const,
-    ...(isPlanner ? [["/schedule/stats", t.tabStats, "stats"] as const] : []),
+    ["/schedule/stats", t.tabStats, "stats"] as const,
+  ] : [
+    ["/schedule/own", t.tabOwn, "own"] as const,
   ];
   return <AppShell activeItem="schedule" pageTitle={title}>
     <main className="qf-dashboard pb-24 lg:pb-[24px]">
@@ -79,6 +82,7 @@ export function SchedulePlanPage() {
   const t = useT();
   const { locale } = useI18n();
   const router = useRouter();
+  const toast = useToast();
   const { isPlanner, ready, employees, departments, weekStartIso, weekDates, goToPrevWeek, goToNextWeek } = useSchedule();
   const [deptFilter, setDeptFilter] = useState("all");
   const visible = employees.filter((emp) => deptFilter === "all" || (deptFilter === "none" ? !emp.departmentId : emp.departmentId === deptFilter));
@@ -87,13 +91,13 @@ export function SchedulePlanPage() {
   function copyWeek() {
     const target = window.prompt(t.copyPrompt, t.copyPromptValue);
     if (!target) return;
-    window.alert(fill(t.copyDone, { target }));
+    toast({ message: fill(t.copyDone, { target }), tone: "success" });
   }
 
   function exportPlan() {
     const format = window.prompt(t.exportPrompt, "pdf");
     if (!format) return;
-    window.alert(fill(t.exportDone, { format: format.toUpperCase() }));
+    toast({ message: fill(t.exportDone, { format: format.toUpperCase() }), tone: "success" });
   }
 
   if (!ready) return <Shell title={t.pageTitle} tabs><BrandLoader label={t.loading} /></Shell>;
@@ -123,7 +127,7 @@ export function SchedulePlanPage() {
           <button type="button" className="btn btn-ghost" style={{ fontSize: 12 }} onClick={copyWeek}>{t.copyWeek}</button>
           <button type="button" className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => window.print()}>{t.print}</button>
           <button type="button" className="btn btn-ghost" style={{ fontSize: 12 }} onClick={exportPlan}>{t.export}</button>
-          <button type="button" className="btn btn-primary" style={{ fontSize: 12 }} onClick={() => window.alert(t.alertPublish)}>{t.publish}</button>
+          <button type="button" className="btn btn-primary" style={{ fontSize: 12 }} onClick={() => toast({ message: t.alertPublish, tone: "success" })}>{t.publish}</button>
         </div>
       </div>
       <div className="cb" style={{ overflowX: "auto" }}>
@@ -136,7 +140,7 @@ export function SchedulePlanPage() {
     </div>
     <div style={{ padding: "12px 16px", background: "var(--amber-bg)", border: "1px solid #FDE68A", borderRadius: 8, fontSize: 13.5, color: "var(--amber)", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
       ⚠️ <strong>{t.alertOpenStrong}</strong>{t.alertOpenBody}
-      <button type="button" className="btn" style={{ marginLeft: "auto", background: "var(--amber)", color: "#fff", fontSize: 12, padding: "5px 12px" }} onClick={() => window.alert(t.alertAi)}>{t.aiSuggest}</button>
+      <button type="button" className="btn" style={{ marginLeft: "auto", background: "var(--amber)", color: "#fff", fontSize: 12, padding: "5px 12px" }} onClick={() => toast({ message: t.alertAi, tone: "info" })}>{t.aiSuggest}</button>
     </div>
   </Shell>;
 }
@@ -167,7 +171,7 @@ export function ScheduleOwnPage() {
       <div className="cb">
         {own ? <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 8 }}>
           {dayLabels.map((day, index) => {
-            const meta = shiftMeta(own.shifts[index] ?? "off", t);
+            const meta = shiftMeta(own.shifts[index], t);
             return <div key={day} style={{ textAlign: "center" }}>
               <div style={{ fontSize: 11, color: "var(--text3)", fontWeight: 600, marginBottom: 6 }}>{day}</div>
               <div className={`dp-shift ${meta.cls}`}>{meta.label}</div>
@@ -247,37 +251,101 @@ export function ScheduleStatsPage() {
   </Shell>;
 }
 
+const REPEAT_WEEKS = [2, 3, 4, 5, 6, 7, 8] as const;
+
 export function ScheduleShiftPage({ employee, day }: { employee: string; day: number }) {
   const t = useT();
   const { locale } = useI18n();
   const router = useRouter();
-  const { ready, employees, templates, saveShift, weekDates } = useSchedule();
-  const emp = employees.find((item) => item.key === employee) ?? employees[0];
+  const toast = useToast();
+  const { ready, shiftsReady, isPlanner, employees, templates, saveShift, weekDates } = useSchedule();
+  const emp = employees.find((item) => item.key === employee);
   const dayLabel = weekDates[day] ? formatDayHeader(weekDates[day], locale) : t.days[day] ?? t.days[0];
   const [form, setForm] = useState({ template: "", start: "09:00", end: "17:00", pause: "", note: "", repeat: "none" });
+  const [busy, setBusy] = useState(false);
+  const blocked = form.template === "off" || form.template === "vac";
+  const repeatLabels: Record<(typeof REPEAT_WEEKS)[number], string> = {
+    2: t.repeat2, 3: t.repeat3, 4: t.repeat4, 5: t.repeat5, 6: t.repeat6, 7: t.repeat7, 8: t.repeat8,
+  };
+
+  useEffect(() => {
+    if (!ready || !shiftsReady || !emp) return;
+    const cell = emp.shifts[day];
+    if (!cell || cell.kind === "empty") return;
+    const off = cell.kind === "off" || cell.kind === "vac";
+    setForm({
+      template: off ? cell.kind : cell.templateId,
+      start: off ? "" : cell.start || "09:00",
+      end: off ? "" : cell.end || "17:00",
+      pause: off ? "" : cell.breakMins ? String(cell.breakMins) : "",
+      note: cell.note,
+      repeat: "none",
+    });
+  }, [day, emp, ready, shiftsReady]);
 
   function applyTemplate(value: string) {
     setForm((current) => {
-      if (value.startsWith("tpl_")) {
-        const template = templates[Number(value.slice(4))];
-        if (!template) return { ...current, template: value };
-        return { ...current, template: value, start: template.start, end: template.end };
+      if (value === "off" || value === "vac") {
+        return { ...current, template: value, start: "", end: "", pause: "", note: "" };
       }
-      return { ...current, template: value };
+      if (value === "") {
+        return { ...current, template: value, start: current.start || "09:00", end: current.end || "17:00" };
+      }
+      const template = templates.find((item) => item.id === value);
+      if (!template) return { ...current, template: value };
+      return {
+        ...current,
+        template: value,
+        start: template.start,
+        end: template.end,
+        pause: template.breakMins ? String(template.breakMins) : "",
+        note: template.note,
+      };
     });
   }
 
-  function save() {
-    if (!emp) return;
-    saveShift(emp.key, day, form.start, form.end, form.template);
-    window.alert(form.repeat === "4weeks" ? t.savedRepeat4 : form.repeat === "month" ? t.savedRepeatMonth : t.saved);
-    router.push("/schedule");
+  async function save() {
+    if (!emp || busy) return;
+    if (!blocked && (!form.start || !form.end)) {
+      toast({ message: t.needShiftTimes, tone: "error" });
+      return;
+    }
+    setBusy(true);
+    try {
+      const repeatWeeks = form.repeat === "none" ? 1 : Number(form.repeat);
+      const saved = await saveShift({
+        empKey: emp.key,
+        day,
+        start: form.start,
+        end: form.end,
+        breakMins: form.pause,
+        note: form.note,
+        template: form.template,
+        repeatWeeks,
+      });
+      if (!saved) {
+        toast({ message: t.saveShiftFailed, tone: "error" });
+        return;
+      }
+      toast({
+        message: saved > 1 ? fill(t.savedRepeatWeeks, { n: String(saved) }) : t.saved,
+        tone: "success",
+      });
+      router.push("/schedule");
+    } finally {
+      setBusy(false);
+    }
   }
 
-  if (!ready) return <Shell title={t.shiftTitle}><BrandLoader label={t.loading} /></Shell>;
+  if (!ready || !shiftsReady) return <Shell title={t.shiftTitle}><BrandLoader label={t.loading} /></Shell>;
+  if (!isPlanner) {
+    router.replace("/schedule/own");
+    return <Shell title={t.shiftTitle}><BrandLoader label={t.loading} /></Shell>;
+  }
   if (!emp) return <Shell title={t.shiftTitle}><Link href="/schedule" className="back-link">{t.back}</Link><p style={{ fontSize: 13, color: "var(--text3)" }}>{t.emptyEmployees}</p></Shell>;
 
   return <Shell title={t.shiftTitle}>
+    {busy ? <BrandLoader label={t.translating} overlay /> : null}
     <Link href="/schedule" className="back-link">{t.back}</Link>
     <section className="card" style={{ maxWidth: 460 }}>
       <div className="ch"><div className="ct">{emp.name} · {dayLabel}</div></div>
@@ -285,26 +353,26 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
         <div><label className="field-lbl">{t.presetShift}</label>
           <select className="field-select" value={form.template} onChange={(event) => applyTemplate(event.target.value)}>
             <option value="">{t.manual}</option>
-            {templates.map((item, index) => <option key={`${item.name}-${index}`} value={`tpl_${index}`}>{templateLabel(item.name, t)} ({item.start}–{item.end})</option>)}
+            {templates.map((item) => <option key={item.id} value={item.id}>{templateLabel(item.name, t)} ({item.start}–{item.end})</option>)}
             <option value="off">{t.off}</option>
             <option value="vac">{t.vacation}</option>
           </select>
         </div>
         <div className="field-row">
-          <div><label className="field-lbl">{t.start}</label><input className="field-input" type="time" value={form.start} onChange={(event) => setForm((current) => ({ ...current, start: event.target.value }))} /></div>
-          <div><label className="field-lbl">{t.end}</label><input className="field-input" type="time" value={form.end} onChange={(event) => setForm((current) => ({ ...current, end: event.target.value }))} /></div>
+          <div><label className="field-lbl">{t.start}</label><input className="field-input" type="time" disabled={blocked} value={form.start} onChange={(event) => setForm((current) => ({ ...current, start: event.target.value }))} /></div>
+          <div><label className="field-lbl">{t.end}</label><input className="field-input" type="time" disabled={blocked} value={form.end} onChange={(event) => setForm((current) => ({ ...current, end: event.target.value }))} /></div>
         </div>
-        <div><label className="field-lbl">{t.breakMins}</label><input className="field-input" type="number" placeholder="30" value={form.pause} onChange={(event) => setForm((current) => ({ ...current, pause: event.target.value }))} /></div>
-        <div><label className="field-lbl">{t.note}</label><input className="field-input" placeholder={t.optional} value={form.note} onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))} /></div>
+        <div><label className="field-lbl">{t.breakMins}</label><input className="field-input" type="number" placeholder="30" disabled={blocked} value={form.pause} onChange={(event) => setForm((current) => ({ ...current, pause: event.target.value }))} /></div>
+        <div><label className="field-lbl">{t.note}</label><input className="field-input" placeholder={t.optional} disabled={blocked} value={form.note} onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))} /></div>
+        <p style={{ fontSize: 12, color: "var(--text3)", margin: 0 }}>{t.autoTranslate}</p>
         <div><label className="field-lbl">{t.repeat}</label>
           <select className="field-select" value={form.repeat} onChange={(event) => setForm((current) => ({ ...current, repeat: event.target.value }))}>
             <option value="none">{t.repeatNone}</option>
-            <option value="4weeks">{t.repeat4}</option>
-            <option value="month">{t.repeatMonth}</option>
+            {REPEAT_WEEKS.map((weeks) => <option key={weeks} value={String(weeks)}>{repeatLabels[weeks]}</option>)}
           </select>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
-          <button type="button" className="btn btn-primary" style={{ flex: 1 }} onClick={save}>{t.save}</button>
+          <button type="button" className="btn btn-primary" style={{ flex: 1 }} disabled={busy} onClick={() => void save()}>{t.save}</button>
           <Link href="/schedule" className="btn btn-ghost">{t.cancel}</Link>
         </div>
       </div>
@@ -314,32 +382,118 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
 
 export function ScheduleTemplatesPage() {
   const t = useT();
-  const { templates, setTemplates } = useSchedule();
+  const router = useRouter();
+  const { ready, isPlanner, templates, deleteTemplate } = useSchedule();
 
-  function addTemplate() {
-    const name = window.prompt(t.tplNamePrompt, t.tplNameValue);
-    if (!name) return;
-    const start = window.prompt(t.tplStartPrompt, "23:00");
-    if (!start) return;
-    const end = window.prompt(t.tplEndPrompt, "07:00");
-    if (!end) return;
-    setTemplates((current) => [...current, { name, start, end }]);
+  if (!ready) return <Shell title={t.templatesTitle}><BrandLoader label={t.loading} /></Shell>;
+  if (!isPlanner) {
+    router.replace("/schedule/own");
+    return <Shell title={t.templatesTitle}><BrandLoader label={t.loading} /></Shell>;
   }
 
   return <Shell title={t.templatesTitle}>
     <Link href="/schedule" className="back-link">{t.back}</Link>
-    <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}><button type="button" className="btn btn-primary" onClick={addTemplate}>{t.addTemplate}</button></div>
-    {templates.length ? templates.map((item, index) => <div key={`${item.name}-${index}`} className="doc-row">
+    <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}><Link href="/schedule/templates/new" className="btn btn-primary">{t.addTemplate}</Link></div>
+    {templates.length ? templates.map((item) => <div key={item.id} className="doc-row">
       <div className="doc-ic">🕐</div>
-      <div style={{ flex: 1 }}><div className="doc-name">{templateLabel(item.name, t)}</div><div style={{ fontSize: 11, color: "var(--text3)" }}>{item.start} – {item.end}</div></div>
-      <button type="button" className="icon-btn danger" onClick={() => setTemplates((current) => current.filter((_, i) => i !== index))}>🗑️</button>
+      <Link href={`/schedule/templates/${item.id}`} style={{ flex: 1, minWidth: 0, textDecoration: "none", color: "inherit" }}>
+        <div className="doc-name">{templateLabel(item.name, t)}</div>
+        <div style={{ fontSize: 11, color: "var(--text3)" }}>
+          {item.start} – {item.end}{item.breakMins ? ` · ${item.breakMins} min` : ""}{item.note ? ` · ${item.note}` : ""}
+        </div>
+      </Link>
+      <Link href={`/schedule/templates/${item.id}`} className="icon-btn">✏️</Link>
+      <button type="button" className="icon-btn danger" onClick={() => void deleteTemplate(item.id)}>🗑️</button>
     </div>) : <div style={{ fontSize: 12.5, color: "var(--text3)" }}>{t.noTemplates}</div>}
+  </Shell>;
+}
+
+export function ScheduleTemplateFormPage({ id }: { id?: string }) {
+  const t = useT();
+  const router = useRouter();
+  const toast = useToast();
+  const { ready, isPlanner, templates, saveTemplate } = useSchedule();
+  const existing = id ? templates.find((item) => item.id === id) : undefined;
+  const [form, setForm] = useState({ name: "", start: "07:00", end: "15:00", pause: "", note: "" });
+  const [loaded, setLoaded] = useState(!id);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!id || !ready) return;
+    if (!existing) {
+      setLoaded(true);
+      return;
+    }
+    setForm({
+      name: existing.name,
+      start: existing.start,
+      end: existing.end,
+      pause: existing.breakMins ? String(existing.breakMins) : "",
+      note: existing.note,
+    });
+    setLoaded(true);
+  }, [existing, id, ready]);
+
+  async function save() {
+    if (!form.name.trim()) {
+      toast({ message: t.needTemplateName, tone: "error" });
+      return;
+    }
+    if (!form.start || !form.end) {
+      toast({ message: t.needShiftTimes, tone: "error" });
+      return;
+    }
+    if (busy) return;
+    setBusy(true);
+    try {
+      const saved = await saveTemplate(id, { name: form.name, start: form.start, end: form.end, breakMins: form.pause, note: form.note });
+      if (!saved) {
+        toast({ message: t.saveFailed, tone: "error" });
+        return;
+      }
+      toast({ message: t.templateSaved, tone: "success" });
+      router.push("/schedule/templates");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!ready || !loaded) return <Shell title={id ? t.editTemplate : t.newTemplate}><BrandLoader label={t.loading} /></Shell>;
+  if (!isPlanner) {
+    router.replace("/schedule/own");
+    return <Shell title={t.templatesTitle}><BrandLoader label={t.loading} /></Shell>;
+  }
+  if (id && !existing) {
+    return <Shell title={t.editTemplate}><Link href="/schedule/templates" className="back-link">{t.back}</Link><p style={{ fontSize: 13, color: "var(--text3)" }}>{t.noTemplates}</p></Shell>;
+  }
+
+  return <Shell title={id ? t.editTemplate : t.newTemplate}>
+    {busy ? <BrandLoader label={t.translating} overlay /> : null}
+    <Link href="/schedule/templates" className="back-link">{t.back}</Link>
+    <section className="card" style={{ maxWidth: 460 }}>
+      <div className="ch"><div className="ct">{id ? t.editTemplate : t.newTemplate}</div></div>
+      <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div><label className="field-lbl">{t.templateName}</label><input className="field-input" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} /></div>
+        <div className="field-row">
+          <div><label className="field-lbl">{t.start}</label><input className="field-input" type="time" step="60" value={form.start} onChange={(event) => setForm((current) => ({ ...current, start: event.target.value }))} /></div>
+          <div><label className="field-lbl">{t.end}</label><input className="field-input" type="time" step="60" value={form.end} onChange={(event) => setForm((current) => ({ ...current, end: event.target.value }))} /></div>
+        </div>
+        <div><label className="field-lbl">{t.breakMins}</label><input className="field-input" type="number" placeholder="30" value={form.pause} onChange={(event) => setForm((current) => ({ ...current, pause: event.target.value }))} /></div>
+        <div><label className="field-lbl">{t.note}</label><input className="field-input" placeholder={t.optional} value={form.note} onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))} /></div>
+        <p style={{ fontSize: 12, color: "var(--text3)", margin: 0 }}>{t.autoTranslate}</p>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button type="button" className="btn btn-primary" style={{ flex: 1 }} disabled={busy} onClick={() => void save()}>{t.save}</button>
+          <Link href="/schedule/templates" className="btn btn-ghost">{t.cancel}</Link>
+        </div>
+      </div>
+    </section>
   </Shell>;
 }
 
 export function ScheduleRequestPage({ employee }: { employee?: string }) {
   const t = useT();
   const router = useRouter();
+  const toast = useToast();
   const { ready, employees, isPlanner, currentUserId, setAbsences } = useSchedule();
   const [form, setForm] = useState({
     empKey: employee || "",
@@ -364,7 +518,7 @@ export function ScheduleRequestPage({ employee }: { employee?: string }) {
   function save(event: FormEvent) {
     event.preventDefault();
     if (!form.start) {
-      window.alert(t.needStart);
+      toast({ message: t.needStart, tone: "error" });
       return;
     }
     const emp = employees.find((item) => item.key === form.empKey);
@@ -377,19 +531,19 @@ export function ScheduleRequestPage({ employee }: { employee?: string }) {
       note: form.note,
       status: "open",
     }, ...current]);
-    window.alert(t.requestSent);
+    toast({ message: t.requestSent, tone: "success" });
     router.push(isPlanner ? "/schedule/absences" : "/schedule/own");
   }
 
   if (!ready) return <Shell title={t.requestTitle}><BrandLoader label={t.loading} /></Shell>;
 
   return <Shell title={t.requestTitle}>
-    <Link href="/schedule" className="back-link">{t.back}</Link>
+    <Link href={isPlanner ? "/schedule" : "/schedule/own"} className="back-link">{t.back}</Link>
     <form className="card" style={{ maxWidth: 460 }} onSubmit={save}>
       <div className="ch"><div className="ct">{t.requestTitle}</div></div>
       <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div><label className="field-lbl">{t.employee}</label>
-          <select className="field-select" value={form.empKey} onChange={(event) => setForm((current) => ({ ...current, empKey: event.target.value }))}>
+          <select className="field-select" disabled={!isPlanner} value={form.empKey} onChange={(event) => setForm((current) => ({ ...current, empKey: event.target.value }))}>
             {employees.map((item) => <option key={item.key} value={item.key}>{item.name}</option>)}
           </select>
         </div>
