@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { scheduleEditor, scheduleViewer } from "../../../../lib/schedule/access";
-import { listWeekShifts, saveShiftAssignment } from "../../../../lib/schedule/shifts";
+import { countShiftDrafts, listWeekShifts, saveShiftAssignment } from "../../../../lib/schedule/shifts";
 import { supportedLocales } from "../../../../lib/i18n/dictionaries";
 
 function localeOf(request: Request) {
@@ -13,7 +13,8 @@ export async function GET(request: Request) {
   if (!actor) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   const weekStart = new URL(request.url).searchParams.get("weekStart") ?? "";
   const shifts = await listWeekShifts(actor, weekStart, localeOf(request));
-  return NextResponse.json({ shifts }, { headers: { "Cache-Control": "no-store" } });
+  const draftCount = await countShiftDrafts(actor);
+  return NextResponse.json({ shifts, draftCount }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST(request: Request) {
@@ -26,6 +27,7 @@ export async function POST(request: Request) {
     return NextResponse.json(result);
   } catch (error) {
     console.error("Save shift failed", error);
-    return NextResponse.json({ error: "SAVE_FAILED" }, { status: 500 });
+    const detail = error instanceof Error ? error.message : "SAVE_FAILED";
+    return NextResponse.json({ error: "SAVE_FAILED", detail }, { status: 500 });
   }
 }

@@ -45,6 +45,7 @@ type PublicShift = {
   leaveCategory?: LeaveCategory | "";
   leaveDuration?: LeaveDuration | "";
   updatedBy?: string;
+  draft?: boolean;
 };
 
 type Store = {
@@ -62,8 +63,10 @@ type Store = {
   employees: Employee[];
   absences: Absence[];
   templates: Template[];
+  draftCount: number;
   setEmployees: (employees: Employee[] | ((current: Employee[]) => Employee[])) => void;
   saveShift: (input: ShiftInput) => Promise<number | null>;
+  publishWeek: () => Promise<{ cells: number; employees: number } | null>;
   saveAbsence: (input: AbsenceInput) => Promise<boolean>;
   decideAbsence: (id: string, status: AbsenceStatus) => Promise<boolean>;
   saveTemplate: (id: string | undefined, input: TemplateInput) => Promise<string | null>;
@@ -122,6 +125,7 @@ function asShifts(value: unknown): PublicShift[] {
       leaveCategory: asLeaveCategory(row.leaveCategory),
       leaveDuration: asLeaveDuration(row.leaveDuration),
       updatedBy: typeof row.updatedBy === "string" ? row.updatedBy : "",
+      draft: row.draft === true,
     }];
   });
 }
@@ -167,6 +171,7 @@ function cellFromShift(row: PublicShift | undefined): ShiftCell {
     leaveCategory: row.leaveCategory || "",
     leaveDuration: row.leaveDuration || "",
     updatedBy: row.updatedBy || "",
+    draft: row.draft === true,
   };
 }
 
@@ -190,6 +195,7 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [absences, setAbsences] = useState<Absence[]>(INITIAL_ABSENCES);
   const [templates, setTemplates] = useState<Template[]>(INITIAL_TEMPLATES);
+  const [draftCount, setDraftCount] = useState(0);
   const weekDates = useMemo(() => weekIsoDates(weekStartIso), [weekStartIso]);
 
   useEffect(() => {
@@ -249,9 +255,10 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
     try {
       const response = await fetch(`/api/schedule/shifts?weekStart=${weekStartIso}&locale=${locale}`, { cache: "no-store", signal });
       if (!response.ok) return;
-      const body = await response.json() as { shifts?: unknown };
+      const body = await response.json() as { shifts?: unknown; draftCount?: unknown };
       const shifts = asShifts(body.shifts);
       setEmployees((current) => mergeWeekShifts(current, weekDates, shifts));
+      setDraftCount(typeof body.draftCount === "number" ? body.draftCount : 0);
     } finally {
       if (!signal?.aborted) setShiftsReady(true);
     }
@@ -285,11 +292,19 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
         leaveDuration: input.leaveDuration,
       }),
     });
-    if (!response.ok) return null;
-    const body = await response.json() as { dayCount?: number };
+    const body = await response.json().catch(() => ({})) as { dayCount?: number; error?: string; detail?: string };
+    if (!response.ok) throw new Error(body.detail || body.error || "SAVE_FAILED");
     await reloadWeekShifts().catch(() => undefined);
     return typeof body.dayCount === "number" ? body.dayCount : 1;
   }, [locale, reloadWeekShifts, weekDates]);
+
+  const publishWeek = useCallback(async () => {
+    const response = await fetch("/api/schedule/publish", { method: "POST" });
+    if (!response.ok) return null;
+    const body = await response.json() as { cells?: number; employees?: number };
+    await reloadWeekShifts().catch(() => undefined);
+    return { cells: typeof body.cells === "number" ? body.cells : 0, employees: typeof body.employees === "number" ? body.employees : 0 };
+  }, [reloadWeekShifts]);
 
   const saveAbsence = useCallback(async (input: AbsenceInput) => {
     const response = await fetch(`/api/schedule/absences?locale=${locale}`, {
@@ -346,9 +361,9 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
     role, currentUserId, fullName, isPlanner, ready, shiftsReady, weekStartIso, weekDates,
     goToPrevWeek: () => setWeekStartIso((current) => addDaysIso(current, -7)),
     goToNextWeek: () => setWeekStartIso((current) => addDaysIso(current, 7)),
-    departments, employees, absences, templates,
-    setEmployees, saveShift, saveAbsence, decideAbsence, saveTemplate, deleteTemplate,
-  }), [absences, currentUserId, decideAbsence, deleteTemplate, departments, employees, fullName, isPlanner, ready, role, saveAbsence, saveShift, saveTemplate, shiftsReady, templates, weekDates, weekStartIso]);
+    departments, employees, absences, templates, draftCount,
+    setEmployees, saveShift, publishWeek, saveAbsence, decideAbsence, saveTemplate, deleteTemplate,
+  }), [absences, currentUserId, decideAbsence, deleteTemplate, departments, draftCount, employees, fullName, isPlanner, publishWeek, ready, role, saveAbsence, saveShift, saveTemplate, shiftsReady, templates, weekDates, weekStartIso]);
 
   return <ScheduleContext.Provider value={value}>{children}</ScheduleContext.Provider>;
 }

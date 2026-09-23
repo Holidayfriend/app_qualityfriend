@@ -104,8 +104,9 @@ export function SchedulePlanPage() {
   const { locale } = useI18n();
   const router = useRouter();
   const toast = useToast();
-  const { isPlanner, ready, employees, departments, weekStartIso, weekDates, goToPrevWeek, goToNextWeek } = useSchedule();
+  const { isPlanner, ready, employees, departments, weekStartIso, weekDates, goToPrevWeek, goToNextWeek, publishWeek, draftCount } = useSchedule();
   const [deptFilter, setDeptFilter] = useState("all");
+  const [publishing, setPublishing] = useState(false);
   const visible = employees.filter((emp) => deptFilter === "all" || (deptFilter === "none" ? !emp.departmentId : emp.departmentId === deptFilter));
   const dayLabels = weekDates.map((iso) => formatDayHeader(iso, locale));
 
@@ -113,6 +114,24 @@ export function SchedulePlanPage() {
     const target = window.prompt(t.copyPrompt, t.copyPromptValue);
     if (!target) return;
     toast({ message: fill(t.copyDone, { target }), tone: "success" });
+  }
+
+  async function publish() {
+    if (!draftCount || publishing) return;
+    setPublishing(true);
+    try {
+      const result = await publishWeek();
+      if (!result) {
+        toast({ message: t.publishFailed, tone: "error" });
+        return;
+      }
+      toast({
+        message: result.employees ? fill(t.publishedOk, { n: String(result.employees) }) : t.publishedNone,
+        tone: "success",
+      });
+    } finally {
+      setPublishing(false);
+    }
   }
 
   function exportPlan() {
@@ -128,6 +147,7 @@ export function SchedulePlanPage() {
   }
 
   return <Shell title={t.pageTitle} tabs>
+    {publishing ? <BrandLoader label={t.publishing} overlay /> : null}
     <div className="kpi-row" style={{ gridTemplateColumns: "repeat(3,1fr)", marginBottom: 18 }}>
       <div className="kpi"><div className="kpi-lbl">{t.kpiStaffWeek}</div><div className="kpi-val">{employees.length}</div><div className="kpi-sub">{t.kpiStaffSub}</div></div>
       <div className="kpi"><div className="kpi-lbl">{t.kpiHours}</div><div className="kpi-val">312<span>{t.hoursUnit}</span></div><div className="kpi-sub"><span className="chip chip-g">{t.kpiHoursChip}</span></div></div>
@@ -148,7 +168,7 @@ export function SchedulePlanPage() {
           <button type="button" className="btn btn-ghost" style={{ fontSize: 12 }} onClick={copyWeek}>{t.copyWeek}</button>
           <button type="button" className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => window.print()}>{t.print}</button>
           <button type="button" className="btn btn-ghost" style={{ fontSize: 12 }} onClick={exportPlan}>{t.export}</button>
-          <button type="button" className="btn btn-primary" style={{ fontSize: 12 }} onClick={() => toast({ message: t.alertPublish, tone: "success" })}>{t.publish}</button>
+          <button type="button" className="btn btn-primary" style={{ fontSize: 12 }} disabled={!draftCount || publishing} onClick={() => void publish()}>{draftCount ? fill(t.publishChanges, { n: String(draftCount) }) : t.publish}</button>
         </div>
       </div>
       <div className="cb" style={{ overflowX: "auto" }}>
@@ -171,7 +191,7 @@ function EmployeeRow({ emp, t }: { emp: Employee; t: T }) {
     <div className="dp-name">{emp.name}<div className="dp-dept">{deptLabel(emp, t)}</div></div>
     {emp.shifts.map((shift, index) => {
       const meta = shiftMeta(shift, t);
-      return <Link key={`${emp.key}-${index}`} href={`/schedule/shift?employee=${emp.key}&day=${index}`} className="dp-cell"><div className={`dp-shift ${meta.cls}`}>{meta.label}{meta.sub ? <span style={{ display: "block", fontSize: 9, fontWeight: 500, marginTop: 1 }}>{meta.sub}</span> : null}</div></Link>;
+      return <Link key={`${emp.key}-${index}`} href={`/schedule/shift?employee=${emp.key}&day=${index}`} className="dp-cell"><div className={`dp-shift ${meta.cls}${shift.draft ? " dp-draft" : ""}`}>{meta.label}{meta.sub ? <span style={{ display: "block", fontSize: 9, fontWeight: 500, marginTop: 1 }}>{meta.sub}</span> : null}</div></Link>;
     })}
   </>;
 }
@@ -397,6 +417,8 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
         tone: "success",
       });
       router.push("/schedule");
+    } catch (error) {
+      toast({ message: error instanceof Error && error.message ? error.message : t.saveShiftFailed, tone: "error" });
     } finally {
       setBusy(false);
     }

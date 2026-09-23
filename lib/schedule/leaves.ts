@@ -6,6 +6,7 @@ import { recordAuditLog } from "../audit/audit-service";
 import { pickLocalized } from "../recruiting/job-fields";
 import { translateShiftNote } from "./translate";
 import { applyOffDays, ensureShiftTable, parseTime } from "./shifts";
+import { notifyLeaveDecided, notifyLeaveRequested } from "./notify";
 import type { ScheduleActor } from "./access";
 import {
   asLeaveCategory, asLeaveDuration, datesInclusive, fromDbCategory, fromDbDuration, personName, toDbCategory, toDbDuration,
@@ -174,13 +175,16 @@ export async function createAbsence(actor: ScheduleActor, body: Record<string, u
         userId, dates, category, duration, startTime, endTime, notes, locale: sourceLang,
       });
     }
+    if (!applyNow) {
+      await notifyLeaveRequested(tx, actor.hotel_tenant_id, actor.id, personName(employee), category === "swap");
+    }
     await recordAuditLog(tx, {
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "CREATE",
-      entityType: "LEAVE_REQUEST",
+      entityType: category === "swap" ? "SWAP_REQUEST" : "LEAVE_REQUEST",
       entityId: created.id,
-      changes: { after: { userId, start, end, category, duration, status } },
+      changes: { after: { title: `${personName(employee)} · ${start}${end !== start ? `–${end}` : ""} · ${category}` } },
     });
     return created;
   });
@@ -219,13 +223,17 @@ export async function decideAbsence(actor: ScheduleActor, id: string, status: "a
         });
       }
     }
+    await notifyLeaveDecided(tx, actor.hotel_tenant_id, previous.userId, actor.id, status === "approved", fromDbCategory(previous.category) === "swap");
     await recordAuditLog(tx, {
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "STATUS_CHANGE",
-      entityType: "LEAVE_REQUEST",
+      entityType: fromDbCategory(previous.category) === "swap" ? "SWAP_REQUEST" : "LEAVE_REQUEST",
       entityId: id,
-      changes: { before: { status: previous.status }, after: { status: nextStatus } },
+      changes: {
+        before: { status: previous.status, title: personName(previous.user) },
+        after: { status: nextStatus, title: personName(previous.user) },
+      },
     });
     return updated;
   });
