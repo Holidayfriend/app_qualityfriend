@@ -781,6 +781,7 @@ model User {
   hotelLeaveRequests HotelLeaveRequest[] @relation("HotelLeaveEmployee")
   hotelLeaveRequestsCreated HotelLeaveRequest[] @relation("HotelLeaveAuthor")
   hotelLeaveRequestsDecided HotelLeaveRequest[] @relation("HotelLeaveDecidedBy")
+  hotelLeaveRequestsSwapWith HotelLeaveRequest[] @relation("HotelLeaveSwapWith")
 
   @@index([hotelTenantId])
   @@index([hotelTenantId, isActive])
@@ -1812,6 +1813,7 @@ model HotelLeaveRequest {
   userId         String      @map("user_id") @db.Uuid
   createdById    String      @map("created_by_id") @db.Uuid
   decidedById    String?     @map("decided_by_id") @db.Uuid
+  swapWithUserId String?     @map("swap_with_user_id") @db.Uuid
   startDate      DateTime    @map("start_date") @db.Date
   endDate        DateTime    @map("end_date") @db.Date
   category       String      @db.VarChar(20)
@@ -1830,10 +1832,12 @@ model HotelLeaveRequest {
   user           User        @relation("HotelLeaveEmployee", fields: [userId], references: [id], onDelete: Cascade)
   createdBy      User        @relation("HotelLeaveAuthor", fields: [createdById], references: [id], onDelete: Restrict)
   decidedBy      User?       @relation("HotelLeaveDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
+  swapWith       User?       @relation("HotelLeaveSwapWith", fields: [swapWithUserId], references: [id], onDelete: SetNull)
 
   @@index([hotelTenantId, status, startDate])
   @@index([userId, startDate])
   @@index([createdById])
+  @@index([swapWithUserId])
   @@map("hotel_leave_requests")
 }
 

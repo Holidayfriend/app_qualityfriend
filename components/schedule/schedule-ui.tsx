@@ -246,7 +246,7 @@ export function ScheduleAbsencesPage({ board }: { board?: "swap" }) {
     setBusyId(id);
     try {
       const ok = await decideAbsence(id, status);
-      toast({ message: ok ? (status === "approved" ? t.absenceApproved : t.absenceRejected) : t.saveShiftFailed, tone: ok ? "success" : "error" });
+      toast({ message: ok ? (status === "approved" ? (swapBoard ? t.swapApproved : t.absenceApproved) : t.absenceRejected) : t.saveShiftFailed, tone: ok ? "success" : "error" });
     } finally {
       setBusyId("");
     }
@@ -273,13 +273,13 @@ export function ScheduleAbsencesPage({ board }: { board?: "swap" }) {
     </div>
     <div className="card">
       <table className="bud-table" style={{ width: "100%" }}>
-        <thead><tr><th>{t.colEmployee}</th><th>{t.colCategory}</th><th>{t.colDuration}</th><th>{t.colPeriod}</th><th>{t.colNote}</th><th>{t.colStatus}</th><th>{t.colDecidedBy}</th><th style={{ textAlign: "right" }}>{t.colActions}</th></tr></thead>
+        <thead><tr><th>{t.colEmployee}</th>{swapBoard ? <th>{t.colSwapWith}</th> : <th>{t.colCategory}</th>}<th>{t.colDuration}</th><th>{t.colPeriod}</th><th>{t.colNote}</th><th>{t.colStatus}</th><th>{t.colDecidedBy}</th><th style={{ textAlign: "right" }}>{t.colActions}</th></tr></thead>
         <tbody>
           {rows.length ? rows.map((item) => {
             const status = statusMeta(item.status, t);
             return <tr key={item.id}>
               <td>{item.employee}</td>
-              <td>{categoryLabel(item.category, t)}</td>
+              {swapBoard ? <td>{item.swapWith || t.dash}</td> : <td>{categoryLabel(item.category, t)}</td>}
               <td>{item.category === "swap" ? t.dash : durationLabel(item.category, item.duration, t)}{item.category !== "swap" && item.duration === "partial" && item.startTime && item.endTime ? ` (${item.startTime}–${item.endTime})` : ""}</td>
               <td>{item.start}{item.end !== item.start ? ` ${t.dash} ${item.end}` : ""}</td>
               <td>{item.note || t.dash}</td>
@@ -622,6 +622,7 @@ export function ScheduleRequestPage({ employee, requestType }: { employee?: stri
     startTime: "09:00",
     endTime: "17:00",
     note: "",
+    swapWithKey: "",
   });
 
   useEffect(() => {
@@ -643,6 +644,10 @@ export function ScheduleRequestPage({ employee, requestType }: { employee?: stri
       return;
     }
     const isSwap = form.category === "swap";
+    if (isSwap && (!form.swapWithKey || form.swapWithKey === form.empKey)) {
+      toast({ message: t.needSwapPartner, tone: "error" });
+      return;
+    }
     if (!isSwap && form.duration === "partial" && (!form.startTime || !form.endTime)) {
       toast({ message: t.needShiftTimes, tone: "error" });
       return;
@@ -660,12 +665,13 @@ export function ScheduleRequestPage({ employee, requestType }: { employee?: stri
         endTime: form.endTime,
         note: form.note,
         applyDirect: isPlanner,
+        swapWithUserId: isSwap ? form.swapWithKey : undefined,
       });
       if (!ok) {
         toast({ message: t.requestFailed, tone: "error" });
         return;
       }
-      toast({ message: isPlanner ? t.absenceRecorded : t.requestSent, tone: "success" });
+      toast({ message: isPlanner ? (isSwap ? t.swapRecorded : t.absenceRecorded) : (isSwap ? t.requestSwapSent : t.requestSent), tone: "success" });
       router.push(isPlanner && isSwap ? "/schedule/swaps" : "/schedule/absences");
     } finally {
       setBusy(false);
@@ -686,7 +692,11 @@ export function ScheduleRequestPage({ employee, requestType }: { employee?: stri
       <div className="ch"><div className="ct">{title}</div></div>
       <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div><label className="field-lbl">{t.employee}</label>
-          <select className="field-select" disabled={!isPlanner} value={form.empKey} onChange={(event) => setForm((current) => ({ ...current, empKey: event.target.value }))}>
+          <select className="field-select" disabled={!isPlanner} value={form.empKey} onChange={(event) => setForm((current) => ({
+            ...current,
+            empKey: event.target.value,
+            swapWithKey: current.swapWithKey === event.target.value ? "" : current.swapWithKey,
+          }))}>
             {employees.map((item) => <option key={item.key} value={item.key}>{item.name}</option>)}
           </select>
         </div>
@@ -707,6 +717,13 @@ export function ScheduleRequestPage({ employee, requestType }: { employee?: stri
             <option value="unpaid">{t.leaveUnpaid}</option>
             <option value="paidSick">{t.leavePaidSick}</option>
           </select>
+        </div> : null}
+        {form.category === "swap" ? <div><label className="field-lbl">{t.swapWith}</label>
+          <select className="field-select" value={form.swapWithKey} onChange={(event) => setForm((current) => ({ ...current, swapWithKey: event.target.value }))}>
+            <option value="">{t.swapWithPlaceholder}</option>
+            {employees.filter((item) => item.key !== form.empKey).map((item) => <option key={item.key} value={item.key}>{item.name}</option>)}
+          </select>
+          <p style={{ fontSize: 12, color: "var(--text3)", margin: "6px 0 0" }}>{t.swapWithHint}</p>
         </div> : null}
         {form.category !== "swap" ? <div><label className="field-lbl">{t.leaveDuration}</label>
           <select className="field-select" value={form.duration} onChange={(event) => setForm((current) => ({ ...current, duration: event.target.value as LeaveDuration }))}>

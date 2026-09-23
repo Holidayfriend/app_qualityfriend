@@ -55,20 +55,23 @@ async function notify(tx: Tx, input: {
   });
 }
 
-export async function notifyLeaveRequested(tx: Tx, hotelTenantId: string, requesterId: string, employeeName: string, swap: boolean) {
+export async function notifyLeaveRequested(tx: Tx, hotelTenantId: string, requesterId: string, employeeName: string, swap: boolean, partnerName = "") {
   const planners = (await schedulePlannerIds(tx, hotelTenantId)).filter((id) => id !== requesterId);
   const kindEn = swap ? "shift swap" : "time off";
   const kindDe = swap ? "Schichttausch" : "Freistellung";
   const kindIt = swap ? "scambio turno" : "permesso";
+  const withEn = swap && partnerName ? ` with ${partnerName}` : "";
+  const withDe = swap && partnerName ? ` mit ${partnerName}` : "";
+  const withIt = swap && partnerName ? ` con ${partnerName}` : "";
   await notify(tx, {
     hotelTenantId,
     recipientIds: planners,
     eventKey: `schedule:request:${randomUUID()}`,
     destination: swap ? "/schedule/swaps" : "/schedule/absences",
     text: {
-      en: { title: swap ? "New shift swap request" : "New time-off request", body: `${employeeName} requested ${kindEn}.` },
-      de: { title: swap ? "Neue Tauschanfrage" : "Neue Freistellungsanfrage", body: `${employeeName} hat ${kindDe} beantragt.` },
-      it: { title: swap ? "Nuova richiesta di scambio" : "Nuova richiesta di permesso", body: `${employeeName} ha richiesto ${kindIt}.` },
+      en: { title: swap ? "New shift swap request" : "New time-off request", body: `${employeeName} requested ${kindEn}${withEn}.` },
+      de: { title: swap ? "Neue Tauschanfrage" : "Neue Freistellungsanfrage", body: `${employeeName} hat ${kindDe}${withDe} beantragt.` },
+      it: { title: swap ? "Nuova richiesta di scambio" : "Nuova richiesta di permesso", body: `${employeeName} ha richiesto ${kindIt}${withIt}.` },
     },
   });
 }
@@ -83,14 +86,14 @@ export async function notifyLeaveDecided(tx: Tx, hotelTenantId: string, employee
     destination: dest,
     text: approved
       ? {
-        en: { title: swap ? "Shift swap approved" : "Time off approved", body: "Your request was approved." },
-        de: { title: swap ? "Schichttausch genehmigt" : "Freistellung genehmigt", body: "Deine Anfrage wurde genehmigt." },
-        it: { title: swap ? "Scambio turno approvato" : "Permesso approvato", body: "La tua richiesta è stata approvata." },
+        en: { title: swap ? "Shift swap approved" : "Time off approved", body: swap ? "The shift swap was approved. Open My plan to see the updated shifts." : "Your request was approved." },
+        de: { title: swap ? "Schichttausch genehmigt" : "Freistellung genehmigt", body: swap ? "Der Schichttausch wurde genehmigt. Öffne Mein Plan für die aktualisierten Schichten." : "Deine Anfrage wurde genehmigt." },
+        it: { title: swap ? "Scambio turno approvato" : "Permesso approvato", body: swap ? "Lo scambio è stato approvato. Apri La mia settimana per vedere i turni aggiornati." : "La tua richiesta è stata approvata." },
       }
       : {
-        en: { title: swap ? "Shift swap rejected" : "Time off rejected", body: "Your request was rejected." },
-        de: { title: swap ? "Schichttausch abgelehnt" : "Freistellung abgelehnt", body: "Deine Anfrage wurde abgelehnt." },
-        it: { title: swap ? "Scambio turno rifiutato" : "Permesso rifiutato", body: "La tua richiesta è stata rifiutata." },
+        en: { title: swap ? "Shift swap rejected" : "Time off rejected", body: swap ? "The shift swap request was rejected." : "Your request was rejected." },
+        de: { title: swap ? "Schichttausch abgelehnt" : "Freistellung abgelehnt", body: swap ? "Die Tauschanfrage wurde abgelehnt." : "Deine Anfrage wurde abgelehnt." },
+        it: { title: swap ? "Scambio turno rifiutato" : "Permesso rifiutato", body: swap ? "La richiesta di scambio è stata rifiutata." : "La tua richiesta è stata rifiutata." },
       },
   });
 }

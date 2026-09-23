@@ -255,6 +255,75 @@ export async function applyOffDays(
   });
 }
 
+export async function applySwapDays(
+  tx: Prisma.TransactionClient,
+  actor: ScheduleActor,
+  input: { userId: string; otherUserId: string; dates: string[] },
+) {
+  if (input.userId === input.otherUserId) return;
+  for (const workDate of input.dates) {
+    const day = new Date(`${workDate}T00:00:00.000Z`);
+    const left = await effectiveShift(tx, actor.hotel_tenant_id, input.userId, day);
+    const right = await effectiveShift(tx, actor.hotel_tenant_id, input.otherUserId, day);
+    await assignLiveShift(tx, actor, input.userId, workDate, toShiftWrite(right));
+    await assignLiveShift(tx, actor, input.otherUserId, workDate, toShiftWrite(left));
+  }
+}
+
+async function effectiveShift(tx: Prisma.TransactionClient, hotelTenantId: string, userId: string, workDate: Date) {
+  const draft = await tx.hotelShiftDraft.findFirst({ where: { hotelTenantId, userId, workDate } });
+  if (draft) return draft;
+  return tx.hotelShift.findFirst({ where: { hotelTenantId, userId, workDate } });
+}
+
+function toShiftWrite(row: {
+  kind: string;
+  templateId: string | null;
+  startTime: string;
+  endTime: string;
+  breakMinutes: number;
+  leaveCategory: string;
+  leaveDuration: string;
+  originalLocale: string;
+  note: string;
+  noteDe: string;
+  noteIt: string;
+} | null): ShiftWrite | null {
+  if (!row) return null;
+  return {
+    kind: row.kind,
+    templateId: row.templateId,
+    startTime: row.startTime,
+    endTime: row.endTime,
+    breakMinutes: row.breakMinutes,
+    leaveCategory: row.leaveCategory,
+    leaveDuration: row.leaveDuration,
+    originalLocale: row.originalLocale,
+    note: row.note,
+    noteDe: row.noteDe,
+    noteIt: row.noteIt,
+  };
+}
+
+async function assignLiveShift(
+  tx: Prisma.TransactionClient,
+  actor: ScheduleActor,
+  userId: string,
+  workDate: string,
+  data: ShiftWrite | null,
+) {
+  const day = new Date(`${workDate}T00:00:00.000Z`);
+  if (data) await writeShiftRow(tx, "hotel_shifts", actor, userId, workDate, data);
+  else {
+    await tx.hotelShift.deleteMany({
+      where: { hotelTenantId: actor.hotel_tenant_id, userId, workDate: day },
+    });
+  }
+  await tx.hotelShiftDraft.deleteMany({
+    where: { hotelTenantId: actor.hotel_tenant_id, userId, workDate: day },
+  });
+}
+
 function shiftKey(userId: string, workDate: Date | string) {
   const date = typeof workDate === "string" ? workDate.slice(0, 10) : workDate.toISOString().slice(0, 10);
   return `${userId}:${date}`;

@@ -31,6 +31,7 @@ type AbsenceInput = {
   endTime: string;
   note: string;
   applyDirect: boolean;
+  swapWithUserId?: string;
 };
 
 type PublicShift = {
@@ -155,6 +156,8 @@ function asAbsences(value: unknown): Absence[] {
       status: row.status === "approved" || row.status === "rejected" ? row.status : "open",
       source: row.source === "direct" ? "direct" : "request",
       decidedBy: typeof row.decidedBy === "string" ? row.decidedBy : "",
+      swapWith: typeof row.swapWith === "string" ? row.swapWith : "",
+      swapWithUserId: typeof row.swapWithUserId === "string" ? row.swapWithUserId : "",
     }];
   });
 }

@@ -34,6 +34,8 @@ export type Absence = {
   status: AbsenceStatus;
   source: "request" | "direct";
   decidedBy: string;
+  swapWith: string;
+  swapWithUserId: string;
 };
 export type Template = { id: string; name: string; start: string; end: string; breakMins: number; note: string };
 
