@@ -84,7 +84,7 @@ function Shell({ title, children, tabs }: { title: string; children: ReactNode; 
     ["/schedule/stats", t.tabStats, "stats"] as const,
   ] : [
     ["/schedule/own", t.tabOwn, "own"] as const,
-    ["/schedule/absences", t.tabTimeOff, "absence"] as const,
+    ["/schedule/absences", t.tabAbsence, "absence"] as const,
     ["/schedule/swaps", t.tabSwap, "swap"] as const,
   ];
   return <AppShell activeItem="schedule" pageTitle={title}>
@@ -252,8 +252,9 @@ export function ScheduleAbsencesPage({ board }: { board?: "swap" }) {
     }
   }
 
-  if (!ready) return <Shell title={t.pageTitle} tabs><BrandLoader label={t.loading} /></Shell>;
-  return <Shell title={t.pageTitle} tabs>
+  const heading = swapBoard ? t.tabSwap : t.requestLeaveTitle;
+  if (!ready) return <Shell title={heading} tabs><BrandLoader label={t.loading} /></Shell>;
+  return <Shell title={heading} tabs>
     {busyId ? <BrandLoader label={t.loading} overlay /> : null}
     <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
       <div className="filter-row" style={{ marginBottom: 0 }}>
@@ -267,7 +268,7 @@ export function ScheduleAbsencesPage({ board }: { board?: "swap" }) {
             : <Link href={`/schedule/request?type=leave${own ? `&employee=${own.key}` : ""}`} className="btn btn-primary">{t.addAbsence}</Link>
           : swapBoard
             ? <Link href="/schedule/request?type=swap" className="btn btn-primary">{t.requestSwapBtn}</Link>
-            : <Link href="/schedule/request?type=leave" className="btn btn-primary">{t.requestLeaveBtn}</Link>}
+            : <Link href="/schedule/request?type=leave" className="btn btn-primary">{t.addAbsence}</Link>}
       </div>
     </div>
     <div className="card">
@@ -674,8 +675,8 @@ export function ScheduleRequestPage({ employee, requestType }: { employee?: stri
   const title = lockedSwap
     ? (isPlanner ? t.recordSwapTitle : t.requestSwapTitle)
     : lockedLeave
-      ? (isPlanner ? t.addAbsence : t.requestLeaveTitle)
-      : isPlanner ? t.addAbsence : t.requestTitle;
+      ? t.requestLeaveTitle
+      : isPlanner ? t.requestLeaveTitle : t.requestTitle;
   if (!ready) return <Shell title={title}><BrandLoader label={t.loading} /></Shell>;
 
   return <Shell title={title}>
@@ -723,7 +724,7 @@ export function ScheduleRequestPage({ employee, requestType }: { employee?: stri
         </div> : null}
         <div><label className="field-lbl">{t.comment}</label><input className="field-input" placeholder={t.optional} value={form.note} onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))} /></div>
         <p style={{ fontSize: 12, color: "var(--text3)", margin: 0 }}>{t.autoTranslate}</p>
-        <button type="submit" className="btn btn-primary" disabled={busy}>{isPlanner ? t.save : t.sendRequest}</button>
+        <button type="submit" className="btn btn-primary" disabled={busy}>{lockedSwap && !isPlanner ? t.sendRequest : t.save}</button>
       </div>
     </form>
   </Shell>;
