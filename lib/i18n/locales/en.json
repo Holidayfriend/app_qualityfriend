@@ -209,6 +209,8 @@
       "member": "member",
       "addDepartment": "Add department",
       "addTeam": "Add team",
+      "name": "Name",
+      "nameAutoTranslate": "The other two languages are filled automatically.",
       "edit": "Edit",
       "delete": "Delete",
       "reception": "Reception",
@@ -223,6 +225,7 @@
   },
   "requestMessages": {
     "loading": "Loading…",
+    "translating": "Translating and saving…",
     "failed": "Something went wrong. Please try again.",
     "nameExists": "This name already exists."
   },

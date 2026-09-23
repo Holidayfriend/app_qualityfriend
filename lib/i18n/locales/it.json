@@ -207,6 +207,8 @@
       "member": "membro",
       "addDepartment": "Aggiungi reparto",
       "addTeam": "Aggiungi team",
+      "name": "Nome",
+      "nameAutoTranslate": "Le altre due lingue vengono compilate automaticamente.",
       "edit": "Modifica",
       "delete": "Elimina",
       "reception": "Reception",
@@ -221,6 +223,7 @@
   },
   "requestMessages": {
     "loading": "Caricamento…",
+    "translating": "Traduzione e salvataggio…",
     "failed": "Qualcosa è andato storto. Riprova.",
     "nameExists": "Questo nome esiste già."
   },

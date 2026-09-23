@@ -5,11 +5,24 @@ import { getSessionUserId } from "../auth/session";
 import { createSyncedMcpDepartment, updateMcpDepartment } from "../mcp/client";
 import { getMcpDepartmentContext } from "../mcp/department-sync";
 import { prisma } from "../prisma";
+import { translateEntityName } from "./translate";
 
 export type EntityType = "department" | "team";
 type Row = { id: string; nameEn: string; nameDe: string; nameIt: string; _count?: { members: number } };
 async function actor() { const id = await getSessionUserId(); if (!id) return null; return prisma.user.findFirst({ where: { id, isActive: true, isDeleted: false }, select: { id: true, hotelTenantId: true } }); }
-function names(body: unknown) { if (!body || typeof body !== "object") return null; const data = body as Record<string, unknown>, nameEn = typeof data.nameEn === "string" ? data.nameEn.trim() : "", nameDe = typeof data.nameDe === "string" ? data.nameDe.trim() : "", nameIt = typeof data.nameIt === "string" ? data.nameIt.trim() : ""; return nameEn && nameDe && nameIt ? { nameEn, nameDe, nameIt } : null; }
+function parseName(body: unknown) {
+  if (!body || typeof body !== "object") return null;
+  const data = body as Record<string, unknown>;
+  const locale = data.locale === "de" || data.locale === "it" || data.locale === "en" ? data.locale : "en";
+  const name = typeof data.name === "string" ? data.name.trim().slice(0, 180) : "";
+  return name ? { name, locale } : null;
+}
+async function localizedNames(hotelTenantId: string, body: unknown) {
+  const input = parseName(body);
+  if (!input) return null;
+  const pack = await translateEntityName(hotelTenantId, input.locale, input.name);
+  return { nameEn: pack.en, nameDe: pack.de, nameIt: pack.it };
+}
 function output(row: Row) { return { id: row.id, names: { en: row.nameEn, de: row.nameDe, it: row.nameIt }, count: row._count?.members ?? 0 }; }
 function conflict(error: unknown) { return Boolean(error && typeof error === "object" && "code" in error && error.code === "P2002"); }
 function syncFailure(error: unknown) { console.error("MCP department synchronization failed", error); return NextResponse.json({ error: "MCP_SYNC_FAILED", message: error instanceof Error ? error.message : "MCP department synchronization failed." }, { status: 502 }); }
@@ -22,7 +35,7 @@ export async function listEntities(type: EntityType) {
 
 export async function createEntity(request: Request, type: EntityType) {
   const current = await actor(); if (!current) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
-  const values = names(await request.json().catch(() => null)); if (!values) return NextResponse.json({ error: "INVALID_FIELDS" }, { status: 400 });
+  const values = await localizedNames(current.hotelTenantId, await request.json().catch(() => null)); if (!values) return NextResponse.json({ error: "INVALID_FIELDS" }, { status: 400 });
   try {
     const mcp = type === "department" ? await getMcpDepartmentContext(current.hotelTenantId) : null;
     const entity = await prisma.$transaction(async (tx) => {
@@ -42,7 +55,7 @@ export async function createEntity(request: Request, type: EntityType) {
 
 export async function updateEntity(request: Request, type: EntityType, id: string) {
   const current = await actor(); if (!current) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
-  const values = names(await request.json().catch(() => null)); if (!values) return NextResponse.json({ error: "INVALID_FIELDS" }, { status: 400 });
+  const values = await localizedNames(current.hotelTenantId, await request.json().catch(() => null)); if (!values) return NextResponse.json({ error: "INVALID_FIELDS" }, { status: 400 });
   try {
     const mcp = type === "department" ? await getMcpDepartmentContext(current.hotelTenantId) : null;
     const entity = await prisma.$transaction(async (tx) => {
