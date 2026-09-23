@@ -130,18 +130,21 @@ function asAbsences(value: unknown): Absence[] {
   if (!Array.isArray(value)) return [];
   return value.flatMap((item) => {
     if (!item || typeof item !== "object") return [];
-    const row = item as Partial<Absence>;
-    if (typeof row.id !== "string" || typeof row.empKey !== "string" || typeof row.start !== "string") return [];
+    const row = item as Partial<Absence> & { startDate?: unknown; endDate?: unknown; userId?: unknown };
+    const start = typeof row.start === "string" ? row.start.slice(0, 10) : typeof row.startDate === "string" ? row.startDate.slice(0, 10) : "";
+    const id = typeof row.id === "string" ? row.id : "";
+    const empKey = typeof row.empKey === "string" ? row.empKey : typeof row.userId === "string" ? row.userId : "";
+    if (!id || !start) return [];
     const category = asLeaveCategory(row.category);
     if (!category) return [];
     return [{
-      id: row.id,
+      id,
       employee: typeof row.employee === "string" ? row.employee : "",
-      empKey: row.empKey,
+      empKey,
       category,
       duration: asLeaveDuration(row.duration) || "full",
-      start: row.start,
-      end: typeof row.end === "string" ? row.end : row.start,
+      start,
+      end: (typeof row.end === "string" ? row.end : typeof row.endDate === "string" ? row.endDate : start).slice(0, 10),
       startTime: typeof row.startTime === "string" ? row.startTime : "",
       endTime: typeof row.endTime === "string" ? row.endTime : "",
       note: typeof row.note === "string" ? row.note : "",

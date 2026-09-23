@@ -61,15 +61,17 @@ async function ensureTable() {
   await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "hotel_leave_requests_user_id_start_date_idx" ON "hotel_leave_requests"("user_id", "start_date")`);
 }
 
-function isoDate(value: Date) {
-  return value.toISOString().slice(0, 10);
+function isoDate(value: Date | string) {
+  if (typeof value === "string") return value.slice(0, 10);
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
+  return "";
 }
 
 function asPublic(row: {
   id: string;
   userId: string;
-  startDate: Date;
-  endDate: Date;
+  startDate: Date | string;
+  endDate: Date | string;
   category: string;
   duration: string;
   startTime: string;
@@ -105,7 +107,7 @@ export async function listAbsences(actor: ScheduleActor, locale: string) {
   const rows = await prisma.hotelLeaveRequest.findMany({
     where: actor.canManage
       ? { hotelTenantId: actor.hotel_tenant_id }
-      : { hotelTenantId: actor.hotel_tenant_id, userId: actor.id },
+      : { hotelTenantId: actor.hotel_tenant_id, OR: [{ userId: actor.id }, { createdById: actor.id }] },
     include: { user: { select: { firstName: true, lastName: true } }, decidedBy: { select: { firstName: true, lastName: true } } },
     orderBy: [{ createdAt: "desc" }],
   });

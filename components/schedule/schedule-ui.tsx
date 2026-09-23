@@ -78,7 +78,8 @@ function Shell({ title, children, tabs }: { title: string; children: ReactNode; 
     ["/schedule/stats", t.tabStats, "stats"] as const,
   ] : [
     ["/schedule/own", t.tabOwn, "own"] as const,
-    ["/schedule/absences", t.myRequests, "absence"] as const,
+    ["/schedule/absences", t.tabTimeOff, "absence"] as const,
+    ["/schedule/swaps", t.tabSwap, "swap"] as const,
   ];
   return <AppShell activeItem="schedule" pageTitle={title}>
     <main className="qf-dashboard pb-24 lg:pb-[24px]">
@@ -172,10 +173,9 @@ function EmployeeRow({ emp, t }: { emp: Employee; t: T }) {
 export function ScheduleOwnPage() {
   const t = useT();
   const { locale } = useI18n();
-  const { ready, currentUserId, fullName, employees, weekDates, absences } = useSchedule();
+  const { ready, currentUserId, fullName, employees, weekDates } = useSchedule();
   const own = employees.find((item) => item.key === currentUserId) ?? employees[0];
   const dayLabels = weekDates.map((iso) => formatDayHeader(iso, locale));
-  const ownRequests = absences.filter((item) => item.empKey === currentUserId || item.empKey === own?.key);
   if (!ready) return <Shell title={t.pageTitle} tabs><BrandLoader label={t.loading} /></Shell>;
   return <Shell title={t.pageTitle} tabs>
     <section className="card" style={{ marginBottom: 16 }}>
@@ -198,28 +198,6 @@ export function ScheduleOwnPage() {
         </div> : <p style={{ fontSize: 13, color: "var(--text3)" }}>{t.emptyEmployees}</p>}
       </div>
     </section>
-    <section className="card">
-      <div className="ch">
-        <div className="ct">{t.myRequests}</div>
-        <Link href="/schedule/absences" className="btn btn-ghost" style={{ fontSize: 12 }}>{t.viewAllRequests}</Link>
-      </div>
-      <div className="cb" style={{ padding: 0 }}>
-        <table className="bud-table" style={{ width: "100%", margin: 0 }}>
-          <thead><tr><th>{t.colCategory}</th><th>{t.colPeriod}</th><th>{t.colStatus}</th><th>{t.colDecidedBy}</th></tr></thead>
-          <tbody>
-            {ownRequests.length ? ownRequests.slice(0, 8).map((item) => {
-              const status = statusMeta(item.status, t);
-              return <tr key={item.id}>
-                <td>{categoryLabel(item.category, t)}</td>
-                <td>{item.start}{item.end !== item.start ? ` ${t.dash} ${item.end}` : ""}</td>
-                <td><span className={`chip ${status.cls}`}>{status.label}</span></td>
-                <td>{item.status === "approved" && item.decidedBy ? fill(t.approvedBy, { name: item.decidedBy }) : item.status === "rejected" && item.decidedBy ? fill(t.rejectedBy, { name: item.decidedBy }) : t.dash}</td>
-              </tr>;
-            }) : <tr><td colSpan={4} style={{ textAlign: "center", color: "var(--text3)", padding: 20 }}>{t.empty}</td></tr>}
-          </tbody>
-        </table>
-      </div>
-    </section>
   </Shell>;
 }
 
@@ -232,8 +210,8 @@ export function ScheduleAbsencesPage({ board }: { board?: "swap" }) {
   const own = employees.find((item) => item.key === currentUserId) ?? employees[0];
   const swapBoard = board === "swap";
   const rows = absences.filter((item) => {
-    if (isPlanner && swapBoard && item.category !== "swap") return false;
-    if (isPlanner && !swapBoard && item.category === "swap") return false;
+    if (swapBoard && item.category !== "swap") return false;
+    if (!swapBoard && item.category === "swap") return false;
     return filter === "all" || item.status === filter;
   });
 
@@ -261,10 +239,9 @@ export function ScheduleAbsencesPage({ board }: { board?: "swap" }) {
           ? swapBoard
             ? <Link href={`/schedule/request?type=swap${own ? `&employee=${own.key}` : ""}`} className="btn btn-primary">{t.addSwap}</Link>
             : <Link href={`/schedule/request?type=leave${own ? `&employee=${own.key}` : ""}`} className="btn btn-primary">{t.addAbsence}</Link>
-          : <>
-            <Link href="/schedule/request?type=leave" className="btn btn-primary">{t.requestLeaveBtn}</Link>
-            <Link href="/schedule/request?type=swap" className="btn btn-ghost">{t.requestSwapBtn}</Link>
-          </>}
+          : swapBoard
+            ? <Link href="/schedule/request?type=swap" className="btn btn-primary">{t.requestSwapBtn}</Link>
+            : <Link href="/schedule/request?type=leave" className="btn btn-primary">{t.requestLeaveBtn}</Link>}
       </div>
     </div>
     <div className="card">
