@@ -636,3 +636,43 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 .job-apply-quiz .quiz-cta,
 .job-apply-quiz .quiz-choice { pointer-events:auto }
 @media (max-width: 640px) { .job-apply-row { grid-template-columns:1fr } }
+
+@media print {
+  body:has(.schedule-print-root) {
+    background: #fff !important;
+  }
+  body:has(.schedule-print-root) aside,
+  body:has(.schedule-print-root) header,
+  body:has(.schedule-print-root) .sticky,
+  body:has(.schedule-print-root) .qf-mobile-nav,
+  body:has(.schedule-print-root) .hk-tabs,
+  body:has(.schedule-print-root) .no-print {
+    display: none !important;
+  }
+  body:has(.schedule-print-root) .qf-app-shell,
+  body:has(.schedule-print-root) .qf-dashboard {
+    background: #fff !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  body:has(.schedule-print-root) .card {
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 0 12px !important;
+  }
+  body:has(.schedule-print-root) .cb {
+    overflow: visible !important;
+  }
+  body:has(.schedule-print-root) .dp-grid {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+  body:has(.schedule-print-root) .dp-cell {
+    cursor: default;
+  }
+  @page {
+    size: landscape;
+    margin: 10mm;
+  }
+}

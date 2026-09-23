@@ -150,13 +150,14 @@ export function SchedulePlanPage() {
 
   return <Shell title={t.pageTitle} tabs>
     {publishing ? <BrandLoader label={t.publishing} overlay /> : null}
-    <div className="kpi-row" style={{ gridTemplateColumns: "repeat(3,1fr)", marginBottom: 18 }}>
+    <div className="schedule-print-root">
+    <div className="kpi-row no-print" style={{ gridTemplateColumns: "repeat(3,1fr)", marginBottom: 18 }}>
       <div className="kpi"><div className="kpi-lbl">{t.kpiStaffWeek}</div><div className="kpi-val">{employees.length}</div><div className="kpi-sub">{t.kpiStaffSub}</div></div>
       <div className="kpi"><div className="kpi-lbl">{t.kpiHours}</div><div className="kpi-val">{formatWorkHours(scheduledHours)}<span>{t.hoursUnit}</span></div><div className="kpi-sub">{formatWeekRange(weekStartIso, locale)}</div></div>
       <div className="kpi"><div className="kpi-lbl">{t.kpiOpenShifts}</div><div className="kpi-val" style={{ color: "var(--amber)" }}>1</div><div className="kpi-sub"><span className="chip chip-a">{t.kpiOpenChip}</span></div></div>
     </div>
     <div className="card" style={{ marginBottom: 18 }}>
-      <div className="ch" style={{ flexWrap: "wrap", gap: 8 }}>
+      <div className="ch no-print" style={{ flexWrap: "wrap", gap: 8 }}>
         <div className="ct">{fill(t.weekPlan, { range: formatWeekRange(weekStartIso, locale) })}</div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           <button type="button" className="btn btn-ghost" style={{ fontSize: 12 }} onClick={goToPrevWeek}>{t.prevWeek}</button>
@@ -181,9 +182,10 @@ export function SchedulePlanPage() {
         </div>
       </div>
     </div>
-    <div style={{ padding: "12px 16px", background: "var(--amber-bg)", border: "1px solid #FDE68A", borderRadius: 8, fontSize: 13.5, color: "var(--amber)", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+    <div className="no-print" style={{ padding: "12px 16px", background: "var(--amber-bg)", border: "1px solid #FDE68A", borderRadius: 8, fontSize: 13.5, color: "var(--amber)", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
       ⚠️ <strong>{t.alertOpenStrong}</strong>{t.alertOpenBody}
       <button type="button" className="btn" style={{ marginLeft: "auto", background: "var(--amber)", color: "#fff", fontSize: 12, padding: "5px 12px" }} onClick={() => toast({ message: t.alertAi, tone: "info" })}>{t.aiSuggest}</button>
+    </div>
     </div>
   </Shell>;
 }
