@@ -10,6 +10,7 @@ import { useI18n } from "../i18n/i18n-provider";
 import { getScheduleMessages, type ScheduleMessages } from "../../lib/i18n/schedule-messages";
 import { type AbsenceStatus, type Employee, type LeaveCategory, type LeaveDuration, type ShiftCell } from "../../lib/schedule/demo-data";
 import { formatDayHeader, formatWeekRange } from "../../lib/schedule/week";
+import { formatWorkHours, weekWorkHours } from "../../lib/schedule/hours";
 import { useSchedule } from "./schedule-provider";
 
 type T = ScheduleMessages;
@@ -108,6 +109,7 @@ export function SchedulePlanPage() {
   const [deptFilter, setDeptFilter] = useState("all");
   const [publishing, setPublishing] = useState(false);
   const visible = employees.filter((emp) => deptFilter === "all" || (deptFilter === "none" ? !emp.departmentId : emp.departmentId === deptFilter));
+  const scheduledHours = weekWorkHours(visible);
   const dayLabels = weekDates.map((iso) => formatDayHeader(iso, locale));
 
   function copyWeek() {
@@ -150,7 +152,7 @@ export function SchedulePlanPage() {
     {publishing ? <BrandLoader label={t.publishing} overlay /> : null}
     <div className="kpi-row" style={{ gridTemplateColumns: "repeat(3,1fr)", marginBottom: 18 }}>
       <div className="kpi"><div className="kpi-lbl">{t.kpiStaffWeek}</div><div className="kpi-val">{employees.length}</div><div className="kpi-sub">{t.kpiStaffSub}</div></div>
-      <div className="kpi"><div className="kpi-lbl">{t.kpiHours}</div><div className="kpi-val">312<span>{t.hoursUnit}</span></div><div className="kpi-sub"><span className="chip chip-g">{t.kpiHoursChip}</span></div></div>
+      <div className="kpi"><div className="kpi-lbl">{t.kpiHours}</div><div className="kpi-val">{formatWorkHours(scheduledHours)}<span>{t.hoursUnit}</span></div><div className="kpi-sub">{formatWeekRange(weekStartIso, locale)}</div></div>
       <div className="kpi"><div className="kpi-lbl">{t.kpiOpenShifts}</div><div className="kpi-val" style={{ color: "var(--amber)" }}>1</div><div className="kpi-sub"><span className="chip chip-a">{t.kpiOpenChip}</span></div></div>
     </div>
     <div className="card" style={{ marginBottom: 18 }}>
@@ -299,7 +301,16 @@ export function ScheduleAbsencesPage({ board }: { board?: "swap" }) {
 export function ScheduleStatsPage() {
   const t = useT();
   const router = useRouter();
-  const { isPlanner, ready, departments } = useSchedule();
+  const { isPlanner, ready, departments, employees } = useSchedule();
+  const scheduledHours = weekWorkHours(employees);
+  const avgHours = employees.length ? scheduledHours / employees.length : 0;
+  const absenceDays = employees.reduce((total, emp) => total + emp.shifts.filter((shift) => shift.kind === "off" || shift.kind === "vac").length, 0);
+  const deptHours = departments.map((dept) => ({
+    id: dept.id,
+    name: dept.name,
+    hours: weekWorkHours(employees.filter((emp) => emp.departmentId === dept.id)),
+  }));
+  const maxDeptHours = Math.max(...deptHours.map((dept) => dept.hours), 0);
   if (!ready) return <Shell title={t.pageTitle} tabs><BrandLoader label={t.loading} /></Shell>;
   if (!isPlanner) {
     router.replace("/schedule/own");
@@ -307,17 +318,17 @@ export function ScheduleStatsPage() {
   }
   return <Shell title={t.pageTitle} tabs>
     <div className="kpi-row" style={{ marginBottom: 18 }}>
-      <div className="kpi"><div className="kpi-lbl">{t.kpiTotalHours}</div><div className="kpi-val">0<span>{t.hoursUnit}</span></div></div>
-      <div className="kpi"><div className="kpi-lbl">{t.kpiAvgHours}</div><div className="kpi-val">0<span>{t.hoursUnit}</span></div></div>
+      <div className="kpi"><div className="kpi-lbl">{t.kpiTotalHours}</div><div className="kpi-val">{formatWorkHours(scheduledHours)}<span>{t.hoursUnit}</span></div></div>
+      <div className="kpi"><div className="kpi-lbl">{t.kpiAvgHours}</div><div className="kpi-val">{formatWorkHours(avgHours)}<span>{t.hoursUnit}</span></div></div>
       <div className="kpi"><div className="kpi-lbl">{t.kpiOvertime}</div><div className="kpi-val">0<span>{t.hoursUnit}</span></div></div>
-      <div className="kpi"><div className="kpi-lbl">{t.kpiAbsenceDays}</div><div className="kpi-val">0<span>{t.daysUnit}</span></div></div>
+      <div className="kpi"><div className="kpi-lbl">{t.kpiAbsenceDays}</div><div className="kpi-val">{absenceDays}<span>{t.daysUnit}</span></div></div>
     </div>
     <div className="card">
       <div className="ch"><div className="ct">{t.hoursByDept}</div></div>
       <div className="cb">
-        {departments.length ? departments.map((dept, index) => <div key={dept.id} style={{ marginBottom: index === departments.length - 1 ? 0 : 10 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}><span>{dept.name}</span><span>{t.dash}</span></div>
-          <div className="progress-bar"><div className="progress-fill bar-a" style={{ width: "0%" }} /></div>
+        {deptHours.length ? deptHours.map((dept, index) => <div key={dept.id} style={{ marginBottom: index === deptHours.length - 1 ? 0 : 10 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}><span>{dept.name}</span><span>{formatWorkHours(dept.hours)}{t.hoursUnit}</span></div>
+          <div className="progress-bar"><div className="progress-fill bar-a" style={{ width: `${maxDeptHours ? Math.round((dept.hours / maxDeptHours) * 100) : 0}%` }} /></div>
         </div>) : <p style={{ fontSize: 13, color: "var(--text3)" }}>{t.empty}</p>}
       </div>
     </div>
