@@ -9,7 +9,7 @@ import { useToast } from "../ui/toast-provider";
 import { useI18n } from "../i18n/i18n-provider";
 import { getScheduleMessages, type ScheduleMessages } from "../../lib/i18n/schedule-messages";
 import { type AbsenceStatus, type Employee, type LeaveCategory, type LeaveDuration, type ShiftCell } from "../../lib/schedule/demo-data";
-import { formatDayHeader, formatWeekRange } from "../../lib/schedule/week";
+import { addDaysIso, formatDayHeader, formatWeekRange, mondayOfIso } from "../../lib/schedule/week";
 import { formatWorkHours, weekWorkHours } from "../../lib/schedule/hours";
 import { useSchedule } from "./schedule-provider";
 
@@ -105,17 +105,50 @@ export function SchedulePlanPage() {
   const { locale } = useI18n();
   const router = useRouter();
   const toast = useToast();
-  const { isPlanner, ready, employees, departments, weekStartIso, weekDates, goToPrevWeek, goToNextWeek, publishWeek, draftCount } = useSchedule();
+  const { isPlanner, ready, employees, departments, weekStartIso, weekDates, goToPrevWeek, goToNextWeek, publishWeek, copyWeekTo, draftCount } = useSchedule();
   const [deptFilter, setDeptFilter] = useState("all");
   const [publishing, setPublishing] = useState(false);
+  const [copyOpen, setCopyOpen] = useState(false);
+  const [copyTarget, setCopyTarget] = useState(() => addDaysIso(weekStartIso, 7));
+  const [copying, setCopying] = useState(false);
   const visible = employees.filter((emp) => deptFilter === "all" || (deptFilter === "none" ? !emp.departmentId : emp.departmentId === deptFilter));
   const scheduledHours = weekWorkHours(visible);
   const dayLabels = weekDates.map((iso) => formatDayHeader(iso, locale));
 
-  function copyWeek() {
-    const target = window.prompt(t.copyPrompt, t.copyPromptValue);
-    if (!target) return;
-    toast({ message: fill(t.copyDone, { target }), tone: "success" });
+  function openCopy() {
+    setCopyTarget(addDaysIso(weekStartIso, 7));
+    setCopyOpen(true);
+  }
+
+  async function copyWeek() {
+    const targetMonday = mondayOfIso(copyTarget);
+    if (targetMonday === weekStartIso) {
+      toast({ message: t.copySameWeek, tone: "error" });
+      return;
+    }
+    if (copying) return;
+    setCopying(true);
+    try {
+      const result = await copyWeekTo(targetMonday);
+      if (!result) {
+        toast({ message: t.copyFailed, tone: "error" });
+        return;
+      }
+      if (!result.cells) {
+        toast({ message: t.copyEmpty, tone: "info" });
+        setCopyOpen(false);
+        return;
+      }
+      toast({
+        message: fill(t.copyDone, { n: String(result.cells), target: formatWeekRange(result.targetWeekStart, locale) }),
+        tone: "success",
+      });
+      setCopyOpen(false);
+    } catch (error) {
+      toast({ message: error instanceof Error && error.message === "SAME_WEEK" ? t.copySameWeek : t.copyFailed, tone: "error" });
+    } finally {
+      setCopying(false);
+    }
   }
 
   async function publish() {
@@ -149,7 +182,23 @@ export function SchedulePlanPage() {
   }
 
   return <Shell title={t.pageTitle} tabs>
-    {publishing ? <BrandLoader label={t.publishing} overlay /> : null}
+    {publishing || copying ? <BrandLoader label={copying ? t.copyTitle : t.publishing} overlay /> : null}
+    {copyOpen ? <div className="no-print" style={{ position: "fixed", inset: 0, zIndex: 120, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,.45)", padding: 16 }} onMouseDown={(event) => { if (event.target === event.currentTarget && !copying) setCopyOpen(false); }}>
+      <div role="dialog" aria-modal="true" className="card" style={{ width: "100%", maxWidth: 420, margin: 0 }}>
+        <div className="ch"><div className="ct">{t.copyTitle}</div></div>
+        <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <p style={{ fontSize: 13, color: "var(--text2)", margin: 0 }}>{t.copyHint}</p>
+          <div><label className="field-lbl">{t.copyTarget}</label>
+            <input className="field-input" type="date" value={copyTarget} onChange={(event) => setCopyTarget(event.target.value)} />
+          </div>
+          <p style={{ fontSize: 12, color: "var(--text3)", margin: 0 }}>{formatWeekRange(mondayOfIso(copyTarget || weekStartIso), locale)}</p>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <button type="button" className="btn btn-ghost" disabled={copying} onClick={() => setCopyOpen(false)}>{t.cancel}</button>
+            <button type="button" className="btn btn-primary" disabled={copying} onClick={() => void copyWeek()}>{t.copyConfirm}</button>
+          </div>
+        </div>
+      </div>
+    </div> : null}
     <div className="schedule-print-root">
     <div className="kpi-row no-print" style={{ gridTemplateColumns: "repeat(3,1fr)", marginBottom: 18 }}>
       <div className="kpi"><div className="kpi-lbl">{t.kpiStaffWeek}</div><div className="kpi-val">{employees.length}</div><div className="kpi-sub">{t.kpiStaffSub}</div></div>
@@ -168,7 +217,7 @@ export function SchedulePlanPage() {
             {employees.some((emp) => !emp.departmentId) ? <option value="none">{t.noDepartment}</option> : null}
           </select>
           <Link href="/schedule/templates" className="btn btn-ghost" style={{ fontSize: 12 }}>{t.templatesBtn}</Link>
-          <button type="button" className="btn btn-ghost" style={{ fontSize: 12 }} onClick={copyWeek}>{t.copyWeek}</button>
+          <button type="button" className="btn btn-ghost" style={{ fontSize: 12 }} onClick={openCopy}>{t.copyWeek}</button>
           <button type="button" className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => window.print()}>{t.print}</button>
           <button type="button" className="btn btn-ghost" style={{ fontSize: 12 }} onClick={exportPlan}>{t.export}</button>
           <button type="button" className="btn btn-primary" style={{ fontSize: 12 }} disabled={!draftCount || publishing} onClick={() => void publish()}>{draftCount ? fill(t.publishChanges, { n: String(draftCount) }) : t.publish}</button>

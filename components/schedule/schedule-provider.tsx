@@ -68,6 +68,7 @@ type Store = {
   setEmployees: (employees: Employee[] | ((current: Employee[]) => Employee[])) => void;
   saveShift: (input: ShiftInput) => Promise<number | null>;
   publishWeek: () => Promise<{ cells: number; employees: number } | null>;
+  copyWeekTo: (toWeekStart: string) => Promise<{ cells: number; targetWeekStart: string } | null>;
   saveAbsence: (input: AbsenceInput) => Promise<boolean>;
   decideAbsence: (id: string, status: AbsenceStatus) => Promise<boolean>;
   saveTemplate: (id: string | undefined, input: TemplateInput) => Promise<string | null>;
@@ -309,6 +310,22 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
     return { cells: typeof body.cells === "number" ? body.cells : 0, employees: typeof body.employees === "number" ? body.employees : 0 };
   }, [reloadWeekShifts]);
 
+  const copyWeekTo = useCallback(async (toWeekStart: string) => {
+    const response = await fetch("/api/schedule/copy-week", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fromWeekStart: weekStartIso, toWeekStart }),
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({})) as { error?: string };
+      throw new Error(body.error || "SAVE_FAILED");
+    }
+    const body = await response.json() as { cells?: number; targetWeekStart?: string };
+    const target = typeof body.targetWeekStart === "string" ? body.targetWeekStart : toWeekStart;
+    setWeekStartIso(target);
+    return { cells: typeof body.cells === "number" ? body.cells : 0, targetWeekStart: target };
+  }, [weekStartIso]);
+
   const saveAbsence = useCallback(async (input: AbsenceInput) => {
     const response = await fetch(`/api/schedule/absences?locale=${locale}`, {
       method: "POST",
@@ -365,8 +382,8 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
     goToPrevWeek: () => setWeekStartIso((current) => addDaysIso(current, -7)),
     goToNextWeek: () => setWeekStartIso((current) => addDaysIso(current, 7)),
     departments, employees, absences, templates, draftCount,
-    setEmployees, saveShift, publishWeek, saveAbsence, decideAbsence, saveTemplate, deleteTemplate,
-  }), [absences, currentUserId, decideAbsence, deleteTemplate, departments, draftCount, employees, fullName, isPlanner, publishWeek, ready, role, saveAbsence, saveShift, saveTemplate, shiftsReady, templates, weekDates, weekStartIso]);
+    setEmployees, saveShift, publishWeek, copyWeekTo, saveAbsence, decideAbsence, saveTemplate, deleteTemplate,
+  }), [absences, copyWeekTo, currentUserId, decideAbsence, deleteTemplate, departments, draftCount, employees, fullName, isPlanner, publishWeek, ready, role, saveAbsence, saveShift, saveTemplate, shiftsReady, templates, weekDates, weekStartIso]);
 
   return <ScheduleContext.Provider value={value}>{children}</ScheduleContext.Provider>;
 }

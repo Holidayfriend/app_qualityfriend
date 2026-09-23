@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { prisma } from "../prisma";
 import { recordAuditLog } from "../audit/audit-service";
 import { pickLocalized } from "../recruiting/job-fields";
-import { addDaysIso, datesFromThroughWeeks } from "./week";
+import { addDaysIso, datesFromThroughWeeks, mondayOfIso, weekIsoDates } from "./week";
 import { translateShiftNote } from "./translate";
 import { notifySchedulePublished } from "./notify";
 import { Prisma } from "../../app/generated/prisma/client";
@@ -367,6 +367,54 @@ export async function listWeekShifts(actor: ScheduleActor, weekStart: string, lo
   for (const row of published) merged.set(shiftKey(row.userId, row.workDate), asPublic(row, locale, false));
   for (const row of drafts) merged.set(shiftKey(row.userId, row.workDate), asPublic(row, locale, true));
   return [...merged.values()];
+}
+
+export async function copyWeekShifts(actor: ScheduleActor, fromWeekStart: string, toWeekStart: string) {
+  if (!DATE.test(fromWeekStart) || !DATE.test(toWeekStart)) return { error: "INVALID" as const };
+  const sourceMonday = mondayOfIso(fromWeekStart);
+  const targetMonday = mondayOfIso(toWeekStart);
+  if (sourceMonday === targetMonday) return { error: "SAME_WEEK" as const };
+  await ensureShiftTable();
+  const sourceDates = weekIsoDates(sourceMonday);
+  const targetDates = weekIsoDates(targetMonday);
+  const from = new Date(`${sourceMonday}T00:00:00.000Z`);
+  const to = new Date(`${addDaysIso(sourceMonday, 6)}T00:00:00.000Z`);
+  const cells = await prisma.$transaction(async (tx) => {
+    const published = await tx.hotelShift.findMany({
+      where: { hotelTenantId: actor.hotel_tenant_id, workDate: { gte: from, lte: to } },
+    });
+    let drafts: typeof published = [];
+    try {
+      drafts = await tx.hotelShiftDraft.findMany({
+        where: { hotelTenantId: actor.hotel_tenant_id, workDate: { gte: from, lte: to } },
+      }) as typeof published;
+    } catch {
+      drafts = [];
+    }
+    const merged = new Map<string, (typeof published)[number]>();
+    for (const row of published) merged.set(shiftKey(row.userId, row.workDate), row);
+    for (const row of drafts) merged.set(shiftKey(row.userId, row.workDate), row);
+    let copied = 0;
+    for (const row of merged.values()) {
+      const date = typeof row.workDate === "string" ? String(row.workDate).slice(0, 10) : row.workDate.toISOString().slice(0, 10);
+      const index = sourceDates.indexOf(date);
+      if (index < 0) continue;
+      const data = toShiftWrite(row);
+      if (!data) continue;
+      await writeShiftRow(tx, "hotel_shift_drafts", actor, row.userId, targetDates[index], data);
+      copied += 1;
+    }
+    await recordAuditLog(tx, {
+      hotelTenantId: actor.hotel_tenant_id,
+      actorId: actor.id,
+      action: "CREATE",
+      entityType: "SHIFT_DRAFT",
+      entityId: randomUUID(),
+      changes: { after: { title: `${sourceMonday} → ${targetMonday} · ${copied}` } },
+    });
+    return copied;
+  });
+  return { cells, targetWeekStart: targetMonday };
 }
 
 export async function publishWeekShifts(actor: ScheduleActor) {
