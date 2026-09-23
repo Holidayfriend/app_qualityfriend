@@ -6,14 +6,15 @@ import { prisma } from "../prisma";
 import { manualsViewer } from "../manuals/access";
 import { answerManualQuestion } from "../manuals/chat";
 import { answerRecruitingQuestion } from "../recruiting/chat";
+import { answerScheduleQuestion } from "../schedule/chat";
 import { isAssistantKey, type AssistantKey } from "./assistants";
 
 type Locale = "en" | "de" | "it";
 
 const PENDING: Record<Locale, (text: string) => string> = {
-  en: (text) => `(Not connected yet) I received: “${text}”. Manuals and Recruiting help use hotel data today.`,
-  de: (text) => `(Noch nicht verbunden) Ich habe erhalten: „${text}“. Handbücher und Recruiting-Hilfe nutzen heute Hoteldaten.`,
-  it: (text) => `(Non ancora collegato) Ho ricevuto: “${text}”. Manuali e Aiuto recruiting usano oggi i dati dell’hotel.`,
+  en: (text) => `(Not connected yet) I received: “${text}”. Manuals, Recruiting, and Optimize schedule use hotel data today.`,
+  de: (text) => `(Noch nicht verbunden) Ich habe erhalten: „${text}“. Handbücher, Recruiting-Hilfe und Dienstplan nutzen heute Hoteldaten.`,
+  it: (text) => `(Non ancora collegato) Ho ricevuto: “${text}”. Manuali, Aiuto recruiting e Ottimizza turni usano oggi i dati dell’hotel.`,
 };
 
 function localeOf(value: unknown): Locale {
@@ -62,6 +63,9 @@ async function produceReply(assistantKey: AssistantKey, message: string, history
   if (assistantKey === "recruiting") {
     return answerRecruitingQuestion(message, history, locale);
   }
+  if (assistantKey === "schedule") {
+    return answerScheduleQuestion(message, history, locale);
+  }
   return { answer: PENDING[locale](message.slice(0, 400)) };
 }
 
@@ -77,7 +81,7 @@ export async function sendAssistantMessage(assistantKey: unknown, message: unkno
     take: 12,
     select: { role: true, content: true },
   });
-  const history = prior.reverse().flatMap((row) => {
+  const history = prior.reverse().flatMap((row): { role: "user" | "assistant"; content: string }[] => {
     if (row.role !== "user" && row.role !== "assistant") return [];
     return [{ role: row.role, content: row.content }];
   });
