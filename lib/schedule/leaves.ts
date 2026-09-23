@@ -137,7 +137,7 @@ export async function createAbsence(actor: ScheduleActor, body: Record<string, u
   const duration = category === "swap" ? "full" : asLeaveDuration(body.duration) ?? "full";
   const startTime = parseTime(typeof body.startTime === "string" ? body.startTime : "");
   const endTime = parseTime(typeof body.endTime === "string" ? body.endTime : "");
-  if (duration === "partial" && (!startTime || !endTime)) return { error: "INVALID_TIMES" as const };
+  if (duration === "partial" && category !== "swap" && (!startTime || !endTime)) return { error: "INVALID_TIMES" as const };
 
   const note = typeof body.note === "string" ? body.note.trim().slice(0, 2000) : "";
   const sourceLang = locale === "de" || locale === "it" ? locale : "en";

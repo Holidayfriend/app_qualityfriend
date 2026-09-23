@@ -1,9 +1,9 @@
-export type LeaveCategory = "paid" | "unpaid" | "paidSick" | "swap";
+export type LeaveCategory = "paid" | "unpaid" | "paidSick" | "swap" | "vacation";
 export type LeaveDuration = "full" | "partial";
 export type AbsenceStatus = "open" | "approved" | "rejected";
 
 export function asLeaveCategory(value: unknown): LeaveCategory | null {
-  return value === "paid" || value === "unpaid" || value === "paidSick" || value === "swap" ? value : null;
+  return value === "paid" || value === "unpaid" || value === "paidSick" || value === "swap" || value === "vacation" ? value : null;
 }
 
 export function asLeaveDuration(value: unknown): LeaveDuration | null {
@@ -14,6 +14,7 @@ export function toDbCategory(value: LeaveCategory) {
   if (value === "unpaid") return "UNPAID";
   if (value === "paidSick") return "PAID_SICK";
   if (value === "swap") return "SWAP";
+  if (value === "vacation") return "VACATION";
   return "PAID";
 }
 
@@ -21,6 +22,7 @@ export function fromDbCategory(value: string): LeaveCategory {
   if (value === "UNPAID" || value === "unpaid") return "unpaid";
   if (value === "PAID_SICK" || value === "paidSick") return "paidSick";
   if (value === "SWAP" || value === "swap") return "swap";
+  if (value === "VACATION" || value === "vacation") return "vacation";
   return "paid";
 }
 

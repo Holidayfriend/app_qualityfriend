@@ -62,7 +62,7 @@ function asPublic(row: {
 }, locale: string): PublicShift {
   const kind = row.kind === "OFF" ? "off" : row.kind === "VACATION" ? "vac" : "work";
   const leaveCategory = kind === "off" ? fromDbCategory(row.leaveCategory ?? "") : "";
-  const leaveDuration = kind === "off" ? fromDbDuration(row.leaveDuration ?? "") : "";
+  const leaveDuration = kind === "off" || kind === "vac" ? fromDbDuration(row.leaveDuration ?? "") : "";
   return {
     userId: row.userId,
     date: row.workDate.toISOString().slice(0, 10),
@@ -72,8 +72,8 @@ function asPublic(row: {
     breakMins: row.breakMinutes,
     note: pickLocalized(row.note, row.noteDe, row.noteIt, locale),
     templateId: row.templateId ?? "",
-    leaveCategory: kind === "off" ? leaveCategory : "",
-    leaveDuration: kind === "off" ? leaveDuration : "",
+    leaveCategory: kind === "off" ? leaveCategory : kind === "vac" ? "vacation" : "",
+    leaveDuration,
     updatedBy: personName(row.updatedBy) || personName(row.createdBy),
   };
 }
@@ -176,14 +176,15 @@ export async function applyOffDays(
   },
 ) {
   if (input.category === "swap") return;
+  const vacation = input.category === "vacation";
   const partial = input.duration === "partial";
   await upsertShiftDays(tx, actor, input.userId, input.dates, {
-    kind: "OFF",
+    kind: vacation ? "VACATION" : "OFF",
     templateId: null,
     startTime: partial ? input.startTime : "",
     endTime: partial ? input.endTime : "",
     breakMinutes: 0,
-    leaveCategory: toDbCategory(input.category),
+    leaveCategory: vacation ? "" : toDbCategory(input.category),
     leaveDuration: toDbDuration(input.duration),
     originalLocale: input.locale,
     note: input.notes.en,
@@ -230,7 +231,10 @@ export async function saveShiftAssignment(actor: ScheduleActor, body: Record<str
     const duration = asLeaveDuration(body.leaveDuration) ?? "full";
     leaveCategory = toDbCategory(category);
     leaveDuration = toDbDuration(duration);
-  } else if (preset === "vac") kind = "VACATION";
+  } else if (preset === "vac") {
+    kind = "VACATION";
+    leaveDuration = toDbDuration(asLeaveDuration(body.leaveDuration) ?? "full");
+  }
   else if (UUID.test(preset)) {
     const template = await prisma.hotelShiftTemplate.findFirst({
       where: { id: preset, hotelTenantId: actor.hotel_tenant_id },
@@ -244,7 +248,7 @@ export async function saveShiftAssignment(actor: ScheduleActor, body: Record<str
   const end = parseTime(typeof body.end === "string" ? body.end : "");
   const breakMins = parseBreakMins(body.breakMins);
   if (breakMins === null || breakMins < 0 || breakMins > 720) return { error: "INVALID_BREAK" as const };
-  const needsTimes = kind === "WORK" || (kind === "OFF" && leaveDuration === "PARTIAL");
+  const needsTimes = kind === "WORK" || ((kind === "OFF" || kind === "VACATION") && leaveDuration === "PARTIAL");
   if (needsTimes && (!start || !end)) return { error: "INVALID_TIMES" as const };
 
   const note = typeof body.note === "string" ? body.note.trim().slice(0, 2000) : "";

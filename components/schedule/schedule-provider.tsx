@@ -96,7 +96,7 @@ function asTemplates(value: unknown): Template[] {
 }
 
 function asLeaveCategory(value: unknown): LeaveCategory | "" {
-  return value === "paid" || value === "unpaid" || value === "paidSick" || value === "swap" ? value : "";
+  return value === "paid" || value === "unpaid" || value === "paidSick" || value === "swap" || value === "vacation" ? value : "";
 }
 
 function asLeaveDuration(value: unknown): LeaveDuration | "" {

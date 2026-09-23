@@ -33,7 +33,12 @@ function templateLabel(name: string, t: T) {
 
 function shiftMeta(cell: ShiftCell | undefined, t: T) {
   if (!cell || cell.kind === "empty") return { label: t.dash, sub: "", cls: "dp-off" };
-  if (cell.kind === "vac") return { label: t.shiftVac, sub: "", cls: "dp-vac" };
+  if (cell.kind === "vac") {
+    if (cell.leaveDuration === "partial" && cell.start && cell.end) {
+      return { label: `${cell.start.slice(0, 5)}–${cell.end.slice(0, 5)}`, sub: t.partialVacation, cls: "dp-vac" };
+    }
+    return { label: t.fullVacation, sub: "", cls: "dp-vac" };
+  }
   if (cell.kind === "off") {
     if (cell.leaveDuration === "partial" && cell.start && cell.end) {
       const sub = cell.leaveCategory === "unpaid" ? t.partialUnpaid : cell.leaveCategory === "paidSick" ? t.partialPaidSick : t.partialPaid;
@@ -52,10 +57,11 @@ function categoryLabel(category: LeaveCategory, t: T) {
   if (category === "unpaid") return t.leaveUnpaid;
   if (category === "paidSick") return t.leavePaidSick;
   if (category === "swap") return t.leaveSwap;
+  if (category === "vacation") return t.leaveVacation;
   return t.leavePaid;
 }
 
-function durationLabel(duration: LeaveDuration, t: T) {
+function durationLabel(category: LeaveCategory, duration: LeaveDuration, t: T) {
   return duration === "partial" ? t.durationPartial : t.durationFull;
 }
 
@@ -253,7 +259,7 @@ export function ScheduleAbsencesPage({ board }: { board?: "swap" }) {
             return <tr key={item.id}>
               <td>{item.employee}</td>
               <td>{categoryLabel(item.category, t)}</td>
-              <td>{item.category === "swap" ? t.dash : durationLabel(item.duration, t)}{item.category !== "swap" && item.duration === "partial" && item.startTime && item.endTime ? ` (${item.startTime}–${item.endTime})` : ""}</td>
+              <td>{item.category === "swap" ? t.dash : durationLabel(item.category, item.duration, t)}{item.category !== "swap" && item.duration === "partial" && item.startTime && item.endTime ? ` (${item.startTime}–${item.endTime})` : ""}</td>
               <td>{item.start}{item.end !== item.start ? ` ${t.dash} ${item.end}` : ""}</td>
               <td>{item.note || t.dash}</td>
               <td><span className={`chip ${status.cls}`}>{status.label}</span></td>
@@ -314,8 +320,9 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
   const [busy, setBusy] = useState(false);
   const isOff = form.template === "off";
   const isVac = form.template === "vac";
-  const partialOff = isOff && form.leaveDuration === "partial";
-  const hideWorkTimes = isVac || (isOff && !partialOff);
+  const isLeave = isOff || isVac;
+  const partialLeave = isLeave && form.leaveDuration === "partial";
+  const hideWorkTimes = isLeave && !partialLeave;
   const repeatLabels: Record<(typeof REPEAT_WEEKS)[number], string> = {
     2: t.repeat2, 3: t.repeat3, 4: t.repeat4, 5: t.repeat5, 6: t.repeat6, 7: t.repeat7, 8: t.repeat8,
   };
@@ -326,11 +333,11 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
     if (!cell || cell.kind === "empty") return;
     const off = cell.kind === "off";
     const vac = cell.kind === "vac";
-    const partial = off && cell.leaveDuration === "partial";
+    const partial = (off || vac) && cell.leaveDuration === "partial";
     setForm({
       template: off ? "off" : vac ? "vac" : cell.templateId,
-      start: vac || (off && !partial) ? "" : cell.start || "09:00",
-      end: vac || (off && !partial) ? "" : cell.end || "17:00",
+      start: (off || vac) && !partial ? "" : cell.start || "09:00",
+      end: (off || vac) && !partial ? "" : cell.end || "17:00",
       pause: off || vac ? "" : cell.breakMins ? String(cell.breakMins) : "",
       note: cell.note,
       repeat: "none",
@@ -341,11 +348,8 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
 
   function applyTemplate(value: string) {
     setForm((current) => {
-      if (value === "off") {
+      if (value === "off" || value === "vac") {
         return { ...current, template: value, start: "", end: "", pause: "", note: "", leaveCategory: "paid", leaveDuration: "full" };
-      }
-      if (value === "vac") {
-        return { ...current, template: value, start: "", end: "", pause: "", note: "" };
       }
       if (value === "") {
         return { ...current, template: value, start: current.start || "09:00", end: current.end || "17:00" };
@@ -420,14 +424,14 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
             <option value="vac">{t.vacation}</option>
           </select>
         </div>
-        {isOff ? <>
-          <div><label className="field-lbl">{t.leaveCategory}</label>
+        {isLeave ? <>
+          {isOff ? <div><label className="field-lbl">{t.leaveCategory}</label>
             <select className="field-select" value={form.leaveCategory} onChange={(event) => setForm((current) => ({ ...current, leaveCategory: event.target.value as LeaveCategory }))}>
               <option value="paid">{t.leavePaid}</option>
               <option value="unpaid">{t.leaveUnpaid}</option>
               <option value="paidSick">{t.leavePaidSick}</option>
             </select>
-          </div>
+          </div> : null}
           <div><label className="field-lbl">{t.leaveDuration}</label>
             <select className="field-select" value={form.leaveDuration} onChange={(event) => {
               const leaveDuration = event.target.value as LeaveDuration;
@@ -445,14 +449,13 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
         </> : null}
         {hideWorkTimes ? null : <>
           <div className="field-row">
-            <div><label className="field-lbl">{partialOff ? t.workTimes : t.start}</label><input className="field-input" type="time" value={form.start} onChange={(event) => setForm((current) => ({ ...current, start: event.target.value }))} /></div>
-            {partialOff ? <div><label className="field-lbl">{t.end}</label><input className="field-input" type="time" value={form.end} onChange={(event) => setForm((current) => ({ ...current, end: event.target.value }))} /></div>
-              : <div><label className="field-lbl">{t.end}</label><input className="field-input" type="time" value={form.end} onChange={(event) => setForm((current) => ({ ...current, end: event.target.value }))} /></div>}
+            <div><label className="field-lbl">{partialLeave ? t.workTimes : t.start}</label><input className="field-input" type="time" value={form.start} onChange={(event) => setForm((current) => ({ ...current, start: event.target.value }))} /></div>
+            <div><label className="field-lbl">{t.end}</label><input className="field-input" type="time" value={form.end} onChange={(event) => setForm((current) => ({ ...current, end: event.target.value }))} /></div>
           </div>
-          {isOff ? null : <div><label className="field-lbl">{t.breakMins}</label><input className="field-input" type="number" placeholder="30" value={form.pause} onChange={(event) => setForm((current) => ({ ...current, pause: event.target.value }))} /></div>}
+          {isLeave ? null : <div><label className="field-lbl">{t.breakMins}</label><input className="field-input" type="number" placeholder="30" value={form.pause} onChange={(event) => setForm((current) => ({ ...current, pause: event.target.value }))} /></div>}
         </>}
-        <div><label className="field-lbl">{isOff ? t.comment : t.note}</label><input className="field-input" placeholder={t.optional} disabled={isVac} value={form.note} onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))} /></div>
-        {isVac ? null : <p style={{ fontSize: 12, color: "var(--text3)", margin: 0 }}>{t.autoTranslate}</p>}
+        <div><label className="field-lbl">{isLeave ? t.comment : t.note}</label><input className="field-input" placeholder={t.optional} value={form.note} onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))} /></div>
+        <p style={{ fontSize: 12, color: "var(--text3)", margin: 0 }}>{t.autoTranslate}</p>
         <div><label className="field-lbl">{t.repeat}</label>
           <select className="field-select" value={form.repeat} onChange={(event) => setForm((current) => ({ ...current, repeat: event.target.value }))}>
             <option value="none">{t.repeatNone}</option>
@@ -664,15 +667,24 @@ export function ScheduleRequestPage({ employee, requestType }: { employee?: stri
             {employees.map((item) => <option key={item.key} value={item.key}>{item.name}</option>)}
           </select>
         </div>
-        <div><label className="field-lbl">{t.leaveCategory}</label>
-          <select className="field-select" disabled={lockedSwap} value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value as LeaveCategory }))}>
-            {lockedSwap ? <option value="swap">{t.leaveSwap}</option> : <>
-              <option value="paid">{t.leavePaid}</option>
-              <option value="unpaid">{t.leaveUnpaid}</option>
-              <option value="paidSick">{t.leavePaidSick}</option>
-            </>}
+        {lockedSwap ? null : <div><label className="field-lbl">{t.requestKind}</label>
+          <select className="field-select" value={form.category === "vacation" ? "vacation" : "off"} onChange={(event) => setForm((current) => ({
+            ...current,
+            category: event.target.value === "vacation" ? "vacation" : current.category === "vacation" || current.category === "swap" ? "paid" : current.category,
+          }))}>
+            <option value="off">{t.requestKindOff}</option>
+            <option value="vacation">{t.requestKindVacation}</option>
           </select>
-        </div>
+        </div>}
+        {lockedSwap ? <div><label className="field-lbl">{t.leaveCategory}</label>
+          <select className="field-select" disabled value="swap"><option value="swap">{t.leaveSwap}</option></select>
+        </div> : form.category !== "vacation" ? <div><label className="field-lbl">{t.leaveCategory}</label>
+          <select className="field-select" value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value as LeaveCategory }))}>
+            <option value="paid">{t.leavePaid}</option>
+            <option value="unpaid">{t.leaveUnpaid}</option>
+            <option value="paidSick">{t.leavePaidSick}</option>
+          </select>
+        </div> : null}
         {form.category !== "swap" ? <div><label className="field-lbl">{t.leaveDuration}</label>
           <select className="field-select" value={form.duration} onChange={(event) => setForm((current) => ({ ...current, duration: event.target.value as LeaveDuration }))}>
             <option value="full">{t.durationFull}</option>
