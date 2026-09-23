@@ -25,12 +25,22 @@ export function housekeepingDashboardSummary(rooms: HousekeepingRoomInput[]) {
     if (room.isExpress && room.cleanliness === "DIRTY") express.push(room.number);
   }
 
+  const due = rooms.filter((room) => !room.noService).length;
+  const readyCount = ready.length + inspected.length;
   return {
     dirty: dirty.length,
     cleaning: cleaning.length,
     ready: ready.length,
     inspected: inspected.length,
+    roomsDue: due,
+    roomsReady: readyCount,
+    roomsOpen: Math.max(0, due - readyCount),
     expressRooms: express,
     noServiceRooms: noService,
   };
+}
+
+export function occupancyPercent(occupied: number, capacity: number) {
+  if (capacity <= 0) return 0;
+  return Math.round((occupied / capacity) * 100);
 }

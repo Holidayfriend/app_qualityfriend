@@ -107,7 +107,7 @@
       "rating": "Ø Bewertung (30T)",
       "vsWeek": "vs. Vorwoche",
       "checkin": "Check-in ab 15:00 Uhr",
-      "open": "3 offen",
+      "open": "{n} offen",
       "express": "Express bis 14:00",
       "reviews": "137 Reviews",
       "myTasks": "Meine Aufgaben heute",

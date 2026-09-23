@@ -107,7 +107,7 @@
       "rating": "Valutazione media (30g)",
       "vsWeek": "rispetto alla settimana scorsa",
       "checkin": "Check-in dalle 15:00",
-      "open": "3 aperte",
+      "open": "{n} aperte",
       "express": "Express entro le 14:00",
       "reviews": "137 recensioni",
       "myTasks": "Le mie attività di oggi",

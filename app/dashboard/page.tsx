@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { AppShell } from "../../components/dashboard/app-shell";
+import { DashboardKpis } from "../../components/dashboard/dashboard-kpis";
 import { HousekeepingCard } from "../../components/dashboard/housekeeping-card";
 import { OnDutyCard } from "../../components/dashboard/on-duty-card";
 import { WeatherCard } from "../../components/dashboard/weather-card";
@@ -22,12 +23,7 @@ export default function DashboardPage() {
       </div>
       <button className="ai-btn" onClick={() => router.push("/ai-assistant")}>{d.discuss} →</button>
     </div>
-    <div className="kpi-row">
-      <div className="kpi"><div className="kpi-lbl">{d.occupancy}</div><div className="kpi-val">87<span>%</span></div><div className="kpi-sub"><span className="chip chip-g">↑ +4%</span> {d.vsWeek}</div></div>
-      <div className="kpi"><div className="kpi-lbl">{d.arrivals}</div><div className="kpi-val">10<span> / 6</span></div><div className="kpi-sub">{d.checkin}</div></div>
-      <div className="kpi"><div className="kpi-lbl">{d.roomsReady}</div><div className="kpi-val">9<span>/12</span></div><div className="kpi-sub"><span className="chip chip-r">{d.open}</span> {d.express}</div></div>
-      <div className="kpi"><div className="kpi-lbl">{d.rating}</div><div className="kpi-val">4.9<span>/5</span></div><div className="kpi-sub"><span className="chip chip-b">{d.reviews}</span></div></div>
-    </div>
+    <DashboardKpis />
     <div className="g2">
       <div className="card">
         <div className="ch"><div className="ct">🔔 {d.activities}</div><span className="ca" onClick={() => router.push("/tasks")}>{d.allTasks} →</span></div>

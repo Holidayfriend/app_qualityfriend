@@ -107,7 +107,7 @@
       "rating": "Average rating (30d)",
       "vsWeek": "vs. last week",
       "checkin": "Check-in from 15:00",
-      "open": "3 open",
+      "open": "{n} open",
       "express": "Express by 14:00",
       "reviews": "137 reviews",
       "myTasks": "My tasks today",
