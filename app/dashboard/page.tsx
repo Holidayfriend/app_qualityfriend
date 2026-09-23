@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { AppShell } from "../../components/dashboard/app-shell";
 import { HousekeepingCard } from "../../components/dashboard/housekeeping-card";
+import { OnDutyCard } from "../../components/dashboard/on-duty-card";
 import { WeatherCard } from "../../components/dashboard/weather-card";
 import { useI18n } from "../../components/i18n/i18n-provider";
 
@@ -42,19 +43,7 @@ export default function DashboardPage() {
       <div style={{"display":"flex","flexDirection":"column","gap":"18px"}}>
         <WeatherCard />
         <HousekeepingCard />
-        <div className="card">
-          <div className="ch"><div className="ct">📅 {d.onDuty}</div><span className="ca" onClick={() => router.push("/schedule")}>{d.roster} →</span></div>
-          <div className="cb">
-            <div style={{"fontSize":"13px","color":"var(--text2)","marginBottom":"8px"}}>{d.teamSummary}</div>
-            <div style={{"display":"flex","flexWrap":"wrap","gap":"6px"}}>
-              <span style={{"padding":"4px 10px","background":"var(--accent-light)","color":"var(--accent)","borderRadius":"5px","fontSize":"12px","fontWeight":600}}>Maria R. 07-15</span>
-              <span style={{"padding":"4px 10px","background":"var(--blue-bg)","color":"var(--blue)","borderRadius":"5px","fontSize":"12px","fontWeight":600}}>Jana M. 15-23</span>
-              <span style={{"padding":"4px 10px","background":"var(--accent-light)","color":"var(--accent)","borderRadius":"5px","fontSize":"12px","fontWeight":600}}>Sabine M. 08-16</span>
-              <span style={{"padding":"4px 10px","background":"var(--accent-light)","color":"var(--accent)","borderRadius":"5px","fontSize":"12px","fontWeight":600}}>Luca B. 11-22</span>
-              <span style={{"padding":"4px 10px","background":"var(--red-bg)","color":"var(--red)","borderRadius":"5px","fontSize":"12px","fontWeight":600}}>Zorah A. 🏖 {d.vacation}</span>
-            </div>
-          </div>
-        </div>
+        <OnDutyCard />
       </div>
     </div>
   </div>
