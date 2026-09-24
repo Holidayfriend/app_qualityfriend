@@ -169,12 +169,6 @@ export function SchedulePlanPage() {
     }
   }
 
-  function exportPlan() {
-    const format = window.prompt(t.exportPrompt, "pdf");
-    if (!format) return;
-    toast({ message: fill(t.exportDone, { format: format.toUpperCase() }), tone: "success" });
-  }
-
   if (!ready) return <Shell title={t.pageTitle} tabs><BrandLoader label={t.loading} /></Shell>;
   if (!isPlanner) {
     router.replace("/schedule/own");
@@ -219,7 +213,7 @@ export function SchedulePlanPage() {
           <Link href="/schedule/templates" className="btn btn-ghost" style={{ fontSize: 12 }}>{t.templatesBtn}</Link>
           <button type="button" className="btn btn-ghost" style={{ fontSize: 12 }} onClick={openCopy}>{t.copyWeek}</button>
           <button type="button" className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => window.print()}>{t.print}</button>
-          <button type="button" className="btn btn-ghost" style={{ fontSize: 12 }} onClick={exportPlan}>{t.export}</button>
+          <Link href={`/schedule/export?from=${weekStartIso}&to=${addDaysIso(weekStartIso, 6)}&department=${deptFilter}`} className="btn btn-ghost" style={{ fontSize: 12 }}>{t.export}</Link>
           <button type="button" className="btn btn-primary" style={{ fontSize: 12 }} disabled={!draftCount || publishing} onClick={() => void publish()}>{draftCount ? fill(t.publishChanges, { n: String(draftCount) }) : t.publish}</button>
         </div>
       </div>

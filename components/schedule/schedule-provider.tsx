@@ -60,6 +60,7 @@ type Store = {
   weekDates: string[];
   goToPrevWeek: () => void;
   goToNextWeek: () => void;
+  goToWeek: (iso: string) => void;
   departments: ScheduleDepartment[];
   employees: Employee[];
   absences: Absence[];
@@ -377,13 +378,18 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
     return true;
   }, []);
 
+  const goToWeek = useCallback((iso: string) => {
+    setWeekStartIso(mondayOfIso(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : localTodayIso()));
+  }, []);
+
   const value = useMemo(() => ({
     role, currentUserId, fullName, isPlanner, ready, shiftsReady, weekStartIso, weekDates,
     goToPrevWeek: () => setWeekStartIso((current) => addDaysIso(current, -7)),
     goToNextWeek: () => setWeekStartIso((current) => addDaysIso(current, 7)),
+    goToWeek,
     departments, employees, absences, templates, draftCount,
     setEmployees, saveShift, publishWeek, copyWeekTo, saveAbsence, decideAbsence, saveTemplate, deleteTemplate,
-  }), [absences, copyWeekTo, currentUserId, decideAbsence, deleteTemplate, departments, draftCount, employees, fullName, isPlanner, publishWeek, ready, role, saveAbsence, saveShift, saveTemplate, shiftsReady, templates, weekDates, weekStartIso]);
+  }), [absences, copyWeekTo, currentUserId, decideAbsence, deleteTemplate, departments, draftCount, employees, fullName, goToWeek, isPlanner, publishWeek, ready, role, saveAbsence, saveShift, saveTemplate, shiftsReady, templates, weekDates, weekStartIso]);
 
   return <ScheduleContext.Provider value={value}>{children}</ScheduleContext.Provider>;
 }

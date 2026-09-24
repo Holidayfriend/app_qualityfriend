@@ -341,9 +341,14 @@ export async function countShiftDrafts(actor: ScheduleActor) {
 
 export async function listWeekShifts(actor: ScheduleActor, weekStart: string, locale: string) {
   if (!DATE.test(weekStart)) return [];
+  return listShiftsInRange(actor, weekStart, addDaysIso(weekStart, 6), locale);
+}
+
+export async function listShiftsInRange(actor: ScheduleActor, fromIso: string, toIso: string, locale: string) {
+  if (!DATE.test(fromIso) || !DATE.test(toIso) || toIso < fromIso) return [];
   await ensureShiftTable();
-  const from = new Date(`${weekStart}T00:00:00.000Z`);
-  const to = new Date(`${addDaysIso(weekStart, 6)}T00:00:00.000Z`);
+  const from = new Date(`${fromIso}T00:00:00.000Z`);
+  const to = new Date(`${toIso}T00:00:00.000Z`);
   const include = {
     createdBy: { select: { firstName: true, lastName: true } },
     updatedBy: { select: { firstName: true, lastName: true } },
