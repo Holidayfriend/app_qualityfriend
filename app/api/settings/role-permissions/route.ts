@@ -13,10 +13,17 @@ export async function PATCH(request: Request) {
   try {
     const mcp = moduleKey === "mcp" ? await getMcpUserContext(current.hotelTenantId) : null;
     await prisma.$transaction(async (tx) => {
-      const key = { hotelTenantId: current.hotelTenantId, role: role as Role, moduleKey }, previous = await tx.roleModulePermission.findUnique({ where: { hotelTenantId_role_moduleKey: key } });
-      const result = await tx.roleModulePermission.upsert({ where: { hotelTenantId_role_moduleKey: key }, create: { ...key, canView }, update: { canView } });
+      const keys = moduleKey === "revenue" ? ["revenue", "budget", "competitors"] : [moduleKey];
+      let result = { id: "" };
+      let previousView = false;
+      for (const keyName of keys) {
+        const key = { hotelTenantId: current.hotelTenantId, role: role as Role, moduleKey: keyName };
+        const previous = await tx.roleModulePermission.findUnique({ where: { hotelTenantId_role_moduleKey: key } });
+        if (keyName === moduleKey) previousView = previous?.canView ?? false;
+        result = await tx.roleModulePermission.upsert({ where: { hotelTenantId_role_moduleKey: key }, create: { ...key, canView }, update: { canView } });
+      }
       if (mcp) { const users = await tx.user.findMany({ where: { hotelTenantId: current.hotelTenantId, role: role as Role, isDeleted: false }, select: { id: true, mcpUserId: true, email: true, role: true, isActive: true, departmentId: true } }); for (const user of users) { const remote = await setRemoteUserAccess(mcp, user, canView); if (!user.mcpUserId) await tx.user.update({ where: { id: user.id }, data: { mcpUserId: remote.id, mcpUserPassword: remote.password } }); } }
-      await recordAuditLog(tx, { hotelTenantId: current.hotelTenantId, actorId: current.id, action: "UPDATE", entityType: "ROLE_PERMISSION", entityId: result.id, changes: { before: `${role} · ${moduleKey}: ${previous?.canView ?? false}`, after: `${role} · ${moduleKey}: ${canView}` } });
+      await recordAuditLog(tx, { hotelTenantId: current.hotelTenantId, actorId: current.id, action: "UPDATE", entityType: "ROLE_PERMISSION", entityId: result.id, changes: { before: `${role} · ${moduleKey}: ${previousView}`, after: `${role} · ${moduleKey}: ${canView}` } });
     }, { timeout: 30_000 });
     return NextResponse.json({ success: true });
   } catch (error) { console.error("Role/MCP synchronization failed", error); return NextResponse.json({ error: "MCP_SYNC_FAILED" }, { status: 502 }); }

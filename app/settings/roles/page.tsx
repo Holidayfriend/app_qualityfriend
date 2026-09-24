@@ -26,9 +26,7 @@ const rows: Row[] = [
   { id: "schedule", icon: "📅", levels: ["teamLead", "management", "administrator"], departments: ["all"] },
   { id: "recruiting", icon: "🔍", levels: ["administrator"], departments: ["all"] },
   { id: "manuals", icon: "📖", levels: all, departments: ["all"] },
-  { id: "budget", icon: "📊", levels: ["management", "administrator"], departments: ["all"] },
-  { id: "revenue", icon: "✨", levels: ["management", "administrator"], departments: ["all"] },
-  { id: "competitors", icon: "🏆", levels: ["management", "administrator"], departments: ["all"] },
+  { id: "revenue", icon: "🎯", levels: ["management", "administrator"], departments: ["all"] },
   { id: "users", icon: "👤", levels: ["administrator"], departments: ["all"] },
   { id: "departmentTeams", icon: "🏢", levels: ["administrator"], departments: ["all"] },
   { id: "roles", icon: "🔑", levels: ["administrator"], departments: ["all"] },
@@ -38,7 +36,7 @@ const databaseRoles: Record<Exclude<Level, "administrator">, string> = { employe
 const mobileGroups: Array<{ title: Record<"en" | "de" | "it", string>; ids: ModuleId[] }> = [
   { title: { en: "Basics", de: "Grundlagen", it: "Base" }, ids: ["dashboard", "aiAssistant", "chat", "tasks", "manuals"] },
   { title: { en: "Operations", de: "Betrieb", it: "Operazioni" }, ids: ["handovers", "housekeeping", "housekeeper", "repairs", "notes", "schedule"] },
-  { title: { en: "Strategy", de: "Strategie", it: "Strategia" }, ids: ["revenue", "competitors", "budget"] },
+  { title: { en: "Strategy", de: "Strategie", it: "Strategia" }, ids: ["revenue"] },
   { title: { en: "Administration", de: "Administration", it: "Amministrazione" }, ids: ["recruiting", "users", "departmentTeams", "roles", "mcp"] },
 ];
 const mobileCopy = {
@@ -70,8 +68,10 @@ export default function RolesPage() {
         const next = { ...current };
         for (const permission of saved) {
           const level = Object.entries(databaseRoles).find(([, role]) => role === permission.role)?.[0] as Exclude<Level, "administrator"> | undefined;
-          if (!level || !next[permission.module_key]) continue;
-          next[permission.module_key] = permission.can_view ? Array.from(new Set([...next[permission.module_key], level])) : next[permission.module_key].filter((item) => item !== level);
+          const moduleKey = permission.module_key === "budget" || permission.module_key === "competitors" ? "revenue" : permission.module_key;
+          if (!level || !next[moduleKey]) continue;
+          if (permission.can_view) next[moduleKey] = Array.from(new Set([...next[moduleKey], level]));
+          else if (permission.module_key === moduleKey) next[moduleKey] = next[moduleKey].filter((item) => item !== level);
         }
         return next;
       });

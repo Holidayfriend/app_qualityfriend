@@ -125,12 +125,7 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
     if (id === "settings") router.push("/settings");
     else if (id === "mcp") router.push("/settings/mcp");
     else if (id === "chat") router.push("/chat");
-    else if (id === "revenue") {
-      const modules = currentUser?.allowed_modules ?? [];
-      if (currentUser?.role === "ADMIN" || modules.includes("revenue")) router.push("/revenue");
-      else if (modules.includes("competitors")) router.push("/competitors");
-      else router.push("/budget");
-    }
+    else if (id === "revenue") router.push("/revenue");
     else if (id === "ai") router.push("/ai-assistant");
     else if (id === "schedule") {
       const canPlan = currentUser?.role === "ADMIN" || (currentUser?.allowed_modules ?? []).includes("schedule");
@@ -145,7 +140,7 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
     if (id === "notes" || id === "manuals" || id === "repairs" || id === "handovers" || id === "tasks" || id === "schedule") return true;
     const modules = currentUser.allowed_modules;
     if (id === "housekeeping") return modules.includes("housekeeping") || modules.includes("housekeeper");
-    if (id === "revenue") return modules.includes("revenue") || modules.includes("budget") || modules.includes("competitors");
+    if (id === "revenue") return modules.includes("revenue");
     return modules.includes(id === "ai" ? "aiAssistant" : id);
   }
 
@@ -162,7 +157,7 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
   }
 
   useEffect(() => {
-    const activeKey = pathname === "/settings/activity-log" ? "activityLog" : pathname === "/settings/recycle-bin" ? "recycleBin" : activeItem === "ai" ? "aiAssistant" : activeItem;
+    const activeKey = pathname === "/settings/activity-log" ? "activityLog" : pathname === "/settings/recycle-bin" ? "recycleBin" : pathname === "/revenue" || pathname === "/budget" || pathname === "/competitors" ? "revenue" : activeItem === "ai" ? "aiAssistant" : activeItem;
     const allowed = currentUser?.allowed_modules ?? [];
     const canViewActive = pathname === "/settings/ai-keys" || currentUser?.role === "ADMIN" || allowed.includes(activeKey) || activeKey === "notes" || activeKey === "manuals" || activeKey === "repairs" || activeKey === "handovers" || activeKey === "tasks" || activeKey === "schedule" || (activeKey === "housekeeping" && allowed.includes("housekeeper"));
     if (currentUser && !canViewActive) router.replace("/access-denied");
