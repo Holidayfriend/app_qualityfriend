@@ -27,7 +27,7 @@ const rows: Row[] = [
   { id: "recruiting", icon: "🔍", levels: ["administrator"], departments: ["all"] },
   { id: "manuals", icon: "📖", levels: all, departments: ["all"] },
   { id: "budget", icon: "📊", levels: ["management", "administrator"], departments: ["all"] },
-  { id: "revenue", icon: "🎯", levels: ["management", "administrator"], departments: ["all"] },
+  { id: "revenue", icon: "✨", levels: ["management", "administrator"], departments: ["all"] },
   { id: "competitors", icon: "🏆", levels: ["management", "administrator"], departments: ["all"] },
   { id: "users", icon: "👤", levels: ["administrator"], departments: ["all"] },
   { id: "departmentTeams", icon: "🏢", levels: ["administrator"], departments: ["all"] },
@@ -38,7 +38,7 @@ const databaseRoles: Record<Exclude<Level, "administrator">, string> = { employe
 const mobileGroups: Array<{ title: Record<"en" | "de" | "it", string>; ids: ModuleId[] }> = [
   { title: { en: "Basics", de: "Grundlagen", it: "Base" }, ids: ["dashboard", "aiAssistant", "chat", "tasks", "manuals"] },
   { title: { en: "Operations", de: "Betrieb", it: "Operazioni" }, ids: ["handovers", "housekeeping", "housekeeper", "repairs", "notes", "schedule"] },
-  { title: { en: "Strategy", de: "Strategie", it: "Strategia" }, ids: ["budget", "revenue", "competitors"] },
+  { title: { en: "Strategy", de: "Strategie", it: "Strategia" }, ids: ["revenue", "competitors", "budget"] },
   { title: { en: "Administration", de: "Administration", it: "Amministrazione" }, ids: ["recruiting", "users", "departmentTeams", "roles", "mcp"] },
 ];
 const mobileCopy = {
