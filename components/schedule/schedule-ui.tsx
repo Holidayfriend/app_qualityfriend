@@ -72,7 +72,7 @@ function statusMeta(status: AbsenceStatus, t: T) {
   return { label: t.statusOpen, cls: "chip-a" };
 }
 
-function Shell({ title, children, tabs }: { title: string; children: ReactNode; tabs?: boolean }) {
+function Shell({ title, children, tabs }: { title: string; children?: ReactNode; tabs?: boolean }) {
   const t = useT();
   const pathname = usePathname();
   const { isPlanner } = useSchedule();

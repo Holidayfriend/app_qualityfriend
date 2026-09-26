@@ -8,6 +8,7 @@ import { addDaysIso, datesFromThroughWeeks, mondayOfIso, weekIsoDates } from "./
 import { translateShiftNote } from "./translate";
 import { notifySchedulePublished } from "./notify";
 import { Prisma } from "../../app/generated/prisma/client";
+import type { ScheduleActor } from "./access";
 import {
   asLeaveCategory, asLeaveDuration, fromDbCategory, fromDbDuration, personName, toDbCategory, toDbDuration,
   type LeaveCategory, type LeaveDuration,

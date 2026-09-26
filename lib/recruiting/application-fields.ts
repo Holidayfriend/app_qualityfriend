@@ -26,7 +26,8 @@ function mapAi(row: RecruitingApplication, stage: AppStage) {
     personal: row.aiPersonal ?? 0,
   };
   if (row.aiStatus === "READY" && row.aiScore != null && row.aiRecommendation) {
-    const suggestion = (["recommended", "possible", "needsReview", "notAFit"] as const).includes(row.aiRecommendation as Applicant["suggestion"])
+    const allowed = ["recommended", "possible", "needsReview", "notAFit"] as const;
+    const suggestion = (allowed as readonly string[]).includes(row.aiRecommendation)
       ? (row.aiRecommendation as Applicant["suggestion"])
       : "needsReview";
     return {

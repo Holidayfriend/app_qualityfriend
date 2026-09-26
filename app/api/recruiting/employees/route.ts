@@ -40,17 +40,18 @@ export async function POST(request: Request) {
   const locale = typeof data.locale === "string" ? data.locale : "";
 
   if (typeof data.applicationId === "string") {
-    if (!isEmployeeUuid(data.applicationId)) return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
+    const applicationId = data.applicationId;
+    if (!isEmployeeUuid(applicationId)) return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
     try {
       const result = await prisma.$transaction(async (tx) => {
         const existing = await tx.recruitingEmployee.findFirst({
-          where: { hotelTenantId: actor.hotel_tenant_id, applicationId: data.applicationId },
+          where: { hotelTenantId: actor.hotel_tenant_id, applicationId },
           include: { department: departmentSelect },
         });
         if (existing) return { kind: "exists" as const, employee: existing };
 
         const application = await tx.recruitingApplication.findFirst({
-          where: { id: data.applicationId, hotelTenantId: actor.hotel_tenant_id },
+          where: { id: applicationId, hotelTenantId: actor.hotel_tenant_id },
           include: { job: { select: { departmentId: true } } },
         });
         if (!application) return { kind: "missing" as const };

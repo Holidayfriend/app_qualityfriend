@@ -66,14 +66,7 @@ export async function PATCH(request: Request, context: Context) {
   const updated = await prisma.$transaction(async (tx) => {
     const before = await tx.recruitingApplication.findFirst({ where: { id, hotelTenantId: actor.hotel_tenant_id } });
     if (!before) return null;
-    const patch: {
-      stage?: typeof stage;
-      notes?: Prisma.InputJsonValue;
-      aiSocial?: number;
-      aiProfessional?: number;
-      aiMethodical?: number;
-      aiPersonal?: number;
-    } = {};
+    const patch: Prisma.RecruitingApplicationUncheckedUpdateInput = {};
     if (stage) patch.stage = stage;
     if (competencies) {
       patch.aiSocial = competencies.social;

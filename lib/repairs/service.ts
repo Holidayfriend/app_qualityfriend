@@ -257,6 +257,7 @@ async function notifyRepair(
     IN_ARBEIT: { en: "In progress", de: "In Arbeit", it: "In lavorazione" },
     WARTET: { en: "Waiting", de: "Wartet", it: "In attesa" },
     ERLEDIGT: { en: "Done", de: "Erledigt", it: "Completata" },
+    DRAFT: { en: "Draft", de: "Entwurf", it: "Bozza" },
   } as const;
   const nextStatus = input.status && statusLabel[input.status];
   const text = input.event === "assign"

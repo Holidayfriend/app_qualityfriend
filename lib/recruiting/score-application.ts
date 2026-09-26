@@ -1,19 +1,11 @@
+import type { PrismaClient } from "../../app/generated/prisma/client";
 import { parseQuizAnswers } from "./application-fields";
 import { readRecruitingCvText, readRecruitingExtraText, unpackCvRef } from "./cv-storage";
 import { completeHotelChatJson } from "../ai/complete";
 
 const SUGGESTIONS = ["recommended", "possible", "needsReview", "notAFit"] as const;
 
-type ScoreDb = {
-  hotelAiSettings: unknown;
-  hotelAiProviderCredential: unknown;
-  recruitingApplication: {
-    findFirst: (args: object) => Promise<ApplicationRow | null>;
-    update: (args: object) => Promise<unknown>;
-    updateMany: (args: object) => Promise<unknown>;
-  };
-  $executeRawUnsafe: (sql: string) => Promise<unknown>;
-};
+type ScoreDb = Pick<PrismaClient, "hotelAiSettings" | "hotelAiProviderCredential" | "recruitingApplication" | "$executeRawUnsafe">;
 
 type ApplicationRow = {
   id: string;

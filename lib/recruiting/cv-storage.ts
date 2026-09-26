@@ -19,8 +19,8 @@ const IMAGE_TYPES = new Map([
 
 const ALL_TYPES = new Map([...DOC_TYPES, ...IMAGE_TYPES]);
 
-const storageRoot = () => path.join(process.cwd(), "storage", "recruiting-cvs");
-const extrasRoot = () => path.join(process.cwd(), "storage", "recruiting-files");
+const storageRoot = () => path.join(/*turbopackIgnore: true*/ process.cwd(), "storage", "recruiting-cvs");
+const extrasRoot = () => path.join(/*turbopackIgnore: true*/ process.cwd(), "storage", "recruiting-files");
 
 export function unpackCvRef(value: string): { storageKey: string | null; displayName: string } {
   const raw = value.trim();

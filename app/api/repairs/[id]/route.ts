@@ -10,6 +10,12 @@ function localeOf(request: Request) {
   return supportedLocales.includes(locale as (typeof supportedLocales)[number]) ? locale : "en";
 }
 
+function repairErrorStatus(error: string) {
+  if (error === "NOT_FOUND") return 404;
+  if (error === "FORBIDDEN") return 403;
+  return 400;
+}
+
 export async function GET(request: Request, ctx: Ctx) {
   const actor = await repairsViewer();
   if (!actor) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
@@ -50,6 +56,6 @@ export async function PATCH(request: Request, ctx: Ctx) {
       : action === "comment"
         ? await addRepairComment(actor, id, String(body.text ?? ""), locale)
         : { error: "INVALID" as const };
-  if ("error" in result) return NextResponse.json(result, { status: result.error === "NOT_FOUND" ? 404 : result.error === "FORBIDDEN" ? 403 : 400 });
+  if ("error" in result && result.error) return NextResponse.json(result, { status: repairErrorStatus(result.error) });
   return NextResponse.json(result);
 }

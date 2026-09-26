@@ -1,10 +1,12 @@
 import "server-only";
 
+import type { ReservationStatus } from "../../app/generated/prisma/client";
 import { prisma } from "../prisma";
 import { addDaysIso } from "../schedule/week";
 import { housekeepingDashboardSummary, occupancyPercent } from "./dashboard-summary";
 
-const liveReservation = { sourcePresent: true, status: { notIn: ["CANCELLED", "NO_SHOW"] as const } };
+const closedReservationStatuses: ReservationStatus[] = ["CANCELLED", "NO_SHOW"];
+const liveReservation = { sourcePresent: true, status: { notIn: closedReservationStatuses } };
 const liveRoom = { isActive: true, archivedAt: null };
 
 function utcDay(iso: string) {

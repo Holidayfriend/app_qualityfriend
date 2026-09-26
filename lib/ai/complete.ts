@@ -210,7 +210,7 @@ export async function completeHotelChat(
   }
   if (credential.provider === "openai") return completeOpenAi(credential.apiKey, credential.model, messages, options);
   if (credential.provider === "claude") return completeClaude(credential.apiKey, credential.model, messages, options);
-  throw new Error(`${AI_PROVIDERS[credential.provider].name} is not enabled yet.`);
+  throw new Error("This AI provider is not enabled yet.");
 }
 
 export async function completeHotelChatJson(
