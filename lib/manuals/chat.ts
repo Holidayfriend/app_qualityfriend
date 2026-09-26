@@ -63,30 +63,14 @@ export async function answerManualQuestion(actor: ManualsActor, question: string
   const query = question.trim().slice(0, 2000);
   if (!query) return { error: "EMPTY" as const };
   const chatLocale = parseLocale(locale);
-  const terms = queryTokens(query);
-  const chunks = await prisma.manualChunk.findMany({
-    where: { document: visibleDocuments(actor) },
-    select: { content: true, chunkIndex: true, document: { select: { title: true } } },
-    take: 600,
-    orderBy: [{ chunkIndex: "asc" }],
-  });
-  if (!chunks.length) {
+  const pack = await excerptsFor(actor, query);
+  if (!pack) {
     return {
       answer: actor.canManage
         ? "No indexed manuals yet. Upload a document in Manuals and wait until it is processed."
         : "No indexed manuals are available for your department yet.",
     };
   }
-  const namedTitles = [...new Set(chunks.map((chunk) => chunk.document.title))]
-    .filter((title) => terms.some((term) => title.toLowerCase().includes(term)));
-  const pool = namedTitles.length ? chunks.filter((chunk) => namedTitles.includes(chunk.document.title)) : chunks;
-  const ranked = pool
-    .map((chunk) => ({ ...chunk, score: terms.length ? scoreChunk(chunk.document.title, chunk.content, terms) : 1 }))
-    .sort((left, right) => right.score - left.score || left.chunkIndex - right.chunkIndex);
-  const selected = SUMMARY.test(query) && namedTitles.length
-    ? [...pool].sort((left, right) => left.chunkIndex - right.chunkIndex).slice(0, 10)
-    : (ranked.some((chunk) => chunk.score > 0) ? ranked.filter((chunk) => chunk.score > 0).slice(0, 8) : pool.slice(0, 6));
-  const pack = selected.map((chunk, index) => `[${index + 1}] ${chunk.document.title}\n${chunk.content}`).join("\n\n").slice(0, 12000);
   const language = LANGUAGE[chatLocale];
   try {
     const answer = await completeWithOpenAi(actor.hotel_tenant_id, [
@@ -102,4 +86,30 @@ export async function answerManualQuestion(actor: ManualsActor, question: string
   } catch {
     return { error: "MODEL_FAILED" as const };
   }
+}
+
+export async function manualContextPack(actor: ManualsActor, question: string) {
+  const pack = await excerptsFor(actor, question);
+  return pack || "(no matching handbook excerpts)";
+}
+
+async function excerptsFor(actor: ManualsActor, question: string) {
+  const terms = queryTokens(question);
+  const chunks = await prisma.manualChunk.findMany({
+    where: { document: visibleDocuments(actor) },
+    select: { content: true, chunkIndex: true, document: { select: { title: true } } },
+    take: 600,
+    orderBy: [{ chunkIndex: "asc" }],
+  });
+  if (!chunks.length) return "";
+  const namedTitles = [...new Set(chunks.map((chunk) => chunk.document.title))]
+    .filter((title) => terms.some((term) => title.toLowerCase().includes(term)));
+  const pool = namedTitles.length ? chunks.filter((chunk) => namedTitles.includes(chunk.document.title)) : chunks;
+  const ranked = pool
+    .map((chunk) => ({ ...chunk, score: terms.length ? scoreChunk(chunk.document.title, chunk.content, terms) : 1 }))
+    .sort((left, right) => right.score - left.score || left.chunkIndex - right.chunkIndex);
+  const selected = SUMMARY.test(question) && namedTitles.length
+    ? [...pool].sort((left, right) => left.chunkIndex - right.chunkIndex).slice(0, 10)
+    : (ranked.some((chunk) => chunk.score > 0) ? ranked.filter((chunk) => chunk.score > 0).slice(0, 8) : pool.slice(0, 6));
+  return selected.map((chunk, index) => `[${index + 1}] ${chunk.document.title}\n${chunk.content}`).join("\n\n").slice(0, 12000);
 }

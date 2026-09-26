@@ -89,6 +89,12 @@ async function schedulePack(actor: ScheduleActor, locale: ChatLocale) {
   ].join("\n\n").slice(0, 16000);
 }
 
+export async function scheduleContextPack(locale?: unknown) {
+  const actor = await scheduleViewer();
+  if (!actor) return null;
+  return schedulePack(actor, parseLocale(locale));
+}
+
 export async function answerScheduleQuestion(question: string, history: ChatTurn[], locale?: unknown) {
   const query = question.trim().slice(0, 2000);
   if (!query) return { error: "EMPTY" as const };

@@ -7,6 +7,7 @@ import { manualsViewer } from "../manuals/access";
 import { answerManualQuestion } from "../manuals/chat";
 import { answerRecruitingQuestion } from "../recruiting/chat";
 import { answerScheduleQuestion } from "../schedule/chat";
+import { answerGeneralQuestion } from "./general-chat";
 import { isAssistantKey, type AssistantKey } from "./assistants";
 
 type Locale = "en" | "de" | "it";
@@ -65,6 +66,9 @@ async function produceReply(assistantKey: AssistantKey, message: string, history
   }
   if (assistantKey === "schedule") {
     return answerScheduleQuestion(message, history, locale);
+  }
+  if (assistantKey === "general") {
+    return answerGeneralQuestion(message, history, locale);
   }
   return { answer: PENDING[locale](message.slice(0, 400)) };
 }
