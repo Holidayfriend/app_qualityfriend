@@ -21,6 +21,7 @@ export default function SubscribePage() {
   const t = copy[locale];
   const router = useRouter();
   const paypalContainer = useRef<HTMLDivElement>(null);
+  const couponCodeRef = useRef<string | null>(null);
   const [data, setData] = useState<BillingData | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -40,6 +41,8 @@ export default function SubscribePage() {
     return () => { active = false; window.clearInterval(timer); };
   }, [router, data?.status]);
 
+  couponCodeRef.current = coupon?.code || null;
+
   useEffect(() => {
     if (!data?.clientId || !data.canManage || data.status === "ACTIVE" || !paypalContainer.current) return;
     const clientId = data.clientId;
@@ -50,12 +53,20 @@ export default function SubscribePage() {
         let paypal = (window as unknown as { paypal?: PaypalNamespace }).paypal;
         if (!paypal) {
           await new Promise<void>((resolve, reject) => {
+            if ((window as unknown as { paypal?: PaypalNamespace }).paypal) { resolve(); return; }
             const existing = document.querySelector<HTMLScriptElement>('script[data-qualityfriend-paypal="true"]');
-            if (existing) { existing.addEventListener("load", () => resolve(), { once: true }); existing.addEventListener("error", () => reject(), { once: true }); return; }
+            if (existing) {
+              if (existing.dataset.loaded === "true") { resolve(); return; }
+              existing.addEventListener("load", () => resolve(), { once: true });
+              existing.addEventListener("error", () => reject(new Error("PAYPAL_SDK")), { once: true });
+              return;
+            }
             const script = document.createElement("script");
             script.src = `https://www.paypal.com/sdk/js?client-id=${encodeURIComponent(clientId)}&vault=true&intent=subscription&currency=EUR`;
             script.dataset.qualityfriendPaypal = "true";
-            script.onload = () => resolve(); script.onerror = () => reject(); document.head.appendChild(script);
+            script.onload = () => { script.dataset.loaded = "true"; resolve(); };
+            script.onerror = () => reject(new Error("PAYPAL_SDK"));
+            document.head.appendChild(script);
           });
           paypal = (window as unknown as { paypal?: PaypalNamespace }).paypal;
         }
@@ -65,7 +76,7 @@ export default function SubscribePage() {
           style: { shape: "rect", color: "gold", layout: "vertical", label: "subscribe" },
           createSubscription: async () => {
             setError("");
-            const response = await fetch("/api/billing/paypal/create-subscription", { method: "POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({couponCode:coupon?.code||null}) });
+            const response = await fetch("/api/billing/paypal/create-subscription", { method: "POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({couponCode:couponCodeRef.current}) });
             const result = await response.json();
             if (!response.ok || !result.subscriptionId) throw new Error(result.error || "CREATE_FAILED");
             return result.subscriptionId;
@@ -76,7 +87,7 @@ export default function SubscribePage() {
             const result = await response.json();
             setData((current) => current ? { ...current, status: result.status || "APPROVAL_PENDING", subscriptionId: details.subscriptionID || null } : current);
           },
-          onError: () => setError(t.error),
+          onError: () => { if (!cancelled) setError(t.error); },
           onCancel: () => setError(""),
         });
         await (buttons as ReturnType<PaypalNamespace["Buttons"]>).render(paypalContainer.current);
@@ -84,7 +95,7 @@ export default function SubscribePage() {
     }
     void mount();
     return () => { cancelled = true; buttons?.close?.(); };
-  }, [data?.clientId, data?.canManage, data?.status, t.error,coupon?.code]);
+  }, [data?.clientId, data?.canManage, data?.status, t.error]);
 
   async function applyCoupon(){if(!couponCode.trim()||busy)return;setBusy(true);setError("");const response=await fetch("/api/billing/coupon",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({code:couponCode})}).catch(()=>null),result=await response?.json().catch(()=>null);if(!response?.ok)setError("Coupon code is invalid, expired, or has reached its usage limit.");else if(result.free){router.replace("/dashboard");router.refresh()}else setCoupon({code:result.code,percentOff:result.percentOff,amount:result.amount,free:false});setBusy(false)}
 
