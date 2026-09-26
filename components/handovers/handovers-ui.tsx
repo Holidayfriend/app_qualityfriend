@@ -31,6 +31,17 @@ function statusLabel(status: string, t: T) {
   return status === "erledigt" ? t.statusDone : status === "draft" ? t.statusDraft : t.statusOpen;
 }
 
+function HandoverBody({ desc }: { desc: string }) {
+  const parts = desc.split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean);
+  const sectioned = parts.length > 1 && parts.some((part) => /^[⚠️🏷📦]/.test(part));
+  if (!sectioned) return <div className="hov-text">{desc}</div>;
+  return parts.map((part, index) => (
+    <div key={index} className="hov-section" style={index === parts.length - 1 ? { marginBottom: 0 } : undefined}>
+      <div className="hov-text">{part}</div>
+    </div>
+  ));
+}
+
 function Shell({ title, children }: { title: string; children: ReactNode }) {
   return <AppShell activeItem="handovers" pageTitle={title}><main className="qf-dashboard pb-24 lg:pb-[24px]">{children}</main></AppShell>;
 }
@@ -56,22 +67,28 @@ export function HandoversDashboardPage() {
       <div>
         <div className="section-title">{t.current}</div>
         {current.length ? current.map((item) => (
-          <Link key={item.id} href={`/handovers/${item.id}`} className="rep" style={{ textDecoration: "none", marginBottom: 10 }}>
-            <div className="rep-prio m" />
-            <div className="rep-ic">📌</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 700 }}>{item.title}</div>
-              <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 2, whiteSpace: "pre-line" }}>{item.desc}</div>
-              <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 4 }}>{item.creator} · {item.date}</div>
+          <Link key={item.id} href={`/handovers/${item.id}`} className="hov-card">
+            <div className="hov-header">
+              <span className="hov-shift-badge">{item.title}</span>
+              <div className="hov-from" style={{ marginLeft: "auto" }}>{item.creator} · {item.date}</div>
             </div>
+            <HandoverBody desc={item.desc} />
           </Link>
         )) : <div style={{ fontSize: 12.5, color: "var(--text3)" }}>{t.emptyCurrent}</div>}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
         {canManage ? <div className="card">
-          <div className="ch"><div className="ct">{t.createCard}</div></div>
+          <div className="ch"><div className="ct">{t.aiSummaryTitle}</div></div>
           <div className="cb">
-            <Link href="/handovers/new" className="btn btn-primary" style={{ width: "100%", justifyContent: "center" }}>{t.create}</Link>
+            <div style={{ fontSize: 13.5, lineHeight: 1.7, color: "var(--text)" }}>
+              <strong>{t.aiFocusLabel}</strong> {t.aiFocus}
+              <br /><br />
+              <strong>{t.aiOpenLabel}</strong> {t.aiOpen}
+              <br /><br />
+              <strong>{t.aiStaffLabel}</strong> {t.aiStaff}
+            </div>
+            <hr className="div" />
+            <Link href="/handovers/new?ai=1" className="btn btn-purple" style={{ width: "100%", justifyContent: "center" }}>{t.aiFill}</Link>
           </div>
         </div> : null}
         <div className="card">
@@ -120,9 +137,10 @@ export function HandoversListPage() {
     </div>
     <div className="card" style={{ overflowX: "auto" }}>
       <table className="bud-table" style={{ width: "100%" }}>
-        <thead><tr><th>{t.colTitle}</th><th>{t.colAuthor}</th><th>{t.colDepts}</th><th>{t.colVis}</th><th>{t.colStatus}</th><th>{t.colDate}</th>{canManage ? <th style={{ textAlign: "right" }}>{t.colActions}</th> : null}</tr></thead>
+        <thead><tr><th></th><th>{t.colTitle}</th><th>{t.colAuthor}</th><th>{t.colDepts}</th><th>{t.colVis}</th><th>{t.colStatus}</th><th>{t.colDate}</th>{canManage ? <th style={{ textAlign: "right" }}>{t.colActions}</th> : null}</tr></thead>
         <tbody>
           {rows.length ? rows.map((item) => <tr key={item.id} onClick={() => router.push(`/handovers/${item.id}`)} style={{ cursor: "pointer" }}>
+            <td>{item.pinned ? "📌" : ""}</td>
             <td>{item.title}</td>
             <td>{item.creator}</td>
             <td>{item.depts.length ? item.depts.map((d) => <span key={d} className="chip chip-n" style={{ marginRight: 4 }}>{deptName(d, departments)}</span>) : <span className="chip chip-n">{item.visibility === "privat" ? t.visMe : t.allChip}</span>}</td>
@@ -130,14 +148,14 @@ export function HandoversListPage() {
             <td><span className={`chip ${item.status === "erledigt" ? "chip-g" : item.status === "draft" ? "chip-a" : "chip-b"}`}>{statusLabel(item.status, t)}</span></td>
             <td>{item.date}</td>
             {canManage ? <td style={{ textAlign: "right" }}><Link href={`/handovers/${item.id}/edit`} className="icon-btn" onClick={(event) => event.stopPropagation()}>✏️</Link></td> : null}
-          </tr>) : <tr><td colSpan={canManage ? 7 : 6} style={{ fontSize: 12.5, color: "var(--text3)" }}>{t.empty}</td></tr>}
+          </tr>) : <tr><td colSpan={canManage ? 8 : 7} style={{ fontSize: 12.5, color: "var(--text3)" }}>{t.empty}</td></tr>}
         </tbody>
       </table>
     </div>
   </Shell>;
 }
 
-export function HandoversFormPage({ id }: { id?: string }) {
+export function HandoversFormPage({ id, aiDraft = false }: { id?: string; aiDraft?: boolean }) {
   const t = useT();
   const { locale } = useI18n();
   const router = useRouter();
@@ -154,13 +172,18 @@ export function HandoversFormPage({ id }: { id?: string }) {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!existing) return;
-    setTitle(existing.title);
-    setDesc(existing.desc);
-    setVisibility(existing.visibility);
-    setDepts(existing.depts);
-    setTags(existing.tags);
-  }, [existing]);
+    if (existing) {
+      setTitle(existing.title);
+      setDesc(existing.desc);
+      setVisibility(existing.visibility);
+      setDepts(existing.depts);
+      setTags(existing.tags);
+      return;
+    }
+    if (!aiDraft) return;
+    setTitle(t.aiDraftTitle);
+    setDesc(`⚠️ ${t.aiDraftUrgent}\n\n🏷 ${t.aiDraftGuests}\n\n📦 ${t.aiDraftOther}`);
+  }, [existing, aiDraft, t.aiDraftTitle, t.aiDraftUrgent, t.aiDraftGuests, t.aiDraftOther]);
 
   function applyTemplate(value: string) {
     setTemplate(value);

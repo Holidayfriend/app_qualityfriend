@@ -329,6 +329,17 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 .qf-dashboard .chip-p { background:var(--purple-bg);color:var(--purple) }
 .qf-dashboard .chip-n { background:#F3F4F6;color:var(--text2) }
 .qf-dashboard .section-title { font-size:13px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px }
+.qf-dashboard .hov-card { background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px;box-shadow:var(--sh);min-width:0 }
+.qf-dashboard a.hov-card { display:block;text-decoration:none;color:inherit }
+.qf-dashboard a.hov-card:hover { border-color:var(--accent) }
+.qf-dashboard .hov-header { display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap }
+.qf-dashboard .hov-shift-badge { padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;background:var(--accent-light);color:var(--accent);border:1px solid #E8D5A0 }
+.qf-dashboard .hov-from { font-size:13px;color:var(--text2) }
+.qf-dashboard .hov-section { margin-bottom:12px }
+.qf-dashboard .hov-sl { font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px }
+.qf-dashboard .hov-text { font-size:13.5px;color:var(--text);line-height:1.6;white-space:pre-line;overflow-wrap:anywhere }
+.qf-dashboard .hov-guest { display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg);border-radius:6px;margin-bottom:5px;font-size:13px }
+.qf-dashboard .hov-room { background:var(--border);padding:2px 7px;border-radius:4px;font-size:11px;font-weight:600;color:var(--text2) }
 .qf-dashboard .settings-grid { display:grid;grid-template-columns:1fr 1fr;gap:18px }
 .qf-dashboard .settings-item { display:flex;align-items:flex-start;gap:14px;padding:14px 20px;border-bottom:1px solid var(--border);cursor:pointer;width:100%;background:none;border-left:0;border-right:0;border-top:0;text-align:left;color:inherit;font:inherit;text-decoration:none }
 .qf-dashboard .settings-item:last-child { border-bottom:none }
@@ -421,6 +432,9 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 .qf-dashboard .btn-primary { background:var(--accent);color:#fff }
 .qf-dashboard a.btn-primary { color:#fff }
 .qf-dashboard .btn-ghost { background:none;color:var(--text2);border:1px solid var(--border) }
+.qf-dashboard .btn-purple { background:var(--purple);color:#fff }
+.qf-dashboard a.btn-purple { color:#fff }
+.qf-dashboard hr.div { border:none;border-top:1px solid var(--border);margin:16px 0 }
 .qf-dashboard .g2-quiz { grid-template-columns:minmax(280px,340px) minmax(0,1fr) }
 .qf-dashboard .quiz-pages { display:flex;flex-direction:column;gap:6px }
 .qf-dashboard .quiz-page { display:flex;align-items:center;gap:6px;border:0;border-radius:0;padding:8px 6px;background:transparent;cursor:pointer }
