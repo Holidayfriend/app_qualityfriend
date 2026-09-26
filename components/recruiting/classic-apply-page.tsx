@@ -22,7 +22,9 @@ export type ClassicApplyJob = {
   logo: string;
 };
 
-export function ClassicApplyPage({ t, job, slug, locale, langs, onLocaleChange, campaignCode = "" }: { t: T; job: ClassicApplyJob; slug?: string; locale?: string; langs?: Locale[]; onLocaleChange?: (locale: Locale) => void; campaignCode?: string }) {
+export type PolicyPack = { en: string; de: string; it: string };
+
+export function ClassicApplyPage({ t, job, slug, locale, langs, onLocaleChange, campaignCode = "", policies }: { t: T; job: ClassicApplyJob; slug?: string; locale?: string; langs?: Locale[]; onLocaleChange?: (locale: Locale) => void; campaignCode?: string; policies?: { dataProtection: PolicyPack; privacyPolicy: PolicyPack } }) {
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -36,12 +38,16 @@ export function ClassicApplyPage({ t, job, slug, locale, langs, onLocaleChange, 
   const [cvFile, setCvFile] = useState<File | null>(null);
   const [keep, setKeep] = useState(false);
   const [privacy, setPrivacy] = useState(false);
-  const [showRetention, setShowRetention] = useState(false);
+  const [policyModal, setPolicyModal] = useState<null | "data" | "privacy">(null);
   const [showErrors, setShowErrors] = useState(false);
   const typeLabel = job.type === "full" ? t.typeFull : job.type === "part" ? t.typePart : job.type === "apprentice" ? t.typeApprentice : t.typeFullOrPart;
   const benefits = job.notes.split(/[,;•]/).map((item) => item.trim()).filter(Boolean);
   const html = sanitizeJobHtml(htmlToPlain(job.description) ? job.description : `<p>${fill(t.lookingFor, { dept: job.dept })}.</p>`);
   const role = job.title.trim() || t.newPosition;
+  const policyLang = locale === "de" || locale === "it" ? locale : "en";
+  const modalHtml = sanitizeJobHtml(policyModal === "data" ? policies?.dataProtection[policyLang] ?? "" : policyModal === "privacy" ? policies?.privacyPolicy[policyLang] ?? "" : "");
+  const notice = t.dataProtectionNotice.split("{policy}");
+  const keepCopy = t.keepForOtherJobs.split("{here}");
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -137,14 +143,19 @@ export function ClassicApplyPage({ t, job, slug, locale, langs, onLocaleChange, 
                 </span>
               </label>
               <label className={`job-apply-agree${showErrors && !privacy ? " is-invalid" : ""}`}>
-                <input type="checkbox" checked={privacy} onChange={(event) => setPrivacy(event.target.checked)} /> {t.dataProtectionNotice}
+                <input type="checkbox" checked={privacy} onChange={(event) => setPrivacy(event.target.checked)} />
+                <span>
+                  {notice[0]}
+                  <button type="button" className="job-apply-here" onClick={(event) => { event.preventDefault(); event.stopPropagation(); setPolicyModal("data"); }}>{t.dataProtectionLink}</button>
+                  {notice[1]}
+                </span>
               </label>
               <label className={`job-apply-agree${showErrors && !keep ? " is-invalid" : ""}`}>
                 <input type="checkbox" checked={keep} onChange={(event) => setKeep(event.target.checked)} />
                 <span>
-                  {t.keepForOtherJobs.split("{here}")[0]}
-                  <button type="button" className="job-apply-here" onClick={(event) => { event.preventDefault(); event.stopPropagation(); setShowRetention(true); }}>{t.hereLink}</button>
-                  {t.keepForOtherJobs.split("{here}")[1]}
+                  {keepCopy[0]}
+                  <button type="button" className="job-apply-here" onClick={(event) => { event.preventDefault(); event.stopPropagation(); setPolicyModal("privacy"); }}>{t.hereLink}</button>
+                  {keepCopy[1]}
                 </span>
               </label>
               {error ? <p className="job-apply-error">{error}</p> : null}
@@ -153,11 +164,12 @@ export function ClassicApplyPage({ t, job, slug, locale, langs, onLocaleChange, 
           </>
         )}
       </main>
-      {showRetention ? (
-        <div className="job-apply-overlay" onClick={() => setShowRetention(false)}>
-          <div className="job-apply-dialog" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
-            <p>{t.retentionNote}</p>
-            <button type="button" className="job-apply-btn" onClick={() => setShowRetention(false)}>OK</button>
+      {policyModal ? (
+        <div className="job-apply-overlay" onClick={() => setPolicyModal(null)}>
+          <div className="job-apply-dialog job-apply-policy-dialog" role="dialog" aria-modal="true" aria-labelledby="apply-policy-title" onClick={(event) => event.stopPropagation()}>
+            <h3 id="apply-policy-title">{policyModal === "data" ? t.dataProtectionTitle : t.privacyPolicyTitle}</h3>
+            {modalHtml ? <div className="job-desc-preview" dangerouslySetInnerHTML={{ __html: modalHtml }} /> : <p>{t.policyEmpty}</p>}
+            <button type="button" className="job-apply-btn" onClick={() => setPolicyModal(null)}>OK</button>
           </div>
         </div>
       ) : null}

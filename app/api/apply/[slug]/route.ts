@@ -15,7 +15,10 @@ async function publicJob(slug: string) {
   if (!slugPattern.test(slug) || slug.length > 80) return null;
   return prisma.recruitingJob.findFirst({
     where: { slug, status: "ACTIVE" },
-    include: { department: { select: { nameEn: true, nameDe: true, nameIt: true } } },
+    include: {
+      department: { select: { nameEn: true, nameDe: true, nameIt: true } },
+      hotelTenant: { select: { dataProtectionEn: true, dataProtectionDe: true, dataProtectionIt: true, privacyPolicyEn: true, privacyPolicyDe: true, privacyPolicyIt: true } },
+    },
   });
 }
 
@@ -71,7 +74,8 @@ export async function GET(request: Request, context: Context) {
     await incrementCampaignClicks(campaignCode, job.id).catch((error) => console.error("Campaign click failed", error));
   }
   const apps = await prisma.recruitingApplication.count({ where: { jobId: current.id } });
-  return Response.json({ job: toPublicJob(current, apps, locale, true, job.department) }, { headers: { "Cache-Control": "no-store" } });
+  const hotel = job.hotelTenant;
+  return Response.json({ job: { ...toPublicJob(current, apps, locale, true, job.department), policies: { dataProtection: { en: hotel?.dataProtectionEn ?? "", de: hotel?.dataProtectionDe ?? "", it: hotel?.dataProtectionIt ?? "" }, privacyPolicy: { en: hotel?.privacyPolicyEn ?? "", de: hotel?.privacyPolicyDe ?? "", it: hotel?.privacyPolicyIt ?? "" } } } }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST(request: Request, context: Context) {

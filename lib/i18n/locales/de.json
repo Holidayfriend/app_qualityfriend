@@ -645,7 +645,10 @@
     "exists": "Diese E-Mail wird bereits verwendet.",
     "error": "Änderungen konnten nicht gespeichert werden.",
     "asaXmlName": "Houskeeping ASA XML",
-    "invalidAsaXmlName": "Geben Sie nur einen Dateinamen ein (maximal 255 Zeichen), ohne Ordnerpfad oder URL."
+    "invalidAsaXmlName": "Geben Sie nur einen Dateinamen ein (maximal 255 Zeichen), ohne Ordnerpfad oder URL.",
+    "dataProtection": "Datenschutzrichtlinie",
+    "privacyPolicy": "Datenschutzerklärung",
+    "policyHelp": "In der aktuellen Sprache verfasst. Beim Speichern wird der Text in die anderen beiden Sprachen übersetzt."
   },
   "housekeepingRefreshMessages": {
     "lastImport": "Letzter erfolgreicher Import",

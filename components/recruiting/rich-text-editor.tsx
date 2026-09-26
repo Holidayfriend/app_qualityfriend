@@ -94,7 +94,8 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, {
   placeholder: string;
   locale: Locale;
   invalid?: boolean;
-}>(function RichTextEditor({ value, onChange, placeholder, locale, invalid = false }, ref) {
+  height?: number;
+}>(function RichTextEditor({ value, onChange, placeholder, locale, invalid = false, height = 350 }, ref) {
   const holderRef = useRef<HTMLDivElement>(null);
   const targetRef = useRef<HTMLElement | null>(null);
   const valueRef = useRef(value);
@@ -129,7 +130,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, {
       const $ = jquery();
       if (!$) return;
       $(editor).summernote({
-        height: 350,
+        height,
         minHeight: null,
         maxHeight: null,
         focus: false,
@@ -137,8 +138,11 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, {
         dialogsInBody: true,
         lang: locale === "de" ? "de-DE" : locale === "it" ? "it-IT" : "en-US",
         callbacks: {
-          onChange: (contents: string) => onChangeRef.current(contents),
+          onChange: (contents: string) => {
+            if (!destroyed) onChangeRef.current(contents);
+          },
           onBlur: () => {
+            if (destroyed) return;
             try {
               const html = $(editor).summernote("code");
               if (typeof html === "string") onChangeRef.current(html);
@@ -158,7 +162,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, {
       targetRef.current = null;
       holder.replaceChildren();
     };
-  }, [locale, placeholder]);
+  }, [height, locale, placeholder]);
 
   useEffect(() => {
     const target = targetRef.current;

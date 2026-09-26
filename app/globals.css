@@ -383,6 +383,10 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 .qf-dashboard .job-summernote.is-invalid .note-editor.note-frame.note-focus { border-color:#dc2626 }
 .qf-dashboard .job-summernote .note-toolbar { background:var(--bg);border-bottom:1px solid var(--border) }
 .qf-dashboard .job-summernote .note-editing-area .note-editable { background:var(--surface);color:var(--text);font-family:inherit }
+.settings-policy-editor .job-summernote .note-editor.note-frame { border:1px solid var(--qf-border);border-radius:7px;background:#fff }
+.settings-policy-editor .job-summernote .note-editor.note-frame.note-focus { border-color:var(--qf-accent) }
+.settings-policy-editor .job-summernote .note-toolbar { background:var(--qf-background);border-bottom:1px solid var(--qf-border) }
+.settings-policy-editor .job-summernote .note-editing-area .note-editable { background:#fff;color:var(--qf-text);font-family:inherit }
 .qf-dashboard .job-desc-preview ul,.qf-dashboard .job-desc-preview ol { padding-left:1.25em;margin:.4em 0 }
 .qf-dashboard .job-desc-preview p { margin:.4em 0 }
 .qf-dashboard .job-desc-preview a { color:var(--accent) }
@@ -632,6 +636,11 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 .job-apply-dialog.manage-files-dialog { max-width:560px; max-height:min(86vh,720px); overflow:auto }
 .job-apply-dialog h3 { margin:0 0 8px; font-size:16px }
 .job-apply-dialog p { margin:0 0 16px; font-size:14px; font-weight:400; line-height:1.5; color:#4b5563 }
+.job-apply-policy-dialog { max-width:640px; max-height:min(86vh,720px); overflow:auto }
+.job-apply-policy-dialog .job-desc-preview { font-size:14px; line-height:1.6; font-weight:400; color:#1c2233 }
+.job-apply-policy-dialog .job-desc-preview p { margin:0 0 10px }
+.job-apply-policy-dialog .job-desc-preview ul,.job-apply-policy-dialog .job-desc-preview ol { margin:0 0 10px; padding-left:1.25em }
+.job-apply-policy-dialog .job-desc-preview a { color:#c4933a }
 .job-apply-btn { border:0; border-radius:8px; padding:11px 16px; background:#c4933a; color:#fff; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit }
 .job-apply-error { color:#dc2626; font-size:13px; margin:0 }
 .job-apply-thanks { text-align:center; padding:36px 20px }

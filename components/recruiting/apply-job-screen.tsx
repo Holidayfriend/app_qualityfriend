@@ -25,6 +25,7 @@ type ApplyJob = {
   logoImage?: string;
   langs: Locale[];
   quiz: { footer: QuizFooter; pages: QuizPage[] } | null;
+  policies?: { dataProtection: { en: string; de: string; it: string }; privacyPolicy: { en: string; de: string; it: string } };
 };
 
 const countedClicks = new Set<string>();
@@ -148,6 +149,7 @@ export function ApplyJobScreen({ slug }: { slug: string }) {
         image: job.listingImage || "/recruiting/funnel1.png",
         logo: job.logoImage || "/recruiting/logo-icon.png",
       }}
+      policies={job.policies}
     />
   );
 }
