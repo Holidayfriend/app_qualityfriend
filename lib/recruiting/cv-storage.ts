@@ -78,7 +78,7 @@ async function saveFile(file: UploadLike, root: string, allowImages: boolean) {
   if (!ext) return null;
   const storageKey = `${randomUUID()}.${ext}`;
   await mkdir(root, { recursive: true });
-  await writeFile(path.join(root, storageKey), Buffer.from(await file.arrayBuffer()));
+  await writeFile(path.join(/*turbopackIgnore: true*/ root, storageKey), Buffer.from(await file.arrayBuffer()));
   const mimeType = ALL_TYPES.has(file.type)
     ? file.type
     : fileMime(storageKey);
@@ -99,8 +99,8 @@ export async function saveRecruitingExtraFile(file: UploadLike) {
 
 async function readFromRoot(rootDir: string, storageKey: string, pattern: RegExp) {
   if (!pattern.test(storageKey)) return null;
-  const root = path.resolve(rootDir);
-  const target = path.resolve(root, storageKey);
+  const root = path.resolve(/*turbopackIgnore: true*/ rootDir);
+  const target = path.resolve(/*turbopackIgnore: true*/ root, storageKey);
   if (!target.startsWith(root + path.sep)) return null;
   try {
     return await readFile(target);
@@ -119,8 +119,8 @@ function textCacheName(storageKey: string) {
 
 async function writeTextCache(rootDir: string, storageKey: string, text: string) {
   if (!/^[0-9a-f-]{36}\.(pdf|doc|docx)$/i.test(storageKey)) return;
-  const root = path.resolve(rootDir);
-  const target = path.resolve(root, textCacheName(storageKey));
+  const root = path.resolve(/*turbopackIgnore: true*/ rootDir);
+  const target = path.resolve(/*turbopackIgnore: true*/ root, textCacheName(storageKey));
   if (!target.startsWith(root + path.sep)) return;
   await mkdir(root, { recursive: true });
   await writeFile(target, text.slice(0, 20000), "utf8");
@@ -154,8 +154,8 @@ export async function readRecruitingExtraFile(storageKey: string) {
 
 async function deleteFromRoot(rootDir: string, storageKey: string, pattern: RegExp) {
   if (!pattern.test(storageKey)) return false;
-  const root = path.resolve(rootDir);
-  const target = path.resolve(root, storageKey);
+  const root = path.resolve(/*turbopackIgnore: true*/ rootDir);
+  const target = path.resolve(/*turbopackIgnore: true*/ root, storageKey);
   if (!target.startsWith(root + path.sep)) return false;
   try {
     await unlink(target);
