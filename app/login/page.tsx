@@ -7,6 +7,7 @@ import { AuthCard } from "../../components/auth/auth-card";
 import { AuthShell } from "../../components/auth/auth-shell";
 import { LanguageSwitcher } from "../../components/i18n/language-switcher";
 import { useI18n } from "../../components/i18n/i18n-provider";
+import { BrandLoader } from "../../components/ui/brand-loader";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { PasswordInput } from "../../components/ui/password-input";
@@ -54,6 +55,7 @@ export default function LoginPage() {
 
   return (
     <AuthShell eyebrow={t.eyebrow} title={t.heroTitle} description={t.heroDescription} brandSubtitle={dictionary.common.brandSubtitle}>
+      {status === "submitting" ? <BrandLoader label={t.submitting} overlay /> : null}
       <div className="mb-3 flex justify-end"><LanguageSwitcher /></div>
       <AuthCard title={t.title} subtitle={t.subtitle}>
         <form className="space-y-5" onSubmit={handleSubmit} noValidate>
