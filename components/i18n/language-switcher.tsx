@@ -23,8 +23,8 @@ export function LanguageSwitcher({ iconOnly = false, locales, locale: controlled
   const caption = independent ? independentLabels[value] : i18n.dictionary.common.language;
   return (
     <label className="flex items-center gap-2 text-xs font-semibold text-[var(--qf-text-muted)]">
-      {iconOnly ? <span aria-hidden="true" className="text-base">🌐</span> : caption}
-      <select value={value} onChange={(event) => {
+      {iconOnly ? null : caption}
+      <select aria-label={caption} value={value} onChange={(event) => {
         const nextLocale = event.target.value as Locale;
         if (onLocaleChange) {
           onLocaleChange(nextLocale);

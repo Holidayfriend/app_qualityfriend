@@ -3,9 +3,10 @@
 import Image from "next/image";
 import { NotificationDropdown } from "./notification-dropdown";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useI18n } from "../i18n/i18n-provider";
-import { aiApiSettingsMessages, moduleNavigationMessages, roleLevelNames } from "../../lib/i18n/dictionaries";
+import { LanguageSwitcher } from "../i18n/language-switcher";
+import { aiApiSettingsMessages, moduleNavigationMessages, roleLevelNames, type Locale } from "../../lib/i18n/dictionaries";
 import { forecastMessages } from "../../lib/i18n/forecast-messages";
 
 type AppShellProps = { activeItem: string; children: ReactNode; pageTitle?: string };
@@ -47,6 +48,9 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
   const [loggingOut, setLoggingOut] = useState(false);
   const [selectedItem, setSelectedItem] = useState(activeItem);
   const [currentUser, setCurrentUser] = useState<ShellUser | null>(() => readCachedUser());
+  const localeRef = useRef(locale);
+  const pendingLocale = useRef<Locale | null>(null);
+  localeRef.current = locale;
 
   useEffect(() => { setSelectedItem(activeItem); }, [activeItem]);
 
@@ -60,12 +64,13 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
           if (!cancelled) router.replace("/login");
           return;
         }
-        const user = await response.json() as ShellUser;
+        let user = await response.json() as ShellUser;
+        if (pendingLocale.current) user = { ...user, language: pendingLocale.current.toUpperCase() as ShellUser["language"] };
         writeCachedUser(user);
         if (cancelled) return;
         setCurrentUser(user);
         const nextLocale = user.language.toLowerCase();
-        if ((nextLocale === "en" || nextLocale === "de" || nextLocale === "it") && nextLocale !== locale) setLocale(nextLocale);
+        if ((nextLocale === "en" || nextLocale === "de" || nextLocale === "it") && nextLocale !== localeRef.current) setLocale(nextLocale);
       } catch {
         if (!cancelled) router.replace("/login");
       }
@@ -79,7 +84,39 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
       window.removeEventListener("qf-shell-refresh", refresh);
       window.removeEventListener("focus", refresh);
     };
-  }, [locale, pathname, router, setLocale]);
+  }, [pathname, router, setLocale]);
+
+  async function changeLanguage(next: Locale) {
+    if (next === locale) return;
+    const previous = locale;
+    pendingLocale.current = next;
+    setLocale(next);
+    setCurrentUser((user) => {
+      if (!user) return user;
+      const updated = { ...user, language: next.toUpperCase() as ShellUser["language"] };
+      writeCachedUser(updated);
+      return updated;
+    });
+    try {
+      const response = await fetch("/api/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ language: next }),
+      });
+      if (!response.ok) throw new Error();
+    } catch {
+      if (pendingLocale.current !== next) return;
+      setLocale(previous);
+      setCurrentUser((user) => {
+        if (!user) return user;
+        const updated = { ...user, language: previous.toUpperCase() as ShellUser["language"] };
+        writeCachedUser(updated);
+        return updated;
+      });
+    } finally {
+      if (pendingLocale.current === next) pendingLocale.current = null;
+    }
+  }
 
   useEffect(() => {
     let active = true;
@@ -195,7 +232,7 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
           <span className="shrink-0 text-[12px] font-bold text-amber-800">{aiApiSettingsMessages[locale].missingKeyAction} →</span>
         </button>
       ) : null}
-      <header className="flex min-h-14 items-center gap-3 border-b border-[var(--qf-border)] bg-white px-4 lg:px-7"><button type="button" onClick={() => setMenuOpen(true)} className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--qf-border)] text-lg lg:hidden" aria-label="Open menu">☰</button><div className="min-w-0"><p className="truncate text-[16px] font-bold">{pageTitle || `${greeting}${currentUser ? `, ${currentUser.first_name}` : ""}`}</p><p className="text-[11px] text-[var(--qf-text-muted)] sm:hidden">{d.date}</p></div><p className="hidden text-[13px] text-[var(--qf-text-muted)] sm:block">{d.date}</p><div className="ml-auto flex items-center gap-2"><button type="button" onClick={() => navigate("chat")} aria-label={moduleNavigation.chat} title={moduleNavigation.chat} className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--qf-border)] bg-white text-base transition hover:border-[var(--qf-accent)] hover:bg-[var(--qf-accent-soft)]">💬</button><NotificationDropdown /><button type="button" onClick={() => void logout()} disabled={loggingOut} aria-label={dictionary.common.logout} title={dictionary.common.logout} className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--qf-border)] bg-white text-[var(--qf-text-muted)] transition hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:cursor-wait disabled:opacity-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px]" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 5H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4"/><path d="m15 8 4 4-4 4"/><path d="M19 12H9"/></svg></button></div></header>
+      <header className="flex min-h-14 items-center gap-3 border-b border-[var(--qf-border)] bg-white px-4 lg:px-7"><button type="button" onClick={() => setMenuOpen(true)} className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--qf-border)] text-lg lg:hidden" aria-label="Open menu">☰</button><div className="min-w-0"><p className="truncate text-[16px] font-bold">{pageTitle || `${greeting}${currentUser ? `, ${currentUser.first_name}` : ""}`}</p><p className="text-[11px] text-[var(--qf-text-muted)] sm:hidden">{d.date}</p></div><p className="hidden text-[13px] text-[var(--qf-text-muted)] sm:block">{d.date}</p><div className="ml-auto flex items-center gap-2"><LanguageSwitcher iconOnly locale={locale} onLocaleChange={(next) => void changeLanguage(next)} /><button type="button" onClick={() => navigate("chat")} aria-label={moduleNavigation.chat} title={moduleNavigation.chat} className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--qf-border)] bg-white text-base transition hover:border-[var(--qf-accent)] hover:bg-[var(--qf-accent-soft)]">💬</button><NotificationDropdown /><button type="button" onClick={() => void logout()} disabled={loggingOut} aria-label={dictionary.common.logout} title={dictionary.common.logout} className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--qf-border)] bg-white text-[var(--qf-text-muted)] transition hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:cursor-wait disabled:opacity-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px]" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 5H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4"/><path d="m15 8 4 4-4 4"/><path d="M19 12H9"/></svg></button></div></header>
       </div>
       {children}</div>
   </div>;
