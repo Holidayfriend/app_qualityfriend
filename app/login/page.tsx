@@ -63,7 +63,7 @@ export default function LoginPage() {
           <div>
             <div className="mb-1.5 flex items-center justify-between">
               <span className="text-[13px] font-semibold text-[var(--qf-text)]">{t.password}</span>
-              <a href="#" className="text-xs font-semibold text-[var(--qf-accent)] hover:underline">{t.forgotPassword}</a>
+              <Link href="/forgot-password" className="text-xs font-semibold text-[var(--qf-accent)] hover:underline">{t.forgotPassword}</Link>
             </div>
             <PasswordInput id="password" name="password" label="" error={errors.password} showLabel={t.showPassword} hideLabel={t.hidePassword} placeholder={t.passwordPlaceholder} autoComplete="current-password" />
           </div>

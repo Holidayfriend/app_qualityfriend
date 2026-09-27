@@ -725,6 +725,8 @@ model User {
   lastName               String        @map("last_name") @db.VarChar(120)
   email                  String        @unique @db.VarChar(320)
   passwordHash           String        @map("password_hash") @db.VarChar(255)
+  passwordResetTokenHash String?       @map("password_reset_token_hash") @db.VarChar(64)
+  passwordResetExpiresAt DateTime?     @map("password_reset_expires_at") @db.Timestamptz(3)
   phoneNumber            String?       @map("phone_number") @db.VarChar(40)
   language               HotelLanguage @default(EN) @map("language")
   role                   UserRole      @default(EMPLOYEE)
@@ -790,6 +792,7 @@ model User {
   @@index([hotelTenantId, lastSeenAt])
   @@index([departmentId])
   @@index([mcpUserId])
+  @@index([passwordResetTokenHash])
   @@map("users")
   @@unique([hotelTenantId, id])
 }
