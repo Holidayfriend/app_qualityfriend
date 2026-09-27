@@ -146,7 +146,33 @@ async function loadActiveCredential(prisma: HotelAiDb, hotelTenantId: string) {
   return { provider, model, apiKey: decryptAiSecret(row.apiKeyEncrypted) };
 }
 
-async function completeOpenAi(apiKey: string, model: string, messages: { role: string; content: string }[], options: { json?: boolean; temperature?: number; timeoutMs?: number }) {
+type ChatMessage = { role: string; content: string };
+type ChatOptions = { json?: boolean; temperature?: number; timeoutMs?: number; maxTokens?: number };
+
+async function completeChatCompletions(
+  endpoint: string,
+  apiKey: string,
+  model: string,
+  messages: ChatMessage[],
+  options: ChatOptions,
+  extra: Record<string, unknown>,
+  failureLabel: string,
+) {
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({ model, messages, ...extra }),
+    cache: "no-store",
+    signal: AbortSignal.timeout(options.timeoutMs ?? 60_000),
+  });
+  const data = (await response.json().catch(() => null)) as { choices?: { message?: { content?: string } }[]; error?: { message?: string } } | null;
+  if (!response.ok) throw new Error(data?.error?.message || `${failureLabel} request failed.`);
+  const content = data?.choices?.[0]?.message?.content?.trim();
+  if (!content) throw new Error("Empty model reply.");
+  return content;
+}
+
+async function completeOpenAi(apiKey: string, model: string, messages: ChatMessage[], options: ChatOptions) {
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
@@ -166,7 +192,30 @@ async function completeOpenAi(apiKey: string, model: string, messages: { role: s
   return content;
 }
 
-async function completeClaude(apiKey: string, model: string, messages: { role: string; content: string }[], options: { json?: boolean; temperature?: number; timeoutMs?: number }) {
+async function completeDeepSeek(apiKey: string, model: string, messages: ChatMessage[], options: ChatOptions) {
+  const chat = options.json
+    ? [{ role: "system", content: "Reply with a single valid JSON object only. Do not use markdown." }, ...messages]
+    : messages;
+  return completeChatCompletions("https://api.deepseek.com/chat/completions", apiKey, model, chat, options, {
+    max_tokens: options.maxTokens ?? 4096,
+    temperature: options.temperature ?? 0.2,
+    thinking: { type: "disabled" },
+    ...(options.json ? { response_format: { type: "json_object" } } : {}),
+  }, "DeepSeek");
+}
+
+async function completePerplexity(apiKey: string, model: string, messages: ChatMessage[], options: ChatOptions) {
+  const chat = options.json
+    ? [{ role: "system", content: "Reply with a single valid JSON object only. Do not use markdown." }, ...messages]
+    : messages;
+  return completeChatCompletions("https://api.perplexity.ai/chat/completions", apiKey, model, chat, options, {
+    max_tokens: options.maxTokens ?? 4096,
+    temperature: options.temperature ?? 0.2,
+    disable_search: true,
+  }, "Perplexity");
+}
+
+async function completeClaude(apiKey: string, model: string, messages: ChatMessage[], options: ChatOptions) {
   const systemParts = messages.filter((message) => message.role === "system").map((message) => message.content.trim()).filter(Boolean);
   if (options.json) systemParts.push("Reply with a single valid JSON object only. Do not use markdown.");
   const chat = messages
@@ -197,20 +246,55 @@ async function completeClaude(apiKey: string, model: string, messages: { role: s
   return content;
 }
 
+async function completeWithProvider(provider: AiProviderId, apiKey: string, model: string, messages: ChatMessage[], options: ChatOptions) {
+  if (provider === "openai") return completeOpenAi(apiKey, model, messages, options);
+  if (provider === "claude") return completeClaude(apiKey, model, messages, options);
+  if (provider === "deepseek") return completeDeepSeek(apiKey, model, messages, options);
+  if (provider === "perplexity") return completePerplexity(apiKey, model, messages, options);
+  throw new Error("This AI provider is not enabled yet.");
+}
+
 export async function completeHotelChat(
   prisma: HotelAiDb,
   hotelTenantId: string,
-  messages: { role: string; content: string }[],
-  options: { json?: boolean; temperature?: number; timeoutMs?: number; required?: boolean } = {},
+  messages: ChatMessage[],
+  options: ChatOptions & { required?: boolean } = {},
 ) {
   const credential = await loadActiveCredential(prisma, hotelTenantId);
   if (!credential) {
     if (options.required) throw new HotelAiNotConfiguredError();
     return null;
   }
-  if (credential.provider === "openai") return completeOpenAi(credential.apiKey, credential.model, messages, options);
-  if (credential.provider === "claude") return completeClaude(credential.apiKey, credential.model, messages, options);
-  throw new Error("This AI provider is not enabled yet.");
+  return completeWithProvider(credential.provider, credential.apiKey, credential.model, messages, options);
+}
+
+export async function testHotelAiProvider(
+  prisma: HotelAiDb,
+  hotelTenantId: string,
+  input: { provider: AiProviderId; model?: string; apiKey?: string },
+) {
+  if (!AI_PROVIDERS[input.provider].implemented) return { ok: false as const, error: "NOT_ENABLED" };
+  const models = providerModels(input.provider);
+  const model = input.model && models.includes(input.model) ? input.model : defaultModel(input.provider);
+  let apiKey = input.apiKey?.trim() || "";
+  if (!apiKey) {
+    await ensureHotelAiTables();
+    const row = await prisma.hotelAiProviderCredential.findUnique({
+      where: { hotelTenantId_provider: { hotelTenantId, provider: input.provider } },
+      select: { apiKeyEncrypted: true },
+    });
+    if (!row?.apiKeyEncrypted) return { ok: false as const, error: "NO_KEY" };
+    apiKey = decryptAiSecret(row.apiKeyEncrypted);
+  }
+  try {
+    const reply = await completeWithProvider(input.provider, apiKey, model, [
+      { role: "user", content: "Reply with exactly the word ok." },
+    ], { temperature: 0, timeoutMs: 30_000, maxTokens: 64 });
+    return { ok: true as const, model, reply: reply.slice(0, 160) };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Request failed.";
+    return { ok: false as const, error: message.replace(/\s+/g, " ").slice(0, 300) };
+  }
 }
 
 export async function completeHotelChatJson(
@@ -221,6 +305,6 @@ export async function completeHotelChatJson(
 ) {
   const content = await completeHotelChat(prisma, hotelTenantId, messages, { ...options, json: true });
   if (!content) return null;
-  const trimmed = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+  const trimmed = content.replace(/<think>[\s\S]*?<\/think>/gi, "").replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
   return JSON.parse(trimmed) as Record<string, unknown>;
 }

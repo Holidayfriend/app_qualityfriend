@@ -40,6 +40,28 @@ export const AI_PROVIDERS = {
     ],
     defaultModel: "claude-sonnet-5",
   },
+  deepseek: {
+    id: "deepseek",
+    name: "DeepSeek",
+    implemented: true,
+    models: [
+      "deepseek-flash",
+      "deepseek-v4-pro",
+    ],
+    defaultModel: "deepseek-flash",
+  },
+  perplexity: {
+    id: "perplexity",
+    name: "Perplexity",
+    implemented: true,
+    models: [
+      "sonar",
+      "sonar-pro",
+      "sonar-reasoning-pro",
+      "sonar-deep-research",
+    ],
+    defaultModel: "sonar",
+  },
 } as const;
 
 export type AiProviderId = keyof typeof AI_PROVIDERS;

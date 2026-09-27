@@ -26,6 +26,8 @@ export default function AiKeysPage() {
   const [providers, setProviders] = useState<ProviderCard[]>([]);
   const [keys, setKeys] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<string | null>(null);
+  const [testing, setTesting] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<Record<string, { ok: boolean; text: string }>>({});
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
@@ -72,6 +74,39 @@ export default function AiKeysPage() {
       setError(t.failed);
     } finally {
       setSaving(null);
+    }
+  }
+
+  async function testProvider(provider: ProviderCard) {
+    const typedKey = keys[provider.id]?.trim();
+    if (!typedKey && !provider.hasKey) {
+      setTestResult((current) => ({ ...current, [provider.id]: { ok: false, text: t.testNeedKey } }));
+      return;
+    }
+    setTesting(provider.id);
+    setError("");
+    try {
+      const response = await fetch("/api/settings/ai-keys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider: provider.id,
+          model: provider.model,
+          apiKey: typedKey || undefined,
+        }),
+      });
+      const data = await response.json().catch(() => null) as { ok?: boolean; error?: string } | null;
+      if (response.status === 401) return router.replace("/login");
+      if (data?.ok) {
+        setTestResult((current) => ({ ...current, [provider.id]: { ok: true, text: t.testOk.replace("{model}", provider.model) } }));
+        return;
+      }
+      const message = data?.error === "NO_KEY" || data?.error === "NOT_ENABLED" ? t.testNeedKey : (data?.error || t.testFailed);
+      setTestResult((current) => ({ ...current, [provider.id]: { ok: false, text: message } }));
+    } catch {
+      setTestResult((current) => ({ ...current, [provider.id]: { ok: false, text: t.testFailed } }));
+    } finally {
+      setTesting(null);
     }
   }
 
@@ -151,14 +186,27 @@ export default function AiKeysPage() {
                       className="h-11 w-full rounded-lg border border-[var(--qf-border)] px-3.5 text-sm outline-none focus:border-[var(--qf-accent)]"
                     />
                   </label>
-                  <button
-                    type="button"
-                    disabled={!canEdit || saving !== null || (!provider.implemented && !keys[provider.id]?.trim() && !provider.model)}
-                    onClick={() => void save(provider)}
-                    className="mt-3 min-h-10 w-full cursor-pointer rounded-lg bg-[var(--qf-accent)] px-4 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-                  >
-                    {saving === provider.id ? t.saving : t.save}
-                  </button>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={!canEdit || saving !== null || testing !== null}
+                      onClick={() => void save(provider)}
+                      className="min-h-10 cursor-pointer rounded-lg bg-[var(--qf-accent)] px-4 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {saving === provider.id ? t.saving : t.save}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!canEdit || !provider.implemented || saving !== null || testing !== null || (!provider.hasKey && !keys[provider.id]?.trim())}
+                      onClick={() => void testProvider(provider)}
+                      className="min-h-10 cursor-pointer rounded-lg border border-[var(--qf-border)] bg-white px-4 text-xs font-bold text-[var(--qf-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {testing === provider.id ? t.testing : t.test}
+                    </button>
+                  </div>
+                  {testResult[provider.id] ? (
+                    <p role="status" className={`mt-3 text-xs font-medium ${testResult[provider.id].ok ? "text-green-700" : "text-red-700"}`}>{testResult[provider.id].text}</p>
+                  ) : null}
                 </article>
               ))}
             </div>

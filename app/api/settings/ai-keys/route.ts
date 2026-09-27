@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { currentAccessUser } from "../../../../lib/auth/module-access";
 import { prisma } from "../../../../lib/prisma";
 import { isAiProviderId } from "../../../../lib/ai/providers";
-import { listHotelAiProviders, saveHotelAiProvider } from "../../../../lib/ai/complete";
+import { listHotelAiProviders, saveHotelAiProvider, testHotelAiProvider } from "../../../../lib/ai/complete";
 import { recordAuditLog } from "../../../../lib/audit/audit-service";
 
 async function sessionUser() {
@@ -45,4 +45,21 @@ export async function PUT(request: Request) {
     changes: { field: "aiProvider", provider: body.provider, model: typeof body?.model === "string" ? body.model : null, keyChanged: Boolean(typeof body?.apiKey === "string" && body.apiKey.trim()) || body?.clearKey === true },
   });
   return NextResponse.json({ ...result, canEdit: true });
+}
+
+export async function POST(request: Request) {
+  const user = await sessionUser();
+  if (!user) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
+  if (!canManageAi(user.role)) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+  const body = await request.json().catch(() => null) as { provider?: unknown; model?: unknown; apiKey?: unknown } | null;
+  if (!isAiProviderId(body?.provider)) return NextResponse.json({ error: "INVALID_PROVIDER" }, { status: 400 });
+  const result = await testHotelAiProvider(prisma, user.hotel_tenant_id, {
+    provider: body.provider,
+    model: typeof body.model === "string" ? body.model : undefined,
+    apiKey: typeof body.apiKey === "string" ? body.apiKey : undefined,
+  });
+  if (!result.ok && (result.error === "NO_KEY" || result.error === "NOT_ENABLED")) {
+    return NextResponse.json(result, { status: 400 });
+  }
+  return NextResponse.json(result);
 }
