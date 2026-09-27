@@ -731,6 +731,7 @@ model User {
   language               HotelLanguage @default(EN) @map("language")
   role                   UserRole      @default(EMPLOYEE)
   departmentId           String?       @map("department_id") @db.Uuid
+  teamId                 String?       @map("team_id") @db.Uuid
   isActive               Boolean       @default(true) @map("is_active")
   isDeleted              Boolean       @default(false) @map("is_deleted")
   deletedAt              DateTime?     @map("deleted_at") @db.Timestamptz(3)
@@ -749,6 +750,7 @@ model User {
   teamsUpdated           Team[]        @relation("TeamUpdatedBy")
   auditLogs              AuditLog[]
   department             Department?   @relation("DepartmentMembers", fields: [departmentId], references: [id], onDelete: SetNull)
+  team                   Team?         @relation("TeamMembers", fields: [teamId], references: [id], onDelete: SetNull)
   chatMessagesSent       ChatMessage[] @relation("ChatMessageSender")
   chatMessagesReceived   ChatMessage[] @relation("ChatMessageRecipient")
   housekeepingRoomAssignmentRecords HousekeepingRoomAssignment[] @relation("HousekeepingRoomAssignee")
@@ -791,6 +793,7 @@ model User {
   @@index([hotelTenantId, isDeleted])
   @@index([hotelTenantId, lastSeenAt])
   @@index([departmentId])
+  @@index([teamId])
   @@index([mcpUserId])
   @@index([passwordResetTokenHash])
   @@map("users")
@@ -1234,6 +1237,7 @@ model Team {
   updatedById   String?     @map("updated_by_id") @db.Uuid
   createdBy     User?       @relation("TeamCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy     User?       @relation("TeamUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  members       User[]      @relation("TeamMembers")
 
   @@unique([hotelTenantId, nameEn])
   @@index([hotelTenantId, isDeleted])
