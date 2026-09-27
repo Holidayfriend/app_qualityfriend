@@ -152,7 +152,7 @@ async function completeOpenAi(apiKey: string, model: string, messages: { role: s
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
       model,
-      temperature: options.temperature ?? 0.2,
+      ...(/^gpt-[56]/.test(model) ? {} : { temperature: options.temperature ?? 0.2 }),
       ...(options.json ? { response_format: { type: "json_object" } } : {}),
       messages,
     }),
@@ -183,7 +183,7 @@ async function completeClaude(apiKey: string, model: string, messages: { role: s
     body: JSON.stringify({
       model,
       max_tokens: 4096,
-      temperature: options.temperature ?? 0.2,
+      ...(/^claude-(haiku-4-5|sonnet-4-5|opus-4-5|opus-4-1)/.test(model) ? { temperature: options.temperature ?? 0.2 } : {}),
       ...(systemParts.length ? { system: systemParts.join("\n\n") } : {}),
       messages: chat,
     }),

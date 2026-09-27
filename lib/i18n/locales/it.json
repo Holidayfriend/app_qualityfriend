@@ -95,6 +95,9 @@
     },
     "dashboard": {
       "greeting": "Buongiorno, Klaus",
+      "greetingMorning": "Buongiorno",
+      "greetingAfternoon": "Buon pomeriggio",
+      "greetingEvening": "Buonasera",
       "date": "Mercoledì, 19 agosto 2026",
       "report": "Segnala",
       "addTask": "Attività",

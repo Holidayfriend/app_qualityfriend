@@ -95,6 +95,9 @@
     },
     "dashboard": {
       "greeting": "Guten Morgen, Klaus",
+      "greetingMorning": "Guten Morgen",
+      "greetingAfternoon": "Guten Tag",
+      "greetingEvening": "Guten Abend",
       "date": "Mittwoch, 19. August 2026",
       "report": "Melden",
       "addTask": "Aufgabe",

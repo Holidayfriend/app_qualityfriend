@@ -48,11 +48,19 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
   const [loggingOut, setLoggingOut] = useState(false);
   const [selectedItem, setSelectedItem] = useState(activeItem);
   const [currentUser, setCurrentUser] = useState<ShellUser | null>(() => readCachedUser());
+  const [nowHour, setNowHour] = useState<number | null>(null);
   const localeRef = useRef(locale);
   const pendingLocale = useRef<Locale | null>(null);
   localeRef.current = locale;
 
   useEffect(() => { setSelectedItem(activeItem); }, [activeItem]);
+
+  useEffect(() => {
+    const tick = () => setNowHour(new Date().getHours());
+    tick();
+    const timer = window.setInterval(tick, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const openMore = () => setMobileMoreOpen(true);
@@ -143,7 +151,8 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
   const fullName = currentUser ? `${currentUser.first_name} ${currentUser.last_name}` : "";
   const initials = currentUser ? `${currentUser.first_name[0] ?? ""}${currentUser.last_name[0] ?? ""}`.toUpperCase() : "";
   const hotelName = currentUser ? currentUser[locale === "de" ? "hotel_name_de" : locale === "it" ? "hotel_name_it" : "hotel_name_en"] : "";
-  const greeting = d.greeting.replace(/, Klaus$/, "");
+  const greetingLabel = nowHour === null ? "" : nowHour < 12 ? d.greetingMorning : nowHour < 18 ? d.greetingAfternoon : d.greetingEvening;
+  const greeting = currentUser?.first_name ? `${greetingLabel}${greetingLabel ? ", " : ""}${currentUser.first_name}` : greetingLabel;
   const roleName = currentUser ? roleLevelNames[locale][currentUser.role as keyof typeof roleLevelNames.en] ?? currentUser.role : "";
   const moduleNavigation = moduleNavigationMessages[locale];
   const chatLayout = activeItem === "chat";
@@ -239,7 +248,7 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
           <span className="shrink-0 text-[12px] font-bold text-amber-800">{aiApiSettingsMessages[locale].missingKeyAction} →</span>
         </button>
       ) : null}
-      <header className="flex min-h-14 items-center gap-3 border-b border-[var(--qf-border)] bg-white px-4 lg:px-7"><div className="min-w-0"><p className="truncate text-[16px] font-bold">{pageTitle || `${greeting}${currentUser ? `, ${currentUser.first_name}` : ""}`}</p><p className="text-[11px] text-[var(--qf-text-muted)] sm:hidden">{d.date}</p></div><p className="hidden text-[13px] text-[var(--qf-text-muted)] sm:block">{d.date}</p><div className="ml-auto flex items-center gap-2"><LanguageSwitcher iconOnly locale={locale} onLocaleChange={(next) => void changeLanguage(next)} /><button type="button" onClick={() => navigate("chat")} aria-label={moduleNavigation.chat} title={moduleNavigation.chat} className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--qf-border)] bg-white text-base transition hover:border-[var(--qf-accent)] hover:bg-[var(--qf-accent-soft)]">💬</button><NotificationDropdown /><button type="button" onClick={() => void logout()} disabled={loggingOut} aria-label={dictionary.common.logout} title={dictionary.common.logout} className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--qf-border)] bg-white text-[var(--qf-text-muted)] transition hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:cursor-wait disabled:opacity-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px]" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 5H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4"/><path d="m15 8 4 4-4 4"/><path d="M19 12H9"/></svg></button></div></header>
+      <header className="flex min-h-14 items-center gap-3 border-b border-[var(--qf-border)] bg-white px-4 lg:px-7"><div className="min-w-0"><p className="truncate text-[16px] font-bold">{pageTitle || greeting}</p><p className="text-[11px] text-[var(--qf-text-muted)] sm:hidden">{d.date}</p></div><p className="hidden text-[13px] text-[var(--qf-text-muted)] sm:block">{d.date}</p><div className="ml-auto flex items-center gap-2"><LanguageSwitcher iconOnly locale={locale} onLocaleChange={(next) => void changeLanguage(next)} /><button type="button" onClick={() => navigate("chat")} aria-label={moduleNavigation.chat} title={moduleNavigation.chat} className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--qf-border)] bg-white text-base transition hover:border-[var(--qf-accent)] hover:bg-[var(--qf-accent-soft)]">💬</button><NotificationDropdown /><button type="button" onClick={() => void logout()} disabled={loggingOut} aria-label={dictionary.common.logout} title={dictionary.common.logout} className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--qf-border)] bg-white text-[var(--qf-text-muted)] transition hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:cursor-wait disabled:opacity-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px]" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 5H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4"/><path d="m15 8 4 4-4 4"/><path d="M19 12H9"/></svg></button></div></header>
       </div>
       {children}</div>
   </div>;
