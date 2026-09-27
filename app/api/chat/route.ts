@@ -1,2 +1,9 @@
-import{NextResponse}from"next/server";import{currentAccessUser}from"../../../lib/auth/module-access";import{prisma}from"../../../lib/prisma";
-export async function GET(){const current=await currentAccessUser();if(!current)return NextResponse.json({error:"UNAUTHENTICATED"},{status:401});const users=await prisma.user.findMany({where:{hotelTenantId:current.hotel_tenant_id,id:{not:current.id},isActive:true,isDeleted:false},select:{id:true,firstName:true,lastName:true,role:true,lastSeenAt:true},orderBy:[{firstName:"asc"},{lastName:"asc"}]});const enriched=await Promise.all(users.map(async user=>{const[last,unread]=await Promise.all([prisma.chatMessage.findFirst({where:{hotelTenantId:current.hotel_tenant_id,OR:[{senderId:current.id,recipientId:user.id},{senderId:user.id,recipientId:current.id}]},orderBy:{createdAt:"desc"},select:{text:true,attachmentName:true,createdAt:true}}),prisma.chatMessage.count({where:{senderId:user.id,recipientId:current.id,readAt:null}})]);return{id:user.id,first_name:user.firstName,last_name:user.lastName,role:user.role,last_seen_at:user.lastSeenAt,is_online:Boolean(user.lastSeenAt&&user.lastSeenAt.getTime()>Date.now()-90000),last_message:last?.text??last?.attachmentName??null,last_message_at:last?.createdAt??null,unread_count:unread}}));enriched.sort((a,b)=>(b.last_message_at?.getTime()??0)-(a.last_message_at?.getTime()??0)||a.first_name.localeCompare(b.first_name));return NextResponse.json({currentUserId:current.id,users:enriched})}
+import { NextResponse } from "next/server";
+import { currentAccessUser } from "../../../lib/auth/module-access";
+import { chatDirectory } from "../../../lib/chat/directory";
+
+export async function GET() {
+  const current = await currentAccessUser();
+  if (!current) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
+  return NextResponse.json(await chatDirectory(current.id, current.hotel_tenant_id, current.role));
+}

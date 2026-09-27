@@ -751,8 +751,11 @@ model User {
   auditLogs              AuditLog[]
   department             Department?   @relation("DepartmentMembers", fields: [departmentId], references: [id], onDelete: SetNull)
   team                   Team?         @relation("TeamMembers", fields: [teamId], references: [id], onDelete: SetNull)
+  teamMemberships        UserTeam[]
   chatMessagesSent       ChatMessage[] @relation("ChatMessageSender")
   chatMessagesReceived   ChatMessage[] @relation("ChatMessageRecipient")
+  teamChatReads          TeamChatRead[]
+  departmentChatReads    DepartmentChatRead[]
   housekeepingRoomAssignmentRecords HousekeepingRoomAssignment[] @relation("HousekeepingRoomAssignee")
   housekeepingExtraJobAssignmentRecords HousekeepingExtraJobAssignment[] @relation("HousekeepingExtraJobAssignee")
   housekeepingChecklistCompletionRecords HousekeepingChecklistCompletion[] @relation("HousekeepingChecklistChecker")
@@ -873,7 +876,9 @@ model ChatMessage {
   id             String          @id @default(uuid()) @db.Uuid
   hotelTenantId  String          @map("hotel_tenant_id") @db.Uuid
   senderId       String          @map("sender_id") @db.Uuid
-  recipientId    String          @map("recipient_id") @db.Uuid
+  recipientId    String?         @map("recipient_id") @db.Uuid
+  teamId         String?         @map("team_id") @db.Uuid
+  departmentId   String?         @map("department_id") @db.Uuid
   type           ChatMessageType @default(TEXT)
   text           String?         @db.Text
   attachmentPath String?         @map("attachment_path") @db.VarChar(2048)
@@ -883,11 +888,39 @@ model ChatMessage {
   readAt         DateTime?       @map("read_at") @db.Timestamptz(3)
   createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
   sender         User            @relation("ChatMessageSender", fields: [senderId], references: [id], onDelete: Cascade)
-  recipient      User            @relation("ChatMessageRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  recipient      User?           @relation("ChatMessageRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  team           Team?           @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  department     Department?     @relation(fields: [departmentId], references: [id], onDelete: Cascade)
 
   @@index([hotelTenantId, senderId, recipientId, createdAt])
   @@index([recipientId, readAt, createdAt])
+  @@index([hotelTenantId, teamId, createdAt])
+  @@index([hotelTenantId, departmentId, createdAt])
   @@map("chat_messages")
+}
+
+model TeamChatRead {
+  userId     String   @map("user_id") @db.Uuid
+  teamId     String   @map("team_id") @db.Uuid
+  lastReadAt DateTime @map("last_read_at") @db.Timestamptz(3)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team       Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@id([userId, teamId])
+  @@index([teamId])
+  @@map("team_chat_reads")
+}
+
+model DepartmentChatRead {
+  userId       String   @map("user_id") @db.Uuid
+  departmentId String   @map("department_id") @db.Uuid
+  lastReadAt   DateTime @map("last_read_at") @db.Timestamptz(3)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@id([userId, departmentId])
+  @@index([departmentId])
+  @@map("department_chat_reads")
 }
 
 model Department {
@@ -908,6 +941,8 @@ model Department {
   createdBy                 User?                      @relation("DepartmentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy                 User?                      @relation("DepartmentUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   members                   User[]                     @relation("DepartmentMembers")
+  chatMessages              ChatMessage[]
+  chatReads                 DepartmentChatRead[]
   rolePermissionDepartments RolePermissionDepartment[]
   recruitingJobs            RecruitingJob[]
   recruitingEmployees       RecruitingEmployee[]
@@ -1238,6 +1273,9 @@ model Team {
   createdBy     User?       @relation("TeamCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   updatedBy     User?       @relation("TeamUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   members       User[]      @relation("TeamMembers")
+  memberships   UserTeam[]
+  chatMessages  ChatMessage[]
+  chatReads     TeamChatRead[]
 
   @@unique([hotelTenantId, nameEn])
   @@index([hotelTenantId, isDeleted])
@@ -1245,6 +1283,17 @@ model Team {
   @@index([createdById])
   @@index([updatedById])
   @@map("teams")
+}
+
+model UserTeam {
+  userId String @map("user_id") @db.Uuid
+  teamId String @map("team_id") @db.Uuid
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@id([userId, teamId])
+  @@index([teamId])
+  @@map("user_teams")
 }
 
 model AuditLog {

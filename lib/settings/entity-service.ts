@@ -8,7 +8,7 @@ import { prisma } from "../prisma";
 import { translateEntityName } from "./translate";
 
 export type EntityType = "department" | "team";
-type Row = { id: string; nameEn: string; nameDe: string; nameIt: string; _count?: { members: number } };
+type Row = { id: string; nameEn: string; nameDe: string; nameIt: string; _count?: { members?: number; memberships?: number } };
 async function actor() { const id = await getSessionUserId(); if (!id) return null; return prisma.user.findFirst({ where: { id, isActive: true, isDeleted: false }, select: { id: true, hotelTenantId: true } }); }
 function parseName(body: unknown) {
   if (!body || typeof body !== "object") return null;
@@ -23,16 +23,17 @@ async function localizedNames(hotelTenantId: string, body: unknown) {
   const pack = await translateEntityName(hotelTenantId, input.locale, input.name);
   return { nameEn: pack.en, nameDe: pack.de, nameIt: pack.it };
 }
-function output(row: Row) { return { id: row.id, names: { en: row.nameEn, de: row.nameDe, it: row.nameIt }, count: row._count?.members ?? 0 }; }
+function output(row: Row) { return { id: row.id, names: { en: row.nameEn, de: row.nameDe, it: row.nameIt }, count: row._count?.memberships ?? row._count?.members ?? 0 }; }
 function conflict(error: unknown) { return Boolean(error && typeof error === "object" && "code" in error && error.code === "P2002"); }
 function syncFailure(error: unknown) { console.error("MCP department synchronization failed", error); return NextResponse.json({ error: "MCP_SYNC_FAILED", message: error instanceof Error ? error.message : "MCP department synchronization failed." }, { status: 502 }); }
 
 export async function listEntities(type: EntityType) {
   const current = await actor(); if (!current) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
-  const memberCount = { select: { members: { where: { isActive: true, isDeleted: false } } } } as const;
+  const departmentCount = { select: { members: { where: { isActive: true, isDeleted: false } } } } as const;
+  const teamCount = { select: { memberships: { where: { user: { isActive: true, isDeleted: false } } } } } as const;
   const rows = type === "department"
-    ? await prisma.department.findMany({ where: { hotelTenantId: current.hotelTenantId, isDeleted: false }, orderBy: { nameEn: "asc" }, select: { id: true, nameEn: true, nameDe: true, nameIt: true, _count: memberCount } })
-    : await prisma.team.findMany({ where: { hotelTenantId: current.hotelTenantId, isDeleted: false }, orderBy: { nameEn: "asc" }, select: { id: true, nameEn: true, nameDe: true, nameIt: true, _count: memberCount } });
+    ? await prisma.department.findMany({ where: { hotelTenantId: current.hotelTenantId, isDeleted: false }, orderBy: { nameEn: "asc" }, select: { id: true, nameEn: true, nameDe: true, nameIt: true, _count: departmentCount } })
+    : await prisma.team.findMany({ where: { hotelTenantId: current.hotelTenantId, isDeleted: false }, orderBy: { nameEn: "asc" }, select: { id: true, nameEn: true, nameDe: true, nameIt: true, _count: teamCount } });
   return NextResponse.json(rows.map(output));
 }
 
@@ -70,7 +71,7 @@ export async function updateEntity(request: Request, type: EntityType, id: strin
         await recordAuditLog(tx, { hotelTenantId: current.hotelTenantId, actorId: current.id, action: "UPDATE", entityType: "DEPARTMENT", entityId: id, changes: { before: output(previous).names, after: output(updated).names } }); return updated;
       }
       const previous = await tx.team.findFirst({ where: { id, hotelTenantId: current.hotelTenantId, isDeleted: false }, select: { id: true, nameEn: true, nameDe: true, nameIt: true } }); if (!previous) return null;
-      const updated = await tx.team.update({ where: { id }, data: { ...values, updatedById: current.id }, select: { id: true, nameEn: true, nameDe: true, nameIt: true, _count: { select: { members: { where: { isActive: true, isDeleted: false } } } } } });
+      const updated = await tx.team.update({ where: { id }, data: { ...values, updatedById: current.id }, select: { id: true, nameEn: true, nameDe: true, nameIt: true, _count: { select: { memberships: { where: { user: { isActive: true, isDeleted: false } } } } } } });
       await recordAuditLog(tx, { hotelTenantId: current.hotelTenantId, actorId: current.id, action: "UPDATE", entityType: "TEAM", entityId: id, changes: { before: output(previous).names, after: output(updated).names } }); return updated;
     }, { timeout: 20_000 });
     return entity ? NextResponse.json(output(entity)) : NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
