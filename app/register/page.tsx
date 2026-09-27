@@ -88,7 +88,7 @@ export default function RegisterPage() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <Input id="register-email" name="email" type="email" label={t.email} error={errors.email} placeholder="name@hotel.com" autoComplete="email" />
-              <PasswordInput id="register-password" name="password" label={t.password} error={errors.password} showLabel={t.showPassword} hideLabel={t.hidePassword} placeholder={t.passwordPlaceholder} autoComplete="new-password" />
+              <PasswordInput id="register-password" name="password" label={t.password} error={errors.password} showLabel={t.showPassword} hideLabel={t.hidePassword} placeholder={t.passwordPlaceholder} autoComplete="new-password" strength={{ low: t.passwordLow, medium: t.passwordMedium, strong: t.passwordStrong }} />
             </div>
           </fieldset>
           <fieldset className="space-y-4 border-t border-[var(--qf-border)] pt-5">

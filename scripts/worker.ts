@@ -3,8 +3,8 @@ import { Pool } from "pg";
 import { importHousekeeping, recordImportFailure, importFailureReason } from "../lib/housekeeping/import-job";
 import type { HousekeepingImportJob } from "../lib/jobs/queue";
 import { createJobPrisma } from "../lib/jobs/prisma";
-import { createJobQueue, initializeQueues, queues, type HousekeepingAiAllocateJob, type ManualIndexJob, type RecruitingAiScoreJob, type SmokeJob, type UserWelcomeJob } from "../lib/jobs/queue";
-import { sendUserWelcomeEmail } from "../lib/users/welcome-email";
+import { createJobQueue, initializeQueues, queues, type HotelWelcomeJob, type HousekeepingAiAllocateJob, type ManualIndexJob, type RecruitingAiScoreJob, type SmokeJob, type UserWelcomeJob } from "../lib/jobs/queue";
+import { sendHotelWelcomeEmail, sendUserWelcomeEmail } from "../lib/users/welcome-email";
 import { indexManualDocument } from "../lib/manuals/index-job";
 import { generateAllHotelAiRecommendations } from "../lib/ai/daily-recommendations";
 import { runHousekeepingAiAllocation } from "../lib/housekeeping/ai-allocate";
@@ -59,6 +59,12 @@ async function main() {
     if (!job.data?.to || !job.data.password || !job.data.hotelName) throw new Error("Invalid user welcome payload.");
     const result = await sendUserWelcomeEmail(job.data);
     console.log(`[worker] User welcome email ${job.id} sent to ${job.data.to}`);
+    return result;
+  });
+  await boss.work<HotelWelcomeJob>(queues.hotelWelcome, async ([job]) => {
+    if (!job.data?.to || !job.data.hotelName || !job.data.email) throw new Error("Invalid hotel welcome payload.");
+    const result = await sendHotelWelcomeEmail(job.data);
+    console.log(`[worker] Hotel welcome email ${job.id} sent to ${job.data.to}`);
     return result;
   });
   await boss.work<RecruitingAiScoreJob>(queues.recruitingAiScore, async ([job]) => {

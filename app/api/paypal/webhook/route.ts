@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { Prisma } from "../../../generated/prisma/client";
 import { getPaypalSubscription, paypalPlanId, verifyPaypalWebhook } from "../../../../lib/billing/paypal";
 import { prisma } from "../../../../lib/prisma";
+import { queueHotelWelcomeEmail } from "../../../../lib/users/dispatch-hotel-welcome";
 
 type WebhookEvent = {
   id?: string;
@@ -25,6 +26,7 @@ function paymentDetails(resource: Record<string, unknown>) {
 export async function POST(request: Request) {
   const event = await request.json().catch(() => null) as WebhookEvent | null;
   if (!event?.id || !event.event_type || !event.resource) return NextResponse.json({ error: "INVALID_EVENT" }, { status: 400 });
+  let hotelTenantId: string | null = null;
   try {
     if (!(await verifyPaypalWebhook(request.headers, event))) return NextResponse.json({ error: "INVALID_SIGNATURE" }, { status: 400 });
 
@@ -32,7 +34,6 @@ export async function POST(request: Request) {
     const subscriptionId = typeof resource.id === "string" && event.event_type.startsWith("BILLING.SUBSCRIPTION.")
       ? resource.id
       : typeof resource.billing_agreement_id === "string" ? resource.billing_agreement_id : null;
-    let hotelTenantId: string | null = null;
     let verifiedSubscription: Awaited<ReturnType<typeof getPaypalSubscription>> | null = null;
 
     if (subscriptionId) {
@@ -86,9 +87,17 @@ export async function POST(request: Request) {
       }
       await tx.paymentEvent.update({ where: { providerEventId: event.id! }, data: { processedAt: new Date() } });
     });
+    if (nextStatus === "ACTIVE" && hotelTenantId) {
+      await queueHotelWelcomeEmail(hotelTenantId);
+    }
     return NextResponse.json({ received: true });
   } catch (error) {
-    if (error && typeof error === "object" && "code" in error && error.code === "P2002") return NextResponse.json({ received: true, duplicate: true });
+    if (error && typeof error === "object" && "code" in error && error.code === "P2002") {
+      if (event.event_type === "BILLING.SUBSCRIPTION.ACTIVATED" && hotelTenantId) {
+        await queueHotelWelcomeEmail(hotelTenantId).catch((queueError) => console.error("Hotel welcome email was not queued", queueError));
+      }
+      return NextResponse.json({ received: true, duplicate: true });
+    }
     console.error("PayPal webhook processing failed", error);
     return NextResponse.json({ error: "WEBHOOK_PROCESSING_FAILED" }, { status: 500 });
   }

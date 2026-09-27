@@ -1,12 +1,13 @@
 import { PgBoss } from "pg-boss";
 
-export const queues = { smoke: "qualityfriend-smoke", housekeeping: "housekeeping-import", housekeepingFailed: "housekeeping-import-failed", weatherDaily: "weather-daily", checklistsDaily: "checklists-daily", manualIndex: "manual-index", recruitingAiScore: "recruiting-ai-score", aiRecommendationDaily: "ai-recommendation-daily", housekeepingAiAllocate: "housekeeping-ai-allocate", userWelcome: "user-welcome-email" } as const;
+export const queues = { smoke: "qualityfriend-smoke", housekeeping: "housekeeping-import", housekeepingFailed: "housekeeping-import-failed", weatherDaily: "weather-daily", checklistsDaily: "checklists-daily", manualIndex: "manual-index", recruitingAiScore: "recruiting-ai-score", aiRecommendationDaily: "ai-recommendation-daily", housekeepingAiAllocate: "housekeeping-ai-allocate", userWelcome: "user-welcome-email", hotelWelcome: "hotel-welcome-email" } as const;
 export type HousekeepingImportJob = { hotelTenantId: string; actorId: string; xmlName: string; runId: string; sourceId: string };
 export type SmokeJob = { message: string };
 export type ManualIndexJob = { hotelTenantId: string; documentId: string };
 export type RecruitingAiScoreJob = { hotelTenantId: string; applicationId: string };
 export type HousekeepingAiAllocateJob = { hotelTenantId: string; timeZone: string };
 export type UserWelcomeJob = { to: string; firstName: string; password: string; hotelName: string; departmentName: string; roleLabel: string; loginUrl: string; locale: "en" | "de" | "it" };
+export type HotelWelcomeJob = { to: string; firstName: string; email: string; hotelName: string; loginUrl: string; locale: "en" | "de" | "it" };
 
 export function createJobQueue(worker = false) {
   const connectionString = process.env.DATABASE_URL;
@@ -65,6 +66,13 @@ export async function initializeQueues(boss: PgBoss) {
     deleteAfterSeconds: 7 * 24 * 60 * 60,
   });
   await boss.createQueue(queues.userWelcome, {
+    retryLimit: 3,
+    retryDelay: 30,
+    retryBackoff: true,
+    expireInSeconds: 300,
+    deleteAfterSeconds: 24 * 60 * 60,
+  });
+  await boss.createQueue(queues.hotelWelcome, {
     retryLimit: 3,
     retryDelay: 30,
     retryBackoff: true,

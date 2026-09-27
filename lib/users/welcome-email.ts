@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-import type { UserWelcomeJob } from "../jobs/queue";
+import type { HotelWelcomeJob, UserWelcomeJob } from "../jobs/queue";
 
 const roles = {
   en: { EMPLOYEE: "Employee", TEAM_LEAD: "Team/Department Lead", MANAGEMENT: "Management", ADMIN: "Administrator" },
@@ -67,7 +67,61 @@ function welcomeText(job: UserWelcomeJob) {
   return `${t.hello} ${job.firstName},\n\n${t.introBefore}${job.hotelName}${t.introAfter}\n\n${t.hotel}: ${job.hotelName}\n${t.email}: ${job.to}\n${t.password}: ${job.password}\n${t.department}: ${job.departmentName || t.none}\n${t.role}: ${job.roleLabel}\n\n${job.loginUrl}\n\n${t.privacy}\n\n${t.footer}`;
 }
 
-export async function sendUserWelcomeEmail(job: UserWelcomeJob) {
+const hotelCopy = {
+  en: { subject: "Welcome to QualityFriend", ready: "Your hotel is active", hello: "Hello", introBefore: "Payment is confirmed. Your account at ", introAfter: " is ready. Sign in with the email and password you chose when you registered.", email: "Email", hotel: "Hotel", signIn: "Sign in", privacy: "Keep your password private. You can change it after you sign in.", footer: "Powered by QualityFriend" },
+  de: { subject: "Willkommen bei QualityFriend", ready: "Ihr Hotel ist aktiv", hello: "Hallo", introBefore: "Die Zahlung ist bestätigt. Ihr Konto bei ", introAfter: " ist bereit. Melden Sie sich mit der E-Mail-Adresse und dem Passwort an, die Sie bei der Registrierung gewählt haben.", email: "E-Mail", hotel: "Hotel", signIn: "Anmelden", privacy: "Bewahren Sie Ihr Passwort vertraulich auf. Sie können es nach der Anmeldung ändern.", footer: "Powered by QualityFriend" },
+  it: { subject: "Benvenuto in QualityFriend", ready: "Il tuo hotel è attivo", hello: "Ciao", introBefore: "Il pagamento è confermato. Il tuo account presso ", introAfter: " è pronto. Accedi con l'e-mail e la password scelte durante la registrazione.", email: "Email", hotel: "Hotel", signIn: "Accedi", privacy: "Tieni privata la password. Puoi cambiarla dopo l'accesso.", footer: "Powered by QualityFriend" },
+} as const;
+
+function hotelWelcomeHtml(job: HotelWelcomeJob, logoUrl: string) {
+  const t = hotelCopy[job.locale];
+  const logo = logoUrl ? `<img src="${escapeHtml(logoUrl)}" alt="QualityFriend" width="44" height="44" style="display:block;border:0;border-radius:8px" />` : "";
+  const footerLogo = logoUrl ? `<img src="${escapeHtml(logoUrl)}" alt="" width="36" height="36" style="display:inline-block;border:0;border-radius:8px" />` : "";
+  return `<!doctype html><html><body style="margin:0;padding:0;background:#f4f2ee">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f2ee"><tr><td align="center" style="padding:40px 16px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e8e6e1;border-radius:16px;overflow:hidden">
+      <tr><td style="background:#1c2233;padding:22px 28px"><table role="presentation" cellpadding="0" cellspacing="0"><tr>
+        <td style="background:#ffffff;border-radius:12px;padding:4px">${logo}</td>
+        <td style="padding-left:14px;font-family:${font};font-size:18px;font-weight:700;color:#ffffff">QualityFriend</td>
+      </tr></table></td></tr>
+      <tr><td style="height:3px;background:#c4933a;font-size:0;line-height:0">&nbsp;</td></tr>
+      <tr><td style="padding:32px 32px 8px;font-family:${font}">
+        <p style="margin:0;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#c4933a">${escapeHtml(t.ready)}</p>
+        <p style="margin:10px 0 0;font-size:26px;line-height:1.25;font-weight:700;color:#1c2233">${escapeHtml(t.hello)} ${escapeHtml(job.firstName)},</p>
+        <p style="margin:12px 0 0;font-size:15px;line-height:1.6;color:#6b7280">${escapeHtml(t.introBefore)}<strong style="color:#1c2233">${escapeHtml(job.hotelName)}</strong>${escapeHtml(t.introAfter)}</p>
+      </td></tr>
+      <tr><td style="padding:20px 32px 8px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f7f6f3;border:1px solid #e8e6e1;border-radius:12px"><tr><td style="padding:6px 18px 4px;font-family:${font}">
+        ${field(t.hotel, job.hotelName)}${field(t.email, job.email, true)}
+      </td></tr></table></td></tr>
+      <tr><td style="padding:24px 32px 8px"><a href="${escapeHtml(job.loginUrl)}" style="display:inline-block;background:#c4933a;color:#ffffff;text-decoration:none;font-family:${font};font-size:14px;font-weight:700;padding:13px 22px;border-radius:10px">${escapeHtml(t.signIn)}</a></td></tr>
+      <tr><td style="padding:8px 32px 28px;font-family:${font};font-size:13px;line-height:1.5;color:#9ca3af">${escapeHtml(t.privacy)}</td></tr>
+      <tr><td style="padding:18px 32px 22px;border-top:1px solid #e8e6e1;background:#fafaf8;text-align:center;font-family:${font}">
+        ${footerLogo}
+        <p style="margin:10px 0 0;font-size:12px;color:#6b7280">${escapeHtml(t.footer)}</p>
+        <p style="margin:4px 0 0;font-size:12px;color:#9ca3af">qualityfriend.solutions</p>
+      </td></tr>
+    </table>
+  </td></tr></table></body></html>`;
+}
+
+function hotelWelcomeText(job: HotelWelcomeJob) {
+  const t = hotelCopy[job.locale];
+  return `${t.hello} ${job.firstName},\n\n${t.introBefore}${job.hotelName}${t.introAfter}\n\n${t.hotel}: ${job.hotelName}\n${t.email}: ${job.email}\n\n${job.loginUrl}\n\n${t.privacy}\n\n${t.footer}`;
+}
+
+export async function sendHotelWelcomeEmail(job: HotelWelcomeJob) {
+  const { transport, from, logoUrl } = mailTransport();
+  await transport.sendMail({
+    from,
+    to: job.to,
+    subject: hotelCopy[job.locale].subject,
+    text: hotelWelcomeText(job),
+    html: hotelWelcomeHtml(job, logoUrl),
+  });
+  return { sent: true };
+}
+
+function mailTransport() {
   const host = process.env.MAIL_HOST?.trim();
   const user = process.env.MAIL_USERNAME?.trim();
   const pass = process.env.MAIL_PASSWORD?.trim();
@@ -77,10 +131,17 @@ export async function sendUserWelcomeEmail(job: UserWelcomeJob) {
   const fromAddress = process.env.MAIL_FROM_ADDRESS?.trim() || user;
   const fromName = process.env.MAIL_FROM_NAME?.trim() || "QualityFriend";
   const base = (process.env.APP_URL || "https://app.qualityfriend.solutions").replace(/\/$/, "");
-  const logoUrl = `${base}/recruiting/logo-icon.png`;
-  const transport = nodemailer.createTransport({ host, port, secure: encryption === "ssl" || port === 465, auth: { user, pass } });
-  await transport.sendMail({
+  return {
+    transport: nodemailer.createTransport({ host, port, secure: encryption === "ssl" || port === 465, auth: { user, pass } }),
     from: `"${fromName.replace(/"/g, "")}" <${fromAddress}>`,
+    logoUrl: `${base}/recruiting/logo-icon.png`,
+  };
+}
+
+export async function sendUserWelcomeEmail(job: UserWelcomeJob) {
+  const { transport, from, logoUrl } = mailTransport();
+  await transport.sendMail({
+    from,
     to: job.to,
     subject: copy[job.locale].subject,
     text: welcomeText(job),

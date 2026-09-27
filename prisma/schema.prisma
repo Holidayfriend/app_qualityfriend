@@ -532,6 +532,7 @@ model HotelTenant {
   subscriptionStartedAt        DateTime?              @map("subscription_started_at") @db.Timestamptz(3)
   subscriptionCurrentPeriodEnd DateTime?              @map("subscription_current_period_end") @db.Timestamptz(3)
   subscriptionCancelledAt      DateTime?              @map("subscription_cancelled_at") @db.Timestamptz(3)
+  welcomeEmailSentAt           DateTime?              @map("welcome_email_sent_at") @db.Timestamptz(3)
   createdAt                    DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt                    DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
   users                        User[]
