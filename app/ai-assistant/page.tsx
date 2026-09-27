@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { AppShell } from "../../components/dashboard/app-shell";
 import { useI18n } from "../../components/i18n/i18n-provider";
@@ -182,13 +181,18 @@ export default function Page() {
         </button>)}
       </aside>
       <section className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex items-center gap-3 border-b border-[var(--qf-border)] bg-white px-5 py-[14px]">
-          <span className="text-[24px]">{assistant[0]}</span>
-          <div>
+        <header className="flex items-center gap-3 border-b border-[var(--qf-border)] bg-white px-4 py-3 md:px-5 md:py-[14px]">
+          <span className="hidden text-[24px] md:block">{assistant[0]}</span>
+          <div className="hidden min-w-0 md:block">
             <h1 className="text-[15px] font-bold">{assistant[1]}</h1>
             <p className="text-[12px] text-[var(--qf-text-muted)]">{t.connected}</p>
           </div>
-          <Link href="/settings" className="ml-auto inline-flex items-center gap-1.5 rounded-[7px] border border-[var(--qf-border)] px-[14px] py-[7px] text-[12px] font-semibold text-[var(--qf-text-muted)]">⚙️ {t.settings}</Link>
+          <label className="min-w-0 flex-1 md:hidden">
+            <span className="sr-only">{t.list}</span>
+            <select value={selected} onChange={(event) => pick(Number(event.target.value))} className="w-full cursor-pointer rounded-[8px] border border-[var(--qf-border)] bg-white px-3 py-2 text-[14px] font-semibold outline-none focus:border-[var(--qf-accent)]">
+              {t.assistants.map((item, index) => <option key={item[3]} value={index}>{item[0]} {item[1]}</option>)}
+            </select>
+          </label>
         </header>
         <div ref={box} className="flex flex-1 flex-col gap-[14px] overflow-y-auto p-5">
           {messages.map((message, index) => <div key={`${message.time}-${index}`} className={`flex max-w-[70%] flex-col gap-1 max-md:max-w-[90%] ${message.side === "user" ? "self-end items-end" : "self-start"}`}>

@@ -152,8 +152,8 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
     ["dashboard", "🏠", mobileNav.start],
     ["tasks", "✅", mobileNav.tasks],
     ["housekeeping", "🧹", mobileNav.housekeeping],
-    ["chat", "✨", mobileNav.chat],
-  ].filter(([id]) => id === "dashboard" || canShow(id));
+    ["ai", "✨", mobileNav.chat],
+  ].filter(([id]) => id === "dashboard" || (id === "ai" ? canShow("ai") || canShow("chat") : canShow(id)));
   const groups = [
     { title: n.overview, items: [["dashboard", "🏠", n.dashboard, ""], ["ai", "✨", n.aiAssistant, n.new]] },
     { title: n.operations, items: [["handovers", "🤝", n.handovers, ""], ["tasks", "✅", n.tasks, currentUser?.tasks_open ? String(Math.min(currentUser.tasks_open, 99)) : ""], ["housekeeping", "🧹", n.housekeeping, ""], ["repairs", "🔧", n.repairs, currentUser?.repairs_open ? String(Math.min(currentUser.repairs_open, 99)) : ""], ["notes", "📝", n.notes, ""]] },
