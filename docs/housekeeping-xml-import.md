@@ -17,9 +17,9 @@ docker compose up -d worker
 docker compose logs -f worker
 ```
 
-For later handler-only changes, use `docker compose restart worker`. Do not start a second worker on the Windows host. Both containers bind-mount the project at `/app`, so the worker reads the same `public/ASA` files as the app. See [background jobs](background-jobs.md) for the full Docker setup.
+For later handler-only changes, use `docker compose restart worker`. Do not start a second worker on the Windows host. See [background jobs](background-jobs.md) for the full Docker setup.
 
-Set the hotel's **Houskeeping ASA XML** name in Account Settings. For `Qualityfriend`, the server reads `public/ASA/Qualityfriend.xml`. Refresh checks the setting/file, commits a queue job and dispatch audit record together, and shows a dispatched toast only after that transaction succeeds. A pending/active job for that hotel prevents duplicate dispatch.
+Set the hotel's **Houskeeping ASA XML** name in Account Settings. For `Qualityfriend`, refresh reads `https://qualityfriend.solutions/ASA_ftp/Qualityfriend.xml`. Refresh checks the setting/file, commits a queue job and dispatch audit record together, and shows a dispatched toast only after that transaction succeeds. A pending/active job for that hotel prevents duplicate dispatch.
 
 Refresh uses the existing Housekeeping module access rule, including the administrator bypass. It does not require an additional update, assignment, or ALL-scope permission. The worker rechecks hotel/user activity, subscription eligibility, module visibility, and the configured filename before writing. Tenant identity comes from the session and is retained in the job payload; the browser cannot select another hotel or filename.
 

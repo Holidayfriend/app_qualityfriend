@@ -1,29 +1,49 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
-import { checkAsaFile } from "../lib/housekeeping/asa-file";
+import { checkAsaFile, readAsaFile } from "../lib/housekeeping/asa-file";
 
-test("ASA preflight requires a name and a real XML file within the configured directory", async () => {
-  const root = await mkdtemp(path.join(tmpdir(), "qf-asa-test-"));
+const base = "https://example.test/ASA_ftp/";
+
+test("ASA preflight uses the public ASA folder and the configured filename", async () => {
+  const calls: string[] = [];
+  const original = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    calls.push(`${init?.method || "GET"} ${url}`);
+    if (url.endsWith("/hotel.xml")) return new Response(null, { status: 200, headers: { "content-length": "20" } });
+    return new Response(null, { status: 404 });
+  }) as typeof fetch;
   try {
-    assert.equal(await checkAsaFile(null, root), "ASA_XML_NAME_REQUIRED");
-    assert.equal(await checkAsaFile("  ", root), "ASA_XML_NAME_REQUIRED");
+    assert.equal(await checkAsaFile(null, base), "ASA_XML_NAME_REQUIRED");
+    assert.equal(await checkAsaFile("  ", base), "ASA_XML_NAME_REQUIRED");
     for (const name of ["../outside", "folder/file", "folder\\file", "https://host/file", "..", "bad\0name"]) {
-      assert.equal(await checkAsaFile(name, root), "INVALID_ASA_XML_NAME");
+      assert.equal(await checkAsaFile(name, base), "INVALID_ASA_XML_NAME");
     }
-    assert.equal(await checkAsaFile("hotel", root), "ASA_XML_NOT_FOUND");
-    await writeFile(path.join(root, "hotel.xml"), "<reservations/>");
-    assert.equal(await checkAsaFile("hotel", root), "READY");
-    assert.equal(await checkAsaFile(" hotel ", root), "READY");
-    assert.equal(await checkAsaFile("hotel.xml", root), "READY");
-    await mkdir(path.join(root, "directory.xml"));
-    assert.equal(await checkAsaFile("directory", root), "ASA_XML_NOT_FOUND");
-    assert.equal(await checkAsaFile("hotel", path.join(root, "missing")), "ASA_XML_NOT_FOUND");
+    assert.equal(calls.length, 0);
+    assert.equal(await checkAsaFile("missing", base), "ASA_XML_NOT_FOUND");
+    assert.equal(await checkAsaFile("hotel", base), "READY");
+    assert.equal(await checkAsaFile(" hotel ", base), "READY");
+    assert.equal(await checkAsaFile("hotel.xml", base), "READY");
+    assert.deepEqual(calls, [
+      "HEAD https://example.test/ASA_ftp/missing.xml",
+      "HEAD https://example.test/ASA_ftp/hotel.xml",
+      "HEAD https://example.test/ASA_ftp/hotel.xml",
+      "HEAD https://example.test/ASA_ftp/hotel.xml",
+    ]);
   } finally {
-    // Only remove the unique test directory returned by mkdtemp, never the ASA directory.
-    if (path.dirname(root) !== path.resolve(tmpdir()) || !path.basename(root).startsWith("qf-asa-test-")) throw new Error("Unexpected test directory");
-    await rm(root, { recursive: true, force: true });
+    globalThis.fetch = original;
+  }
+});
+
+test("ASA read downloads the named XML from the public folder", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    assert.equal(String(input), "https://example.test/ASA_ftp/Qualityfriend.xml");
+    return new Response(`<?xml version="1.0" encoding="utf-8"?><reservations/>`, { status: 200, headers: { "content-length": "52" } });
+  }) as typeof fetch;
+  try {
+    assert.equal(await readAsaFile("Qualityfriend", base), `<?xml version="1.0" encoding="utf-8"?><reservations/>`);
+  } finally {
+    globalThis.fetch = original;
   }
 });

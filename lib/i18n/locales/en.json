@@ -657,7 +657,7 @@
     "neverImported": "No successful import yet",
     "missing": "Add the Houskeeping ASA XML name in Hotel Settings first.",
     "invalid": "The ASA XML name must be a filename without a folder path.",
-    "notFound": "The configured XML file was not found in public/ASA.",
+    "notFound": "The configured XML file was not found at qualityfriend.solutions/ASA_ftp.",
     "ready": "Housekeeping import job dispatched. You will receive a notification when it finishes.",
     "failed": "Could not check the XML file. Please try again.",
     "forbidden": "You do not have permission to refresh housekeeping.",
