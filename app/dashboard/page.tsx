@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { AppShell } from "../../components/dashboard/app-shell";
 import { DashboardKpis } from "../../components/dashboard/dashboard-kpis";
+import { DashboardModules } from "../../components/dashboard/dashboard-modules";
 import { HousekeepingCard } from "../../components/dashboard/housekeeping-card";
 import { OnDutyCard } from "../../components/dashboard/on-duty-card";
 import { WeatherCard } from "../../components/dashboard/weather-card";
@@ -16,14 +17,15 @@ export default function DashboardPage() {
   return <AppShell activeItem="dashboard">
     <div className="qf-dashboard" id="p-dashboard">
     <div className="ai-banner">
-      <div style={{"fontSize":"22px"}}>✨</div>
-      <div style={{"flex":1}}>
+      <div className="ai-mark">✨</div>
+      <div className="ai-copy">
         <div className="ai-title">{d.analysisTitle}</div>
         <div className="ai-body">{d.analysisBody}</div>
       </div>
       <button className="ai-btn" onClick={() => router.push("/ai-assistant")}>{d.discuss} →</button>
     </div>
     <DashboardKpis />
+    <DashboardModules />
     <div className="g2">
       <div className="card">
         <div className="ch"><div className="ct">🔔 {d.activities}</div><span className="ca" onClick={() => router.push("/tasks")}>{d.allTasks} →</span></div>
@@ -36,7 +38,7 @@ export default function DashboardPage() {
           <div className="al"><div className="al-ic g">✅</div><div><div className="al-t">{d.restock}</div><div className="al-m">{d.restockMeta}</div></div><div className="al-r"><span className="sc sc-g">{d.doneStatus}</span><div className="tl">08:10</div></div></div>
         </div>
       </div>
-      <div style={{"display":"flex","flexDirection":"column","gap":"18px"}}>
+      <div className="dash-stack">
         <WeatherCard />
         <HousekeepingCard />
         <OnDutyCard />

@@ -175,7 +175,28 @@
       "doneStatus": "DONE",
       "now": "now",
       "oneHour": "1 hr.",
-      "twoHours": "2 hrs."
+      "twoHours": "2 hrs.",
+      "modules": "Modules",
+      "mobileNav": {
+        "start": "Start",
+        "tasks": "Tasks",
+        "housekeeping": "Housek.",
+        "chat": "AI chat"
+      },
+      "tiles": {
+        "housekeeping": "Housekeeping",
+        "tasks": "Tasks",
+        "handovers": "Handovers",
+        "schedule": "Schedule",
+        "repairs": "Repairs",
+        "budget": "Budget",
+        "notes": "Notes",
+        "more": "More",
+        "recruiting": "Recruiting",
+        "manuals": "Manuals",
+        "revenue": "Forecast",
+        "settings": "Settings"
+      }
     },
     "settings": {
       "usersTeams": "Users & Teams",

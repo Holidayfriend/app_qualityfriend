@@ -55,6 +55,12 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
   useEffect(() => { setSelectedItem(activeItem); }, [activeItem]);
 
   useEffect(() => {
+    const openMore = () => setMobileMoreOpen(true);
+    window.addEventListener("qf-open-mobile-more", openMore);
+    return () => window.removeEventListener("qf-open-mobile-more", openMore);
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
     async function loadUser() {
       try {
@@ -141,12 +147,13 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
   const roleName = currentUser ? roleLevelNames[locale][currentUser.role as keyof typeof roleLevelNames.en] ?? currentUser.role : "";
   const moduleNavigation = moduleNavigationMessages[locale];
   const chatLayout = activeItem === "chat";
+  const mobileNav = d.mobileNav;
   const mobileNavigation = [
-    ["dashboard", "🏠", "Start"],
-    ["tasks", "✅", "Aufgaben"],
-    ["housekeeping", "🧹", "Housek."],
-    ["chat", "✨", "KI-Chat"],
-  ];
+    ["dashboard", "🏠", mobileNav.start],
+    ["tasks", "✅", mobileNav.tasks],
+    ["housekeeping", "🧹", mobileNav.housekeeping],
+    ["chat", "✨", mobileNav.chat],
+  ].filter(([id]) => id === "dashboard" || canShow(id));
   const groups = [
     { title: n.overview, items: [["dashboard", "🏠", n.dashboard, ""], ["ai", "✨", n.aiAssistant, n.new]] },
     { title: n.operations, items: [["handovers", "🤝", n.handovers, ""], ["tasks", "✅", n.tasks, currentUser?.tasks_open ? String(Math.min(currentUser.tasks_open, 99)) : ""], ["housekeeping", "🧹", n.housekeeping, ""], ["repairs", "🔧", n.repairs, currentUser?.repairs_open ? String(Math.min(currentUser.repairs_open, 99)) : ""], ["notes", "📝", n.notes, ""]] },
@@ -209,7 +216,7 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
       <nav className="flex-1 py-1">{groups.map((group) => <div key={group.title} className="px-2.5 pb-1 pt-3.5"><p className="qf-nav-section px-2 pb-[7px] text-[10px] font-semibold uppercase tracking-[1.2px] text-white/30">{group.title}</p>{group.items.map(([id, icon, label, badge]) => { const active = id === "revenue" ? pathname === "/revenue" || pathname === "/budget" || pathname === "/competitors" : selectedItem === id; return <button key={id} type="button" onClick={() => navigate(id)} className={`mb-px flex w-full cursor-pointer items-center gap-2 whitespace-nowrap rounded-[7px] px-3 py-1.5 text-left text-[13.5px] font-normal leading-none transition ${active ? "bg-[var(--qf-accent)] text-white" : "text-white/60 hover:bg-[var(--qf-navy-hover)] hover:text-white"}`}><span className="qf-nav-ic w-[18px] shrink-0 text-center text-[15px]">{icon}</span><span className="flex-1 text-[13.5px] font-normal">{label}</span>{badge ? <span className={`qf-nav-badge shrink-0 rounded-full px-1.5 py-px text-[10.5px] font-normal text-white ${badge === n.new ? "bg-[#7c3aed]" : id === "repairs" || id === "tasks" || badge === "2" ? "bg-[var(--qf-danger)]" : "bg-[#d97706]"}`}>{badge}</span> : null}</button>; })}</div>)}</nav>
       <div className="border-t border-white/[.07] p-2.5"><button type="button" onClick={() => { setMenuOpen(false); router.push("/settings/account"); }} aria-label={`${fullName} account settings`} className="flex w-full cursor-pointer items-center gap-2.5 rounded-[7px] px-2.5 py-2 text-left text-[10px] font-normal transition hover:bg-[var(--qf-navy-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--qf-accent)]"><div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-[var(--qf-accent)] text-[10px] font-medium">{initials || "·"}</div><div className="min-w-0 flex-1"><p className="truncate text-[10px] font-normal text-white/85">{fullName || "…"}</p><p className="text-[9px] font-normal text-white/35">{roleName || "…"}</p></div><span aria-hidden className="text-[10px] text-white/30">›</span></button></div>
     </aside>
-    {mobileMoreOpen ? <section className="fixed inset-x-0 bottom-[calc(68px+env(safe-area-inset-bottom))] top-14 z-30 overflow-y-auto bg-[var(--qf-background)] p-4 lg:hidden" aria-label="Mehr">
+    {mobileMoreOpen ? <section className="fixed inset-x-0 bottom-[calc(68px+env(safe-area-inset-bottom))] top-14 z-30 overflow-y-auto bg-[var(--qf-background)] p-4 lg:hidden" aria-label={d.tiles.more}>
       {groups.slice(1).map((group) => {
         const items = group.items.filter(([id]) => !["tasks", "housekeeping"].includes(id));
         if (!items.length) return null;
@@ -218,7 +225,7 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
     </section> : null}
     <nav aria-label="Mobile navigation" className="qf-mobile-nav fixed inset-x-0 bottom-0 z-40 flex border-t border-[var(--qf-border)] bg-white/95 px-1 pt-2 pb-[calc(8px+env(safe-area-inset-bottom))] backdrop-blur-xl lg:hidden">
       {mobileNavigation.map(([id, icon, label]) => <button key={id} type="button" onClick={() => navigate(id)} className={`flex min-h-11 flex-1 cursor-pointer flex-col items-center justify-center gap-[3px] border-0 bg-transparent px-0 text-[10px] font-semibold ${!mobileMoreOpen && selectedItem === id ? "text-[var(--qf-accent)]" : "text-[var(--qf-text-light)]"}`}><span aria-hidden className="text-[21px] leading-none">{icon}</span><span>{label}</span></button>)}
-      <button type="button" onClick={() => setMobileMoreOpen(true)} className={`flex min-h-11 flex-1 cursor-pointer flex-col items-center justify-center gap-[3px] border-0 bg-transparent px-0 text-[10px] font-semibold ${mobileMoreOpen ? "text-[var(--qf-accent)]" : "text-[var(--qf-text-light)]"}`}><span aria-hidden className="text-[21px] leading-none">⋯</span><span>Mehr</span></button>
+      <button type="button" onClick={() => setMobileMoreOpen(true)} className={`flex min-h-11 flex-1 cursor-pointer flex-col items-center justify-center gap-[3px] border-0 bg-transparent px-0 text-[10px] font-semibold ${mobileMoreOpen ? "text-[var(--qf-accent)]" : "text-[var(--qf-text-light)]"}`}><span aria-hidden className="text-[21px] leading-none">⋯</span><span>{d.tiles.more}</span></button>
     </nav>
     <div className="min-w-0 flex-1">
       <div className="sticky top-0 z-30">
@@ -232,7 +239,7 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
           <span className="shrink-0 text-[12px] font-bold text-amber-800">{aiApiSettingsMessages[locale].missingKeyAction} →</span>
         </button>
       ) : null}
-      <header className="flex min-h-14 items-center gap-3 border-b border-[var(--qf-border)] bg-white px-4 lg:px-7"><button type="button" onClick={() => setMenuOpen(true)} className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--qf-border)] text-lg lg:hidden" aria-label="Open menu">☰</button><div className="min-w-0"><p className="truncate text-[16px] font-bold">{pageTitle || `${greeting}${currentUser ? `, ${currentUser.first_name}` : ""}`}</p><p className="text-[11px] text-[var(--qf-text-muted)] sm:hidden">{d.date}</p></div><p className="hidden text-[13px] text-[var(--qf-text-muted)] sm:block">{d.date}</p><div className="ml-auto flex items-center gap-2"><LanguageSwitcher iconOnly locale={locale} onLocaleChange={(next) => void changeLanguage(next)} /><button type="button" onClick={() => navigate("chat")} aria-label={moduleNavigation.chat} title={moduleNavigation.chat} className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--qf-border)] bg-white text-base transition hover:border-[var(--qf-accent)] hover:bg-[var(--qf-accent-soft)]">💬</button><NotificationDropdown /><button type="button" onClick={() => void logout()} disabled={loggingOut} aria-label={dictionary.common.logout} title={dictionary.common.logout} className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--qf-border)] bg-white text-[var(--qf-text-muted)] transition hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:cursor-wait disabled:opacity-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px]" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 5H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4"/><path d="m15 8 4 4-4 4"/><path d="M19 12H9"/></svg></button></div></header>
+      <header className="flex min-h-14 items-center gap-3 border-b border-[var(--qf-border)] bg-white px-4 lg:px-7"><div className="min-w-0"><p className="truncate text-[16px] font-bold">{pageTitle || `${greeting}${currentUser ? `, ${currentUser.first_name}` : ""}`}</p><p className="text-[11px] text-[var(--qf-text-muted)] sm:hidden">{d.date}</p></div><p className="hidden text-[13px] text-[var(--qf-text-muted)] sm:block">{d.date}</p><div className="ml-auto flex items-center gap-2"><LanguageSwitcher iconOnly locale={locale} onLocaleChange={(next) => void changeLanguage(next)} /><button type="button" onClick={() => navigate("chat")} aria-label={moduleNavigation.chat} title={moduleNavigation.chat} className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--qf-border)] bg-white text-base transition hover:border-[var(--qf-accent)] hover:bg-[var(--qf-accent-soft)]">💬</button><NotificationDropdown /><button type="button" onClick={() => void logout()} disabled={loggingOut} aria-label={dictionary.common.logout} title={dictionary.common.logout} className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--qf-border)] bg-white text-[var(--qf-text-muted)] transition hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:cursor-wait disabled:opacity-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px]" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 5H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4"/><path d="m15 8 4 4-4 4"/><path d="M19 12H9"/></svg></button></div></header>
       </div>
       {children}</div>
   </div>;

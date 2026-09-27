@@ -64,7 +64,7 @@ export function DashboardKpis() {
       <div className="kpi">
         <div className="kpi-lbl">{d.occupancy}</div>
         <div className="kpi-val">{dash}<span>%</span></div>
-        <div className="kpi-sub">{loaded ? <span className={`chip ${deltaChip}`}>{deltaText}</span> : null} {d.vsWeek}</div>
+        <div className="kpi-sub">{loaded ? <span className={`chip ${deltaChip}`}>{deltaText}</span> : null} <span className="kpi-vs">{d.vsWeek}</span></div>
       </div>
       <div className="kpi">
         <div className="kpi-lbl">{d.arrivals}</div>
