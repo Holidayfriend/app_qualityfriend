@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import { AppShell } from "../../components/dashboard/app-shell";
 import { BrandLoader } from "../../components/ui/brand-loader";
 import { useI18n } from "../../components/i18n/i18n-provider";
+import { formatHotelDateTime, formatHotelTime, readHotelTimeZone } from "../../lib/hotel/clock";
 import { roleLevelNames } from "../../lib/i18n/dictionaries";
 
 type ChannelKind = "user" | "team" | "department";
@@ -216,7 +217,7 @@ export default function ChatPage() {
         {selected.kind === "user" ? <Avatar user={selected} /> : <GroupAvatar kind={selected.kind} />}
         <div className="min-w-0">{selected.kind === "user" ? <><b className="block truncate text-sm">{selected.first_name} {selected.last_name}</b><p className={`text-[11px] ${selected.is_online ? "font-semibold text-green-600" : "text-[var(--qf-text-muted)]"}`}>{presence(selected, t, locale)}</p></> : <><b className="block truncate text-sm">{groupName(selected, locale)}</b><p className="text-[11px] text-[var(--qf-text-muted)]">{memberLabel(selected.member_count, t)}{selected.is_member ? ` · ${t.yours}` : ""}</p></>}</div>
       </header>
-      <div ref={messagePane} onScroll={(event) => { if (event.currentTarget.scrollTop < 80 && !scrollToBottom.current) void loadOlder(); }} className="relative min-h-0 overflow-y-auto overscroll-contain bg-[var(--qf-background)] px-3 py-2 sm:px-4">{loadingMessages ? <div className="absolute inset-0 flex items-center justify-center bg-[var(--qf-background)]"><BrandLoader label={t.loading} /></div> : <div ref={messageContent} className="flex w-full flex-col gap-1.5">{loadingOlder ? <p className="py-1 text-center text-xs text-[var(--qf-text-muted)]">…</p> : null}{!hasMore && messages.length ? <p className="py-1 text-center text-[10px] text-[var(--qf-text-light)]">—</p> : null}{messages.map((message) => <Bubble key={message.id} message={message} own={message.sender_id === me} showSender={selected.kind !== "user"} t={t} />)}</div>}</div>
+      <div ref={messagePane} onScroll={(event) => { if (event.currentTarget.scrollTop < 80 && !scrollToBottom.current) void loadOlder(); }} className="relative min-h-0 overflow-y-auto overscroll-contain bg-[var(--qf-background)] px-3 py-2 sm:px-4">{loadingMessages ? <div className="absolute inset-0 flex items-center justify-center bg-[var(--qf-background)]"><BrandLoader label={t.loading} /></div> : <div ref={messageContent} className="flex w-full flex-col gap-1.5">{loadingOlder ? <p className="py-1 text-center text-xs text-[var(--qf-text-muted)]">…</p> : null}{!hasMore && messages.length ? <p className="py-1 text-center text-[10px] text-[var(--qf-text-light)]">—</p> : null}{messages.map((message) => <Bubble key={message.id} message={message} own={message.sender_id === me} showSender={selected.kind !== "user"} t={t} locale={locale} />)}</div>}</div>
       <form onSubmit={send} className="relative shrink-0 border-t border-[var(--qf-border)] bg-white p-2">
         {file ? <div className="mb-2 flex w-full justify-between rounded-lg bg-[var(--qf-accent-soft)] px-3 py-2 text-xs"><span className="truncate">{file.type.startsWith("audio/") ? "🎤" : "📎"} {file.name} · {fileSize(file.size)}</span><button type="button" onClick={() => setFile(null)} className="cursor-pointer">×</button></div> : null}{error ? <p className="mb-2 w-full text-xs text-[var(--qf-danger)]">{error}</p> : null}
         {attachmentMenu ? <div className="absolute bottom-14 left-3 z-20 w-56 overflow-hidden rounded-xl border border-[var(--qf-border)] bg-white py-1.5 shadow-xl"><AttachmentChoice icon="📄" color="bg-violet-600" label={t.document} accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip" onFile={(value) => { setFile(value); setAttachmentMenu(false); }} /><AttachmentChoice icon="🖼" color="bg-blue-500" label={`${t.image} & ${t.video}`} accept="image/*,video/*" onFile={(value) => { setFile(value); setAttachmentMenu(false); }} /><AttachmentChoice icon="🎧" color="bg-orange-500" label={t.voice} accept="audio/*" onFile={(value) => { setFile(value); setAttachmentMenu(false); }} /></div> : null}
@@ -229,16 +230,16 @@ export default function ChatPage() {
 function memberLabel(count: number, t: typeof copy.en) { return `${count} ${count === 1 ? t.member : t.members}`; }
 function Avatar({ user }: { user: ChatUser }) { return <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--qf-accent-soft)] text-xs font-bold text-[var(--qf-accent)]">{user.first_name[0]}{user.last_name[0]}{user.is_online ? <span title="Online" className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-green-500" /> : null}</span>; }
 function GroupAvatar({ kind }: { kind: "team" | "department" }) { return <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-base ${kind === "team" ? "bg-teal-100" : "bg-amber-100"}`}>{kind === "team" ? "👥" : "🏢"}</span>; }
-function presence(user: ChatUser, t: typeof copy.en, locale: "en" | "de" | "it") { if (user.is_online) return t.online; if (!user.last_seen_at) return roleLevelNames[locale][user.role]; return `${t.lastSeen} ${new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }).format(new Date(user.last_seen_at))}`; }
+function presence(user: ChatUser, t: typeof copy.en, locale: "en" | "de" | "it") { if (user.is_online) return t.online; if (!user.last_seen_at) return roleLevelNames[locale][user.role]; return `${t.lastSeen} ${formatHotelDateTime(new Date(user.last_seen_at), locale, readHotelTimeZone())}`; }
 function fileSize(bytes: number) { return bytes < 1024 ? `${bytes} B` : bytes < 1048576 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1048576).toFixed(1)} MB`; }
 
-function Bubble({ message, own, showSender, t }: { message: Message; own: boolean; showSender: boolean; t: typeof copy.en }) {
+function Bubble({ message, own, showSender, t, locale }: { message: Message; own: boolean; showSender: boolean; t: typeof copy.en; locale: "en" | "de" | "it" }) {
   const media = message.type === "IMAGE" || message.type === "VIDEO" || message.type === "VOICE";
   return <div className={`flex w-full ${own ? "justify-end" : "justify-start"}`}><div className={`${media ? "w-[min(440px,92%)]" : "w-fit max-w-[75%]"} overflow-hidden rounded-[10px] text-[13px] leading-4 shadow-sm ${own ? "rounded-br-sm bg-[var(--qf-accent)] text-white" : "rounded-bl-sm border border-[var(--qf-border)] bg-white"}`}>
     {showSender && !own && message.sender_name ? <p className="px-2.5 pt-1 text-[10px] font-bold leading-none text-[var(--qf-accent)]">{message.sender_name}</p> : null}
     {message.attachment_name ? <LazyAttachment message={message} own={own} t={t} /> : null}
     {message.text ? <p className="whitespace-pre-wrap break-words px-2.5 pt-1">{message.text}</p> : null}
-    <p className={`px-2.5 pb-1 pt-0.5 text-right text-[9px] leading-none ${own ? "text-white/60" : "text-[var(--qf-text-light)]"}`}>{new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</p>
+    <p className={`px-2.5 pb-1 pt-0.5 text-right text-[9px] leading-none ${own ? "text-white/60" : "text-[var(--qf-text-light)]"}`}>{formatHotelTime(new Date(message.created_at), locale, readHotelTimeZone())}</p>
   </div></div>;
 }
 

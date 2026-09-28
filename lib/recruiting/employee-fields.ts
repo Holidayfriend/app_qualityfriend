@@ -1,6 +1,7 @@
 import type { RecruitingEmployee, RecruitingEmployeeStatus, RecruitingInactiveReason } from "../../app/generated/prisma/client";
 import type { DeptId } from "../i18n/recruiting-messages";
 import { mapDeptId } from "./application-fields";
+import { formatHotelDate, hotelLocalIso } from "../hotel/clock";
 import type { CertStatus, Employee, EmpStatus } from "./preview-data";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -24,13 +25,9 @@ function pickDeptName(dept: EmployeeDepartment | null | undefined, locale?: stri
   return dept.nameEn || dept.nameDe || dept.nameIt;
 }
 
-function formatDate(value: Date | null | undefined, locale?: string) {
+function formatDate(value: Date | null | undefined, locale?: string, timeZone?: string | null) {
   if (!value) return "";
-  try {
-    return value.toLocaleDateString(locale === "de" ? "de-DE" : locale === "it" ? "it-IT" : "en-GB");
-  } catch {
-    return value.toISOString().slice(0, 10);
-  }
+  return formatHotelDate(value, locale || "en", timeZone);
 }
 
 function isoDate(value: Date | null | undefined) {
@@ -55,20 +52,18 @@ function parseIsoOrEmpty(value: unknown): string | null {
   return null;
 }
 
-function certificateStatusFromExpires(expires: string): CertStatus {
+function certificateStatusFromExpires(expires: string, timeZone?: string | null): CertStatus {
   const iso = parseIsoOrEmpty(expires);
   if (!iso) return "valid";
-  const end = new Date(`${iso}T00:00:00.000Z`);
-  const now = new Date();
-  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  if (end.getTime() < today.getTime()) return "expired";
-  const soon = new Date(today);
-  soon.setUTCDate(soon.getUTCDate() + 90);
-  if (end.getTime() <= soon.getTime()) return "expiring";
+  const today = hotelLocalIso(timeZone);
+  if (iso < today) return "expired";
+  const [year, month, day] = today.split("-").map(Number);
+  const soon = new Date(Date.UTC(year, (month || 1) - 1, (day || 1) + 90)).toISOString().slice(0, 10);
+  if (iso <= soon) return "expiring";
   return "valid";
 }
 
-export function parseCertificates(value: unknown): Employee["certificates"] {
+export function parseCertificates(value: unknown, timeZone?: string | null): Employee["certificates"] {
   if (!Array.isArray(value)) return [];
   const rows: Employee["certificates"] = [];
   for (const entry of value.slice(0, 40)) {
@@ -83,7 +78,7 @@ export function parseCertificates(value: unknown): Employee["certificates"] {
       name,
       completed,
       expires,
-      status: certificateStatusFromExpires(expires),
+      status: certificateStatusFromExpires(expires, timeZone),
     });
   }
   return rows;
@@ -114,10 +109,10 @@ function mapReason(reason: RecruitingInactiveReason | null | undefined): Employe
   return "";
 }
 
-export function toPublicEmployee(row: EmployeeRow, locale?: string): Employee {
+export function toPublicEmployee(row: EmployeeRow, locale?: string, timeZone?: string | null): Employee {
   const deptName = pickDeptName(row.department, locale);
-  const from = formatDate(row.employedFrom, locale);
-  const to = formatDate(row.employedTo, locale);
+  const from = formatDate(row.employedFrom, locale, timeZone);
+  const to = formatDate(row.employedTo, locale, timeZone);
   const employment = from && to ? `${from} – ${to}` : from || to || "";
   return {
     id: row.id,
@@ -137,7 +132,7 @@ export function toPublicEmployee(row: EmployeeRow, locale?: string): Employee {
     employment,
     comments: row.comments || "",
     tags: parseTags(row.tags),
-    certificates: parseCertificates(row.certificates),
+    certificates: parseCertificates(row.certificates, timeZone),
   };
 }
 

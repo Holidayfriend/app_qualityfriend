@@ -1,6 +1,8 @@
 import { Prisma } from "../../../../app/generated/prisma/client";
 import { prisma } from "../../../../lib/prisma";
 import { recordAuditLog } from "../../../../lib/audit/audit-service";
+import { hotelLocalIso } from "../../../../lib/hotel/clock";
+import { hotelTimeZoneFor } from "../../../../lib/hotel/context";
 import { recruitingActor } from "../../../../lib/recruiting/access";
 import { parseApplicationNotes } from "../../../../lib/recruiting/application-fields";
 import {
@@ -12,22 +14,22 @@ import {
 
 const departmentSelect = { select: { nameEn: true, nameDe: true, nameIt: true } } as const;
 
-function todayUtc() {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+function hotelCalendarDate(timeZone: string) {
+  return new Date(`${hotelLocalIso(timeZone)}T00:00:00.000Z`);
 }
 
 export async function GET(request: Request) {
   const actor = await recruitingActor();
   if (!actor) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
   const locale = new URL(request.url).searchParams.get("locale") ?? "";
+  const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   const rows = await prisma.recruitingEmployee.findMany({
     where: { hotelTenantId: actor.hotel_tenant_id },
     orderBy: { createdAt: "desc" },
     include: { department: departmentSelect },
   });
   return Response.json({
-    employees: rows.map((row) => toPublicEmployee(row, locale)),
+    employees: rows.map((row) => toPublicEmployee(row, locale, timeZone)),
   }, { headers: { "Cache-Control": "no-store" } });
 }
 
@@ -38,6 +40,7 @@ export async function POST(request: Request) {
   if (!body || typeof body !== "object") return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
   const data = body as { applicationId?: unknown; locale?: unknown };
   const locale = typeof data.locale === "string" ? data.locale : "";
+  const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
 
   if (typeof data.applicationId === "string") {
     const applicationId = data.applicationId;
@@ -68,7 +71,7 @@ export async function POST(request: Request) {
             phone: application.phone,
             taxId: "",
             birthplace: "",
-            employedFrom: todayUtc(),
+            employedFrom: hotelCalendarDate(timeZone),
             comments: "",
             tags: notes.tags,
             certificates: [],
@@ -99,7 +102,7 @@ export async function POST(request: Request) {
       });
       if (result.kind === "missing") return Response.json({ error: "NOT_FOUND" }, { status: 404 });
       return Response.json({
-        employee: toPublicEmployee(result.employee, locale),
+        employee: toPublicEmployee(result.employee, locale, timeZone),
         alreadyExists: result.kind === "exists",
       }, { status: result.kind === "created" ? 201 : 200 });
     } catch (error) {
@@ -108,7 +111,7 @@ export async function POST(request: Request) {
           where: { hotelTenantId: actor.hotel_tenant_id, applicationId: data.applicationId },
           include: { department: departmentSelect },
         });
-        if (existing) return Response.json({ employee: toPublicEmployee(existing, locale), alreadyExists: true });
+        if (existing) return Response.json({ employee: toPublicEmployee(existing, locale, timeZone), alreadyExists: true });
       }
       throw error;
     }
@@ -133,7 +136,7 @@ export async function POST(request: Request) {
         taxId: input.taxId,
         birthdate: input.birthdate,
         birthplace: input.birthplace,
-        employedFrom: input.employedFrom ?? todayUtc(),
+        employedFrom: input.employedFrom ?? hotelCalendarDate(timeZone),
         employedTo: input.employedTo,
         comments: input.comments,
         tags: [],
@@ -151,5 +154,5 @@ export async function POST(request: Request) {
     });
     return employee;
   });
-  return Response.json({ employee: toPublicEmployee(created, locale) }, { status: 201 });
+  return Response.json({ employee: toPublicEmployee(created, locale, timeZone) }, { status: 201 });
 }

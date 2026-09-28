@@ -3,6 +3,7 @@
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { Input } from "../ui/input";
 import { listCountries, listProvinces } from "../../lib/geo/locations";
+import { DEFAULT_HOTEL_TIME_ZONE } from "../../lib/hotel/clock";
 import { accountSettingsMessages, type Locale } from "../../lib/i18n/dictionaries";
 
 type Messages = (typeof accountSettingsMessages)[Locale];
@@ -14,7 +15,7 @@ export type HotelSettingsValues = {
   openingPeriod: string; closurePeriod: string; checkInTime: string; checkOutTime: string; pmsName: string;
 };
 
-const timeZones = ["Europe/Rome", "Europe/Berlin", "Europe/Vienna", "Europe/Zurich", "Europe/Paris", "Europe/Madrid", "Europe/London", "Europe/Amsterdam", "Europe/Brussels", "Europe/Prague", "UTC"];
+const timeZones = [DEFAULT_HOTEL_TIME_ZONE, "Europe/Rome", "Europe/Vienna", "Europe/Zurich", "Europe/Paris", "Europe/Madrid", "Europe/London", "Europe/Amsterdam", "Europe/Brussels", "Europe/Prague", "UTC"];
 const selectClass = "block h-11 w-full cursor-pointer rounded-lg border border-[var(--qf-border)] bg-white px-3.5 text-sm font-normal";
 
 function nameKey(locale: Locale) {
@@ -65,8 +66,7 @@ export function HotelSettingsForm<T extends HotelSettingsValues>({ hotel, setHot
           <option value="DE">Deutsch</option>
           <option value="IT">Italiano</option>
         </SelectField>
-        <SelectField label={t.timeZone} value={hotel.timeZone} onChange={(timeZone) => update({ timeZone })}>
-          <option value="">{t.timeZonePlaceholder}</option>
+        <SelectField label={t.timeZone} value={hotel.timeZone || DEFAULT_HOTEL_TIME_ZONE} onChange={(timeZone) => update({ timeZone })}>
           {zones.map((zone) => <option key={zone} value={zone}>{zone}</option>)}
         </SelectField>
         <Input label={t.rooms} type="number" min={0} value={hotel.roomCount} onChange={(event) => update({ roomCount: event.target.value })} />

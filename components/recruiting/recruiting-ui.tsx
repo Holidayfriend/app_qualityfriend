@@ -13,6 +13,7 @@ import { createDefaultQuiz, DEFAULT_FOOTER_URL, QuizCanvasCard, QuizToolsCard, t
 import { BrandLoader } from "../ui/brand-loader";
 import { useToast } from "../ui/toast-provider";
 import { htmlToPlain, RichTextEditor, sanitizeJobHtml, type RichTextEditorHandle } from "./rich-text-editor";
+import { formatHotelDate, readHotelTimeZone } from "../../lib/hotel/clock";
 import type { PublicJob } from "../../lib/recruiting/job-fields";
 
 export type RecruitingView =
@@ -1126,7 +1127,7 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
   async function saveComment() {
     if (!item) return;
     if (!comment.trim()) { alert(t.enterComment); return; }
-    const nextComments = [...item.comments, { text: comment.trim(), author: authorName, date: new Date().toLocaleDateString() }];
+    const nextComments = [...item.comments, { text: comment.trim(), author: authorName, date: formatHotelDate(new Date(), locale, readHotelTimeZone()) }];
     setComment("");
     await persistNotes(item.tags, nextComments);
   }
@@ -1160,7 +1161,7 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
   async function setStage(stage: AppStage) {
     if (!item || actionBusy) return;
     setActionBusy(true);
-    const today = new Date().toLocaleDateString();
+    const today = formatHotelDate(new Date(), locale, readHotelTimeZone());
     const patch: Partial<Applicant> = {
       stage,
       dateDisplay: stage === "offer" ? fill(t.offerOn, { date: today }) : item.dateDisplay,

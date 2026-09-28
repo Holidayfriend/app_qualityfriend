@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import type { PrismaClient } from "../../app/generated/prisma/client";
+import { hotelTimeZone } from "../hotel/clock";
 import { AI_PROVIDERS, type AiProviderId } from "./providers";
 
 export type AiUsageRange = "today" | "week" | "month" | "custom";
@@ -118,13 +119,7 @@ function shiftDays(year: number, month: number, day: number, delta: number) {
 }
 
 export function safeTimeZone(value: string | null | undefined) {
-  const zone = value?.trim() || "UTC";
-  try {
-    Intl.DateTimeFormat("en-US", { timeZone: zone }).format(new Date());
-    return zone;
-  } catch {
-    return "UTC";
-  }
+  return hotelTimeZone(value);
 }
 
 export function usageRangeStart(range: Exclude<AiUsageRange, "custom">, timeZone: string, now = new Date()) {

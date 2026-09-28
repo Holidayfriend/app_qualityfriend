@@ -3,6 +3,8 @@ import "server-only";
 import type { HotelChecklistAssignType, HotelChecklistDueType, HotelChecklistItemState, HotelChecklistKind, HotelChecklistRecurrence, HotelChecklistStatus, Prisma } from "../../app/generated/prisma/client";
 import { recordAuditLog } from "../audit/audit-service";
 import { pickLocalized } from "../recruiting/job-fields";
+import { formatHotelDate, formatHotelDateTime } from "../hotel/clock";
+import { hotelTimeZoneFor } from "../hotel/context";
 import { prisma } from "../prisma";
 import type { TasksActor } from "../tasks/access";
 import { hotelTodayIso, isoDate, nextDueIso, parseIsoDate } from "./recurrence";
@@ -33,14 +35,14 @@ function nameOf(row: { firstName: string; lastName: string } | null) {
   return row ? `${row.firstName} ${row.lastName}`.trim() : "";
 }
 
-function dateOf(value: Date | null, locale: string) {
+function dateOf(value: Date | null, locale: string, timeZone?: string | null) {
   if (!value) return "";
-  return value.toLocaleDateString(locale === "de" ? "de-DE" : locale === "it" ? "it-IT" : "en-GB");
+  return formatHotelDate(value, locale, timeZone);
 }
 
-function dateTimeOf(value: Date | null, locale: string) {
+function dateTimeOf(value: Date | null, locale: string, timeZone?: string | null) {
   if (!value) return "";
-  return value.toLocaleString(locale === "de" ? "de-DE" : locale === "it" ? "it-IT" : "en-GB", { dateStyle: "short", timeStyle: "short" });
+  return formatHotelDateTime(value, locale, timeZone);
 }
 
 function titlesOf(row: { title: string; titleDe: string; titleIt: string }) {
@@ -65,7 +67,7 @@ export function visibleChecklistWhere(actor: TasksActor): Prisma.HotelChecklistW
   };
 }
 
-export function toPublicChecklist(row: Row, locale: string, today: string) {
+export function toPublicChecklist(row: Row, locale: string, today: string, timeZone?: string | null) {
   const assignee = row.assignType === "PERSON"
     ? nameOf(row.assignee)
     : row.assignType === "DEPT" && row.department
@@ -92,9 +94,9 @@ export function toPublicChecklist(row: Row, locale: string, today: string) {
     dueIso: isoDate(row.dueAt),
     startIso: isoDate(row.startAt),
     endIso: isoDate(row.endAt),
-    nextDue: dateOf(parseIsoDate(nextIso), locale),
+    nextDue: dateOf(parseIsoDate(nextIso), locale, timeZone),
     nextDueIso: nextIso,
-    completedAt: dateTimeOf(row.completedAt, locale),
+    completedAt: dateTimeOf(row.completedAt, locale, timeZone),
     completedBy: nameOf(row.completedBy),
     items: row.items.map((item) => ({
       id: item.id,
@@ -107,7 +109,7 @@ export function toPublicChecklist(row: Row, locale: string, today: string) {
       id: item.id,
       result: "done",
       author: nameOf(item.author),
-      date: dateOf(item.createdAt, locale),
+      date: dateOf(item.createdAt, locale, timeZone),
     })),
   };
 }
@@ -172,32 +174,32 @@ async function parsedBody(actor: TasksActor, body: Record<string, unknown>, loca
 }
 
 async function hotelToday(actor: TasksActor) {
-  const hotel = await prisma.hotelTenant.findFirst({ where: { id: actor.hotel_tenant_id }, select: { timeZone: true } });
-  return hotelTodayIso(hotel?.timeZone);
+  const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
+  return { timeZone, today: hotelTodayIso(timeZone) };
 }
 
 export async function listChecklists(actor: TasksActor, locale: string) {
-  const today = await hotelToday(actor);
+  const { today, timeZone } = await hotelToday(actor);
   const rows = await prisma.hotelChecklist.findMany({
     where: visibleChecklistWhere(actor),
     include,
     orderBy: [{ status: "asc" }, { dueAt: "asc" }, { createdAt: "desc" }],
   });
-  return rows.map((row) => toPublicChecklist(row, locale, today));
+  return rows.map((row) => toPublicChecklist(row, locale, today, timeZone));
 }
 
 export async function getChecklist(actor: TasksActor, id: string, locale: string) {
   if (!isUuid(id)) return null;
-  const today = await hotelToday(actor);
+  const { today, timeZone } = await hotelToday(actor);
   const row = await prisma.hotelChecklist.findFirst({ where: { id, ...visibleChecklistWhere(actor) }, include });
-  return row ? toPublicChecklist(row, locale, today) : null;
+  return row ? toPublicChecklist(row, locale, today, timeZone) : null;
 }
 
 export async function createChecklist(actor: TasksActor, body: Record<string, unknown>, locale: string) {
   const parsed = await parsedBody(actor, body, locale);
   if ("error" in parsed) return parsed;
   const { itemLocales, ...data } = parsed;
-  const today = await hotelToday(actor);
+  const { today, timeZone } = await hotelToday(actor);
   const row = await prisma.$transaction(async (tx) => {
     const created = await tx.hotelChecklist.create({
       data: {
@@ -238,7 +240,7 @@ export async function createChecklist(actor: TasksActor, body: Record<string, un
     }
     return created;
   });
-  return { checklist: toPublicChecklist(row, locale, today) };
+  return { checklist: toPublicChecklist(row, locale, today, timeZone) };
 }
 
 export async function updateChecklist(actor: TasksActor, id: string, body: Record<string, unknown>, locale: string) {
@@ -248,7 +250,7 @@ export async function updateChecklist(actor: TasksActor, id: string, body: Recor
   const parsed = await parsedBody(actor, body, locale);
   if ("error" in parsed) return parsed;
   const { itemLocales, ...data } = parsed;
-  const today = await hotelToday(actor);
+  const { today, timeZone } = await hotelToday(actor);
   const row = await prisma.$transaction(async (tx) => {
     await tx.hotelChecklistItem.deleteMany({ where: { checklistId: id } });
     const updated = await tx.hotelChecklist.update({
@@ -276,7 +278,7 @@ export async function updateChecklist(actor: TasksActor, id: string, body: Recor
     });
     return updated;
   });
-  return { checklist: toPublicChecklist(row, locale, today) };
+  return { checklist: toPublicChecklist(row, locale, today, timeZone) };
 }
 
 export async function updateChecklistStatus(actor: TasksActor, id: string, status: string, locale: string) {
@@ -285,7 +287,7 @@ export async function updateChecklistStatus(actor: TasksActor, id: string, statu
   if (!next) return { error: "INVALID" as const };
   const existing = await prisma.hotelChecklist.findFirst({ where: { id, hotelTenantId: actor.hotel_tenant_id, origin: "ORIGINAL" } });
   if (!existing) return { error: "NOT_FOUND" as const };
-  const today = await hotelToday(actor);
+  const { today, timeZone } = await hotelToday(actor);
   const row = await prisma.$transaction(async (tx) => {
     const updated = await tx.hotelChecklist.update({ where: { id }, data: { status: next }, include });
     await recordAuditLog(tx, {
@@ -298,7 +300,7 @@ export async function updateChecklistStatus(actor: TasksActor, id: string, statu
     });
     return updated;
   });
-  return { checklist: toPublicChecklist(row, locale, today) };
+  return { checklist: toPublicChecklist(row, locale, today, timeZone) };
 }
 
 export async function toggleChecklistItem(actor: TasksActor, id: string, itemId: string, locale: string) {
@@ -317,9 +319,10 @@ export async function completeChecklist(actor: TasksActor, id: string, comment: 
   const existing = await prisma.hotelChecklist.findFirst({ where: { id, ...visibleChecklistWhere(actor) }, include });
   if (!existing || existing.kind !== "CHECKLIST") return { error: "NOT_FOUND" as const };
   if (existing.completedAt) {
-    return { checklist: toPublicChecklist(existing, locale, await hotelToday(actor)) };
+    const clock = await hotelToday(actor);
+    return { checklist: toPublicChecklist(existing, locale, clock.today, clock.timeZone) };
   }
-  const today = await hotelToday(actor);
+  const { today, timeZone } = await hotelToday(actor);
   const row = await prisma.$transaction(async (tx) => {
     const updated = await tx.hotelChecklist.update({
       where: { id },
@@ -362,5 +365,5 @@ export async function completeChecklist(actor: TasksActor, id: string, comment: 
     });
     return tx.hotelChecklist.findFirstOrThrow({ where: { id }, include });
   });
-  return { checklist: toPublicChecklist(row, locale, today) };
+  return { checklist: toPublicChecklist(row, locale, today, timeZone) };
 }

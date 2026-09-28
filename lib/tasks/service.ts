@@ -4,6 +4,8 @@ import { randomUUID } from "node:crypto";
 import type { HotelTaskAssignType, Prisma } from "../../app/generated/prisma/client";
 import { recordAuditLog } from "../audit/audit-service";
 import { pickLocalized } from "../recruiting/job-fields";
+import { formatHotelDate, formatHotelDateTime } from "../hotel/clock";
+import { hotelTimeZoneFor } from "../hotel/context";
 import { prisma } from "../prisma";
 import type { TasksActor } from "./access";
 import { translateTaskFields } from "./translate";
@@ -26,14 +28,14 @@ function nameOf(row: { firstName: string; lastName: string } | null) {
   return row ? `${row.firstName} ${row.lastName}`.trim() : "";
 }
 
-function dateOf(value: Date | null, locale: string) {
+function dateOf(value: Date | null, locale: string, timeZone?: string | null) {
   if (!value) return "";
-  return value.toLocaleDateString(locale === "de" ? "de-DE" : locale === "it" ? "it-IT" : "en-GB");
+  return formatHotelDate(value, locale, timeZone);
 }
 
-function dateTimeOf(value: Date | null, locale: string) {
+function dateTimeOf(value: Date | null, locale: string, timeZone?: string | null) {
   if (!value) return "";
-  return value.toLocaleString(locale === "de" ? "de-DE" : locale === "it" ? "it-IT" : "en-GB", { dateStyle: "short", timeStyle: "short" });
+  return formatHotelDateTime(value, locale, timeZone);
 }
 
 function isoDate(value: Date | null) {
@@ -49,7 +51,7 @@ function titlesOf(row: Row) {
   return { title: row.title, titleDe: row.titleDe, titleIt: row.titleIt };
 }
 
-export function toPublicTask(row: Row, locale: string) {
+export function toPublicTask(row: Row, locale: string, timeZone?: string | null) {
   const assignee = row.assignType === "PERSON"
     ? nameOf(row.assignee)
     : row.department
@@ -64,11 +66,11 @@ export function toPublicTask(row: Row, locale: string) {
     assignee,
     assigneeId: row.assigneeId || "",
     departmentId: row.departmentId || "",
-    due: dateOf(row.dueAt, locale),
+    due: dateOf(row.dueAt, locale, timeZone),
     dueIso: isoDate(row.dueAt),
     origin: row.origin || "",
     creator: nameOf(row.createdBy),
-    completedAt: dateTimeOf(row.completedAt, locale),
+    completedAt: dateTimeOf(row.completedAt, locale, timeZone),
     completedBy: nameOf(row.completedBy),
   };
 }
@@ -188,18 +190,20 @@ export function visibleTaskWhere(actor: { id: string; hotel_tenant_id: string; d
 }
 
 export async function listTasks(actor: TasksActor, locale: string) {
+  const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   const rows = await prisma.hotelTask.findMany({
     where: visibleTaskWhere(actor),
     include,
     orderBy: [{ status: "asc" }, { dueAt: "asc" }, { createdAt: "desc" }],
   });
-  return rows.map((row) => toPublicTask(row, locale));
+  return rows.map((row) => toPublicTask(row, locale, timeZone));
 }
 
 export async function getTask(actor: TasksActor, id: string, locale: string) {
+  const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   if (!isUuid(id)) return null;
   const row = await prisma.hotelTask.findFirst({ where: { id, ...visibleTaskWhere(actor) }, include });
-  return row ? toPublicTask(row, locale) : null;
+  return row ? toPublicTask(row, locale, timeZone) : null;
 }
 
 export async function openTaskCount(actor: { id: string; hotel_tenant_id: string; departmentId: string | null; canManage: boolean }) {
@@ -233,6 +237,7 @@ async function parsedBody(actor: TasksActor, body: Record<string, unknown>, loca
 }
 
 export async function createTask(actor: TasksActor, body: Record<string, unknown>, locale: string) {
+  const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   const parsed = await parsedBody(actor, body, locale);
   if ("error" in parsed) return parsed;
   const row = await prisma.$transaction(async (tx) => {
@@ -257,10 +262,11 @@ export async function createTask(actor: TasksActor, body: Record<string, unknown
     });
     return created;
   });
-  return { task: toPublicTask(row, locale) };
+  return { task: toPublicTask(row, locale, timeZone) };
 }
 
 export async function updateTask(actor: TasksActor, id: string, body: Record<string, unknown>, locale: string) {
+  const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   if (!isUuid(id)) return { error: "NOT_FOUND" as const };
   const existing = await prisma.hotelTask.findFirst({ where: { id, hotelTenantId: actor.hotel_tenant_id } });
   if (!existing) return { error: "NOT_FOUND" as const };
@@ -288,10 +294,11 @@ export async function updateTask(actor: TasksActor, id: string, body: Record<str
     });
     return updated;
   });
-  return { task: toPublicTask(row, locale) };
+  return { task: toPublicTask(row, locale, timeZone) };
 }
 
 export async function updateTaskStatus(actor: TasksActor, id: string, status: string, locale: string) {
+  const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   if (!isUuid(id)) return { error: "NOT_FOUND" as const };
   const next = status === "done" || status === "DONE" ? "DONE" : status === "open" || status === "OPEN" ? "OPEN" : null;
   if (!next) return { error: "INVALID" as const };
@@ -299,7 +306,7 @@ export async function updateTaskStatus(actor: TasksActor, id: string, status: st
   if (!existing) return { error: "NOT_FOUND" as const };
   if (existing.status === next) {
     const row = await prisma.hotelTask.findFirst({ where: { id }, include });
-    return row ? { task: toPublicTask(row, locale) } : { error: "NOT_FOUND" as const };
+    return row ? { task: toPublicTask(row, locale, timeZone) } : { error: "NOT_FOUND" as const };
   }
   const row = await prisma.$transaction(async (tx) => {
     const updated = await tx.hotelTask.update({
@@ -333,5 +340,5 @@ export async function updateTaskStatus(actor: TasksActor, id: string, status: st
     }
     return updated;
   });
-  return { task: toPublicTask(row, locale) };
+  return { task: toPublicTask(row, locale, timeZone) };
 }

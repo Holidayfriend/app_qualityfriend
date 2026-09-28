@@ -1,5 +1,6 @@
 import { prisma } from "../../../../../lib/prisma";
 import { recordAuditLog } from "../../../../../lib/audit/audit-service";
+import { hotelTimeZoneFor } from "../../../../../lib/hotel/context";
 import { recruitingActor } from "../../../../../lib/recruiting/access";
 import {
   employeeAuditSnapshot,
@@ -23,7 +24,7 @@ export async function GET(request: Request, context: Context) {
     include: { department: departmentSelect },
   });
   if (!row) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
-  return Response.json({ employee: toPublicEmployee(row, locale) }, { headers: { "Cache-Control": "no-store" } });
+  return Response.json({ employee: toPublicEmployee(row, locale, await hotelTimeZoneFor(actor.hotel_tenant_id)) }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function PATCH(request: Request, context: Context) {
@@ -57,5 +58,5 @@ export async function PATCH(request: Request, context: Context) {
     return after;
   });
   if (!updated) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
-  return Response.json({ employee: toPublicEmployee(updated, locale || undefined) });
+  return Response.json({ employee: toPublicEmployee(updated, locale || undefined, await hotelTimeZoneFor(actor.hotel_tenant_id)) });
 }

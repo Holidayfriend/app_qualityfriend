@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { PrismaClient } from "../../app/generated/prisma/client";
+import { hotelTimeZone } from "../hotel/clock";
 import { cleaningPlan, hotelLocalDate } from "./daily-plan";
 import { completeHotelChatJson } from "../ai/complete";
 
@@ -275,7 +276,7 @@ async function assignExtraToday(prisma: PrismaClient, hotelTenantId: string, dat
 }
 
 export async function runHousekeepingAiAllocation(prisma: PrismaClient, hotelTenantId: string, timeZone: string) {
-  const date = hotelLocalDate(timeZone.trim() || "UTC");
+  const date = hotelLocalDate(hotelTimeZone(timeZone));
   const facts = await collectFacts(prisma, hotelTenantId, date);
   const employeeIds = new Set(facts.employees.map((employee) => employee.id));
   const roomById = new Map(facts.rooms.map((room) => [room.roomId, room]));

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { AppShell } from "../../components/dashboard/app-shell";
+import { formatHotelTime, readHotelTimeZone } from "../../lib/hotel/clock";
 import { useI18n } from "../../components/i18n/i18n-provider";
 
 const copy = {
@@ -9,7 +10,7 @@ const copy = {
     page: "KI-Assistent",
     list: "KI-Assistenten",
     settings: "Einstellungen",
-    connected: "Verbunden mit deinen Betriebsdaten · Weihrerhof",
+    connected: "Verbunden mit deinen Betriebsdaten",
     placeholder: "Frage stellen, Aufgabe beschreiben...",
     send: "Senden",
     thinking: "Suche in den Hoteldaten…",
@@ -34,7 +35,7 @@ const copy = {
     page: "AI Assistant",
     list: "AI Assistants",
     settings: "Settings",
-    connected: "Connected to your operational data · Weihrerhof",
+    connected: "Connected to your operational data",
     placeholder: "Ask a question, describe a task...",
     send: "Send",
     thinking: "Searching hotel data…",
@@ -59,7 +60,7 @@ const copy = {
     page: "Assistente IA",
     list: "Assistenti IA",
     settings: "Impostazioni",
-    connected: "Collegato ai dati operativi · Weihrerhof",
+    connected: "Collegato ai dati operativi",
     placeholder: "Fai una domanda, descrivi un'attività...",
     send: "Invia",
     thinking: "Cerco nei dati dell’hotel…",
@@ -85,13 +86,13 @@ const copy = {
 type Message = { side: "ai" | "user"; body: string; time: string };
 
 function now(locale: string) {
-  return new Date().toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+  return formatHotelTime(new Date(), locale, readHotelTimeZone());
 }
 
 function clock(value: string | undefined, locale: string) {
   if (!value) return now(locale);
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? now(locale) : date.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+  return Number.isNaN(date.getTime()) ? now(locale) : formatHotelTime(date, locale, readHotelTimeZone());
 }
 
 function starter(id: string, locale: "en" | "de" | "it", t: (typeof copy)[typeof locale]): Message[] {
@@ -105,6 +106,7 @@ function starter(id: string, locale: "en" | "de" | "it", t: (typeof copy)[typeof
 export default function Page() {
   const { locale } = useI18n();
   const t = copy[locale];
+  const [hotelName, setHotelName] = useState("");
   const [input, setInput] = useState("");
   const [selected, setSelected] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -116,6 +118,22 @@ export default function Page() {
   const liveMode = assistantKey === "manuals" || assistantKey === "recruiting" || assistantKey === "schedule" || assistantKey === "general";
 
   useEffect(() => { if (box.current) box.current.scrollTop = box.current.scrollHeight; }, [messages, busy, loadingThread]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/me", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        return response.json() as Promise<{ hotel_name_en?: string; hotel_name_de?: string; hotel_name_it?: string }>;
+      })
+      .then((user) => {
+        if (cancelled || !user) return;
+        const name = locale === "de" ? user.hotel_name_de : locale === "it" ? user.hotel_name_it : user.hotel_name_en;
+        setHotelName((name || user.hotel_name_en || user.hotel_name_de || user.hotel_name_it || "").trim());
+      })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [locale]);
 
   useEffect(() => {
     let cancelled = false;
@@ -185,7 +203,7 @@ export default function Page() {
           <span className="hidden text-[24px] md:block">{assistant[0]}</span>
           <div className="hidden min-w-0 md:block">
             <h1 className="text-[15px] font-bold">{assistant[1]}</h1>
-            <p className="text-[12px] text-[var(--qf-text-muted)]">{t.connected}</p>
+            <p className="text-[12px] text-[var(--qf-text-muted)]">{hotelName ? `${t.connected} · ${hotelName}` : t.connected}</p>
           </div>
           <label className="min-w-0 flex-1 md:hidden">
             <span className="sr-only">{t.list}</span>

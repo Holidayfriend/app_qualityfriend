@@ -1,3 +1,4 @@
+import { hotelTimeZone } from "../../../../../lib/hotel/clock";
 import { housekeepingAccess } from "../../../../../lib/housekeeping/access";
 import { dispatchHousekeepingAiAllocate } from "../../../../../lib/housekeeping/dispatch-ai-allocate";
 import { getSessionUserId } from "../../../../../lib/auth/session";
@@ -16,6 +17,6 @@ async function actor() {
 export async function POST() {
   const user = await actor();
   if (!user) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
-  const jobId = await dispatchHousekeepingAiAllocate(user.hotelTenantId, user.hotelTenant.timeZone?.trim() || "UTC");
+  const jobId = await dispatchHousekeepingAiAllocate(user.hotelTenantId, hotelTimeZone(user.hotelTenant.timeZone));
   return Response.json({ queued: true, jobId: jobId ?? null }, { headers: { "Cache-Control": "no-store" } });
 }

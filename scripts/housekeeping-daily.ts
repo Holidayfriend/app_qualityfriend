@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { hotelTimeZone } from "../lib/hotel/clock";
 import { generateHotelDailyPlan, hotelLocalDate } from "../lib/housekeeping/daily-plan";
 import { createJobPrisma } from "../lib/jobs/prisma";
 
@@ -22,7 +23,7 @@ async function main() {
       // "Today" for this hotel as YYYY-MM-DD in the hotel's own time zone
       // (falls back to UTC if timeZone is missing/blank). Hotels in different
       // zones can therefore get different calendar dates at the same moment.
-      const workDate = hotelLocalDate(hotel.timeZone?.trim() || "UTC");
+      const workDate = hotelLocalDate(hotelTimeZone(hotel.timeZone));
 
       // Build/refresh that hotel's housekeeping plan for workDate.
       // Safe to re-run the same day (idempotent); returns summary counts for logging.

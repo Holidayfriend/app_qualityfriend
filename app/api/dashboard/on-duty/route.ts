@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { currentAccessUser } from "../../../../lib/auth/module-access";
+import { hotelTimeZone } from "../../../../lib/hotel/clock";
 import { hotelLocalDate } from "../../../../lib/housekeeping/daily-plan";
 import { prisma } from "../../../../lib/prisma";
 import { listOnDutyToday } from "../../../../lib/schedule/dashboard";
@@ -16,7 +17,7 @@ export async function GET() {
 
   let workDate: string;
   try {
-    workDate = hotelLocalDate(hotel.timeZone?.trim() || "UTC");
+    workDate = hotelLocalDate(hotelTimeZone(hotel.timeZone));
   } catch {
     return NextResponse.json({ error: "INVALID_HOTEL_TIME_ZONE" }, { status: 500 });
   }

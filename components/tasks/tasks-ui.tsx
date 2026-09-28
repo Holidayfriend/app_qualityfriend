@@ -8,6 +8,7 @@ import { useI18n } from "../i18n/i18n-provider";
 import { BrandLoader } from "../ui/brand-loader";
 import { useToast } from "../ui/toast-provider";
 import { getTasksMessages, type TasksMessages } from "../../lib/i18n/tasks-messages";
+import { hotelLocalIso, readHotelTimeZone } from "../../lib/hotel/clock";
 import { useTasks, type PublicChecklist, type PublicTask } from "./tasks-provider";
 
 type T = TasksMessages;
@@ -27,7 +28,13 @@ function Shell({ title, children }: { title: string; children: ReactNode }) {
 }
 
 function todayIso() {
-  return new Date().toISOString().slice(0, 10);
+  return hotelLocalIso(readHotelTimeZone());
+}
+
+function plusDays(iso: string, days: number) {
+  const [year, month, day] = iso.split("-").map(Number);
+  const date = new Date(Date.UTC(year, (month || 1) - 1, (day || 1) + days));
+  return date.toISOString().slice(0, 10);
 }
 
 function prio(task: PublicTask, t: T) {
@@ -35,9 +42,7 @@ function prio(task: PublicTask, t: T) {
   if (!task.dueIso) return { chip: "chip-n", label: t.low };
   if (task.dueIso < todayIso()) return { chip: "chip-r", label: t.urgent };
   if (task.dueIso === todayIso()) return { chip: "chip-r", label: t.high };
-  const week = new Date();
-  week.setDate(week.getDate() + 7);
-  if (task.dueIso <= week.toISOString().slice(0, 10)) return { chip: "chip-a", label: t.medium };
+  if (task.dueIso <= plusDays(todayIso(), 7)) return { chip: "chip-a", label: t.medium };
   return { chip: "chip-n", label: t.low };
 }
 

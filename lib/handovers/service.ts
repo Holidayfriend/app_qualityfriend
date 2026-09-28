@@ -4,6 +4,8 @@ import { randomUUID } from "node:crypto";
 import type { Prisma, HandoverKind, HandoverStatus, HandoverVisibility } from "../../app/generated/prisma/client";
 import { recordAuditLog } from "../audit/audit-service";
 import { pickLocalized } from "../recruiting/job-fields";
+import { formatHotelDate, formatHotelDateTime } from "../hotel/clock";
+import { hotelTimeZoneFor } from "../hotel/context";
 import { prisma } from "../prisma";
 import type { HandoversActor } from "./access";
 import { translateHandoverFields } from "./translate";
@@ -37,12 +39,12 @@ function nameOf(row: { firstName: string; lastName: string } | null) {
   return row ? `${row.firstName} ${row.lastName}`.trim() : "";
 }
 
-function dateOf(value: Date, locale: string) {
-  return value.toLocaleDateString(locale === "de" ? "de-DE" : locale === "it" ? "it-IT" : "en-GB");
+function dateOf(value: Date, locale: string, timeZone?: string | null) {
+  return formatHotelDate(value, locale, timeZone);
 }
 
-function dateTimeOf(value: Date, locale: string) {
-  return value.toLocaleString(locale === "de" ? "de-DE" : locale === "it" ? "it-IT" : "en-GB", { dateStyle: "short", timeStyle: "short" });
+function dateTimeOf(value: Date, locale: string, timeZone?: string | null) {
+  return formatHotelDateTime(value, locale, timeZone);
 }
 
 export function visibleWhere(actor: HandoversActor, kind: HandoverKind): Prisma.HandoverWhereInput {
@@ -63,7 +65,7 @@ export function visibleWhere(actor: HandoversActor, kind: HandoverKind): Prisma.
   };
 }
 
-export function toPublicHandover(row: Row, locale: string) {
+export function toPublicHandover(row: Row, locale: string, timeZone?: string | null) {
   return {
     id: row.id,
     kind: row.kind === "TEMPLATE" ? "template" : "handover",
@@ -72,13 +74,13 @@ export function toPublicHandover(row: Row, locale: string) {
     tags: locale === "de" ? row.tagsDe : locale === "it" ? row.tagsIt : row.tags,
     creator: nameOf(row.createdBy),
     creatorId: row.createdById,
-    date: dateOf(row.createdAt, locale),
+    date: dateOf(row.createdAt, locale, timeZone),
     status: statusUi[row.status],
     pinned: row.pinned,
     visibility: row.visibility === "DEPARTMENT" ? "dept" : row.visibility === "PRIVATE" ? "privat" : "alle",
     depts: row.departments.map((item) => item.departmentId),
     origLang: row.originalLocale,
-    completedAt: row.completedAt ? dateTimeOf(row.completedAt, locale) : "",
+    completedAt: row.completedAt ? dateTimeOf(row.completedAt, locale, timeZone) : "",
     completedBy: nameOf(row.completedBy),
   };
 }
@@ -174,24 +176,27 @@ async function notifyHandoverDone(tx: Prisma.TransactionClient, input: { actor: 
 }
 
 export async function listHandovers(actor: HandoversActor, locale: string, kind: HandoverKind) {
+  const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   const rows = await prisma.handover.findMany({
     where: visibleWhere(actor, kind),
     include,
     orderBy: { createdAt: "desc" },
   });
-  return rows.map((row) => toPublicHandover(row, locale));
+  return rows.map((row) => toPublicHandover(row, locale, timeZone));
 }
 
 export async function getHandover(actor: HandoversActor, id: string, locale: string) {
   if (!isUuid(id)) return null;
+  const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   const row = await prisma.handover.findFirst({
     where: { id, ...visibleWhere(actor, "HANDOVER") },
     include,
   });
-  return row ? toPublicHandover(row, locale) : null;
+  return row ? toPublicHandover(row, locale, timeZone) : null;
 }
 
 export async function createHandover(actor: HandoversActor, body: Record<string, unknown>, locale: string) {
+  const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   if (!actor.canManage) return { error: "FORBIDDEN" as const };
   const title = String(body.title ?? "").trim().slice(0, 180);
   const description = String(body.description ?? "").trim().slice(0, 20000);
@@ -242,10 +247,11 @@ export async function createHandover(actor: HandoversActor, body: Record<string,
     }
     return tx.handover.findFirstOrThrow({ where: { id }, include });
   }, { timeout: 40000 });
-  return { handover: toPublicHandover(created, locale) };
+  return { handover: toPublicHandover(created, locale, timeZone) };
 }
 
 export async function updateHandover(actor: HandoversActor, id: string, body: Record<string, unknown>, locale: string) {
+  const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   if (!actor.canManage) return { error: "FORBIDDEN" as const };
   if (!isUuid(id)) return { error: "NOT_FOUND" as const };
   const existing = await prisma.handover.findFirst({ where: { id, ...visibleWhere(actor, "HANDOVER") }, include });
@@ -296,10 +302,11 @@ export async function updateHandover(actor: HandoversActor, id: string, body: Re
     }
     return tx.handover.findFirstOrThrow({ where: { id }, include });
   }, { timeout: 40000 });
-  return { handover: toPublicHandover(updated, locale) };
+  return { handover: toPublicHandover(updated, locale, timeZone) };
 }
 
 export async function updateHandoverStatus(actor: HandoversActor, id: string, status: string, locale: string) {
+  const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   const next = statusDb[status];
   if (!next || next === "DRAFT" || !isUuid(id)) return { error: "INVALID" as const };
   const existing = await prisma.handover.findFirst({ where: { id, ...visibleWhere(actor, "HANDOVER") } });
@@ -331,10 +338,11 @@ export async function updateHandoverStatus(actor: HandoversActor, id: string, st
     }
     return updated;
   });
-  return { handover: toPublicHandover(row, locale) };
+  return { handover: toPublicHandover(row, locale, timeZone) };
 }
 
 export async function updateHandoverPin(actor: HandoversActor, id: string, pinned: boolean, locale: string) {
+  const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   if (!isUuid(id)) return { error: "NOT_FOUND" as const };
   const existing = await prisma.handover.findFirst({ where: { id, ...visibleWhere(actor, "HANDOVER") } });
   if (!existing || existing.status !== "OPEN") return { error: "NOT_FOUND" as const };
@@ -349,5 +357,5 @@ export async function updateHandoverPin(actor: HandoversActor, id: string, pinne
       changes: { before: { title: existing.title, pinned: existing.pinned }, after: { title: existing.title, pinned } },
     });
   });
-  return { handover: toPublicHandover(row, locale) };
+  return { handover: toPublicHandover(row, locale, timeZone) };
 }

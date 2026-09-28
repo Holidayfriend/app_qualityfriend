@@ -7,6 +7,7 @@ import { AppShell } from "../dashboard/app-shell";
 import { useI18n } from "../i18n/i18n-provider";
 import { BrandLoader } from "../ui/brand-loader";
 import { departmentIcon } from "../../lib/manuals/icons";
+import { formatHotelDate, readHotelTimeZone } from "../../lib/hotel/clock";
 import { getManualsMessages } from "../../lib/i18n/manuals-messages";
 
 type Department = { id: string; name: string };
@@ -46,7 +47,7 @@ function canPreviewInPage(doc: Pick<Doc, "originalName">) {
 function formatDate(value: string, locale: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString(locale === "de" ? "de-DE" : locale === "it" ? "it-IT" : "en-GB");
+  return formatHotelDate(date, locale, readHotelTimeZone());
 }
 
 export function ManualsPage() {

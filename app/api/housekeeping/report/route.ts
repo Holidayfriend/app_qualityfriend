@@ -1,4 +1,5 @@
 import { getSessionUserId } from "../../../../lib/auth/session";
+import { hotelTimeZone } from "../../../../lib/hotel/clock";
 import { housekeepingAccess } from "../../../../lib/housekeeping/access";
 import { prisma } from "../../../../lib/prisma";
 
@@ -41,7 +42,7 @@ export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   const activeLocale = locale(params.get("locale"));
   let today: string;
-  try { today = hotelDate(user.hotelTenant.timeZone?.trim() || "UTC"); } catch { return Response.json({ error: "INVALID_HOTEL_TIME_ZONE" }, { status: 500 }); }
+  try { today = hotelDate(hotelTimeZone(user.hotelTenant.timeZone)); } catch { return Response.json({ error: "INVALID_HOTEL_TIME_ZONE" }, { status: 500 }); }
 
   const requested = params.get("date")?.trim() || today;
   if (!dateRe.test(requested)) return Response.json({ error: "INVALID_DATE" }, { status: 400 });

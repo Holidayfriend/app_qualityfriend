@@ -1,4 +1,5 @@
 import { Prisma } from "../../../../app/generated/prisma/client";
+import { hotelTimeZone } from "../../../../lib/hotel/clock";
 import { housekeepingAccess } from "../../../../lib/housekeeping/access";
 import { getSessionUserId } from "../../../../lib/auth/session";
 import { prisma } from "../../../../lib/prisma";
@@ -33,7 +34,7 @@ export async function GET(request: Request) {
   const user = await actor();
   if (!user) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
   const activeLocale = locale(new URL(request.url).searchParams.get("locale"));
-  const timeZone = user.hotelTenant.timeZone?.trim() || "UTC";
+  const timeZone = hotelTimeZone(user.hotelTenant.timeZone);
   let date: string;
   try { date = hotelDate(timeZone); } catch { return Response.json({ error: "INVALID_HOTEL_TIME_ZONE" }, { status: 500 }); }
   const day = asDate(date);
@@ -72,7 +73,7 @@ export async function PUT(request: Request) {
   if (!uuid.test(employeeId) || !uuid.test(itemId) || !itemType || !mode || typeof body?.assigned !== "boolean") return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
   if (!(await housekeepingUsers(user.hotelTenantId)).some((employee) => employee.id === employeeId)) return Response.json({ error: "INVALID_EMPLOYEE" }, { status: 400 });
   let date: string;
-  try { date = hotelDate(user.hotelTenant.timeZone?.trim() || "UTC"); } catch { return Response.json({ error: "INVALID_HOTEL_TIME_ZONE" }, { status: 500 }); }
+  try { date = hotelDate(hotelTimeZone(user.hotelTenant.timeZone)); } catch { return Response.json({ error: "INVALID_HOTEL_TIME_ZONE" }, { status: 500 }); }
   const day = asDate(date);
   try {
     if (itemType === "room") {

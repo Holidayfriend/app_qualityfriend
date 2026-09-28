@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { PrismaClient } from "../../app/generated/prisma/client";
 import { completeHotelChatJson } from "../ai/complete";
+import { hotelDayStart, hotelLocalIso, hotelTimeZone } from "../hotel/clock";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -33,12 +34,13 @@ function daysBetween(from: Date, to: Date) {
 
 export async function collectRecruitingFacts(prisma: PrismaClient, hotelTenantId: string): Promise<Facts> {
   const now = new Date();
-  const startToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const weekAgo = new Date(now.getTime() - 7 * DAY);
   const hotel = await prisma.hotelTenant.findFirst({
     where: { id: hotelTenantId },
-    select: { hotelNameEn: true, hotelNameDe: true, hotelNameIt: true },
+    select: { hotelNameEn: true, hotelNameDe: true, hotelNameIt: true, timeZone: true },
   });
+  const timeZone = hotelTimeZone(hotel?.timeZone);
+  const startToday = hotelDayStart(timeZone, now);
+  const weekAgo = new Date(now.getTime() - 7 * DAY);
   const [jobs, applications] = await Promise.all([
     prisma.recruitingJob.findMany({
       where: { hotelTenantId },
@@ -87,7 +89,7 @@ export async function collectRecruitingFacts(prisma: PrismaClient, hotelTenantId
     .map((row) => ({ name: `${row.firstName} ${row.lastName}`.trim(), job: row.job.title }));
   return {
     hotel: hotel?.hotelNameEn || hotel?.hotelNameDe || hotel?.hotelNameIt || "Hotel",
-    asOf: now.toISOString().slice(0, 10),
+    asOf: hotelLocalIso(timeZone, now),
     activeJobs,
     draftJobs: jobs.filter((job) => job.status === "DRAFT").length,
     archivedJobs: jobs.filter((job) => job.status === "ARCHIVED").length,

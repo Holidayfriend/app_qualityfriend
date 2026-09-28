@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useI18n } from "../i18n/i18n-provider";
+import { hotelLocalIso, readHotelTimeZone } from "../../lib/hotel/clock";
 import {
   type HotelDept,
   type HotelUser,
@@ -64,13 +65,13 @@ type Ctx = {
 const TasksContext = createContext<Ctx | null>(null);
 
 function todayIso() {
-  return new Date().toISOString().slice(0, 10);
+  return hotelLocalIso(readHotelTimeZone());
 }
 
 function weekEndIso() {
-  const date = new Date();
-  date.setDate(date.getDate() + 7);
-  return date.toISOString().slice(0, 10);
+  const today = todayIso();
+  const [year, month, day] = today.split("-").map(Number);
+  return new Date(Date.UTC(year, (month || 1) - 1, (day || 1) + 7)).toISOString().slice(0, 10);
 }
 
 export function TasksProvider({ children }: { children: ReactNode }) {

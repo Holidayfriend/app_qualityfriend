@@ -1,6 +1,7 @@
 import { Prisma } from "../../../../../app/generated/prisma/client";
 import { prisma } from "../../../../../lib/prisma";
 import { recordAuditLog } from "../../../../../lib/audit/audit-service";
+import { hotelTimeZoneFor } from "../../../../../lib/hotel/context";
 import { recruitingActor } from "../../../../../lib/recruiting/access";
 import { isUuid, notesPayload, parseApplicationNotes, toDbStage, toPublicApplicant } from "../../../../../lib/recruiting/application-fields";
 import { sendRecruitingTemplateEmail } from "../../../../../lib/recruiting/send-recruiting-email";
@@ -46,7 +47,7 @@ export async function GET(request: Request, context: Context) {
     include: { job: jobInclude },
   });
   if (!row) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
-  return Response.json({ application: toPublicApplicant(row, row.job, locale) }, { headers: { "Cache-Control": "no-store" } });
+  return Response.json({ application: toPublicApplicant(row, row.job, locale, { timeZone: await hotelTimeZoneFor(actor.hotel_tenant_id) }) }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function PATCH(request: Request, context: Context) {
@@ -120,7 +121,7 @@ export async function PATCH(request: Request, context: Context) {
   }
 
   return Response.json({
-    application: toPublicApplicant(updated.after, updated.after.job, locale),
+    application: toPublicApplicant(updated.after, updated.after.job, locale, { timeZone: await hotelTimeZoneFor(actor.hotel_tenant_id) }),
     emailSent,
     emailAuto,
   });

@@ -1,6 +1,7 @@
 import type { RecruitingApplication, RecruitingApplicationStage } from "../../app/generated/prisma/client";
 import type { DeptId } from "../i18n/recruiting-messages";
 import type { AppStage, Applicant } from "./preview-data";
+import { formatHotelDate } from "../hotel/clock";
 import { unpackCvRef } from "./cv-storage";
 
 const stages = ["new", "invited", "offer", "hired", "rejected", "archived"] as const;
@@ -99,12 +100,8 @@ function pickDeptName(job: ApplicationJobInfo | null | undefined, locale?: strin
   return dept.nameEn || dept.nameDe || dept.nameIt;
 }
 
-function formatDate(value: Date, locale?: string) {
-  try {
-    return value.toLocaleDateString(locale === "de" ? "de-DE" : locale === "it" ? "it-IT" : "en-GB");
-  } catch {
-    return value.toISOString().slice(0, 10);
-  }
+function formatDate(value: Date, locale?: string, timeZone?: string | null) {
+  return formatHotelDate(value, locale || "en", timeZone);
 }
 
 export function parseQuizAnswers(value: unknown): NonNullable<Applicant["answers"]> {
@@ -228,7 +225,7 @@ export function toPublicApplicant(
   row: RecruitingApplication,
   job?: ApplicationJobInfo | null,
   locale?: string,
-  extras?: { tags?: string[]; comments?: Applicant["comments"]; bestTime?: string; source?: string },
+  extras?: { tags?: string[]; comments?: Applicant["comments"]; bestTime?: string; source?: string; timeZone?: string | null },
 ): Applicant {
   const stage = mapStage(row.stage);
   const answers = parseQuizAnswers(row.answers);
@@ -254,7 +251,7 @@ export function toPublicApplicant(
     email: row.email || "–",
     phone: row.phone || "–",
     bestTime: extras?.bestTime || "–",
-    date: formatDate(row.createdAt, locale),
+    date: formatDate(row.createdAt, locale, extras?.timeZone),
     source: extras?.source || campaignSource || (format === "quiz" || answers.length ? "Quiz-Funnel" : "Formular"),
     cv: cv.displayName || null,
     message: row.message || "",

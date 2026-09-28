@@ -4,6 +4,8 @@ import { randomUUID } from "node:crypto";
 import type { Prisma, RepairKind, RepairTicketStatus, RepairVisibility } from "../../app/generated/prisma/client";
 import { recordAuditLog } from "../audit/audit-service";
 import { pickLocalized } from "../recruiting/job-fields";
+import { formatHotelDate, formatHotelDateTime } from "../hotel/clock";
+import { hotelTimeZoneFor } from "../hotel/context";
 import { prisma } from "../prisma";
 import type { RepairsActor } from "./access";
 import { copyRepairStoredFile, deleteRepairFile, isRepairUpload, kindFor, saveRepairFile } from "./storage";
@@ -47,12 +49,12 @@ function nameOf(row: { firstName: string; lastName: string } | null) {
   return row ? `${row.firstName} ${row.lastName}`.trim() : "";
 }
 
-function dateOf(value: Date, locale: string) {
-  return value.toLocaleDateString(locale === "de" ? "de-DE" : locale === "it" ? "it-IT" : "en-GB");
+function dateOf(value: Date, locale: string, timeZone?: string | null) {
+  return formatHotelDate(value, locale, timeZone);
 }
 
-function dateTimeOf(value: Date, locale: string) {
-  return value.toLocaleString(locale === "de" ? "de-DE" : locale === "it" ? "it-IT" : "en-GB", { dateStyle: "short", timeStyle: "short" });
+function dateTimeOf(value: Date, locale: string, timeZone?: string | null) {
+  return formatHotelDateTime(value, locale, timeZone);
 }
 
 export function visibleWhere(actor: { id: string; hotel_tenant_id: string; departmentId: string | null; canManage?: boolean }, kind: RepairKind): Prisma.RepairWhereInput {
@@ -77,7 +79,7 @@ export function visibleWhere(actor: { id: string; hotel_tenant_id: string; depar
   };
 }
 
-export function toPublicRepair(row: Row, locale: string) {
+export function toPublicRepair(row: Row, locale: string, timeZone?: string | null) {
   return {
     id: row.id,
     kind: row.kind === "TEMPLATE" ? "template" : "repair",
@@ -88,14 +90,14 @@ export function toPublicRepair(row: Row, locale: string) {
     tags: locale === "de" ? row.tagsDe : locale === "it" ? row.tagsIt : row.tags,
     creator: nameOf(row.createdBy),
     creatorId: row.createdById,
-    date: dateOf(row.createdAt, locale),
+    date: dateOf(row.createdAt, locale, timeZone),
     status: statusUi[row.status],
     assignee: nameOf(row.assignee),
     assigneeId: row.assigneeId || "",
     visibility: row.visibility === "DEPARTMENT" ? "dept" : "alle",
     depts: row.departments.map((item) => item.departmentId),
     origLang: row.originalLocale,
-    completedAt: row.completedAt ? dateTimeOf(row.completedAt, locale) : "",
+    completedAt: row.completedAt ? dateTimeOf(row.completedAt, locale, timeZone) : "",
     completedBy: nameOf(row.completedBy),
     attachments: row.attachments.map((file) => ({
       id: file.id,
@@ -106,7 +108,7 @@ export function toPublicRepair(row: Row, locale: string) {
     comments: row.comments.map((item) => ({
       text: pickLocalized(item.text, item.textDe, item.textIt, locale),
       author: nameOf(item.author),
-      date: dateOf(item.createdAt, locale),
+      date: dateOf(item.createdAt, locale, timeZone),
     })),
   };
 }
@@ -348,15 +350,17 @@ export async function averageResponseDays(actor: RepairsActor) {
 }
 
 export async function listRepairs(actor: RepairsActor, locale: string, kind: RepairKind) {
+  const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   const rows = await prisma.repair.findMany({
     where: visibleWhere(actor, kind),
     include,
     orderBy: { createdAt: "desc" },
   });
-  return rows.map((row) => toPublicRepair(row, locale));
+  return rows.map((row) => toPublicRepair(row, locale, timeZone));
 }
 
 export async function getRepair(actor: RepairsActor, id: string, locale: string) {
+  const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   if (!isUuid(id)) return null;
   const row = await prisma.repair.findFirst({
     where: {
@@ -368,7 +372,7 @@ export async function getRepair(actor: RepairsActor, id: string, locale: string)
     },
     include,
   });
-  return row ? toPublicRepair(row, locale) : null;
+  return row ? toPublicRepair(row, locale, timeZone) : null;
 }
 
 export async function openRepairCount(actor: { id: string; hotel_tenant_id: string; departmentId: string | null }) {
@@ -378,6 +382,7 @@ export async function openRepairCount(actor: { id: string; hotel_tenant_id: stri
 }
 
 export async function createRepair(actor: RepairsActor, form: FormData, locale: string) {
+  const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   if (!actor.canManage) return { error: "FORBIDDEN" as const };
   const title = formValue(form, "title").trim().slice(0, 180);
   const description = formValue(form, "description").trim().slice(0, 20000);
@@ -448,10 +453,11 @@ export async function createRepair(actor: RepairsActor, form: FormData, locale: 
     }
     return tx.repair.findFirstOrThrow({ where: { id }, include });
   }, { timeout: 40000 });
-  return { repair: toPublicRepair(created, locale) };
+  return { repair: toPublicRepair(created, locale, timeZone) };
 }
 
 export async function updateRepair(actor: RepairsActor, id: string, form: FormData, locale: string) {
+  const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   if (!actor.canManage) return { error: "FORBIDDEN" as const };
   if (!isUuid(id)) return { error: "NOT_FOUND" as const };
   const existing = await prisma.repair.findFirst({ where: { id, ...visibleWhere(actor, "REPAIR") }, include });
@@ -532,10 +538,11 @@ export async function updateRepair(actor: RepairsActor, id: string, form: FormDa
     return tx.repair.findFirstOrThrow({ where: { id }, include });
   }, { timeout: 40000 });
   for (const file of files.removed) await deleteRepairFile(file.storageKey);
-  return { repair: toPublicRepair(updated, locale) };
+  return { repair: toPublicRepair(updated, locale, timeZone) };
 }
 
 export async function updateRepairStatus(actor: RepairsActor, id: string, status: string, locale: string) {
+  const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   const next = statusDb[status];
   if (!next || next === "DRAFT" || !isUuid(id)) return { error: "INVALID" as const };
   const existing = await prisma.repair.findFirst({
@@ -577,10 +584,11 @@ export async function updateRepairStatus(actor: RepairsActor, id: string, status
     }
     return updated;
   });
-  return { repair: toPublicRepair(row, locale) };
+  return { repair: toPublicRepair(row, locale, timeZone) };
 }
 
 export async function updateRepairAssignee(actor: RepairsActor, id: string, assigneeIdRaw: string, locale: string) {
+  const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   if (!isUuid(id)) return { error: "NOT_FOUND" as const };
   const existing = await prisma.repair.findFirst({ where: { id, ...visibleWhere(actor, "REPAIR") }, include });
   if (!existing || existing.status === "DRAFT") return { error: "NOT_FOUND" as const };
@@ -617,10 +625,11 @@ export async function updateRepairAssignee(actor: RepairsActor, id: string, assi
     }
     return updated;
   });
-  return { repair: toPublicRepair(row, locale) };
+  return { repair: toPublicRepair(row, locale, timeZone) };
 }
 
 export async function addRepairComment(actor: RepairsActor, id: string, text: string, locale: string) {
+  const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   const value = text.trim().slice(0, 4000);
   if (!value || !isUuid(id)) return { error: "INVALID" as const };
   const existing = await prisma.repair.findFirst({
@@ -652,5 +661,5 @@ export async function addRepairComment(actor: RepairsActor, id: string, text: st
     });
     return tx.repair.findFirstOrThrow({ where: { id }, include });
   });
-  return { repair: toPublicRepair(row, locale) };
+  return { repair: toPublicRepair(row, locale, timeZone) };
 }

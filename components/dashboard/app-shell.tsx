@@ -7,10 +7,11 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useI18n } from "../i18n/i18n-provider";
 import { LanguageSwitcher } from "../i18n/language-switcher";
 import { aiApiSettingsMessages, moduleNavigationMessages, roleLevelNames, type Locale } from "../../lib/i18n/dictionaries";
+import { hotelLocalHour } from "../../lib/hotel/clock";
 import { forecastMessages } from "../../lib/i18n/forecast-messages";
 
 type AppShellProps = { activeItem: string; children: ReactNode; pageTitle?: string };
-type ShellUser = { first_name: string; last_name: string; role: string; language: "EN" | "DE" | "IT"; hotel_name_en: string; hotel_name_de: string; hotel_name_it: string; allowed_modules: string[]; ai_key_configured?: boolean; repairs_open?: number; tasks_open?: number };
+type ShellUser = { first_name: string; last_name: string; role: string; language: "EN" | "DE" | "IT"; hotel_name_en: string; hotel_name_de: string; hotel_name_it: string; time_zone?: string; hotel_language?: string; allowed_modules: string[]; ai_key_configured?: boolean; repairs_open?: number; tasks_open?: number };
 
 const CACHE_KEY = "qf-shell-user";
 let memoryUser: ShellUser | null = null;
@@ -56,11 +57,11 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
   useEffect(() => { setSelectedItem(activeItem); }, [activeItem]);
 
   useEffect(() => {
-    const tick = () => setNowHour(new Date().getHours());
+    const tick = () => setNowHour(hotelLocalHour(currentUser?.time_zone));
     tick();
     const timer = window.setInterval(tick, 60_000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [currentUser?.time_zone]);
 
   useEffect(() => {
     const openMore = () => setMobileMoreOpen(true);

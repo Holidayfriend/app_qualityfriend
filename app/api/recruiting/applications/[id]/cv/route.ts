@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { recordAuditLog } from "../../../../../../lib/audit/audit-service";
 import { recruitingActor } from "../../../../../../lib/recruiting/access";
+import { hotelTimeZoneFor } from "../../../../../../lib/hotel/context";
 import { isUuid, toPublicApplicant } from "../../../../../../lib/recruiting/application-fields";
 import {
   cvMime,
@@ -86,7 +87,7 @@ export async function POST(request: Request, context: Context) {
       return after;
     });
     if (!updated) return NextResponse.json({ error: "NOT_FOUND", message: "Application not found." }, { status: 404 });
-    return NextResponse.json({ application: toPublicApplicant(updated, updated.job, locale) });
+    return NextResponse.json({ application: toPublicApplicant(updated, updated.job, locale, { timeZone: await hotelTimeZoneFor(actor.hotel_tenant_id) }) });
   } catch (error) {
     console.error("CV upload failed", error);
     return NextResponse.json({
@@ -125,5 +126,5 @@ export async function DELETE(request: Request, context: Context) {
     return after;
   });
   if (!updated) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
-  return NextResponse.json({ application: toPublicApplicant(updated, updated.job, locale) });
+  return NextResponse.json({ application: toPublicApplicant(updated, updated.job, locale, { timeZone: await hotelTimeZoneFor(actor.hotel_tenant_id) }) });
 }

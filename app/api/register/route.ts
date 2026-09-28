@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { prisma } from "../../../lib/prisma";
 import { createSession } from "../../../lib/auth/session";
+import { DEFAULT_HOTEL_TIME_ZONE } from "../../../lib/hotel/clock";
 import { recordAuditLog } from "../../../lib/audit/audit-service";
 import { registrationRateLimit } from "../../../lib/security/registration-rate-limit";
 import { resolveAddress } from "../../../lib/geo/locations";
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
   const vatId = optionalString(data.vatId);
   const passwordHash = await bcrypt.hash(password, 12);
   try {
-    const userId=await prisma.$transaction(async tx=>{const hotel=await tx.hotelTenant.create({data:{hotelNameEn:hotelName,hotelNameDe:hotelName,hotelNameIt:hotelName,email,hotelLanguage:hotelLanguage as "EN"|"DE"|"IT",companyName,streetAddress,postalCode,city,country:location.country,province:location.province,contactPerson,phoneNumber,vatId}});const user=await tx.user.create({data:{hotelTenantId:hotel.id,firstName,lastName,email,passwordHash,phoneNumber,language:hotelLanguage as "EN"|"DE"|"IT",role:"ADMIN"}});await recordAuditLog(tx,{hotelTenantId:hotel.id,actorId:user.id,action:"CREATE",entityType:"HOTEL",entityId:hotel.id,changes:{after:{hotelName,companyName}}});await recordAuditLog(tx,{hotelTenantId:hotel.id,actorId:user.id,action:"CREATE",entityType:"USER",entityId:user.id,changes:{after:{firstName,lastName,email,role:"ADMIN"}}});return user.id});
+    const userId=await prisma.$transaction(async tx=>{const hotel=await tx.hotelTenant.create({data:{hotelNameEn:hotelName,hotelNameDe:hotelName,hotelNameIt:hotelName,email,hotelLanguage:hotelLanguage as "EN"|"DE"|"IT",timeZone:DEFAULT_HOTEL_TIME_ZONE,companyName,streetAddress,postalCode,city,country:location.country,province:location.province,contactPerson,phoneNumber,vatId}});const user=await tx.user.create({data:{hotelTenantId:hotel.id,firstName,lastName,email,passwordHash,phoneNumber,language:hotelLanguage as "EN"|"DE"|"IT",role:"ADMIN"}});await recordAuditLog(tx,{hotelTenantId:hotel.id,actorId:user.id,action:"CREATE",entityType:"HOTEL",entityId:hotel.id,changes:{after:{hotelName,companyName}}});await recordAuditLog(tx,{hotelTenantId:hotel.id,actorId:user.id,action:"CREATE",entityType:"USER",entityId:user.id,changes:{after:{firstName,lastName,email,role:"ADMIN"}}});return user.id});
     await createSession(userId);
     return NextResponse.json({ success: true, redirectTo: "/billing/subscribe" }, { status: 201 });
   } catch (error) {

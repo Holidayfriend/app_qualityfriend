@@ -1,5 +1,6 @@
 import { prisma } from "../../../../lib/prisma";
 import { recordAuditLog } from "../../../../lib/audit/audit-service";
+import { hotelTimeZoneFor } from "../../../../lib/hotel/context";
 import { recruitingActor } from "../../../../lib/recruiting/access";
 import { parseManualApplication, toPublicApplicant } from "../../../../lib/recruiting/application-fields";
 import { packCvRef, saveRecruitingCv } from "../../../../lib/recruiting/cv-storage";
@@ -48,7 +49,8 @@ export async function GET(request: Request) {
     orderBy: { createdAt: "desc" },
     include: { job: jobInclude },
   });
-  const applications = rows.map((row) => toPublicApplicant(row, row.job, locale));
+  const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
+  const applications = rows.map((row) => toPublicApplicant(row, row.job, locale, { timeZone }));
   return Response.json({ applications }, { headers: { "Cache-Control": "no-store" } });
 }
 
@@ -99,6 +101,6 @@ export async function POST(request: Request) {
   });
   void dispatchRecruitingAiScore(actor.hotel_tenant_id, created.id).catch((error) => console.error("Recruiting AI score dispatch failed", error));
   return Response.json({
-    application: toPublicApplicant(created, created.job, input.locale, { source: "manual" }),
+    application: toPublicApplicant(created, created.job, input.locale, { source: "manual", timeZone: await hotelTimeZoneFor(actor.hotel_tenant_id) }),
   }, { status: 201 });
 }

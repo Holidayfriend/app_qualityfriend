@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "../../../../../../lib/prisma";
+import { hotelTimeZoneFor } from "../../../../../../lib/hotel/context";
 import { recruitingActor } from "../../../../../../lib/recruiting/access";
 import { isUuid, toPublicApplicant } from "../../../../../../lib/recruiting/application-fields";
 import { scoreRecruitingApplicationCached } from "../../../../../../lib/recruiting/score-application";
@@ -39,7 +40,7 @@ export async function POST(request: Request, context: Context) {
       include: { job: jobInclude },
     });
     return NextResponse.json(
-      { error: "SCORE_FAILED", application: failed ? toPublicApplicant(failed, failed.job, locale) : undefined },
+      { error: "SCORE_FAILED", application: failed ? toPublicApplicant(failed, failed.job, locale, { timeZone: await hotelTimeZoneFor(actor.hotel_tenant_id) }) : undefined },
       { status: 502 },
     );
   }
@@ -47,5 +48,5 @@ export async function POST(request: Request, context: Context) {
     where: { id, hotelTenantId: actor.hotel_tenant_id },
     include: { job: jobInclude },
   });
-  return NextResponse.json({ application: toPublicApplicant(updated ?? row, (updated ?? row).job, locale) });
+  return NextResponse.json({ application: toPublicApplicant(updated ?? row, (updated ?? row).job, locale, { timeZone: await hotelTimeZoneFor(actor.hotel_tenant_id) }) });
 }

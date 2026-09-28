@@ -1,3 +1,5 @@
+import { hotelLocalIso } from "../hotel/clock";
+
 const WEEKDAYS = ["su", "mo", "tu", "we", "th", "fr", "sa"] as const;
 
 export function isoDate(value: Date | null | undefined) {
@@ -10,14 +12,7 @@ export function parseIsoDate(value: string) {
 }
 
 export function hotelTodayIso(timeZone?: string | null) {
-  if (timeZone) {
-    try {
-      return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-    } catch {
-      /* invalid IANA zone */
-    }
-  }
-  return new Date().toISOString().slice(0, 10);
+  return hotelLocalIso(timeZone);
 }
 
 export function weekdayOf(iso: string) {

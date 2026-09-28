@@ -1,5 +1,6 @@
 import { recordAuditLog } from "../../../../lib/audit/audit-service";
 import { roomAuditSnapshot } from "../../../../lib/housekeeping/settings-audit";
+import { hotelTimeZone } from "../../../../lib/hotel/clock";
 import { housekeepingAccess } from "../../../../lib/housekeeping/access";
 import { getSessionUserId } from "../../../../lib/auth/session";
 import { prisma } from "../../../../lib/prisma";
@@ -55,7 +56,7 @@ export async function GET(request: Request) {
   const detailId = new URL(request.url).searchParams.get("detailId")?.trim();
   if (detailId) {
     if (!uuid.test(detailId)) return Response.json({ error: "INVALID_ROOM_ID" }, { status: 400 });
-    const configuredZone = user.hotelTenant.timeZone?.trim() || "UTC";
+    const configuredZone = hotelTimeZone(user.hotelTenant.timeZone);
     let date: string;
     try { date = localDate(configuredZone); } catch { return Response.json({ error: "INVALID_HOTEL_TIME_ZONE" }, { status: 500 }); }
     const day = utcDate(date);
@@ -114,7 +115,7 @@ export async function GET(request: Request) {
     } }, { headers: { "Cache-Control": "no-store" } });
   }
   if (new URL(request.url).searchParams.get("board") === "1") {
-    const configuredZone = user.hotelTenant.timeZone?.trim() || "UTC";
+    const configuredZone = hotelTimeZone(user.hotelTenant.timeZone);
     let date: string;
     try { date = localDate(configuredZone); } catch { return Response.json({ error: "INVALID_HOTEL_TIME_ZONE" }, { status: 500 }); }
     const day = utcDate(date);

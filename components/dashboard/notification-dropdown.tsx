@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useI18n } from "../i18n/i18n-provider";
 import { notificationMessages, requestMessages } from "../../lib/i18n/dictionaries";
+import { formatHotelDateTime, readHotelTimeZone } from "../../lib/hotel/clock";
 import { BrandLoader } from "../ui/brand-loader";
 
 type Notification = { id:string; title:string; detail:string; icon:string; destination:string; read:boolean; createdAt:string };
@@ -80,7 +81,7 @@ export function NotificationDropdown({ fullPage = false }: { fullPage?: boolean 
       <span className="min-w-0 break-words">
         <span className="block text-sm font-semibold">{notification.title}{!notification.read?<span aria-label={t.unread} className="ml-2 inline-block h-1.5 w-1.5 rounded-full bg-[var(--qf-accent)]"/>:null}</span>
         <span className="mt-0.5 block text-xs text-[var(--qf-text-muted)]">{notification.detail}</span>
-        {fullPage?<time dateTime={notification.createdAt} className="mt-1 block text-xs text-[var(--qf-text-muted)]">{new Date(notification.createdAt).toLocaleString(locale)}</time>:null}
+        {fullPage?<time dateTime={notification.createdAt} className="mt-1 block text-xs text-[var(--qf-text-muted)]">{formatHotelDateTime(new Date(notification.createdAt), locale, readHotelTimeZone())}</time>:null}
       </span>
     </button>)}
   </div>;

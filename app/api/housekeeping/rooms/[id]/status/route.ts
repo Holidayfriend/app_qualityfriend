@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Prisma } from "../../../../../../app/generated/prisma/client";
 import { recordAuditLog } from "../../../../../../lib/audit/audit-service";
+import { hotelTimeZone } from "../../../../../../lib/hotel/clock";
 import { housekeepingAccess } from "../../../../../../lib/housekeeping/access";
 import { getSessionUserId } from "../../../../../../lib/auth/session";
 import { prisma } from "../../../../../../lib/prisma";
@@ -31,7 +32,7 @@ export async function PATCH(request: Request, context: Context) {
   const status = typeof body?.status === "string" && body.status in cleanliness ? body.status as keyof typeof cleanliness : null;
   if (!status || typeof body?.breakfastInRoom !== "boolean" || typeof body?.doNotDisturb !== "boolean" || typeof body?.noService !== "boolean") return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
   let workDate: string;
-  try { workDate = hotelDate(user.hotelTenant.timeZone?.trim() || "UTC"); } catch { return Response.json({ error: "INVALID_HOTEL_TIME_ZONE" }, { status: 500 }); }
+  try { workDate = hotelDate(hotelTimeZone(user.hotelTenant.timeZone)); } catch { return Response.json({ error: "INVALID_HOTEL_TIME_ZONE" }, { status: 500 }); }
   const room = await prisma.room.findFirst({ where: { id: roomId, hotelTenantId: user.hotelTenantId, isActive: true, archivedAt: null }, select: { id: true, number: true } });
   if (!room) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
   const target = cleanliness[status];

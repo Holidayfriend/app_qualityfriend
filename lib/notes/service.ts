@@ -5,6 +5,8 @@ import type { Prisma } from "../../app/generated/prisma/client";
 import type { HotelNoteKind, HotelNoteStatus, HotelNoteVisibility } from "../../app/generated/prisma/client";
 import { recordAuditLog } from "../audit/audit-service";
 import { pickLocalized } from "../recruiting/job-fields";
+import { formatHotelDate } from "../hotel/clock";
+import { hotelTimeZoneFor } from "../hotel/context";
 import { prisma } from "../prisma";
 import type { NotesActor } from "./access";
 import { deleteNoteFile, isNoteUpload, saveNoteFile } from "./storage";
@@ -55,7 +57,7 @@ export function visibleWhere(actor: NotesActor, kind: HotelNoteKind): Prisma.Hot
   };
 }
 
-export function toPublicNote(row: NoteRow, locale: string) {
+export function toPublicNote(row: NoteRow, locale: string, timeZone?: string | null) {
   const visibility = row.visibility === "DEPARTMENT" ? "dept" : row.visibility === "USER" ? "user" : row.visibility === "PRIVATE" ? "privat" : "alle";
   const status = row.status === "INACTIVE" ? "inaktiv" : "aktiv";
   return {
@@ -65,7 +67,7 @@ export function toPublicNote(row: NoteRow, locale: string) {
     title: pickLocalized(row.title, row.titleDe, row.titleIt, locale),
     desc: pickLocalized(row.description, row.descriptionDe, row.descriptionIt, locale),
     creator: `${row.createdBy.firstName} ${row.createdBy.lastName}`.trim(),
-    date: row.createdAt.toLocaleDateString("de-DE"),
+    date: formatHotelDate(row.createdAt, locale, timeZone),
     status,
     visibility,
     depts: row.departments.map((item) => item.departmentId),
@@ -81,7 +83,7 @@ export function toPublicNote(row: NoteRow, locale: string) {
       id: item.id,
       text: pickLocalized(item.text, item.textDe, item.textIt, locale),
       author: `${item.author.firstName} ${item.author.lastName}`.trim(),
-      date: item.createdAt.toLocaleDateString("de-DE"),
+      date: formatHotelDate(item.createdAt, locale, timeZone),
     })),
   };
 }
@@ -252,21 +254,23 @@ async function saveUploads(files: File[]) {
 }
 
 export async function listNotes(actor: NotesActor, locale: string, kind: HotelNoteKind) {
+  const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   const rows = await prisma.hotelNote.findMany({
     where: visibleWhere(actor, kind),
     include,
     orderBy: { createdAt: "desc" },
   });
-  return rows.map((row) => toPublicNote(row, locale));
+  return rows.map((row) => toPublicNote(row, locale, timeZone));
 }
 
 export async function getNote(actor: NotesActor, id: string, locale: string) {
+  const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   if (!isUuid(id)) return null;
   const row = await prisma.hotelNote.findFirst({
     where: { id, AND: [visibleWhere(actor, "NOTE")] },
     include,
   });
-  return row ? toPublicNote(row, locale) : null;
+  return row ? toPublicNote(row, locale, timeZone) : null;
 }
 
 export async function getOwnedNote(actor: NotesActor, id: string) {
@@ -281,6 +285,7 @@ export async function getOwnedNote(actor: NotesActor, id: string) {
 }
 
 export async function createNote(actor: NotesActor, form: FormData, locale: string) {
+  const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   const title = String(form.get("title") ?? "").trim().slice(0, 180);
   const description = String(form.get("description") ?? "").trim().slice(0, 20000);
   if (!title) return { error: "TITLE_REQUIRED" as const };
@@ -343,10 +348,11 @@ export async function createNote(actor: NotesActor, form: FormData, locale: stri
     });
     return tx.hotelNote.findFirstOrThrow({ where: { id }, include });
   }, { timeout: 20000 });
-  return { note: toPublicNote(created, locale) };
+  return { note: toPublicNote(created, locale, timeZone) };
 }
 
 export async function updateNote(actor: NotesActor, id: string, form: FormData, locale: string) {
+  const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   const existing = await getOwnedNote(actor, id);
   if (!existing || existing.hotelTenantId !== actor.hotel_tenant_id) return { error: "NOT_FOUND" as const };
   if (!actor.canManage) return { error: "FORBIDDEN" as const };
@@ -414,10 +420,11 @@ export async function updateNote(actor: NotesActor, id: string, form: FormData, 
     return row;
   });
   for (const file of removed) await deleteNoteFile(file.storageKey);
-  return { note: toPublicNote(updated, locale) };
+  return { note: toPublicNote(updated, locale, timeZone) };
 }
 
 export async function updateNoteStatus(actor: NotesActor, id: string, status: HotelNoteStatus, locale: string) {
+  const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   const existing = await getOwnedNote(actor, id);
   if (!existing || existing.kind !== "NOTE") return { error: "NOT_FOUND" as const };
   if (!actor.canManage) return { error: "FORBIDDEN" as const };
@@ -433,10 +440,11 @@ export async function updateNoteStatus(actor: NotesActor, id: string, status: Ho
     });
     return updated;
   });
-  return { note: toPublicNote(row, locale) };
+  return { note: toPublicNote(row, locale, timeZone) };
 }
 
 export async function addNoteComment(actor: NotesActor, id: string, text: string, locale: string) {
+  const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   const value = text.trim().slice(0, 4000);
   if (!value) return { error: "COMMENT_REQUIRED" as const };
   const existing = await prisma.hotelNote.findFirst({
@@ -469,5 +477,5 @@ export async function addNoteComment(actor: NotesActor, id: string, text: string
     });
     return tx.hotelNote.findFirstOrThrow({ where: { id }, include });
   });
-  return { note: toPublicNote(row, locale) };
+  return { note: toPublicNote(row, locale, timeZone) };
 }
