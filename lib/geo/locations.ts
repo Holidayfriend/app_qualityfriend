@@ -4,7 +4,7 @@ type Location = { name: string; states: string[] };
 
 const countries = (locations as Location[])
   .map((country) => ({ name: country.name, states: [...country.states].sort((a, b) => a.localeCompare(b)) }))
-  .sort((a, b) => a.name.localeCompare(b));
+  .sort((a, b) => a.name.localeCompare(b.name));
 
 const byName = new Map(countries.map((country) => [country.name, country]));
 
