@@ -31,7 +31,7 @@ export function ScheduleExportPage() {
   const [userId, setUserId] = useState(defaults.userId);
   const [busy, setBusy] = useState(false);
 
-  const people = employees.filter((emp) => department === "all" || (department === "none" ? !emp.departmentId : emp.departmentId === department));
+  const people = employees.filter((emp) => department === "all" || (department === "none" ? emp.departmentIds.length === 0 : emp.departmentIds.includes(department)));
 
   async function download(format: "xls" | "csv") {
     if (!DATE.test(from) || !DATE.test(to) || to < from) {

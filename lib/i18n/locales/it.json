@@ -510,7 +510,9 @@
     "required": "Questo campo è obbligatorio.",
     "invalidEmail": "Inserisci un indirizzo e-mail valido.",
     "shortPassword": "La password deve contenere almeno 8 caratteri.",
-    "emailExists": "Questo indirizzo e-mail è già in uso."
+    "emailExists": "Questo indirizzo e-mail è già in uso.",
+    "departmentRequired": "Seleziona almeno un reparto.",
+    "mcpSyncFailed": "L'utente è stato salvato. MCP memorizza un solo reparto e non è stato possibile aggiornarlo."
   },
   "moduleNavigationMessages": {
     "chat": "Chat",

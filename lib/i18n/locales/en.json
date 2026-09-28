@@ -512,7 +512,9 @@
     "required": "This field is required.",
     "invalidEmail": "Enter a valid email address.",
     "shortPassword": "Password must contain at least 8 characters.",
-    "emailExists": "This email address is already in use."
+    "emailExists": "This email address is already in use.",
+    "departmentRequired": "Select at least one department.",
+    "mcpSyncFailed": "The user was saved. MCP stores only one department and could not be updated."
   },
   "moduleNavigationMessages": {
     "chat": "Chat",

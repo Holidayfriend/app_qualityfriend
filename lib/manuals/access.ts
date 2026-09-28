@@ -2,12 +2,14 @@ import "server-only";
 
 import { accessibleModules, currentAccessUser } from "../auth/module-access";
 import { prisma } from "../prisma";
+import { actorDepartmentSelect, actorDepartments } from "../users/memberships";
 
 export type ManualsActor = {
   id: string;
   hotel_tenant_id: string;
   role: "EMPLOYEE" | "TEAM_LEAD" | "MANAGEMENT" | "ADMIN";
   departmentId: string | null;
+  departmentIds: string[];
   firstName: string;
   lastName: string;
   canManage: boolean;
@@ -19,10 +21,10 @@ export async function manualsViewer() {
   const canManage = user.role === "ADMIN" || (await accessibleModules(user)).includes("manuals");
   const row = await prisma.user.findFirst({
     where: { id: user.id, isActive: true, isDeleted: false },
-    select: { departmentId: true, firstName: true, lastName: true },
+    select: { ...actorDepartmentSelect, firstName: true, lastName: true },
   });
   if (!row) return null;
-  return { ...user, departmentId: row.departmentId, firstName: row.firstName, lastName: row.lastName, canManage };
+  return { ...user, ...actorDepartments(row), firstName: row.firstName, lastName: row.lastName, canManage };
 }
 
 export async function manualsEditor() {

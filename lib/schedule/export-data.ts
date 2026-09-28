@@ -46,21 +46,32 @@ export async function buildScheduleExport(input: {
         lastName: true,
         departmentId: true,
         department: { select: { nameEn: true, nameDe: true, nameIt: true, isDeleted: true } },
+        departmentMemberships: {
+          where: { department: { isDeleted: false, isActive: true } },
+          select: { departmentId: true, department: { select: { nameEn: true, nameDe: true, nameIt: true } } },
+        },
       },
     }),
     listShiftsInRange(actor, from, to, locale),
   ]);
-  const people = users.map((row) => ({
-    id: row.id,
-    name: `${row.firstName} ${row.lastName}`.trim(),
-    departmentId: row.department && !row.department.isDeleted ? row.departmentId ?? "" : "",
-    departmentName: row.department && !row.department.isDeleted
-      ? pickLocalized(row.department.nameEn, row.department.nameDe, row.department.nameIt, locale)
-      : "",
-  })).filter((person) => {
+  const people = users.map((row) => {
+    const memberships = row.departmentMemberships.length
+      ? row.departmentMemberships
+      : row.department && !row.department.isDeleted && row.departmentId
+        ? [{ departmentId: row.departmentId, department: row.department }]
+        : [];
+    const ids = memberships.map((item) => item.departmentId);
+    return {
+      id: row.id,
+      name: `${row.firstName} ${row.lastName}`.trim(),
+      departmentId: ids[0] ?? "",
+      departmentIds: ids,
+      departmentName: memberships.map((item) => pickLocalized(item.department.nameEn, item.department.nameDe, item.department.nameIt, locale)).filter(Boolean).join("/"),
+    };
+  }).filter((person) => {
     if (input.userId && person.id !== input.userId) return false;
-    if (input.department === "none") return !person.departmentId;
-    if (input.department && input.department !== "all") return person.departmentId === input.department;
+    if (input.department === "none") return person.departmentIds.length === 0;
+    if (input.department && input.department !== "all") return person.departmentIds.includes(input.department);
     return true;
   });
   const allowed = new Set(people.map((person) => person.id));

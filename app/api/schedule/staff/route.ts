@@ -24,6 +24,10 @@ export async function GET(request: Request) {
         lastName: true,
         departmentId: true,
         department: { select: { nameEn: true, nameDe: true, nameIt: true, isDeleted: true } },
+        departmentMemberships: {
+          where: { department: { isDeleted: false, isActive: true } },
+          select: { departmentId: true, department: { select: { nameEn: true, nameDe: true, nameIt: true } } },
+        },
       },
     }),
   ]);
@@ -34,13 +38,19 @@ export async function GET(request: Request) {
       id: row.id,
       name: pickLocalized(row.nameEn, row.nameDe, row.nameIt, lang),
     })),
-    employees: users.map((row) => ({
-      id: row.id,
-      name: `${row.firstName} ${row.lastName}`.trim(),
-      departmentId: row.department && !row.department.isDeleted ? row.departmentId : null,
-      departmentName: row.department && !row.department.isDeleted
-        ? pickLocalized(row.department.nameEn, row.department.nameDe, row.department.nameIt, lang)
-        : "",
-    })),
+    employees: users.map((row) => {
+      const memberships = (row.departmentMemberships.length
+        ? row.departmentMemberships
+        : row.department && !row.department.isDeleted && row.departmentId
+          ? [{ departmentId: row.departmentId, department: row.department }]
+          : []).slice().sort((a, b) => pickLocalized(a.department.nameEn, a.department.nameDe, a.department.nameIt, lang).localeCompare(pickLocalized(b.department.nameEn, b.department.nameDe, b.department.nameIt, lang)));
+      return {
+        id: row.id,
+        name: `${row.firstName} ${row.lastName}`.trim(),
+        departmentId: memberships[0]?.departmentId ?? null,
+        departmentIds: memberships.map((item) => item.departmentId),
+        departmentName: memberships.map((item) => pickLocalized(item.department.nameEn, item.department.nameDe, item.department.nameIt, lang)).filter(Boolean).join("/"),
+      };
+    }),
   }, { headers: { "Cache-Control": "no-store" } });
 }

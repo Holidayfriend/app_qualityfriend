@@ -9,6 +9,8 @@ async function departmentInHotel(departmentId: string, user: { id: string; hotel
     select: { id: true },
   });
   if (!department || user.role === "ADMIN") return department;
+  const member = await prisma.userDepartment.findFirst({ where: { userId: user.id, departmentId }, select: { userId: true } });
+  if (member) return member;
   return prisma.user.findFirst({ where: { id: user.id, departmentId }, select: { id: true } });
 }
 

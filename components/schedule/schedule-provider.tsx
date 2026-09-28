@@ -79,7 +79,7 @@ type Store = {
 type StaffPayload = {
   currentUserId?: string;
   departments?: ScheduleDepartment[];
-  employees?: { id: string; name: string; departmentId: string | null; departmentName: string }[];
+  employees?: { id: string; name: string; departmentId: string | null; departmentIds?: string[]; departmentName: string }[];
 };
 
 const ScheduleContext = createContext<Store | null>(null);
@@ -230,6 +230,7 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
           key: row.id,
           name: row.name,
           departmentId: row.departmentId ?? "",
+          departmentIds: row.departmentIds?.length ? row.departmentIds : row.departmentId ? [row.departmentId] : [],
           departmentName: row.departmentName,
           shifts: [...EMPTY_SHIFTS.map((cell) => ({ ...cell }))],
         })));

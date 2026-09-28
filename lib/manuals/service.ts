@@ -5,11 +5,13 @@ import { recordAuditLog } from "../audit/audit-service";
 import { prisma } from "../prisma";
 import { dispatchManualIndex } from "./dispatch";
 import { deleteManualFile, isManualUpload, mimeFor, readManualFile, saveManualFile } from "./storage";
+import { departmentIdsOf } from "../users/memberships";
 import type { ManualsActor } from "./access";
 
 function visibleWhere(actor: ManualsActor) {
   if (actor.canManage) return { hotelTenantId: actor.hotel_tenant_id };
-  return { hotelTenantId: actor.hotel_tenant_id, OR: [{ departmentId: null }, ...(actor.departmentId ? [{ departmentId: actor.departmentId }] : [])] };
+  const departmentIds = departmentIdsOf(actor);
+  return { hotelTenantId: actor.hotel_tenant_id, OR: [{ departmentId: null }, ...(departmentIds.length ? [{ departmentId: { in: departmentIds } }] : [])] };
 }
 
 function titleFromFile(name: string) {
@@ -77,12 +79,13 @@ export async function notifyManualDocument(input: {
   });
 }
 
-export async function ensureManualNotifications(user: { id: string; hotelTenantId: string; departmentId: string | null }) {
+export async function ensureManualNotifications(user: { id: string; hotelTenantId: string; departmentId?: string | null; departmentIds?: string[] }) {
+  const departmentIds = departmentIdsOf(user);
   const documents = await prisma.manualDocument.findMany({
     where: {
       hotelTenantId: user.hotelTenantId,
       createdById: { not: user.id },
-      OR: [{ departmentId: null }, ...(user.departmentId ? [{ departmentId: user.departmentId }] : [])],
+      OR: [{ departmentId: null }, ...(departmentIds.length ? [{ departmentId: { in: departmentIds } }] : [])],
     },
     include: {
       department: { select: { id: true, nameEn: true, nameDe: true, nameIt: true } },

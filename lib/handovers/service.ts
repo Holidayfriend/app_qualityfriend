@@ -7,6 +7,7 @@ import { pickLocalized } from "../recruiting/job-fields";
 import { formatHotelDate, formatHotelDateTime } from "../hotel/clock";
 import { hotelTimeZoneFor } from "../hotel/context";
 import { prisma } from "../prisma";
+import { departmentIdsOf, usersInDepartments } from "../users/memberships";
 import type { HandoversActor } from "./access";
 import { translateHandoverFields } from "./translate";
 
@@ -52,7 +53,7 @@ export function visibleWhere(actor: HandoversActor, kind: HandoverKind): Prisma.
   const published: Prisma.HandoverWhereInput[] = [
     { visibility: "ALL" },
     { visibility: "PRIVATE", createdById: actor.id },
-    ...(actor.departmentId ? [{ visibility: "DEPARTMENT" as const, departments: { some: { departmentId: actor.departmentId } } }] : []),
+    ...(departmentIdsOf(actor).length ? [{ visibility: "DEPARTMENT" as const, departments: { some: { departmentId: { in: departmentIdsOf(actor) } } } }] : []),
   ];
   return {
     hotelTenantId: actor.hotel_tenant_id,
@@ -104,7 +105,7 @@ async function notifyHandover(tx: Prisma.TransactionClient, input: {
   if (input.visibility === "PRIVATE") return;
   const where = input.visibility === "ALL"
     ? { hotelTenantId: input.actor.hotel_tenant_id, isActive: true, isDeleted: false }
-    : { hotelTenantId: input.actor.hotel_tenant_id, isActive: true, isDeleted: false, departmentId: { in: input.departmentIds } };
+    : { hotelTenantId: input.actor.hotel_tenant_id, isActive: true, isDeleted: false, ...usersInDepartments(input.departmentIds) };
   const users = input.visibility === "DEPARTMENT" && !input.departmentIds.length
     ? []
     : await tx.user.findMany({ where, select: { id: true } });

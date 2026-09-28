@@ -8,6 +8,7 @@ import { pickLocalized } from "../recruiting/job-fields";
 import { formatHotelDate } from "../hotel/clock";
 import { hotelTimeZoneFor } from "../hotel/context";
 import { prisma } from "../prisma";
+import { departmentIdsOf, usersInDepartments } from "../users/memberships";
 import type { NotesActor } from "./access";
 import { deleteNoteFile, isNoteUpload, saveNoteFile } from "./storage";
 
@@ -39,8 +40,8 @@ export function visibleWhere(actor: NotesActor, kind: HotelNoteKind): Prisma.Hot
     { visibility: "ALL" },
     { visibility: "USER", users: { some: { userId: actor.id } } },
   ];
-  if (actor.departmentId) {
-    shared.push({ visibility: "DEPARTMENT", departments: { some: { departmentId: actor.departmentId } } });
+  if (departmentIdsOf(actor).length) {
+    shared.push({ visibility: "DEPARTMENT", departments: { some: { departmentId: { in: departmentIdsOf(actor) } } } });
   }
   return {
     hotelTenantId: actor.hotel_tenant_id,
@@ -168,7 +169,7 @@ async function assignedUserIds(
   if (input.visibility === "PRIVATE") return [] as string[];
   if (input.visibility === "DEPARTMENT") {
     if (!input.departmentIds.length) return [];
-    const rows = await tx.user.findMany({ where: { ...base, departmentId: { in: input.departmentIds } }, select: { id: true } });
+    const rows = await tx.user.findMany({ where: { ...base, ...usersInDepartments(input.departmentIds) }, select: { id: true } });
     return rows.map((row) => row.id);
   }
   if (input.visibility === "USER") {

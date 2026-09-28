@@ -7,9 +7,9 @@ import { ensureManualNotifications } from "../../../lib/manuals/service";
 async function context() {
   const id = await getSessionUserId();
   if (!id) return null;
-  const user = await prisma.user.findFirst({ where: { id, isActive: true, isDeleted: false, hotelTenant: { isActive: true, subscriptionStatus: { in: ["ACTIVE", "COMPED"] } } }, select: { id: true, hotelTenantId: true, role: true, departmentId: true } });
+  const user = await prisma.user.findFirst({ where: { id, isActive: true, isDeleted: false, hotelTenant: { isActive: true, subscriptionStatus: { in: ["ACTIVE", "COMPED"] } } }, select: { id: true, hotelTenantId: true, role: true, departmentId: true, departmentMemberships: { where: { department: { isDeleted: false } }, select: { departmentId: true } } } });
   if (!user) return null;
-  await ensureManualNotifications({ id: user.id, hotelTenantId: user.hotelTenantId, departmentId: user.departmentId }).catch((error) => console.error("manual notification backfill failed", error));
+  await ensureManualNotifications({ id: user.id, hotelTenantId: user.hotelTenantId, departmentId: user.departmentId, departmentIds: user.departmentMemberships.map((item) => item.departmentId) }).catch((error) => console.error("manual notification backfill failed", error));
   const modules = await accessibleModules({ id: user.id, hotel_tenant_id: user.hotelTenantId, role: user.role });
   const fullAccess = user.role === "ADMIN" ? modules : (await prisma.roleModulePermission.findMany({ where: {
     hotelTenantId: user.hotelTenantId, role: user.role, canView: true, scope: "ALL",

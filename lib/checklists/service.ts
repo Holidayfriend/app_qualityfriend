@@ -6,6 +6,7 @@ import { pickLocalized } from "../recruiting/job-fields";
 import { formatHotelDate, formatHotelDateTime } from "../hotel/clock";
 import { hotelTimeZoneFor } from "../hotel/context";
 import { prisma } from "../prisma";
+import { departmentIdsOf } from "../users/memberships";
 import type { TasksActor } from "../tasks/access";
 import { hotelTodayIso, isoDate, nextDueIso, parseIsoDate } from "./recurrence";
 import { notifyChecklist, recipientIds } from "./spawn";
@@ -52,7 +53,7 @@ function titlesOf(row: { title: string; titleDe: string; titleIt: string }) {
 function assignedWhere(actor: TasksActor): Prisma.HotelChecklistWhereInput[] {
   return [
     { assignType: "ALL" },
-    ...(actor.departmentId ? [{ assignType: "DEPT" as const, departmentId: actor.departmentId }] : []),
+    ...(departmentIdsOf(actor).length ? [{ assignType: "DEPT" as const, departmentId: { in: departmentIdsOf(actor) } }] : []),
     { assignType: "PERSON", assigneeId: actor.id },
   ];
 }

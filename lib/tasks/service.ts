@@ -7,6 +7,7 @@ import { pickLocalized } from "../recruiting/job-fields";
 import { formatHotelDate, formatHotelDateTime } from "../hotel/clock";
 import { hotelTimeZoneFor } from "../hotel/context";
 import { prisma } from "../prisma";
+import { departmentIdsOf, usersInDepartments } from "../users/memberships";
 import type { TasksActor } from "./access";
 import { translateTaskFields } from "./translate";
 
@@ -103,7 +104,7 @@ async function recipientIds(tx: Prisma.TransactionClient, actor: TasksActor, row
     ids.add(row.assigneeId);
   } else if (row.assignType === "DEPT" && row.departmentId) {
     const users = await tx.user.findMany({
-      where: { hotelTenantId: actor.hotel_tenant_id, isActive: true, isDeleted: false, departmentId: row.departmentId },
+      where: { hotelTenantId: actor.hotel_tenant_id, isActive: true, isDeleted: false, ...usersInDepartments([row.departmentId]) },
       select: { id: true },
     });
     for (const user of users) ids.add(user.id);
@@ -178,13 +179,13 @@ async function notify(tx: Prisma.TransactionClient, input: {
   });
 }
 
-export function visibleTaskWhere(actor: { id: string; hotel_tenant_id: string; departmentId: string | null; canManage: boolean }): Prisma.HotelTaskWhereInput {
+export function visibleTaskWhere(actor: { id: string; hotel_tenant_id: string; departmentId: string | null; departmentIds?: string[]; canManage: boolean }): Prisma.HotelTaskWhereInput {
   if (actor.canManage) return { hotelTenantId: actor.hotel_tenant_id };
   return {
     hotelTenantId: actor.hotel_tenant_id,
     OR: [
       { assigneeId: actor.id },
-      ...(actor.departmentId ? [{ assignType: "DEPT" as const, departmentId: actor.departmentId }] : []),
+      ...(departmentIdsOf(actor).length ? [{ assignType: "DEPT" as const, departmentId: { in: departmentIdsOf(actor) } }] : []),
     ],
   };
 }
@@ -206,7 +207,7 @@ export async function getTask(actor: TasksActor, id: string, locale: string) {
   return row ? toPublicTask(row, locale, timeZone) : null;
 }
 
-export async function openTaskCount(actor: { id: string; hotel_tenant_id: string; departmentId: string | null; canManage: boolean }) {
+export async function openTaskCount(actor: { id: string; hotel_tenant_id: string; departmentId: string | null; departmentIds?: string[]; canManage: boolean }) {
   return prisma.hotelTask.count({
     where: { ...visibleTaskWhere(actor), status: "OPEN" },
   });

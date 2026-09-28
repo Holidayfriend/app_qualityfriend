@@ -17,7 +17,7 @@ export type ShiftCell = {
   updatedBy: string;
   draft: boolean;
 };
-export type Employee = { key: string; name: string; departmentId: string; departmentName: string; shifts: ShiftCell[] };
+export type Employee = { key: string; name: string; departmentId: string; departmentIds: string[]; departmentName: string; shifts: ShiftCell[] };
 export const EMPTY_CELL: ShiftCell = { kind: "empty", start: "", end: "", breakMins: 0, note: "", templateId: "", leaveCategory: "", leaveDuration: "", updatedBy: "", draft: false };
 export const EMPTY_SHIFTS: ShiftCell[] = Array.from({ length: 7 }, () => ({ ...EMPTY_CELL }));
 export type Absence = {

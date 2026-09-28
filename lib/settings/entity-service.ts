@@ -29,7 +29,7 @@ function syncFailure(error: unknown) { console.error("MCP department synchroniza
 
 export async function listEntities(type: EntityType) {
   const current = await actor(); if (!current) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
-  const departmentCount = { select: { members: { where: { isActive: true, isDeleted: false } } } } as const;
+  const departmentCount = { select: { memberships: { where: { user: { isActive: true, isDeleted: false } } } } } as const;
   const teamCount = { select: { memberships: { where: { user: { isActive: true, isDeleted: false } } } } } as const;
   const rows = type === "department"
     ? await prisma.department.findMany({ where: { hotelTenantId: current.hotelTenantId, isDeleted: false }, orderBy: { nameEn: "asc" }, select: { id: true, nameEn: true, nameDe: true, nameIt: true, _count: departmentCount } })
@@ -67,7 +67,7 @@ export async function updateEntity(request: Request, type: EntityType, id: strin
         const previous = await tx.department.findFirst({ where: { id, hotelTenantId: current.hotelTenantId, isDeleted: false }, select: { id: true, nameEn: true, nameDe: true, nameIt: true, mcpDepartmentId: true } }); if (!previous) return null;
         let mcpDepartmentId = previous.mcpDepartmentId;
         if (mcp) { if (mcpDepartmentId) await updateMcpDepartment(mcp.token, mcpDepartmentId, mcp.hotelId, values.nameEn, true); else mcpDepartmentId = await createSyncedMcpDepartment(mcp.token, mcp.hotelId, values.nameEn); }
-        const updated = await tx.department.update({ where: { id }, data: { ...values, updatedById: current.id, mcpDepartmentId }, select: { id: true, nameEn: true, nameDe: true, nameIt: true, _count: { select: { members: { where: { isActive: true, isDeleted: false } } } } } });
+        const updated = await tx.department.update({ where: { id }, data: { ...values, updatedById: current.id, mcpDepartmentId }, select: { id: true, nameEn: true, nameDe: true, nameIt: true, _count: { select: { memberships: { where: { user: { isActive: true, isDeleted: false } } } } } } });
         await recordAuditLog(tx, { hotelTenantId: current.hotelTenantId, actorId: current.id, action: "UPDATE", entityType: "DEPARTMENT", entityId: id, changes: { before: output(previous).names, after: output(updated).names } }); return updated;
       }
       const previous = await tx.team.findFirst({ where: { id, hotelTenantId: current.hotelTenantId, isDeleted: false }, select: { id: true, nameEn: true, nameDe: true, nameIt: true } }); if (!previous) return null;
@@ -86,6 +86,9 @@ export async function deleteEntity(type: EntityType, id: string) {
       if (type === "department") {
         const previous = await tx.department.findFirst({ where: { id, hotelTenantId: current.hotelTenantId, isDeleted: false }, select: { id: true, nameEn: true, nameDe: true, nameIt: true, mcpDepartmentId: true } }); if (!previous) return null;
         if (mcp && previous.mcpDepartmentId) await updateMcpDepartment(mcp.token, previous.mcpDepartmentId, mcp.hotelId, previous.nameEn, false);
+        await tx.userDepartment.deleteMany({ where: { departmentId: id } });
+        const affected = await tx.user.findMany({ where: { departmentId: id }, select: { id: true, departmentMemberships: { select: { departmentId: true }, take: 1 } } });
+        for (const member of affected) await tx.user.update({ where: { id: member.id }, data: { departmentId: member.departmentMemberships[0]?.departmentId ?? null } });
         await tx.department.update({ where: { id }, data: { isDeleted: true, isActive: false, deletedAt: new Date(), updatedById: current.id } });
         await recordAuditLog(tx, { hotelTenantId: current.hotelTenantId, actorId: current.id, action: "DELETE", entityType: "DEPARTMENT", entityId: id, changes: { before: output(previous).names, after: { isDeleted: true, isActive: false } } }); return previous;
       }

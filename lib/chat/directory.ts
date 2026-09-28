@@ -8,8 +8,17 @@ function groupPreview(message: { text: string | null; attachmentName: string | n
 const none = "00000000-0000-0000-0000-000000000000";
 
 export async function chatDirectory(userId: string, hotelTenantId: string, role: string) {
-  const me = await prisma.user.findUnique({ where: { id: userId }, select: { departmentId: true, teamMemberships: { select: { teamId: true } } } });
+  const me = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      departmentId: true,
+      departmentMemberships: { where: { department: { isDeleted: false } }, select: { departmentId: true } },
+      teamMemberships: { select: { teamId: true } },
+    },
+  });
   const teamIds = me?.teamMemberships.map((membership) => membership.teamId) ?? [];
+  const departmentIds = me?.departmentMemberships.map((membership) => membership.departmentId) ?? [];
+  if (!departmentIds.length && me?.departmentId) departmentIds.push(me.departmentId);
   const admin = role === "ADMIN";
   const [users, teams, departments] = await Promise.all([
     prisma.user.findMany({
@@ -30,13 +39,13 @@ export async function chatDirectory(userId: string, hotelTenantId: string, role:
       orderBy: { nameEn: "asc" },
     }),
     prisma.department.findMany({
-      where: { hotelTenantId, isActive: true, isDeleted: false, ...(admin ? {} : { id: me?.departmentId ?? none }) },
+      where: { hotelTenantId, isActive: true, isDeleted: false, ...(admin ? {} : { id: { in: departmentIds.length ? departmentIds : [none] } }) },
       select: {
         id: true,
         nameEn: true,
         nameDe: true,
         nameIt: true,
-        members: { where: { isActive: true, isDeleted: false }, select: { id: true } },
+        memberships: { where: { user: { isActive: true, isDeleted: false } }, select: { userId: true } },
         chatReads: { where: { userId }, select: { lastReadAt: true }, take: 1 },
       },
       orderBy: { nameEn: "asc" },
@@ -68,7 +77,7 @@ export async function chatDirectory(userId: string, hotelTenantId: string, role:
   enrichedUsers.sort((a, b) => (b.last_message_at?.getTime() ?? 0) - (a.last_message_at?.getTime() ?? 0) || a.first_name.localeCompare(b.first_name));
 
   const enrichedTeams = await enrichGroups(teams, hotelTenantId, userId, "team", teamIds);
-  const enrichedDepartments = await enrichGroups(departments, hotelTenantId, userId, "department", me?.departmentId ? [me.departmentId] : []);
+  const enrichedDepartments = await enrichGroups(departments, hotelTenantId, userId, "department", departmentIds);
   return { currentUserId: userId, users: enrichedUsers, teams: enrichedTeams, departments: enrichedDepartments };
 }
 
@@ -136,7 +145,7 @@ export async function unreadChatCount(userId: string, hotelTenantId: string, rol
         AND d.is_active = true
         AND d.is_deleted = false
         AND m.sender_id <> CAST(${userId} AS uuid)
-        AND (${admin} OR m.department_id = (SELECT department_id FROM users WHERE id = CAST(${userId} AS uuid)))
+        AND (${admin} OR m.department_id IN (SELECT department_id FROM user_departments WHERE user_id = CAST(${userId} AS uuid)) OR m.department_id = (SELECT department_id FROM users WHERE id = CAST(${userId} AS uuid)))
         AND (r.last_read_at IS NULL OR m.created_at > r.last_read_at)
     `,
   ]);

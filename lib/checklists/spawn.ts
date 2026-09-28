@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Prisma, PrismaClient } from "../../app/generated/prisma/client";
+import { usersInDepartments } from "../users/memberships";
 import { hotelTodayIso, isDueOn, isoDate, parseIsoDate } from "./recurrence";
 
 type Db = PrismaClient | Prisma.TransactionClient;
@@ -18,7 +19,7 @@ export async function recipientIds(db: Db, hotelTenantId: string, row: {
     ids.add(row.assigneeId);
   } else if (row.assignType === "DEPT" && row.departmentId) {
     const users = await db.user.findMany({
-      where: { hotelTenantId, isActive: true, isDeleted: false, departmentId: row.departmentId },
+      where: { hotelTenantId, isActive: true, isDeleted: false, ...usersInDepartments([row.departmentId]) },
       select: { id: true },
     });
     for (const user of users) ids.add(user.id);

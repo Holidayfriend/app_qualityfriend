@@ -96,8 +96,9 @@ function Shell({ title, children, tabs }: { title: string; children?: ReactNode;
   </AppShell>;
 }
 
-function deptLabel(emp: Employee, t: T) {
-  return emp.departmentName || t.noDepartment;
+function deptLines(emp: Employee, t: T) {
+  const names = emp.departmentName.split("/").map((name) => name.trim()).filter(Boolean);
+  return names.length ? names : [t.noDepartment];
 }
 
 export function SchedulePlanPage() {
@@ -111,7 +112,7 @@ export function SchedulePlanPage() {
   const [copyOpen, setCopyOpen] = useState(false);
   const [copyTarget, setCopyTarget] = useState(() => addDaysIso(weekStartIso, 7));
   const [copying, setCopying] = useState(false);
-  const visible = employees.filter((emp) => deptFilter === "all" || (deptFilter === "none" ? !emp.departmentId : emp.departmentId === deptFilter));
+  const visible = employees.filter((emp) => deptFilter === "all" || (deptFilter === "none" ? emp.departmentIds.length === 0 : emp.departmentIds.includes(deptFilter)));
   const scheduledHours = weekWorkHours(visible);
   const dayLabels = weekDates.map((iso) => formatDayHeader(iso, locale));
 
@@ -208,7 +209,7 @@ export function SchedulePlanPage() {
           <select className="field-select" style={{ marginBottom: 0, padding: "6px 10px", fontSize: 12, width: "auto" }} value={deptFilter} onChange={(event) => setDeptFilter(event.target.value)}>
             <option value="all">{t.allDepartments}</option>
             {departments.map((dept) => <option key={dept.id} value={dept.id}>{dept.name}</option>)}
-            {employees.some((emp) => !emp.departmentId) ? <option value="none">{t.noDepartment}</option> : null}
+            {employees.some((emp) => emp.departmentIds.length === 0) ? <option value="none">{t.noDepartment}</option> : null}
           </select>
           <Link href="/schedule/templates" className="btn btn-ghost" style={{ fontSize: 12 }}>{t.templatesBtn}</Link>
           <button type="button" className="btn btn-ghost" style={{ fontSize: 12 }} onClick={openCopy}>{t.copyWeek}</button>
@@ -235,7 +236,7 @@ export function SchedulePlanPage() {
 
 function EmployeeRow({ emp, t }: { emp: Employee; t: T }) {
   return <>
-    <div className="dp-name">{emp.name}<div className="dp-dept">{deptLabel(emp, t)}</div></div>
+    <div className="dp-name">{emp.name}<div className="dp-dept">{deptLines(emp, t).map((name, index) => <span key={`${emp.key}-${index}`}>{name}</span>)}</div></div>
     {emp.shifts.map((shift, index) => {
       const meta = shiftMeta(shift, t);
       return <Link key={`${emp.key}-${index}`} href={`/schedule/shift?employee=${emp.key}&day=${index}`} className="dp-cell"><div className={`dp-shift ${meta.cls}${shift.draft ? " dp-draft" : ""}`}>{meta.label}{meta.sub ? <span style={{ display: "block", fontSize: 9, fontWeight: 500, marginTop: 1 }}>{meta.sub}</span> : null}</div></Link>;
@@ -353,7 +354,7 @@ export function ScheduleStatsPage() {
   const deptHours = departments.map((dept) => ({
     id: dept.id,
     name: dept.name,
-    hours: weekWorkHours(employees.filter((emp) => emp.departmentId === dept.id)),
+    hours: weekWorkHours(employees.filter((emp) => emp.departmentIds.includes(dept.id))),
   }));
   const maxDeptHours = Math.max(...deptHours.map((dept) => dept.hours), 0);
   if (!ready) return <Shell title={t.pageTitle} tabs><BrandLoader label={t.loading} /></Shell>;

@@ -2,6 +2,7 @@ import "server-only";
 
 import { prisma } from "../prisma";
 import { completeHotelChat } from "../ai/complete";
+import { departmentIdsOf } from "../users/memberships";
 import type { ManualsActor } from "./access";
 
 export type ChatTurn = { role: "user" | "assistant"; content: string };
@@ -47,7 +48,7 @@ function visibleDocuments(actor: ManualsActor) {
   return {
     hotelTenantId: actor.hotel_tenant_id,
     indexStatus: "READY",
-    OR: [{ departmentId: null }, ...(actor.departmentId ? [{ departmentId: actor.departmentId }] : [])],
+    OR: [{ departmentId: null }, ...(departmentIdsOf(actor).length ? [{ departmentId: { in: departmentIdsOf(actor) } }] : [])],
   };
 }
 
