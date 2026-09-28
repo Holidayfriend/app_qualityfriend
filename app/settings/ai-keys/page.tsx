@@ -122,7 +122,10 @@ export default function AiKeysPage() {
   return (
     <AppShell activeItem="settings" pageTitle={t.title}>
       <main className="p-4 sm:p-5 lg:px-7 lg:py-6">
-        <button type="button" onClick={() => router.push("/settings")} className="mb-5 cursor-pointer text-[12.5px] font-semibold text-[var(--qf-text-muted)] hover:text-[var(--qf-accent)]">← {t.settings}</button>
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <button type="button" onClick={() => router.push("/settings")} className="cursor-pointer text-[12.5px] font-semibold text-[var(--qf-text-muted)] hover:text-[var(--qf-accent)]">← {t.settings}</button>
+          <button type="button" onClick={() => router.push("/settings/ai-keys/usage")} className="min-h-10 cursor-pointer rounded-lg border border-[var(--qf-border)] bg-white px-4 text-xs font-bold text-[var(--qf-text)]">{t.usage}</button>
+        </div>
         <p className="mb-6 max-w-3xl text-xs leading-[1.6] text-[var(--qf-text-muted)]">{t.info}</p>
         {loading ? <BrandLoader label={request.loading} /> : (
           <>

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import type { PrismaClient } from "../../app/generated/prisma/client";
 import { AI_PROVIDERS, defaultModel, isAiProviderId, providerModels, type AiProviderId } from "./providers";
+import { recordHotelAiUsage, type TokenUsage } from "./usage";
 import { decryptAiSecret, encryptAiSecret } from "./secret";
 
 type HotelAiDb = Pick<PrismaClient, "hotelAiSettings" | "hotelAiProviderCredential">;
@@ -39,6 +40,20 @@ export async function ensureHotelAiTables() {
       )
     `);
     await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS "hotel_ai_provider_credentials_hotel_tenant_id_provider_key" ON "hotel_ai_provider_credentials"("hotel_tenant_id", "provider")`);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS "hotel_ai_usage" (
+        "id" UUID NOT NULL,
+        "hotel_tenant_id" UUID NOT NULL,
+        "provider" VARCHAR(40) NOT NULL,
+        "model" VARCHAR(80) NOT NULL,
+        "input_tokens" INTEGER NOT NULL DEFAULT 0,
+        "output_tokens" INTEGER NOT NULL DEFAULT 0,
+        "total_tokens" INTEGER NOT NULL DEFAULT 0,
+        "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "hotel_ai_usage_pkey" PRIMARY KEY ("id")
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS "hotel_ai_usage_hotel_tenant_id_created_at_idx" ON "hotel_ai_usage"("hotel_tenant_id", "created_at")`);
   } finally {
     await pool.end();
   }
@@ -148,6 +163,19 @@ async function loadActiveCredential(prisma: HotelAiDb, hotelTenantId: string) {
 
 type ChatMessage = { role: string; content: string };
 type ChatOptions = { json?: boolean; temperature?: number; timeoutMs?: number; maxTokens?: number };
+type Completion = { content: string; usage: TokenUsage };
+
+function tokenCount(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
+}
+
+function chatUsage(data: { usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number; citation_tokens?: number; reasoning_tokens?: number } } | null): TokenUsage {
+  const usage = data?.usage;
+  const inputTokens = tokenCount(usage?.prompt_tokens) + tokenCount(usage?.citation_tokens);
+  const outputTokens = tokenCount(usage?.completion_tokens) + tokenCount(usage?.reasoning_tokens);
+  const reported = tokenCount(usage?.total_tokens);
+  return { inputTokens, outputTokens, totalTokens: Math.max(reported, inputTokens + outputTokens) };
+}
 
 async function completeChatCompletions(
   endpoint: string,
@@ -165,11 +193,11 @@ async function completeChatCompletions(
     cache: "no-store",
     signal: AbortSignal.timeout(options.timeoutMs ?? 60_000),
   });
-  const data = (await response.json().catch(() => null)) as { choices?: { message?: { content?: string } }[]; error?: { message?: string } } | null;
+  const data = (await response.json().catch(() => null)) as { choices?: { message?: { content?: string } }[]; usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number; citation_tokens?: number; reasoning_tokens?: number }; error?: { message?: string } } | null;
   if (!response.ok) throw new Error(data?.error?.message || `${failureLabel} request failed.`);
   const content = data?.choices?.[0]?.message?.content?.trim();
   if (!content) throw new Error("Empty model reply.");
-  return content;
+  return { content, usage: chatUsage(data) };
 }
 
 async function completeOpenAi(apiKey: string, model: string, messages: ChatMessage[], options: ChatOptions) {
@@ -185,11 +213,11 @@ async function completeOpenAi(apiKey: string, model: string, messages: ChatMessa
     cache: "no-store",
     signal: AbortSignal.timeout(options.timeoutMs ?? 60_000),
   });
-  const data = (await response.json().catch(() => null)) as { choices?: { message?: { content?: string } }[]; error?: { message?: string } } | null;
+  const data = (await response.json().catch(() => null)) as { choices?: { message?: { content?: string } }[]; usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number }; error?: { message?: string } } | null;
   if (!response.ok) throw new Error(data?.error?.message || "OpenAI request failed.");
   const content = data?.choices?.[0]?.message?.content?.trim();
   if (!content) throw new Error("Empty model reply.");
-  return content;
+  return { content, usage: chatUsage(data) };
 }
 
 async function completeDeepSeek(apiKey: string, model: string, messages: ChatMessage[], options: ChatOptions) {
@@ -239,14 +267,16 @@ async function completeClaude(apiKey: string, model: string, messages: ChatMessa
     cache: "no-store",
     signal: AbortSignal.timeout(options.timeoutMs ?? 60_000),
   });
-  const data = (await response.json().catch(() => null)) as { content?: { type?: string; text?: string }[]; error?: { message?: string } } | null;
+  const data = (await response.json().catch(() => null)) as { content?: { type?: string; text?: string }[]; usage?: { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number }; error?: { message?: string } } | null;
   if (!response.ok) throw new Error(data?.error?.message || "Claude request failed.");
   const content = data?.content?.filter((part) => part.type === "text").map((part) => part.text || "").join("\n").trim();
   if (!content) throw new Error("Empty model reply.");
-  return content;
+  const inputTokens = tokenCount(data?.usage?.input_tokens) + tokenCount(data?.usage?.cache_read_input_tokens) + tokenCount(data?.usage?.cache_creation_input_tokens);
+  const outputTokens = tokenCount(data?.usage?.output_tokens);
+  return { content, usage: { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens } };
 }
 
-async function completeWithProvider(provider: AiProviderId, apiKey: string, model: string, messages: ChatMessage[], options: ChatOptions) {
+async function completeWithProvider(provider: AiProviderId, apiKey: string, model: string, messages: ChatMessage[], options: ChatOptions): Promise<Completion> {
   if (provider === "openai") return completeOpenAi(apiKey, model, messages, options);
   if (provider === "claude") return completeClaude(apiKey, model, messages, options);
   if (provider === "deepseek") return completeDeepSeek(apiKey, model, messages, options);
@@ -265,7 +295,9 @@ export async function completeHotelChat(
     if (options.required) throw new HotelAiNotConfiguredError();
     return null;
   }
-  return completeWithProvider(credential.provider, credential.apiKey, credential.model, messages, options);
+  const result = await completeWithProvider(credential.provider, credential.apiKey, credential.model, messages, options);
+  await recordHotelAiUsage(hotelTenantId, credential.provider, credential.model, result.usage);
+  return result.content;
 }
 
 export async function testHotelAiProvider(
@@ -287,10 +319,11 @@ export async function testHotelAiProvider(
     apiKey = decryptAiSecret(row.apiKeyEncrypted);
   }
   try {
-    const reply = await completeWithProvider(input.provider, apiKey, model, [
+    const result = await completeWithProvider(input.provider, apiKey, model, [
       { role: "user", content: "Reply with exactly the word ok." },
     ], { temperature: 0, timeoutMs: 30_000, maxTokens: 64 });
-    return { ok: true as const, model, reply: reply.slice(0, 160) };
+    await recordHotelAiUsage(hotelTenantId, input.provider, model, result.usage);
+    return { ok: true as const, model, reply: result.content.slice(0, 160) };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Request failed.";
     return { ok: false as const, error: message.replace(/\s+/g, " ").slice(0, 300) };

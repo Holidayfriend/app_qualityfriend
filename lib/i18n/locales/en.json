@@ -355,7 +355,22 @@
     "testNeedKey": "Paste or save an API key before testing.",
     "missingKeyBanner": "No hotel AI API key is set. Add a key for the active provider to use recommendations and analyses.",
     "missingKeyAction": "Set API key",
-    "viewOnly": "Only admin and management can save the hotel API key."
+    "viewOnly": "Only admin and management can save the hotel API key.",
+    "usage": "AI usage",
+    "usageTitle": "AI usage",
+    "usageInfo": "Token counts for this hotel, by provider. Only calls made after usage tracking started are included. Earlier calls were not counted.",
+    "usageToday": "Today",
+    "usageWeek": "This week",
+    "usageMonth": "This month",
+    "usageCustom": "Custom",
+    "usageFrom": "From",
+    "usageTo": "To",
+    "usageRequests": "Requests",
+    "usageInput": "Input tokens",
+    "usageOutput": "Output tokens",
+    "usageTotal": "Total tokens",
+    "usageTokens": "tokens",
+    "usageFailed": "Could not load AI usage."
   },
   "recycleBinMessages": {
     "description": "Deleted items from this hotel can be restored here.",

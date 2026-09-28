@@ -353,7 +353,22 @@
     "testNeedKey": "Incolla o salva una chiave API prima di provare.",
     "missingKeyBanner": "Nessuna chiave API IA dell’hotel è impostata. Aggiungi una chiave per il fornitore attivo per usare consigli e analisi.",
     "missingKeyAction": "Imposta chiave API",
-    "viewOnly": "Solo admin e management possono salvare la chiave API dell’hotel."
+    "viewOnly": "Solo admin e management possono salvare la chiave API dell’hotel.",
+    "usage": "Consumo IA",
+    "usageTitle": "Consumo IA",
+    "usageInfo": "Conteggio token di questo hotel, per fornitore. Sono incluse solo le chiamate dopo l’avvio del conteggio. Le chiamate precedenti non sono state contate.",
+    "usageToday": "Oggi",
+    "usageWeek": "Questa settimana",
+    "usageMonth": "Questo mese",
+    "usageCustom": "Personalizzato",
+    "usageFrom": "Dal",
+    "usageTo": "Al",
+    "usageRequests": "Richieste",
+    "usageInput": "Token in ingresso",
+    "usageOutput": "Token in uscita",
+    "usageTotal": "Token totali",
+    "usageTokens": "token",
+    "usageFailed": "Impossibile caricare il consumo IA."
   },
   "recycleBinMessages": {
     "description": "Gli elementi eliminati di questo hotel possono essere ripristinati qui.",

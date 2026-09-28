@@ -544,6 +544,7 @@ model HotelTenant {
   hotelAiRecommendations       HotelAiRecommendation[]
   hotelAiSettings              HotelAiSettings?
   hotelAiProviderCredentials   HotelAiProviderCredential[]
+  hotelAiUsage                 HotelAiUsage[]
   recruitingEmailTemplates     RecruitingEmailTemplate[]
   recruitingEmployees          RecruitingEmployee[]
   recruitingApplicationFiles   RecruitingApplicationFile[]
@@ -1521,6 +1522,21 @@ model HotelAiProviderCredential {
   @@unique([hotelTenantId, provider])
   @@index([hotelTenantId])
   @@map("hotel_ai_provider_credentials")
+}
+
+model HotelAiUsage {
+  id            String      @id @default(uuid()) @db.Uuid
+  hotelTenantId String      @map("hotel_tenant_id") @db.Uuid
+  provider      String      @db.VarChar(40)
+  model         String      @db.VarChar(80)
+  inputTokens   Int         @default(0) @map("input_tokens")
+  outputTokens  Int         @default(0) @map("output_tokens")
+  totalTokens   Int         @default(0) @map("total_tokens")
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  hotelTenant   HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  @@index([hotelTenantId, createdAt])
+  @@map("hotel_ai_usage")
 }
 
 model HotelAiRecommendation {

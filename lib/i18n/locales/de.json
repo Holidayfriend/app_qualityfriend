@@ -353,7 +353,22 @@
     "testNeedKey": "Füge einen API-Schlüssel ein oder speichere ihn, bevor du testest.",
     "missingKeyBanner": "Es ist kein Hotel-KI-API-Schlüssel gesetzt. Füge einen Schlüssel für den aktiven Anbieter hinzu, um Empfehlungen und Analysen zu nutzen.",
     "missingKeyAction": "API-Schlüssel setzen",
-    "viewOnly": "Nur Admin und Management können den Hotel-API-Schlüssel speichern."
+    "viewOnly": "Nur Admin und Management können den Hotel-API-Schlüssel speichern.",
+    "usage": "KI-Verbrauch",
+    "usageTitle": "KI-Verbrauch",
+    "usageInfo": "Tokenverbrauch dieses Hotels nach Anbieter. Gezählt werden nur Aufrufe seit dem Start der Verbrauchserfassung. Ältere Aufrufe wurden nicht gezählt.",
+    "usageToday": "Heute",
+    "usageWeek": "Diese Woche",
+    "usageMonth": "Dieser Monat",
+    "usageCustom": "Eigener Zeitraum",
+    "usageFrom": "Von",
+    "usageTo": "Bis",
+    "usageRequests": "Anfragen",
+    "usageInput": "Eingabe-Tokens",
+    "usageOutput": "Ausgabe-Tokens",
+    "usageTotal": "Tokens gesamt",
+    "usageTokens": "Tokens",
+    "usageFailed": "KI-Verbrauch konnte nicht geladen werden."
   },
   "recycleBinMessages": {
     "description": "Gelöschte Einträge dieses Hotels können hier wiederhergestellt werden.",
