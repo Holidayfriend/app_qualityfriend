@@ -1,0 +1,11 @@
+ALTER TABLE "hotel_tenants" ADD COLUMN IF NOT EXISTS "pec_address" VARCHAR(320);
+ALTER TABLE "hotel_tenants" ADD COLUMN IF NOT EXISTS "sdi_code" VARCHAR(7);
+ALTER TABLE "hotel_tenants" ADD COLUMN IF NOT EXISTS "legal_form" VARCHAR(40);
+ALTER TABLE "hotel_tenants" ADD COLUMN IF NOT EXISTS "room_count" INTEGER;
+ALTER TABLE "hotel_tenants" ADD COLUMN IF NOT EXISTS "star_rating" INTEGER;
+ALTER TABLE "hotel_tenants" ADD COLUMN IF NOT EXISTS "seasonal" BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE "hotel_tenants" ADD COLUMN IF NOT EXISTS "opening_period" VARCHAR(255);
+ALTER TABLE "hotel_tenants" ADD COLUMN IF NOT EXISTS "closure_period" VARCHAR(255);
+ALTER TABLE "hotel_tenants" ADD COLUMN IF NOT EXISTS "check_in_time" VARCHAR(5);
+ALTER TABLE "hotel_tenants" ADD COLUMN IF NOT EXISTS "check_out_time" VARCHAR(5);
+ALTER TABLE "hotel_tenants" ADD COLUMN IF NOT EXISTS "pms_name" VARCHAR(80);
