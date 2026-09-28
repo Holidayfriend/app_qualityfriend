@@ -517,6 +517,7 @@ model HotelTenant {
   postalCode                   String                 @map("postal_code") @db.VarChar(32)
   city                         String                 @db.VarChar(120)
   country                      String                 @db.VarChar(120)
+  province                     String?                @db.VarChar(120)
   contactPerson                String                 @map("contact_person") @db.VarChar(180)
   phoneNumber                  String?                @map("phone_number") @db.VarChar(40)
   vatId                        String?                @map("vat_id") @db.VarChar(64)

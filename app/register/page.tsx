@@ -7,10 +7,34 @@ import { AuthCard } from "../../components/auth/auth-card";
 import { AuthShell } from "../../components/auth/auth-shell";
 import { LanguageSwitcher } from "../../components/i18n/language-switcher";
 import { useI18n } from "../../components/i18n/i18n-provider";
+import { listCountries, listProvinces } from "../../lib/geo/locations";
 import { BrandLoader } from "../../components/ui/brand-loader";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { PasswordInput } from "../../components/ui/password-input";
+
+function SelectField({ id, name, label, value, error, placeholder, options, onChange }: {
+  id: string;
+  name: string;
+  label: string;
+  value: string;
+  error?: string;
+  placeholder: string;
+  options: string[];
+  onChange: (value: string) => void;
+}) {
+  const errorId = `${id}-error`;
+  return (
+    <div className="space-y-1.5">
+      <label htmlFor={id} className="block text-[13px] font-semibold text-[var(--qf-text)]">{label}</label>
+      <select id={id} name={name} value={value} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} onChange={(event) => onChange(event.target.value)} className={`h-11 w-full cursor-pointer rounded-lg border bg-white px-3.5 text-sm outline-none transition ${value ? "text-[var(--qf-text)]" : "text-[var(--qf-text-light)]"} ${error ? "border-[var(--qf-danger)] focus:border-[var(--qf-danger)] focus:ring-3 focus:ring-[#fee2e2]" : "border-[var(--qf-border)] hover:border-[#d8d4cc] focus:border-[var(--qf-accent)] focus:ring-3 focus:ring-[var(--qf-accent-soft)]"}`}>
+        <option value="">{placeholder}</option>
+        {options.map((option) => <option key={option} value={option}>{option}</option>)}
+      </select>
+      {error ? <p id={errorId} role="alert" className="text-[11px] font-medium text-[var(--qf-danger)]">{error}</p> : null}
+    </div>
+  );
+}
 
 export default function RegisterPage() {
   const { dictionary, locale } = useI18n();
@@ -19,6 +43,9 @@ export default function RegisterPage() {
   const optional = (label: string) => `${label} (${dictionary.common.optional})`;
   const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error" | "email-exists">("idle");
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [country, setCountry] = useState("");
+  const [province, setProvince] = useState("");
+  const provinces = listProvinces(country);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -29,6 +56,7 @@ export default function RegisterPage() {
     for (const field of requiredFields) {
       if (!String(values[field] ?? "").trim()) nextErrors[field] = dictionary.common.required;
     }
+    if (provinces.length && !province.trim()) nextErrors.province = dictionary.common.required;
     const email = String(values.email ?? "").trim();
     if (email && !/^\S+@\S+\.\S+$/.test(email)) nextErrors.email = dictionary.common.invalidEmail;
     const password = String(values.password ?? "");
@@ -93,9 +121,10 @@ export default function RegisterPage() {
           <fieldset className="space-y-4 border-t border-[var(--qf-border)] pt-5">
             <legend className="mb-3 text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--qf-accent)]">{t.addressSection}</legend>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Input id="country" name="country" label={t.country} error={errors.country} autoComplete="country-name" />
-              <Input id="city" name="city" label={t.city} error={errors.city} autoComplete="address-level2" />
+              <SelectField id="country" name="country" label={t.country} value={country} error={errors.country} placeholder={t.countryPlaceholder} options={listCountries()} onChange={(value) => { setCountry(value); setProvince(""); }} />
+              {provinces.length ? <SelectField id="province" name="province" label={t.province} value={province} error={errors.province} placeholder={t.provincePlaceholder} options={provinces} onChange={setProvince} /> : <Input id="city" name="city" label={t.city} error={errors.city} autoComplete="address-level2" />}
             </div>
+            {provinces.length ? <div className="grid gap-4 sm:grid-cols-2"><Input id="city" name="city" label={t.city} error={errors.city} autoComplete="address-level2" /></div> : null}
             <div className="grid gap-4 sm:grid-cols-[1fr_150px]">
               <Input id="street" name="streetAddress" label={t.street} error={errors.streetAddress} autoComplete="street-address" />
               <Input id="zip" name="zip" label={t.zip} error={errors.zip} autoComplete="postal-code" />
