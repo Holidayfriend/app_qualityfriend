@@ -25,7 +25,7 @@ export default function RegisterPage() {
     const form = event.currentTarget;
     const values = Object.fromEntries(new FormData(form).entries());
     const nextErrors: Record<string, string> = {};
-    const requiredFields = ["company", "hotelName", "firstName", "lastName", "contactPerson", "email", "password", "country", "city", "streetAddress", "zip"];
+    const requiredFields = ["company", "hotelName", "firstName", "lastName", "email", "password", "country", "city", "streetAddress", "zip"];
     for (const field of requiredFields) {
       if (!String(values[field] ?? "").trim()) nextErrors[field] = dictionary.common.required;
     }
@@ -71,8 +71,8 @@ export default function RegisterPage() {
           <fieldset className="space-y-4">
             <legend className="mb-3 text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--qf-accent)]">{t.companySection}</legend>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Input id="company" name="company" label={t.company} error={errors.company} placeholder="QualityFriend GmbH" autoComplete="organization" />
-              <Input id="hotel-name" name="hotelName" label={t.hotelName} error={errors.hotelName} placeholder="Hotel Weihrerhof" />
+              <Input id="company" name="company" label={t.company} error={errors.company} placeholder={t.companyPlaceholder} autoComplete="organization" />
+              <Input id="hotel-name" name="hotelName" label={t.hotelName} error={errors.hotelName} placeholder={t.hotelNamePlaceholder} />
             </div>
             <Input id="vat-id" name="vatId" label={optional(t.vatId)} placeholder="IT12345678901" />
           </fieldset>
@@ -83,7 +83,6 @@ export default function RegisterPage() {
               <Input id="last-name" name="lastName" label={t.lastName} error={errors.lastName} autoComplete="family-name" />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Input id="contact-person" name="contactPerson" label={t.contactPerson} error={errors.contactPerson} autoComplete="name" />
               <Input id="phone" name="phone" type="tel" label={optional(t.phone)} autoComplete="tel" />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">

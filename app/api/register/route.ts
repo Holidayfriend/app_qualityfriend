@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   const hotelName = requiredString(data.hotelName);
   const email = requiredString(data.email).toLowerCase();
   const password = requiredString(data.password);
-  const contactPerson = requiredString(data.contactPerson);
+  const contactPerson = `${firstName} ${lastName}`.trim();
   const country = requiredString(data.country);
   const city = requiredString(data.city);
   const streetAddress = requiredString(data.streetAddress);
