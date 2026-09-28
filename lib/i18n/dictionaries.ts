@@ -18,6 +18,7 @@ export type HousekeepingMessages = typeof housekeepingMessages.en;
 
 export const accountSettingsMessages = byLocale("accountSettingsMessages");
 export const requestMessages = byLocale("requestMessages");
+export const confirmMessages = byLocale("confirmMessages");
 export const auditMessages = byLocale("auditMessages");
 export const settingsPageMessages = byLocale("settingsPageMessages");
 export const recycleBinMessages = byLocale("recycleBinMessages");

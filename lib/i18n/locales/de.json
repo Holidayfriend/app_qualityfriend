@@ -299,6 +299,14 @@
     "failed": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
     "nameExists": "Dieser Name existiert bereits."
   },
+  "confirmMessages": {
+    "title": "Löschen",
+    "cancel": "Abbrechen",
+    "confirm": "Löschen",
+    "user": "{name} löschen? Sie können diesen Benutzer aus dem Papierkorb wiederherstellen.",
+    "department": "Abteilung {name} löschen? Sie können sie aus dem Papierkorb wiederherstellen.",
+    "team": "Team {name} löschen? Sie können es aus dem Papierkorb wiederherstellen."
+  },
   "auditMessages": {
     "allUsers": "Aktivitäten aller Hotelbenutzer werden angezeigt.",
     "onlyYou": "Nur Ihre Aktivitäten werden angezeigt.",
@@ -436,8 +444,6 @@
     "title": "Rollen & Modul-Zugriff",
     "description": "Steuert, welche Module in der Seitenleiste für welche Rolle sichtbar sind.",
     "module": "Modul",
-    "departments": "Abteilungen",
-    "allDepartments": "Alle Abteilungen",
     "levels": {
       "employee": "Mitarbeiter",
       "teamLead": "Team-/Abteilungsleitung",
@@ -458,12 +464,6 @@
       "manuals": "Handbücher",
       "budget": "Monats- & Zimmerdetails",
       "revenue": "AI Revenue Forecast"
-    },
-    "departmentNames": {
-      "reception": "Rezeption",
-      "restaurant": "Restaurant/Service",
-      "housekeeping": "Housekeeping",
-      "maintenance": "Haustechnik"
     }
   },
   "roleLevelNames": {

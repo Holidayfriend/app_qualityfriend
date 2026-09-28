@@ -301,6 +301,14 @@
     "failed": "Something went wrong. Please try again.",
     "nameExists": "This name already exists."
   },
+  "confirmMessages": {
+    "title": "Delete",
+    "cancel": "Cancel",
+    "confirm": "Delete",
+    "user": "Delete {name}? You can restore this user from the recycle bin.",
+    "department": "Delete department {name}? You can restore it from the recycle bin.",
+    "team": "Delete team {name}? You can restore it from the recycle bin."
+  },
   "auditMessages": {
     "allUsers": "Showing activity from all hotel users.",
     "onlyYou": "Showing only your activity.",
@@ -438,8 +446,6 @@
     "title": "Roles & module access",
     "description": "Controls which modules are visible in the sidebar for each role.",
     "module": "Module",
-    "departments": "Departments",
-    "allDepartments": "All departments",
     "levels": {
       "employee": "Employee",
       "teamLead": "Team/Department Lead",
@@ -460,12 +466,6 @@
       "manuals": "Manuals",
       "budget": "Monthly & room details",
       "revenue": "AI Revenue Forecast"
-    },
-    "departmentNames": {
-      "reception": "Reception",
-      "restaurant": "Restaurant/Service",
-      "housekeeping": "Housekeeping",
-      "maintenance": "Maintenance"
     }
   },
   "roleLevelNames": {

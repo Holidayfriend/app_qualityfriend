@@ -299,6 +299,14 @@
     "failed": "Qualcosa è andato storto. Riprova.",
     "nameExists": "Questo nome esiste già."
   },
+  "confirmMessages": {
+    "title": "Elimina",
+    "cancel": "Annulla",
+    "confirm": "Elimina",
+    "user": "Eliminare {name}? Puoi ripristinare questo utente dal cestino.",
+    "department": "Eliminare il reparto {name}? Puoi ripristinarlo dal cestino.",
+    "team": "Eliminare il team {name}? Puoi ripristinarlo dal cestino."
+  },
   "auditMessages": {
     "allUsers": "Sono visualizzate le attività di tutti gli utenti dell'hotel.",
     "onlyYou": "Sono visualizzate solo le tue attività.",
@@ -436,8 +444,6 @@
     "title": "Ruoli e accesso ai moduli",
     "description": "Controlla quali moduli sono visibili nella barra laterale per ciascun ruolo.",
     "module": "Modulo",
-    "departments": "Reparti",
-    "allDepartments": "Tutti i reparti",
     "levels": {
       "employee": "Dipendente",
       "teamLead": "Responsabile team/reparto",
@@ -458,12 +464,6 @@
       "manuals": "Manuali",
       "budget": "Dettagli mensili e camere",
       "revenue": "Previsioni ricavi IA"
-    },
-    "departmentNames": {
-      "reception": "Reception",
-      "restaurant": "Ristorante/Servizio",
-      "housekeeping": "Housekeeping",
-      "maintenance": "Manutenzione"
     }
   },
   "roleLevelNames": {
