@@ -361,6 +361,7 @@
     "apiKey": "Chiave API",
     "replaceKey": "Sostituisci chiave API",
     "apiKeyPlaceholder": "Incolla la chiave API",
+    "keyRequired": "La chiave API è obbligatoria.",
     "save": "Salva",
     "saving": "Salvataggio…",
     "saved": "Impostazioni IA salvate.",

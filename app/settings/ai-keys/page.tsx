@@ -28,6 +28,7 @@ export default function AiKeysPage() {
   const [saving, setSaving] = useState<string | null>(null);
   const [testing, setTesting] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<Record<string, { ok: boolean; text: string }>>({});
+  const [keyErrors, setKeyErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
@@ -50,7 +51,14 @@ export default function AiKeysPage() {
       .finally(() => setLoading(false));
   }, [router, t.failed]);
 
-  async function save(provider: ProviderCard, nextActive = activeProvider) {
+  async function save(provider: ProviderCard, nextActive = activeProvider, requireKey = false) {
+    const apiKey = keys[provider.id]?.trim() || "";
+    if (requireKey && !apiKey) {
+      setKeyErrors((current) => ({ ...current, [provider.id]: t.keyRequired }));
+      requestAnimationFrame(() => document.getElementById(`api-key-${provider.id}`)?.focus());
+      return;
+    }
+    setKeyErrors((current) => ({ ...current, [provider.id]: "" }));
     setSaving(provider.id);
     setError("");
     setNotice("");
@@ -61,7 +69,7 @@ export default function AiKeysPage() {
         body: JSON.stringify({
           provider: provider.id,
           model: provider.model,
-          apiKey: keys[provider.id]?.trim() || undefined,
+          apiKey: apiKey || undefined,
           activeProvider: nextActive,
         }),
       });
@@ -178,22 +186,30 @@ export default function AiKeysPage() {
                     </select>
                   </label>
                   <label className="block text-xs font-semibold">
-                    <span className="mb-1.5 block">{provider.hasKey ? t.replaceKey : t.apiKey}</span>
+                    <span className="mb-1.5 block">{provider.hasKey ? t.replaceKey : t.apiKey}<span aria-hidden="true" className="text-[var(--qf-danger)]"> *</span></span>
                     <input
+                      id={`api-key-${provider.id}`}
                       type="password"
                       autoComplete="off"
                       value={keys[provider.id] || ""}
                       disabled={!canEdit}
-                      onChange={(event) => setKeys((current) => ({ ...current, [provider.id]: event.target.value }))}
+                      aria-required="true"
+                      aria-invalid={Boolean(keyErrors[provider.id])}
+                      aria-describedby={keyErrors[provider.id] ? `api-key-${provider.id}-error` : undefined}
+                      onChange={(event) => {
+                        setKeys((current) => ({ ...current, [provider.id]: event.target.value }));
+                        if (keyErrors[provider.id]) setKeyErrors((current) => ({ ...current, [provider.id]: "" }));
+                      }}
                       placeholder={t.apiKeyPlaceholder}
-                      className="h-11 w-full rounded-lg border border-[var(--qf-border)] px-3.5 text-sm outline-none focus:border-[var(--qf-accent)]"
+                      className={`h-11 w-full rounded-lg border px-3.5 text-sm outline-none ${keyErrors[provider.id] ? "border-[var(--qf-danger)] focus:border-[var(--qf-danger)] focus:ring-3 focus:ring-[#fee2e2]" : "border-[var(--qf-border)] focus:border-[var(--qf-accent)]"}`}
                     />
+                    {keyErrors[provider.id] ? <span id={`api-key-${provider.id}-error`} role="alert" className="mt-1.5 block text-[11px] font-medium text-[var(--qf-danger)]">{keyErrors[provider.id]}</span> : null}
                   </label>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button
                       type="button"
                       disabled={!canEdit || saving !== null || testing !== null}
-                      onClick={() => void save(provider)}
+                      onClick={() => void save(provider, activeProvider, true)}
                       className="min-h-10 cursor-pointer rounded-lg bg-[var(--qf-accent)] px-4 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {saving === provider.id ? t.saving : t.save}

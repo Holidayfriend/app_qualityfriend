@@ -363,6 +363,7 @@
     "apiKey": "API key",
     "replaceKey": "Replace API key",
     "apiKeyPlaceholder": "Paste API key",
+    "keyRequired": "API key is required.",
     "save": "Save",
     "saving": "Saving…",
     "saved": "AI settings saved.",

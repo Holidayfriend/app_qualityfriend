@@ -361,6 +361,7 @@
     "apiKey": "API-Schlüssel",
     "replaceKey": "API-Schlüssel ersetzen",
     "apiKeyPlaceholder": "API-Schlüssel einfügen",
+    "keyRequired": "API-Schlüssel ist erforderlich.",
     "save": "Speichern",
     "saving": "Speichern…",
     "saved": "KI-Einstellungen gespeichert.",
