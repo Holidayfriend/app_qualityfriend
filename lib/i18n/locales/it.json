@@ -790,7 +790,7 @@
     "required": "Completa tutti i campi obbligatori.",
     "exists": "Questa email è già in uso.",
     "error": "Impossibile salvare le modifiche.",
-    "asaXmlName": "Houskeeping ASA XML",
+    "asaXmlName": "Housekeeping ASA XML",
     "invalidAsaXmlName": "Inserisci solo il nome del file (massimo 255 caratteri), senza percorso o URL.",
     "dataProtection": "Informativa sulla protezione dei dati",
     "privacyPolicy": "Informativa sulla privacy",
@@ -799,7 +799,7 @@
   "housekeepingRefreshMessages": {
     "lastImport": "Ultima importazione riuscita",
     "neverImported": "Nessuna importazione riuscita",
-    "missing": "Inserisci prima il nome Houskeeping ASA XML nelle impostazioni hotel.",
+    "missing": "Inserisci prima il nome Housekeeping ASA XML nelle impostazioni hotel.",
     "invalid": "Il nome ASA XML deve essere un nome file senza percorso.",
     "notFound": "Il file XML configurato non ? stato trovato in qualityfriend.solutions/ASA_ftp.",
     "ready": "Importazione Housekeeping avviata. Riceverai una notifica al termine.",
