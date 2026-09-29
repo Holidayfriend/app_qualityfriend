@@ -116,7 +116,7 @@ async function enrichGroups<T extends {
       unread_count: unread,
     };
   }));
-  enriched.sort((a, b) => Number(b.is_member) - Number(a.is_member) || (b.last_message_at?.getTime() ?? 0) - (a.last_message_at?.getTime() ?? 0) || a.name_en.localeCompare(b.name_en));
+  enriched.sort((a, b) => a.name_en.localeCompare(b.name_en, "en", { sensitivity: "base" }));
   return enriched;
 }
 

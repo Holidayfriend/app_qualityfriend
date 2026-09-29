@@ -182,8 +182,9 @@ export default function ChatPage() {
   }
   const query = search.toLowerCase();
   const shownUsers = users.filter((user) => `${user.first_name} ${user.last_name}`.toLowerCase().includes(query));
-  const shownTeams = teams.filter((team) => `${team.name_en} ${team.name_de} ${team.name_it}`.toLowerCase().includes(query));
-  const shownDepartments = departments.filter((department) => `${department.name_en} ${department.name_de} ${department.name_it}`.toLowerCase().includes(query));
+  const byName = (a: ChatGroup, b: ChatGroup) => groupName(a, locale).localeCompare(groupName(b, locale), locale, { sensitivity: "base" });
+  const shownTeams = teams.filter((team) => `${team.name_en} ${team.name_de} ${team.name_it}`.toLowerCase().includes(query)).sort(byName);
+  const shownDepartments = departments.filter((department) => `${department.name_en} ${department.name_de} ${department.name_it}`.toLowerCase().includes(query)).sort(byName);
   const tabs: { kind: ChannelKind; label: string; unread: number }[] = [
     { kind: "user", label: t.people, unread: users.reduce((sum, user) => sum + user.unread_count, 0) },
     { kind: "team", label: t.teams, unread: teams.reduce((sum, team) => sum + team.unread_count, 0) },
