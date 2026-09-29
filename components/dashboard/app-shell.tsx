@@ -7,7 +7,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useI18n } from "../i18n/i18n-provider";
 import { LanguageSwitcher } from "../i18n/language-switcher";
 import { aiApiSettingsMessages, moduleNavigationMessages, roleLevelNames, type Locale } from "../../lib/i18n/dictionaries";
-import { hotelLocalHour } from "../../lib/hotel/clock";
+import { formatHotelLongDate, hotelLocalHour } from "../../lib/hotel/clock";
 import { forecastMessages } from "../../lib/i18n/forecast-messages";
 
 type AppShellProps = { activeItem: string; children: ReactNode; pageTitle?: string };
@@ -50,6 +50,7 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
   const [selectedItem, setSelectedItem] = useState(activeItem);
   const [currentUser, setCurrentUser] = useState<ShellUser | null>(() => readCachedUser());
   const [nowHour, setNowHour] = useState<number | null>(null);
+  const [today, setToday] = useState("");
   const localeRef = useRef(locale);
   const pendingLocale = useRef<Locale | null>(null);
   localeRef.current = locale;
@@ -57,11 +58,14 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
   useEffect(() => { setSelectedItem(activeItem); }, [activeItem]);
 
   useEffect(() => {
-    const tick = () => setNowHour(hotelLocalHour(currentUser?.time_zone));
+    const tick = () => {
+      setNowHour(hotelLocalHour(currentUser?.time_zone));
+      setToday(formatHotelLongDate(new Date(), locale, currentUser?.time_zone));
+    };
     tick();
     const timer = window.setInterval(tick, 60_000);
     return () => window.clearInterval(timer);
-  }, [currentUser?.time_zone]);
+  }, [currentUser?.time_zone, locale]);
 
   useEffect(() => {
     const openMore = () => setMobileMoreOpen(true);
@@ -249,7 +253,7 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
           <span className="shrink-0 text-[12px] font-bold text-amber-800">{aiApiSettingsMessages[locale].missingKeyAction} →</span>
         </button>
       ) : null}
-      <header className="flex min-h-14 items-center gap-3 border-b border-[var(--qf-border)] bg-white px-4 lg:px-7"><div className="min-w-0"><p className="truncate text-[16px] font-bold">{pageTitle || greeting}</p><p className="text-[11px] text-[var(--qf-text-muted)] sm:hidden">{d.date}</p></div><p className="hidden text-[13px] text-[var(--qf-text-muted)] sm:block">{d.date}</p><div className="ml-auto flex items-center gap-2"><LanguageSwitcher iconOnly locale={locale} onLocaleChange={(next) => void changeLanguage(next)} /><button type="button" onClick={() => navigate("chat")} aria-label={moduleNavigation.chat} title={moduleNavigation.chat} className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--qf-border)] bg-white text-base transition hover:border-[var(--qf-accent)] hover:bg-[var(--qf-accent-soft)]">💬</button><NotificationDropdown /><button type="button" onClick={() => void logout()} disabled={loggingOut} aria-label={dictionary.common.logout} title={dictionary.common.logout} className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--qf-border)] bg-white text-[var(--qf-text-muted)] transition hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:cursor-wait disabled:opacity-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px]" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 5H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4"/><path d="m15 8 4 4-4 4"/><path d="M19 12H9"/></svg></button></div></header>
+      <header className="flex min-h-14 items-center gap-3 border-b border-[var(--qf-border)] bg-white px-4 lg:px-7"><div className="min-w-0"><p className="truncate text-[16px] font-bold">{pageTitle || greeting}</p><p className="text-[11px] text-[var(--qf-text-muted)] sm:hidden">{today}</p></div><p className="hidden text-[13px] text-[var(--qf-text-muted)] sm:block">{today}</p><div className="ml-auto flex items-center gap-2"><LanguageSwitcher iconOnly locale={locale} onLocaleChange={(next) => void changeLanguage(next)} /><button type="button" onClick={() => navigate("chat")} aria-label={moduleNavigation.chat} title={moduleNavigation.chat} className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--qf-border)] bg-white text-base transition hover:border-[var(--qf-accent)] hover:bg-[var(--qf-accent-soft)]">💬</button><NotificationDropdown /><button type="button" onClick={() => void logout()} disabled={loggingOut} aria-label={dictionary.common.logout} title={dictionary.common.logout} className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--qf-border)] bg-white text-[var(--qf-text-muted)] transition hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:cursor-wait disabled:opacity-50"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-[18px] w-[18px]" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 5H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4"/><path d="m15 8 4 4-4 4"/><path d="M19 12H9"/></svg></button></div></header>
       </div>
       {children}</div>
   </div>;

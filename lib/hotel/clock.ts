@@ -57,6 +57,17 @@ export function hotelLocalHour(timeZone?: string | null, now = new Date()) {
   }).format(now));
 }
 
+export function formatHotelLongDate(value: Date, locale: string, timeZone?: string | null) {
+  const formatted = new Intl.DateTimeFormat(localeTag(locale), {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: hotelTimeZone(timeZone),
+  }).format(value);
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+}
+
 export function formatHotelDate(value: Date, locale: string, timeZone?: string | null) {
   return value.toLocaleDateString(localeTag(locale), { timeZone: hotelTimeZone(timeZone) });
 }
