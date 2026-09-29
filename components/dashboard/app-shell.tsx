@@ -48,7 +48,10 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
   const [mobileMoreOpen, setMobileMoreOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [selectedItem, setSelectedItem] = useState(activeItem);
-  const [currentUser, setCurrentUser] = useState<ShellUser | null>(() => readCachedUser());
+  // Keep the server render and the browser's first render identical. Reading
+  // sessionStorage here would render user-specific navigation only in the
+  // browser and cause React hydration error #418.
+  const [currentUser, setCurrentUser] = useState<ShellUser | null>(null);
   const [nowHour, setNowHour] = useState<number | null>(null);
   const [today, setToday] = useState("");
   const localeRef = useRef(locale);
@@ -76,6 +79,8 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
   useEffect(() => {
     let cancelled = false;
     async function loadUser() {
+      const cachedUser = readCachedUser();
+      if (cachedUser && !cancelled) setCurrentUser(cachedUser);
       try {
         const response = await fetch("/api/me", { cache: "no-store" });
         if (!response.ok) {
