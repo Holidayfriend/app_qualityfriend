@@ -35,15 +35,17 @@ function Group({ title, help, children }: { title: string; help?: string; childr
   );
 }
 
-function SelectField({ label, value, onChange, children }: { label: string; value: string; onChange: (value: string) => void; children: ReactNode }) {
+function SelectField({ id, label, value, onChange, children, requiredMark = false, error }: { id?: string; label: string; value: string; onChange: (value: string) => void; children: ReactNode; requiredMark?: boolean; error?: string }) {
+  const errorId = id ? `${id}-error` : undefined;
   return (
-    <label className="space-y-1.5 text-[13px] font-semibold">{label}
-      <select value={value} onChange={(event) => onChange(event.target.value)} className={selectClass}>{children}</select>
+    <label htmlFor={id} className="space-y-1.5 text-[13px] font-semibold">{label}{requiredMark ? <span aria-hidden="true" className="text-[var(--qf-danger)]"> *</span> : null}
+      <select id={id} value={value} aria-required={requiredMark || undefined} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} onChange={(event) => onChange(event.target.value)} className={`${selectClass} ${error ? "border-[var(--qf-danger)] focus:border-[var(--qf-danger)] focus:ring-3 focus:ring-[#fee2e2]" : "hover:border-[#d8d4cc] focus:border-[var(--qf-accent)] focus:ring-3 focus:ring-[var(--qf-accent-soft)]"}`}>{children}</select>
+      {error ? <span id={errorId} role="alert" className="block text-[11px] font-medium text-[var(--qf-danger)]">{error}</span> : null}
     </label>
   );
 }
 
-export function HotelSettingsForm<T extends HotelSettingsValues>({ hotel, setHotel, locale, t }: { hotel: T; setHotel: Dispatch<SetStateAction<T | null>>; locale: Locale; t: Messages }) {
+export function HotelSettingsForm<T extends HotelSettingsValues>({ hotel, setHotel, locale, t, errors = {} }: { hotel: T; setHotel: Dispatch<SetStateAction<T | null>>; locale: Locale; t: Messages; errors?: Partial<Record<keyof HotelSettingsValues, string>> }) {
   const key = nameKey(locale);
   const countries = listCountries(locale);
   const provinces = listProvinces(hotel.country, locale);
@@ -60,7 +62,7 @@ export function HotelSettingsForm<T extends HotelSettingsValues>({ hotel, setHot
   return (
     <>
       <Group title={t.profileGroup} help={t.profileGroupHelp}>
-        <Input label={t.hotelName} value={hotel[key]} onChange={(event) => update({ [key]: event.target.value })} />
+        <Input id="hotel-name" label={t.hotelName} requiredMark error={errors[key]} value={hotel[key]} onChange={(event) => update({ [key]: event.target.value })} />
         <Input label={t.logo} value={hotel.logoUrl} onChange={(event) => update({ logoUrl: event.target.value })} />
         <SelectField label={t.hotelLanguage} value={hotel.hotelLanguage} onChange={(hotelLanguage) => update({ hotelLanguage })}>
           <option value="EN">English</option>
@@ -81,25 +83,25 @@ export function HotelSettingsForm<T extends HotelSettingsValues>({ hotel, setHot
         </SelectField>
       </Group>
       <Group title={t.companyGroup}>
-        <Input label={t.company} value={hotel.companyName} onChange={(event) => update({ companyName: event.target.value })} />
-        <Input type="email" label={t.email} value={hotel.email} onChange={(event) => update({ email: event.target.value })} />
-        <Input label={t.contact} value={hotel.contactPerson} onChange={(event) => update({ contactPerson: event.target.value })} />
+        <Input id="company-name" label={t.company} requiredMark error={errors.companyName} value={hotel.companyName} onChange={(event) => update({ companyName: event.target.value })} />
+        <Input id="hotel-email" type="email" label={t.email} requiredMark error={errors.email} value={hotel.email} onChange={(event) => update({ email: event.target.value })} />
+        <Input id="contact-person" label={t.contact} requiredMark error={errors.contactPerson} value={hotel.contactPerson} onChange={(event) => update({ contactPerson: event.target.value })} />
         <Input label={t.phone} value={hotel.phoneNumber} onChange={(event) => update({ phoneNumber: event.target.value })} />
-        <SelectField label={t.country} value={hotel.country} onChange={(country) => update({ country, province: listProvinces(country, locale).some((item) => item.code === hotel.province) ? hotel.province : "" })}>
+        <SelectField id="hotel-country" label={t.country} requiredMark error={errors.country} value={hotel.country} onChange={(country) => update({ country, province: listProvinces(country, locale).some((item) => item.code === hotel.province) ? hotel.province : "" })}>
           <option value="">{t.countryPlaceholder}</option>
           {countries.map((country) => <option key={country.code} value={country.code}>{country.label}</option>)}
           {hotel.country && !countries.some((country) => country.code === hotel.country) ? <option value={hotel.country}>{hotel.country}</option> : null}
         </SelectField>
         {provinces.length ? (
-          <SelectField label={t.province} value={hotel.province} onChange={(province) => update({ province })}>
+          <SelectField id="hotel-province" label={t.province} requiredMark error={errors.province} value={hotel.province} onChange={(province) => update({ province })}>
             <option value="">{t.provincePlaceholder}</option>
             {provinces.map((province) => <option key={province.code} value={province.code}>{province.label}</option>)}
             {hotel.province && !provinces.some((province) => province.code === hotel.province) ? <option value={hotel.province}>{hotel.province}</option> : null}
           </SelectField>
         ) : null}
-        <Input label={t.city} value={hotel.city} onChange={(event) => update({ city: event.target.value })} />
-        <Input label={t.street} value={hotel.streetAddress} onChange={(event) => update({ streetAddress: event.target.value })} />
-        <Input label={t.zip} value={hotel.postalCode} onChange={(event) => update({ postalCode: event.target.value })} />
+        <Input id="hotel-city" label={t.city} requiredMark error={errors.city} value={hotel.city} onChange={(event) => update({ city: event.target.value })} />
+        <Input id="hotel-street" label={t.street} requiredMark error={errors.streetAddress} value={hotel.streetAddress} onChange={(event) => update({ streetAddress: event.target.value })} />
+        <Input id="hotel-postal-code" label={t.zip} requiredMark error={errors.postalCode} value={hotel.postalCode} onChange={(event) => update({ postalCode: event.target.value })} />
         <Input label={t.vat} value={hotel.vatId} onChange={(event) => update({ vatId: event.target.value })} />
         <SelectField label={t.legalForm} value={hotel.legalForm} onChange={(legalForm) => update({ legalForm })}>
           <option value="">{t.legalFormPlaceholder}</option>
