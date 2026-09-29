@@ -795,7 +795,20 @@
     "invalidAsaXmlName": "Inserisci solo il nome del file (massimo 255 caratteri), senza percorso o URL.",
     "dataProtection": "Informativa sulla protezione dei dati",
     "privacyPolicy": "Informativa sulla privacy",
-    "policyHelp": "Scritto nella lingua attuale. Il salvataggio lo traduce nelle altre due lingue."
+    "policyHelp": "Scritto nella lingua attuale. Il salvataggio lo traduce nelle altre due lingue.",
+    "changePassword": "Cambia password",
+    "passwordHeading": "Scegli una nuova password",
+    "passwordHelp": "Inserisci la password attuale, poi scegli una nuova password di almeno 8 caratteri.",
+    "currentPassword": "Password attuale",
+    "newPassword": "Nuova password",
+    "confirmPassword": "Conferma nuova password",
+    "passwordMismatch": "Le password non corrispondono.",
+    "currentPasswordIncorrect": "La password attuale non è corretta.",
+    "passwordReused": "Scegli una password diversa da quella attuale.",
+    "passwordChangeError": "Impossibile cambiare la password. Riprova.",
+    "passwordChanged": "La password è stata cambiata.",
+    "updatePassword": "Aggiorna password",
+    "cancel": "Annulla"
   },
   "housekeepingRefreshMessages": {
     "lastImport": "Ultima importazione riuscita",
