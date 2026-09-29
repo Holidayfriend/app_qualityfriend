@@ -3,6 +3,7 @@
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { Input } from "../ui/input";
 import { listCountries, listProvinces } from "../../lib/geo/locations";
+import { parseStarCategory, starCategories } from "../../lib/hotel/star-category";
 import { DEFAULT_HOTEL_TIME_ZONE } from "../../lib/hotel/clock";
 import { accountSettingsMessages, type Locale } from "../../lib/i18n/dictionaries";
 
@@ -70,7 +71,14 @@ export function HotelSettingsForm<T extends HotelSettingsValues>({ hotel, setHot
           {zones.map((zone) => <option key={zone} value={zone}>{zone}</option>)}
         </SelectField>
         <Input label={t.rooms} type="number" min={0} value={hotel.roomCount} onChange={(event) => update({ roomCount: event.target.value })} />
-        <Input label={t.stars} type="number" min={0} max={5} step={0.1} placeholder="4.8" value={hotel.starRating} onChange={(event) => update({ starRating: event.target.value })} />
+        <SelectField label={t.stars} value={hotel.starRating} onChange={(starRating) => update({ starRating })}>
+          <option value="">{t.starsPlaceholder}</option>
+          {starCategories.map((code) => {
+            const label = { "1": t.star1, "2": t.star2, "3": t.star3, "3S": t.star3s, "4": t.star4, "4S": t.star4s, "5": t.star5, "5S": t.star5s }[code];
+            return <option key={code} value={code}>{label}</option>;
+          })}
+          {hotel.starRating && !starCategories.some((code) => code === hotel.starRating) ? <option value={hotel.starRating}>{hotel.starRating}</option> : null}
+        </SelectField>
       </Group>
       <Group title={t.companyGroup}>
         <Input label={t.company} value={hotel.companyName} onChange={(event) => update({ companyName: event.target.value })} />

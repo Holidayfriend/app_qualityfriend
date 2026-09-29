@@ -526,7 +526,7 @@ model HotelTenant {
   sdiCode                      String?                @map("sdi_code") @db.VarChar(7)
   legalForm                    String?                @map("legal_form") @db.VarChar(40)
   roomCount                    Int?                   @map("room_count")
-  starRating                   Decimal?               @map("star_rating") @db.Decimal(3, 1)
+  starRating                   String?                @map("star_rating") @db.VarChar(8)
   seasonal                     Boolean                @default(false) @map("seasonal")
   openingPeriod                String?                @map("opening_period") @db.VarChar(255)
   closurePeriod                String?                @map("closure_period") @db.VarChar(255)
