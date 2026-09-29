@@ -21,7 +21,7 @@ function SelectField({ id, name, label, value, error, requiredMark = false, plac
   error?: string;
   requiredMark?: boolean;
   placeholder: string;
-  options: string[];
+  options: { code: string; label: string }[];
   onChange: (value: string) => void;
 }) {
   const errorId = `${id}-error`;
@@ -30,7 +30,7 @@ function SelectField({ id, name, label, value, error, requiredMark = false, plac
       <label htmlFor={id} className="block text-[13px] font-semibold text-[var(--qf-text)]">{label}{requiredMark ? <span aria-hidden="true" className="text-[var(--qf-danger)]"> *</span> : null}</label>
       <select id={id} name={name} value={value} aria-required={requiredMark || undefined} aria-invalid={Boolean(error)} aria-describedby={error ? errorId : undefined} onChange={(event) => onChange(event.target.value)} className={`h-11 w-full cursor-pointer rounded-lg border bg-white px-3.5 text-sm outline-none transition ${value ? "text-[var(--qf-text)]" : "text-[var(--qf-text-light)]"} ${error ? "border-[var(--qf-danger)] focus:border-[var(--qf-danger)] focus:ring-3 focus:ring-[#fee2e2]" : "border-[var(--qf-border)] hover:border-[#d8d4cc] focus:border-[var(--qf-accent)] focus:ring-3 focus:ring-[var(--qf-accent-soft)]"}`}>
         <option value="">{placeholder}</option>
-        {options.map((option) => <option key={option} value={option}>{option}</option>)}
+        {options.map((option) => <option key={option.code} value={option.code}>{option.label}</option>)}
       </select>
       {error ? <p id={errorId} role="alert" className="text-[11px] font-medium text-[var(--qf-danger)]">{error}</p> : null}
     </div>
@@ -46,7 +46,7 @@ export default function RegisterPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [country, setCountry] = useState("");
   const [province, setProvince] = useState("");
-  const provinces = listProvinces(country);
+  const provinces = listProvinces(country, locale);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -123,7 +123,7 @@ export default function RegisterPage() {
           <fieldset className="space-y-4 border-t border-[var(--qf-border)] pt-5">
             <legend className="mb-3 text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--qf-accent)]">{t.addressSection}</legend>
             <div className="grid gap-4 sm:grid-cols-2">
-              <SelectField id="country" name="country" label={t.country} requiredMark value={country} error={errors.country} placeholder={t.countryPlaceholder} options={listCountries()} onChange={(value) => { setCountry(value); setProvince(""); }} />
+              <SelectField id="country" name="country" label={t.country} requiredMark value={country} error={errors.country} placeholder={t.countryPlaceholder} options={listCountries(locale)} onChange={(value) => { setCountry(value); setProvince(""); }} />
               {provinces.length ? <SelectField id="province" name="province" label={t.province} requiredMark value={province} error={errors.province} placeholder={t.provincePlaceholder} options={provinces} onChange={setProvince} /> : <Input id="city" name="city" label={t.city} requiredMark error={errors.city} autoComplete="address-level2" />}
             </div>
             {provinces.length ? <div className="grid gap-4 sm:grid-cols-2"><Input id="city" name="city" label={t.city} requiredMark error={errors.city} autoComplete="address-level2" /></div> : null}

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { countryName } from "../geo/locations";
 import { prisma } from "../prisma";
 import { completeHotelChatJson } from "../ai/complete";
 
@@ -50,8 +51,9 @@ export async function generateJobCopy(input: {
   if (!hotel) throw new Error("Hotel not found");
   const locale = input.locale === "de" || input.locale === "it" ? input.locale : "en";
   const hotelName = pickHotelName(hotel, locale);
-  const location = [hotel.city, hotel.country].filter(Boolean).join(", ") || hotel.city || hotel.country;
-  const address = [hotel.streetAddress, hotel.postalCode, hotel.city, hotel.country].filter(Boolean).join(", ");
+  const country = countryName(hotel.country, locale);
+  const location = [hotel.city, country].filter(Boolean).join(", ") || hotel.city || country;
+  const address = [hotel.streetAddress, hotel.postalCode, hotel.city, country].filter(Boolean).join(", ");
   const language = locale === "de" ? "German" : locale === "it" ? "Italian" : "English";
   const parsed = await completeJson(input.hotelTenantId, [
     {

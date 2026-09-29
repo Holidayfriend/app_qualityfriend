@@ -44,8 +44,8 @@ function SelectField({ label, value, onChange, children }: { label: string; valu
 
 export function HotelSettingsForm<T extends HotelSettingsValues>({ hotel, setHotel, locale, t }: { hotel: T; setHotel: Dispatch<SetStateAction<T | null>>; locale: Locale; t: Messages }) {
   const key = nameKey(locale);
-  const countries = listCountries();
-  const provinces = listProvinces(hotel.country);
+  const countries = listCountries(locale);
+  const provinces = listProvinces(hotel.country, locale);
   const pmsChoice = hotel.pmsName === "ASA" ? "ASA" : hotel.pmsName ? "OTHER" : "";
   const zones = hotel.timeZone && !timeZones.includes(hotel.timeZone) ? [hotel.timeZone, ...timeZones] : timeZones;
   const legalForms = [
@@ -77,16 +77,16 @@ export function HotelSettingsForm<T extends HotelSettingsValues>({ hotel, setHot
         <Input type="email" label={t.email} value={hotel.email} onChange={(event) => update({ email: event.target.value })} />
         <Input label={t.contact} value={hotel.contactPerson} onChange={(event) => update({ contactPerson: event.target.value })} />
         <Input label={t.phone} value={hotel.phoneNumber} onChange={(event) => update({ phoneNumber: event.target.value })} />
-        <SelectField label={t.country} value={hotel.country} onChange={(country) => update({ country, province: listProvinces(country).includes(hotel.province) ? hotel.province : "" })}>
+        <SelectField label={t.country} value={hotel.country} onChange={(country) => update({ country, province: listProvinces(country, locale).some((item) => item.code === hotel.province) ? hotel.province : "" })}>
           <option value="">{t.countryPlaceholder}</option>
-          {countries.map((name) => <option key={name} value={name}>{name}</option>)}
-          {hotel.country && !countries.includes(hotel.country) ? <option value={hotel.country}>{hotel.country}</option> : null}
+          {countries.map((country) => <option key={country.code} value={country.code}>{country.label}</option>)}
+          {hotel.country && !countries.some((country) => country.code === hotel.country) ? <option value={hotel.country}>{hotel.country}</option> : null}
         </SelectField>
         {provinces.length ? (
           <SelectField label={t.province} value={hotel.province} onChange={(province) => update({ province })}>
             <option value="">{t.provincePlaceholder}</option>
-            {provinces.map((name) => <option key={name} value={name}>{name}</option>)}
-            {hotel.province && !provinces.includes(hotel.province) ? <option value={hotel.province}>{hotel.province}</option> : null}
+            {provinces.map((province) => <option key={province.code} value={province.code}>{province.label}</option>)}
+            {hotel.province && !provinces.some((province) => province.code === hotel.province) ? <option value={hotel.province}>{hotel.province}</option> : null}
           </SelectField>
         ) : null}
         <Input label={t.city} value={hotel.city} onChange={(event) => update({ city: event.target.value })} />

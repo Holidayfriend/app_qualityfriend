@@ -1,4 +1,5 @@
 import type { PrismaClient } from "../../app/generated/prisma/client";
+import { countryName } from "../geo/locations";
 import { firstRainHour, hotelAddressKey, weatherFromCode } from "./codes";
 
 const GEOCODE_URL = "https://geocoding-api.open-meteo.com/v1/search";
@@ -23,7 +24,7 @@ type ForecastResult = {
 export async function syncHotelWeather(prisma: PrismaClient, hotel: HotelRow) {
   const addressKey = hotelAddressKey(hotel);
   const coords = hotel.weather?.addressKey === addressKey
-    ? { latitude: hotel.weather.latitude, longitude: hotel.weather.longitude, cityName: hotel.city, countryName: hotel.country }
+    ? { latitude: hotel.weather.latitude, longitude: hotel.weather.longitude, cityName: hotel.city, countryName: countryName(hotel.country, "en") }
     : await geocodeHotel(hotel);
 
   const forecast = await fetchJson<ForecastResult>(
@@ -108,17 +109,18 @@ export async function syncAllHotelWeather(prisma: PrismaClient, hotelTenantId?: 
 async function geocodeHotel(hotel: HotelRow) {
   const city = hotel.city.trim();
   const postal = hotel.postalCode.trim();
-  const country = hotel.country.trim().toLowerCase();
+  const countryEn = countryName(hotel.country, "en");
+  const country = countryEn.trim().toLowerCase();
   const data = await fetchJson<{ results?: GeoResult[] }>(`${GEOCODE_URL}?name=${encodeURIComponent(city)}&count=5&language=en&format=json`);
   const results = data.results ?? [];
   const match = results.find((item) => postal && item.postcodes?.some((code) => code.replace(/\s/g, "") === postal.replace(/\s/g, "")))
     ?? results.find((item) => item.country?.toLowerCase() === country)
     ?? (country ? undefined : results[0]);
-  if (match) return { latitude: match.latitude, longitude: match.longitude, cityName: match.name || city, countryName: match.country || hotel.country };
+  if (match) return { latitude: match.latitude, longitude: match.longitude, cityName: match.name || city, countryName: match.country || countryEn };
 
   const fallbackQueries = [
-    [city, hotel.country].filter((part) => part.trim()).join(", "),
-    [hotel.streetAddress, postal, city, hotel.country].filter((part) => part.trim()).join(", "),
+    [city, countryEn].filter((part) => part.trim()).join(", "),
+    [hotel.streetAddress, postal, city, countryEn].filter((part) => part.trim()).join(", "),
   ].filter((query, index, list) => query && list.indexOf(query) === index);
 
   for (const fallbackQuery of fallbackQueries) {
@@ -126,7 +128,7 @@ async function geocodeHotel(hotel: HotelRow) {
       `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(fallbackQuery)}&format=json&limit=1`,
     );
     const place = nominatim[0];
-    if (place) return { latitude: Number(place.lat), longitude: Number(place.lon), cityName: city, countryName: hotel.country };
+    if (place) return { latitude: Number(place.lat), longitude: Number(place.lon), cityName: city, countryName: countryEn };
   }
   throw new Error(`Could not geocode hotel address for ${city}.`);
 }
