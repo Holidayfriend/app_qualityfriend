@@ -324,6 +324,7 @@ model RoomOperationalState {
   noService Boolean @default(false) @map("no_service")
   doNotDisturbUntil DateTime? @map("do_not_disturb_until") @db.Timestamptz(3)
   noServiceUntil DateTime? @map("no_service_until") @db.Timestamptz(3)
+  isUrgent Boolean @default(false) @map("is_urgent")
   isExpress Boolean @default(false) @map("is_express")
   linenChange Boolean @default(false) @map("linen_change")
   expressDeadline DateTime? @map("express_deadline") @db.Timestamptz(3)
