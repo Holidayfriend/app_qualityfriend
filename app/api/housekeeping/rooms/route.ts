@@ -129,7 +129,7 @@ export async function GET(request: Request) {
         } } }, orderBy: { number: "asc" }, select: {
           id: true, number: true,
           roomOperationalStateRecords: { take: 1, select: { cleanliness: true, breakfastInRoom: true, doNotDisturb: true, noService: true, isExpress: true, linenChange: true } },
-          housekeepingScheduleAssignmentRecords: { where: { workDate: day }, take: 1, select: { cleaningType: true } },
+          housekeepingScheduleAssignmentRecords: { where: { workDate: day }, take: 1, select: { cleaningType: true, assignedTo: { select: { firstName: true, lastName: true } } } },
           reservationRoomStayRecords: { where: {
             arrivalDate: { lte: day }, departureDate: { gte: day },
             reservation: { sourcePresent: true, status: { notIn: ["CANCELLED", "NO_SHOW"] } },
@@ -153,6 +153,7 @@ export async function GET(request: Request) {
         const status = state?.noService ? "noCleaningDesired" as const : ({ UNKNOWN: "unassigned", DIRTY: "dirty", CLEANING: "cleaning", CLEAN: "clean", INSPECTED: "inspected" } as const)[state?.cleanliness ?? "UNKNOWN"];
         const isExpress = Boolean(state?.isExpress) || assignment?.cleaningType === "EXPRESS";
         return { id: room.id, number: room.number, status, isExpress,
+          assignedUserName: assignment?.assignedTo ? `${assignment.assignedTo.firstName} ${assignment.assignedTo.lastName}`.trim() || null : null,
           linenChange: Boolean(state?.linenChange),
           breakfastInRoom: state?.breakfastInRoom ?? false,
           doNotDisturb: state?.doNotDisturb ?? false,
