@@ -673,6 +673,8 @@
     "cleanedDaily": "Pulizia giornaliera",
     "cleanliness": "Stato di pulizia",
     "guestWish": "Preferenza di pulizia dell'ospite (intero soggiorno)",
+    "dailyMovements": "Movimenti giornalieri",
+    "dailyMovementsTime": "Oggi 12:00",
     "guestCleaningDaily": "Ogni giorno",
     "guestCleaningAsNeeded": "Secondo necessità",
     "guestCleaningNone": "Nessuna pulizia richiesta",

@@ -675,6 +675,8 @@
     "cleanedDaily": "Cleaned daily",
     "cleanliness": "Cleanliness status",
     "guestWish": "Guest cleaning preference (entire stay)",
+    "dailyMovements": "Daily movements",
+    "dailyMovementsTime": "Today 12:00",
     "guestCleaningDaily": "Daily",
     "guestCleaningAsNeeded": "As needed",
     "guestCleaningNone": "No cleaning requested",
