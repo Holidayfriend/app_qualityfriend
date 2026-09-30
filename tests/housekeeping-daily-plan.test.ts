@@ -43,10 +43,28 @@ test("daily linen is due every occupied day", () => {
   assert.equal(linenDueToday({ ...linen, linen_frequency: "DAILY" }, "2026-09-15"), true);
 });
 
-test("every-second-day linen follows arrival then every other day", () => {
-  assert.equal(linenDueToday({ ...linen, linen_frequency: "EVERY_SECOND_DAY" }, "2026-09-14"), true);
-  assert.equal(linenDueToday({ ...linen, linen_frequency: "EVERY_SECOND_DAY" }, "2026-09-15"), false);
-  assert.equal(linenDueToday({ ...linen, linen_frequency: "EVERY_SECOND_DAY" }, "2026-09-16"), true);
+test("every-second-day linen starts on stay day 2, not arrival", () => {
+  const stay = { ...linen, linen_frequency: "EVERY_SECOND_DAY" };
+  assert.equal(linenDueToday(stay, "2026-09-14"), false);
+  assert.equal(linenDueToday(stay, "2026-09-15"), true);
+  assert.equal(linenDueToday(stay, "2026-09-16"), false);
+  assert.equal(linenDueToday(stay, "2026-09-17"), true);
+});
+
+test("September 20 arrival has linen due on October 1, stay day 12", () => {
+  const stay = { ...linen, arrival_date: "2026-09-20", linen_frequency: "EVERY_SECOND_DAY" };
+  assert.equal(linenDueToday(stay, "2026-09-30"), false);
+  assert.equal(linenDueToday(stay, "2026-10-01"), true);
+  assert.equal(linenDueToday(stay, "2026-10-02"), false);
+});
+
+test("weekly linen is due on stay days 7 and 14 only", () => {
+  const stay = { ...linen, linen_frequency: "WEEKLY" };
+  for (const date of ["2026-09-14", "2026-09-19", "2026-09-21", "2026-09-26", "2026-09-28"]) {
+    assert.equal(linenDueToday(stay, date), false, date);
+  }
+  assert.equal(linenDueToday(stay, "2026-09-20"), true);
+  assert.equal(linenDueToday(stay, "2026-09-27"), true);
 });
 
 test("on-request linen is due only on selected weekdays", () => {

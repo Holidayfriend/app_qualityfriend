@@ -47,10 +47,10 @@ export function cleaningPlan(stay: Pick<StayRow, "arrival_date" | "departure_dat
 }
 
 export function linenDueToday(stay: Pick<StayRow, "arrival_date" | "linen_frequency" | "linen_weekdays">, date: string) {
-  const elapsed = dayDifference(stay.arrival_date, date);
+  const stayDay = dayDifference(stay.arrival_date, date) + 1; // arrival is stay day 1
   return stay.linen_frequency === "DAILY"
-    || stay.linen_frequency === "EVERY_SECOND_DAY" && elapsed % 2 === 0
-    || stay.linen_frequency === "WEEKLY" && elapsed % 7 === 0
+    || stay.linen_frequency === "EVERY_SECOND_DAY" && stayDay % 2 === 0
+    || stay.linen_frequency === "WEEKLY" && stayDay % 7 === 0
     || stay.linen_frequency === "ON_REQUEST" && (stay.linen_weekdays ?? []).includes(isoWeekday(date));
 }
 
@@ -77,6 +77,20 @@ export async function generateHotelDailyPlan(prisma: PrismaClient, hotelTenantId
       await tx.$executeRaw`
         DELETE FROM housekeeping_checklist_completions
         WHERE hotel_tenant_id=${hotelTenantId}::uuid AND work_date=${workDate}::date`;
+
+      // Clear daily guest-service flags on every run, including rooms without a current stay.
+      // Urgency is independent of the automatically calculated Express cleaning type.
+      await tx.roomOperationalState.updateMany({
+        where: { hotelTenantId },
+        data: {
+          breakfastInRoom: false,
+          isUrgent: false,
+          doNotDisturb: false,
+          noService: false,
+          doNotDisturbUntil: null,
+          noServiceUntil: null,
+        },
+      });
 
       // Occupied rooms today: one stay per room (latest arrival if two overlap).
       // Joins reservation (skip cancelled/no-show), room, category minutes/frequency, permanent cleaner.
