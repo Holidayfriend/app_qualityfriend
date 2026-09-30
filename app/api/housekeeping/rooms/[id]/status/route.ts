@@ -28,9 +28,10 @@ export async function PATCH(request: Request, context: Context) {
   const { id: roomId } = await context.params;
   if (!user) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
   if (!uuid.test(roomId)) return Response.json({ error: "INVALID_ROOM_ID" }, { status: 400 });
-  const body = await request.json().catch(() => null) as { status?: unknown; breakfastInRoom?: unknown; doNotDisturb?: unknown; noService?: unknown; isUrgent?: unknown } | null;
+  const body = await request.json().catch(() => null) as { status?: unknown; breakfastInRoom?: unknown; doNotDisturb?: unknown; noService?: unknown; isUrgent?: unknown; guestCleaningPreference?: unknown } | null;
   const status = typeof body?.status === "string" && body.status in cleanliness ? body.status as keyof typeof cleanliness : null;
   if (!status || typeof body?.breakfastInRoom !== "boolean" || typeof body?.doNotDisturb !== "boolean" || typeof body?.noService !== "boolean" || (body?.isUrgent !== undefined && typeof body.isUrgent !== "boolean")) return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
+  if (body.guestCleaningPreference !== undefined && (typeof body.guestCleaningPreference !== "string" || !["DAILY", "AS_NEEDED", "NONE"].includes(body.guestCleaningPreference))) return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
   let workDate: string;
   try { workDate = hotelDate(hotelTimeZone(user.hotelTenant.timeZone)); } catch { return Response.json({ error: "INVALID_HOTEL_TIME_ZONE" }, { status: 500 }); }
   const room = await prisma.room.findFirst({ where: { id: roomId, hotelTenantId: user.hotelTenantId, isActive: true, archivedAt: null }, select: { id: true, number: true } });
@@ -38,16 +39,17 @@ export async function PATCH(request: Request, context: Context) {
   const target = cleanliness[status];
   const noService = status === "noCleaningDesired" || body.noService;
   await prisma.$transaction(async (tx) => {
-    const before = await tx.roomOperationalState.findFirst({ where: { hotelTenantId: user.hotelTenantId, roomId: room.id }, select: { cleanliness: true, breakfastInRoom: true, doNotDisturb: true, noService: true, isUrgent: true } });
-    await tx.$executeRaw`INSERT INTO room_operational_states (id,hotel_tenant_id,room_id,cleanliness,breakfast_in_room,do_not_disturb,no_service,is_urgent,last_cleaned_at,updated_at)
-      VALUES (${randomUUID()}::uuid,${user.hotelTenantId}::uuid,${room.id}::uuid,${target}::"RoomCleanliness",${body.breakfastInRoom},${body.doNotDisturb},${noService},${body.isUrgent ?? false},${target === "CLEAN" ? new Date() : null},NOW())
+    const before = await tx.roomOperationalState.findFirst({ where: { hotelTenantId: user.hotelTenantId, roomId: room.id }, select: { cleanliness: true, breakfastInRoom: true, doNotDisturb: true, noService: true, isUrgent: true, guestCleaningPreference: true } });
+    await tx.$executeRaw`INSERT INTO room_operational_states (id,hotel_tenant_id,room_id,cleanliness,breakfast_in_room,do_not_disturb,no_service,is_urgent,guest_cleaning_preference,last_cleaned_at,updated_at)
+      VALUES (${randomUUID()}::uuid,${user.hotelTenantId}::uuid,${room.id}::uuid,${target}::"RoomCleanliness",${body.breakfastInRoom},${body.doNotDisturb},${noService},${body.isUrgent ?? false},${body.guestCleaningPreference ?? "DAILY"},${target === "CLEAN" ? new Date() : null},NOW())
       ON CONFLICT (hotel_tenant_id,room_id) DO UPDATE SET cleanliness=EXCLUDED.cleanliness,breakfast_in_room=EXCLUDED.breakfast_in_room,do_not_disturb=EXCLUDED.do_not_disturb,no_service=EXCLUDED.no_service,is_urgent=COALESCE(${body.isUrgent ?? null}::boolean,room_operational_states.is_urgent),
+      guest_cleaning_preference=COALESCE(${body.guestCleaningPreference ?? null}::text,room_operational_states.guest_cleaning_preference),
       last_cleaned_at=CASE WHEN EXCLUDED.cleanliness='CLEAN' THEN NOW() ELSE room_operational_states.last_cleaned_at END,updated_at=NOW()`;
     if (target === "CLEAN") await tx.$executeRaw`UPDATE housekeeping_room_assignments SET completed_at=COALESCE(completed_at,NOW()),updated_at=NOW()
       WHERE hotel_tenant_id=${user.hotelTenantId}::uuid AND room_id=${room.id}::uuid AND work_date=${workDate}::date AND assigned_to_id IS NOT NULL`;
     else if (target === "DIRTY" || target === "CLEANING" || target === "UNKNOWN") await tx.$executeRaw`UPDATE housekeeping_room_assignments SET completed_at=NULL,updated_at=NOW()
       WHERE hotel_tenant_id=${user.hotelTenantId}::uuid AND room_id=${room.id}::uuid AND work_date=${workDate}::date AND completed_at IS NOT NULL`;
-    await recordAuditLog(tx, { hotelTenantId: user.hotelTenantId, actorId: user.id, action: "STATUS_CHANGE", entityType: "ROOM", entityId: room.id, changes: { roomNumber: room.number, workDate, before, after: { cleanliness: target, breakfastInRoom: body.breakfastInRoom, doNotDisturb: body.doNotDisturb, noService, isUrgent: body.isUrgent ?? before?.isUrgent ?? false }, assignmentCompleted: target === "CLEAN" } });
+    await recordAuditLog(tx, { hotelTenantId: user.hotelTenantId, actorId: user.id, action: "STATUS_CHANGE", entityType: "ROOM", entityId: room.id, changes: { roomNumber: room.number, workDate, before, after: { cleanliness: target, breakfastInRoom: body.breakfastInRoom, doNotDisturb: body.doNotDisturb, noService, isUrgent: body.isUrgent ?? before?.isUrgent ?? false, guestCleaningPreference: body.guestCleaningPreference ?? before?.guestCleaningPreference ?? "DAILY" }, assignmentCompleted: target === "CLEAN" } });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   return Response.json({ success: true, status });
 }

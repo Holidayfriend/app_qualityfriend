@@ -67,7 +67,7 @@ export async function GET(request: Request) {
         category: { select: { nameEn: true, nameDe: true, nameIt: true } },
         floor: { select: { code: true, nameEn: true, nameDe: true, nameIt: true } },
         checklistTemplate: true,
-        roomOperationalStateRecords: { take: 1, select: { cleanliness: true, breakfastInRoom: true, doNotDisturb: true, noService: true, isExpress: true, isUrgent: true, lastCleanedAt: true, lastInspectedAt: true } },
+        roomOperationalStateRecords: { take: 1, select: { cleanliness: true, breakfastInRoom: true, doNotDisturb: true, noService: true, isExpress: true, isUrgent: true, guestCleaningPreference: true, lastCleanedAt: true, lastInspectedAt: true } },
         reservationRoomStayRecords: {
           where: { arrivalDate: { lte: day }, departureDate: { gte: day }, reservation: { sourcePresent: true, status: { notIn: ["CANCELLED", "NO_SHOW"] } } },
           orderBy: { arrivalDate: "asc" },
@@ -98,7 +98,7 @@ export async function GET(request: Request) {
       id: room.id, number: room.number, name: translatedName(room, activeLocale),
       category: room.category ? translatedName(room.category, activeLocale) : null,
       floor: room.floor ? translatedName(room.floor, activeLocale) || room.floor.code : null,
-      status, breakfastInRoom: state?.breakfastInRoom ?? false, doNotDisturb: state?.doNotDisturb ?? false, noService: state?.noService ?? false, isExpress: state?.isExpress ?? false, isUrgent: state?.isUrgent ?? false,
+      status, breakfastInRoom: state?.breakfastInRoom ?? false, doNotDisturb: state?.doNotDisturb ?? false, noService: state?.noService ?? false, isExpress: state?.isExpress ?? false, isUrgent: state?.isUrgent ?? false, guestCleaningPreference: state?.guestCleaningPreference ?? "DAILY",
       lastCleanedAt: state?.lastCleanedAt ?? null, lastInspectedAt: state?.lastInspectedAt ?? null,
       isArrivalToday: stay?.arrivalDate.getTime() === day.getTime(),
       roomChecks: roomChecks.map((label, index) => ({ index, label, checked: completed.has(`ROOM:${index}`) })),
