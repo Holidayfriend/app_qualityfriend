@@ -56,3 +56,25 @@ export async function PATCH(request: Request, context: Context) {
   });
   return updated ? Response.json({ success: true }) : Response.json({ error: "NOT_FOUND" }, { status: 404 });
 }
+
+export async function DELETE(_request: Request, context: Context) {
+  const user = await actor();
+  const { id } = await context.params;
+  if (!user || !uuid.test(id)) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
+  const result = await prisma.$transaction(async tx => {
+    // Serialize deletion with category edits and room foreign-key checks.
+    await tx.$queryRaw`SELECT id FROM room_categories WHERE id = ${id}::uuid AND hotel_tenant_id = ${user.hotelTenantId}::uuid FOR UPDATE`;
+    const where = { id, hotelTenantId: user.hotelTenantId, isActive: true, archivedAt: null };
+    const before = await tx.roomCategory.findFirst({ where });
+    if (!before) return "NOT_FOUND";
+    // Archived and inactive rooms still reference their category.
+    const room = await tx.room.findFirst({ where: { categoryId: id, hotelTenantId: user.hotelTenantId }, select: { id: true } });
+    if (room) return "CATEGORY_HAS_ROOMS";
+    await tx.roomCategory.delete({ where });
+    await recordAuditLog(tx, { hotelTenantId: user.hotelTenantId, actorId: user.id, action: "DELETE", entityType: "ROOM_CATEGORY", entityId: id, changes: { before: categoryAuditSnapshot(before) } });
+    return "DELETED";
+  });
+  if (result === "NOT_FOUND") return Response.json({ error: result }, { status: 404 });
+  if (result === "CATEGORY_HAS_ROOMS") return Response.json({ error: result }, { status: 409 });
+  return Response.json({ success: true });
+}

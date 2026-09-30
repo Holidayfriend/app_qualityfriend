@@ -24,9 +24,9 @@ export async function GET(request: Request) {
   const user = await actor();
   if (!user) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
   const activeLocale = locale(new URL(request.url).searchParams.get("locale"));
-  const categories = await prisma.roomCategory.findMany({ where: { hotelTenantId: user.hotelTenantId, isActive: true, archivedAt: null }, orderBy: { nameEn: "asc" }, select: { id: true, nameEn: true, nameDe: true, nameIt: true, expressMinutes: true, normalMinutes: true, departureMinutes: true, finalMinutes: true } });
+  const categories = await prisma.roomCategory.findMany({ where: { hotelTenantId: user.hotelTenantId, isActive: true, archivedAt: null }, orderBy: { nameEn: "asc" }, select: { id: true, nameEn: true, nameDe: true, nameIt: true, expressMinutes: true, normalMinutes: true, departureMinutes: true, finalMinutes: true, _count: { select: { roomRecords: true } } } });
   const name = (category: typeof categories[number]) => activeLocale === "de" ? category.nameDe || category.nameEn : activeLocale === "it" ? category.nameIt || category.nameEn : category.nameEn;
-  return Response.json({ categories: categories.map((category) => ({ id: category.id, name: name(category), express: category.expressMinutes, normal: category.normalMinutes, departure: category.departureMinutes, final: category.finalMinutes })) }, { headers: { "Cache-Control": "no-store" } });
+  return Response.json({ categories: categories.map((category) => ({ id: category.id, name: name(category), express: category.expressMinutes, normal: category.normalMinutes, departure: category.departureMinutes, final: category.finalMinutes, canDelete: category._count.roomRecords === 0 })) }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST(request: Request) {
