@@ -124,3 +124,38 @@ test("notification failure rolls back the import rather than committing data wit
   assert.equal(db.queries.at(-1)?.sql,"ROLLBACK");
   assert.equal(db.queries.filter(query=>query.sql==="COMMIT").length,1); // Only the initial RUNNING status committed.
 });
+
+test("system import rechecks hotel eligibility, imports XML, and skips user notifications", async () => {
+  const db = fakePool(sql => ({ rows: sql.startsWith("SELECT status") ? [{status:"QUEUED"}]
+    : sql.startsWith("SELECT asa_xml_name FROM hotel_tenants") ? [{asa_xml_name:job.xmlName}]
+    : sql.includes("RETURNING id") ? [{id:"record-a"}] : [] }));
+  const result = await importHousekeeping(db.pool, {...job, actorId:null}, undefined, async () => xml(record()));
+  assert.equal("created" in result && result.created, 1);
+  const checks = db.queries.filter(query => query.sql.startsWith("SELECT asa_xml_name FROM hotel_tenants"));
+  assert.equal(checks.length, 2);
+  for (const check of checks) {
+    assert.deepEqual(check.values, [job.hotelTenantId]);
+    assert.match(check.sql, /is_active AND subscription_status IN/);
+  }
+  assert.ok(db.queries.some(query => query.sql.includes("INSERT INTO audit_logs") && query.values?.[2] === null));
+  assert.ok(!db.queries.some(query => query.sql.includes("INSERT INTO notifications")));
+  assert.equal(db.queries.at(-1)?.sql, "COMMIT");
+});
+
+test("system import rejects inactive hotels or changed XML settings before reading XML", async () => {
+  for (const rows of [[], [{asa_xml_name:"changed"}]]) {
+    const db = fakePool(sql => ({rows: sql.startsWith("SELECT status") ? [{status:"QUEUED"}] : rows}));
+    let read = false;
+    await assert.rejects(importHousekeeping(db.pool, {...job, actorId:null}, undefined, async () => { read = true; return xml(record()); }), /authorization changed/);
+    assert.equal(read, false);
+    assert.equal(db.queries.at(-1)?.sql, "ROLLBACK");
+  }
+});
+
+test("system import failure records an audit entry without a user notification", async () => {
+  const db = fakePool(sql => ({rows: sql.startsWith("UPDATE import_runs") ? [{id:job.runId}] : [], rowCount:1}));
+  await recordImportFailure(db.pool, {...job, actorId:null}, true);
+  assert.ok(db.queries.some(query => query.sql.includes("INSERT INTO audit_logs")));
+  assert.ok(!db.queries.some(query => query.sql.includes("INSERT INTO notifications")));
+  assert.equal(db.queries.at(-1)?.sql, "COMMIT");
+});

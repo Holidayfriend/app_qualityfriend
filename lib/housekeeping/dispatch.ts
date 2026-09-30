@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { getJobQueue, queues, type HousekeepingImportJob } from "../jobs/queue";
 import { jobDatabase } from "../jobs/database";
 
-export async function dispatchHousekeepingImport(hotelTenantId: string, actorId: string, xmlName: string) {
+export async function dispatchHousekeepingImport(hotelTenantId: string, actorId: string | null, xmlName: string) {
   const boss = await getJobQueue();
   const client = await jobDatabase().connect();
   try {

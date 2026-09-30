@@ -101,3 +101,41 @@ the production database network and supply any API credentials its handlers need
 Do not use local source/dependency bind mounts in production. Start/update the
 worker with the app on every deployment. Docker sends SIGTERM on shutdown; the
 worker waits up to 30 seconds for active work, then unfinished jobs can be retried.
+
+## Scheduled ASA XML imports
+
+After deploying these changes, restart the worker so it supports system imports.
+Queue imports for all active hotels with ACTIVE/COMPED subscriptions:
+
+```bash
+docker compose exec -T worker npm run housekeeping:import
+```
+
+Hotels without an ASA XML filename are skipped. Invalid filenames are reported as
+failures. An optional hotel UUID limits the command to that hotel:
+
+```bash
+docker compose exec -T worker npm run housekeeping:import -- HOTEL_UUID
+```
+
+For every two hours, add this to the server user's crontab (replace the project
+path; that user must have Docker access):
+
+```cron
+0 */2 * * * cd /path/to/app_qualityfriend && docker compose exec -T worker npm run housekeeping:import >> /path/to/app_qualityfriend/housekeeping-import.log 2>&1
+```
+
+This uses the server's cron timezone. Keep the worker running. The command queues
+imports and exits; it does not wait for XML downloads to finish. It reports each
+hotel and totals, continues if one dispatch fails, and exits nonzero for dispatch
+failures. Already queued/running imports are skipped using the existing queue's
+per-hotel singleton protection. Worker failures use existing retries and import
+run records. Check completion with `docker compose logs --since 2h worker`.
+
+System imports retain audit/import-run records with no user actor and do not send
+user notifications. Hotel eligibility and XML settings are checked again by the
+worker. Manual Refresh keeps its user permission checks and notifications.
+
+This command imports reservation and guest data only; it does not invoke
+`housekeeping:daily` or reset cleaning status/checklist ticks. If generating a
+morning plan, wait for the XML import to succeed before running the daily command.

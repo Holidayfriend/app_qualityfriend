@@ -6,6 +6,14 @@ import { parseAsaXml } from "./xml-parser";
 import { readAsaFile } from "./asa-file";
 
 async function assertActor(client: PoolClient, data: HousekeepingImportJob) {
+  // Null actors come only from the trusted server CLI, never HTTP input.
+  if (data.actorId === null) {
+    const result = await client.query(`SELECT asa_xml_name FROM hotel_tenants
+      WHERE id=$1 AND is_active AND subscription_status IN ('ACTIVE','COMPED')
+      FOR SHARE`, [data.hotelTenantId]);
+    if (result.rows[0]?.asa_xml_name?.trim() !== data.xmlName) throw new Error("Import settings or authorization changed");
+    return;
+  }
   const result = await client.query(`SELECT h.asa_xml_name FROM hotel_tenants h JOIN users u ON u.hotel_tenant_id=h.id
     WHERE h.id=$1 AND u.id=$2 AND h.is_active AND u.is_active AND NOT u.is_deleted
     AND h.subscription_status IN ('ACTIVE','COMPED')
@@ -103,7 +111,7 @@ export async function importHousekeeping(pool: Pool, data: HousekeepingImportJob
     [data.runId, data.hotelTenantId, checksum, parsed.read, created, updated, parsed.skipped]);
     await client.query("UPDATE hotel_import_sources SET last_successful_at=NOW(),updated_at=NOW() WHERE id=$1 AND hotel_tenant_id=$2", [data.sourceId, data.hotelTenantId]);
     await log(client, data, "SUCCEEDED", counts);
-    await createNotification(client, { hotelTenantId: data.hotelTenantId, recipientId: data.actorId, eventKey: `housekeeping-import:${data.runId}`,
+    if (data.actorId !== null) await createNotification(client, { hotelTenantId: data.hotelTenantId, recipientId: data.actorId, eventKey: `housekeeping-import:${data.runId}`,
       moduleKey: "housekeeping", icon: "housekeeping", destination: "/housekeeping", text: {
         en: { title: "Housekeeping import completed", body: `${created} reservations inserted, ${updated} updated; ${guests} guests imported. ${parsed.skipped} unsupported records skipped.` },
         de: { title: "Housekeeping-Import abgeschlossen", body: `${created} Reservierungen eingefügt, ${updated} aktualisiert; ${guests} Gäste importiert. ${parsed.skipped} nicht unterstützte Einträge übersprungen.` },
@@ -145,7 +153,7 @@ export async function recordImportFailure(pool: Pool, data: HousekeepingImportJo
     [data.runId, data.hotelTenantId, final ? "FAILED" : "QUEUED", `${reason ?? "Import failed. Check the worker logs and configuration."}${final ? "" : " Retry pending."}`, final]);
     if (result.rowCount) {
       await log(client, data, final ? "FAILED" : "RETRY_PENDING", { reason: reason ?? "Worker failure or timeout" });
-      if (final) await createNotification(client, { hotelTenantId: data.hotelTenantId, recipientId: data.actorId, eventKey: `housekeeping-import:${data.runId}`,
+      if (final && data.actorId !== null) await createNotification(client, { hotelTenantId: data.hotelTenantId, recipientId: data.actorId, eventKey: `housekeeping-import:${data.runId}`,
         moduleKey: "housekeeping", icon: "housekeeping", destination: "/housekeeping", text: {
           en: { title: "Housekeeping import failed", body: "No import changes were saved. Check the XML file and hotel settings, then refresh again." },
           de: { title: "Housekeeping-Import fehlgeschlagen", body: "Keine Importänderungen gespeichert. XML-Datei und Hoteleinstellungen prüfen und erneut aktualisieren." },

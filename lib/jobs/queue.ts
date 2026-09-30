@@ -1,7 +1,7 @@
 import { PgBoss } from "pg-boss";
 
 export const queues = { smoke: "qualityfriend-smoke", housekeeping: "housekeeping-import", housekeepingFailed: "housekeeping-import-failed", weatherDaily: "weather-daily", checklistsDaily: "checklists-daily", manualIndex: "manual-index", recruitingAiScore: "recruiting-ai-score", aiRecommendationDaily: "ai-recommendation-daily", housekeepingAiAllocate: "housekeeping-ai-allocate", userWelcome: "user-welcome-email", hotelWelcome: "hotel-welcome-email" } as const;
-export type HousekeepingImportJob = { hotelTenantId: string; actorId: string; xmlName: string; runId: string; sourceId: string };
+export type HousekeepingImportJob = { hotelTenantId: string; actorId: string | null; xmlName: string; runId: string; sourceId: string };
 export type SmokeJob = { message: string };
 export type ManualIndexJob = { hotelTenantId: string; documentId: string };
 export type RecruitingAiScoreJob = { hotelTenantId: string; applicationId: string };
