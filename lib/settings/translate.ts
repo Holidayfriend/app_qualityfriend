@@ -9,7 +9,7 @@ function asText(value: unknown, fallback: string) {
   return typeof value === "string" && value.trim() ? value.trim().slice(0, 180) : fallback;
 }
 
-export async function translateEntityName(hotelTenantId: string, locale: string, name: string): Promise<NameLocalePack> {
+export async function translateEntityName(hotelTenantId: string, locale: string, name: string, entity: "department or team" | "user role" = "department or team"): Promise<NameLocalePack> {
   const source = locale === "de" || locale === "it" ? locale : "en";
   const trimmed = name.trim().slice(0, 180);
   const base: NameLocalePack = { en: trimmed, de: trimmed, it: trimmed };
@@ -18,7 +18,7 @@ export async function translateEntityName(hotelTenantId: string, locale: string,
     const json = await completeHotelChatJson(prisma, hotelTenantId, [
       {
         role: "system",
-        content: `You translate hotel department and team names. Source language is ${source}. Return JSON only: {en,de,it}. Keep ${source} exactly as given. Translate into the other two languages. Keep hotel terms natural. Do not add extra keys.`,
+        content: `You translate hotel ${entity} names. Source language is ${source}. Return JSON only: {en,de,it}. Keep ${source} exactly as given. Translate into the other two languages. Keep hotel terms natural. Do not add extra keys.`,
       },
       { role: "user", content: JSON.stringify({ source, name: trimmed }) },
     ], { temperature: 0.1, timeoutMs: 25_000 });

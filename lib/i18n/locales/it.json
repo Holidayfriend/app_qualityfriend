@@ -1588,5 +1588,17 @@
       "suite": "Suite con vista lago",
       "total": "Totale"
     }
+  },
+  "customRoleMessages": {
+    "create": "Crea ruolo personalizzato",
+    "back": "Torna ai ruoli",
+    "name": "Nome del ruolo",
+    "save": "Salva",
+    "description": "Inserisci un nome per questo ruolo.",
+    "access": "Il nuovo ruolo parte da una copia degli attuali permessi Dipendente. Dopo il salvataggio, modifica gli accessi nella tabella dei ruoli e assegna il ruolo nella gestione utenti.",
+    "required": "Inserisci un nome per il ruolo (massimo 180 caratteri).",
+    "edit": "Modifica nome del ruolo",
+    "editDescription": "Aggiorna il nome di questo ruolo.",
+    "editAccess": "Gli utenti assegnati e i permessi di accesso restano invariati."
   }
 }

@@ -11,7 +11,7 @@ import { formatHotelLongDate, hotelLocalHour } from "../../lib/hotel/clock";
 import { forecastMessages } from "../../lib/i18n/forecast-messages";
 
 type AppShellProps = { activeItem: string; children: ReactNode; pageTitle?: string };
-type ShellUser = { first_name: string; last_name: string; role: string; language: "EN" | "DE" | "IT"; hotel_name_en: string; hotel_name_de: string; hotel_name_it: string; time_zone?: string; hotel_language?: string; allowed_modules: string[]; ai_key_configured?: boolean; repairs_open?: number; tasks_open?: number };
+type ShellUser = { first_name: string; last_name: string; role: string; role_names?: Record<"en" | "de" | "it", string>; language: "EN" | "DE" | "IT"; hotel_name_en: string; hotel_name_de: string; hotel_name_it: string; time_zone?: string; hotel_language?: string; allowed_modules: string[]; ai_key_configured?: boolean; repairs_open?: number; tasks_open?: number };
 
 const CACHE_KEY = "qf-shell-user";
 let memoryUser: ShellUser | null = null;
@@ -163,7 +163,7 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
   const hotelName = currentUser ? currentUser[locale === "de" ? "hotel_name_de" : locale === "it" ? "hotel_name_it" : "hotel_name_en"] : "";
   const greetingLabel = nowHour === null ? "" : nowHour < 12 ? d.greetingMorning : nowHour < 18 ? d.greetingAfternoon : d.greetingEvening;
   const greeting = currentUser?.first_name ? `${greetingLabel}${greetingLabel ? ", " : ""}${currentUser.first_name}` : greetingLabel;
-  const roleName = currentUser ? roleLevelNames[locale][currentUser.role as keyof typeof roleLevelNames.en] ?? currentUser.role : "";
+  const roleName = currentUser ? currentUser.role_names?.[locale] ?? roleLevelNames[locale][currentUser.role as keyof typeof roleLevelNames.en] ?? currentUser.role : "";
   const moduleNavigation = moduleNavigationMessages[locale];
   const chatLayout = activeItem === "chat";
   const mobileNav = d.mobileNav;

@@ -1588,5 +1588,17 @@
       "suite": "Suite mit Seeblick",
       "total": "Gesamt"
     }
+  },
+  "customRoleMessages": {
+    "create": "Eigene Rolle erstellen",
+    "back": "Zurück zu den Rollen",
+    "name": "Rollenname",
+    "save": "Speichern",
+    "description": "Gib einen Namen für diese Rolle ein.",
+    "access": "Die neue Rolle übernimmt zunächst die aktuellen Mitarbeiter-Berechtigungen. Passe nach dem Speichern den Zugriff in der Rollentabelle an und weise die Rolle in der Benutzerverwaltung zu.",
+    "required": "Gib einen Rollennamen ein (maximal 180 Zeichen).",
+    "edit": "Rollennamen bearbeiten",
+    "editDescription": "Aktualisiere den Namen dieser Rolle.",
+    "editAccess": "Zugewiesene Benutzer und Zugriffsrechte bleiben unverändert."
   }
 }

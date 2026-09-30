@@ -1590,5 +1590,17 @@
       "suite": "Suite with lake view",
       "total": "Total"
     }
+  },
+  "customRoleMessages": {
+    "create": "Create custom role",
+    "back": "Back to roles",
+    "name": "Role name",
+    "save": "Save",
+    "description": "Enter a name for this role.",
+    "access": "The new role starts with a copy of your current Employee access. After saving, adjust its access in the roles table and assign it in User Management.",
+    "required": "Enter a role name (maximum 180 characters).",
+    "edit": "Edit role name",
+    "editDescription": "Update the name of this role.",
+    "editAccess": "Assigned users and access permissions stay unchanged."
   }
 }

@@ -23,7 +23,7 @@ export async function chatDirectory(userId: string, hotelTenantId: string, role:
   const [users, teams, departments] = await Promise.all([
     prisma.user.findMany({
       where: { hotelTenantId, id: { not: userId }, isActive: true, isDeleted: false },
-      select: { id: true, firstName: true, lastName: true, role: true, lastSeenAt: true },
+      select: { id: true, firstName: true, lastName: true, role: true, hotelRole: { select: { nameEn: true, nameDe: true, nameIt: true } }, lastSeenAt: true },
       orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
     }),
     prisma.team.findMany({
@@ -67,6 +67,7 @@ export async function chatDirectory(userId: string, hotelTenantId: string, role:
       first_name: user.firstName,
       last_name: user.lastName,
       role: user.role,
+      role_names: { en: user.hotelRole.nameEn, de: user.hotelRole.nameDe, it: user.hotelRole.nameIt },
       last_seen_at: user.lastSeenAt,
       is_online: Boolean(user.lastSeenAt && user.lastSeenAt.getTime() > Date.now() - 90_000),
       last_message: last?.text ?? last?.attachmentName ?? null,

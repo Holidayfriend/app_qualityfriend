@@ -576,6 +576,7 @@ model HotelTenant {
   teams                        Team[]
   auditLogs                    AuditLog[]
   rolePermissions              RoleModulePermission[]
+  roles                        HotelRole[]
   subscriptions                Subscription[]
   paymentEvents                PaymentEvent[]
   couponRedemptions            CouponRedemption[]
@@ -743,7 +744,8 @@ model User {
   passwordResetExpiresAt DateTime?     @map("password_reset_expires_at") @db.Timestamptz(3)
   phoneNumber            String?       @map("phone_number") @db.VarChar(40)
   language               HotelLanguage @default(EN) @map("language")
-  role                   UserRole      @default(EMPLOYEE)
+  role                   String        @default("EMPLOYEE") @db.VarChar(80)
+  hotelRole              HotelRole     @relation(fields: [hotelTenantId, role], references: [hotelTenantId, key], onDelete: Restrict, onUpdate: Cascade)
   departmentId           String?       @map("department_id") @db.Uuid
   teamId                 String?       @map("team_id") @db.Uuid
   isActive               Boolean       @default(true) @map("is_active")
@@ -1342,10 +1344,27 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+model HotelRole {
+  hotelTenantId String                 @map("hotel_tenant_id") @db.Uuid
+  key           String                 @default(uuid()) @db.VarChar(80)
+  nameEn        String                 @map("name_en") @db.VarChar(180)
+  nameDe        String                 @map("name_de") @db.VarChar(180)
+  nameIt        String                 @map("name_it") @db.VarChar(180)
+  isSystem      Boolean                @default(false) @map("is_system")
+  createdAt     DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  hotelTenant   HotelTenant            @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+  users         User[]
+  permissions   RoleModulePermission[]
+
+  @@id([hotelTenantId, key])
+  @@map("hotel_roles")
+}
+
 model RoleModulePermission {
   id              String                     @id @default(uuid()) @db.Uuid
   hotelTenantId   String                     @map("hotel_tenant_id") @db.Uuid
-  role            UserRole
+  role            String                     @db.VarChar(80)
+  hotelRole       HotelRole                  @relation(fields: [hotelTenantId, role], references: [hotelTenantId, key], onDelete: Cascade, onUpdate: Cascade)
   moduleKey       String                     @map("module_key") @db.VarChar(80)
   canView         Boolean                    @default(false) @map("can_view")
   canCreate       Boolean                    @default(false) @map("can_create")

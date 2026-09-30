@@ -25,6 +25,7 @@ export const recycleBinMessages = byLocale("recycleBinMessages");
 export const hotelLanguageMessages = byLocale("hotelLanguageMessages");
 export const roleMessages = byLocale("roleMessages");
 export const clientRoleMessages = byLocale("clientRoleMessages");
+export const customRoleMessages = byLocale("customRoleMessages");
 export const roleLevelNames = byLocale("roleLevelNames");
 export const additionalModuleMessages = byLocale("additionalModuleMessages");
 export const userManagementMessages = byLocale("userManagementMessages");

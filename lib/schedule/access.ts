@@ -8,7 +8,7 @@ import { actorDepartmentSelect, actorDepartments } from "../users/memberships";
 export type ScheduleActor = {
   id: string;
   hotel_tenant_id: string;
-  role: "EMPLOYEE" | "TEAM_LEAD" | "MANAGEMENT" | "ADMIN";
+  role: string;
   departmentId: string | null;
   departmentIds: string[];
   firstName: string;
