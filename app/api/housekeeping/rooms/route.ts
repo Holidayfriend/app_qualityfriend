@@ -46,7 +46,7 @@ export async function GET(request: Request) {
   if (new URL(request.url).searchParams.get("summary") === "1") {
     const where = { hotelTenantId: user.hotelTenantId, isActive: true, archivedAt: null };
     const [totalRooms, totalFloors] = await Promise.all([
-      prisma.room.count({ where }),
+      prisma.room.count({ where: { ...where, floorId: { not: null } } }),
       prisma.floor.count({ where }),
     ]);
     return Response.json({ totalRooms, totalFloors }, { headers: { "Cache-Control": "no-store" } });
