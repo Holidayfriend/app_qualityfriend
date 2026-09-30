@@ -35,11 +35,11 @@ function isoWeekday(date: string) {
 export function cleaningPlan(stay: Pick<StayRow, "arrival_date" | "departure_date" | "normal_minutes" | "express_minutes" | "departure_minutes" | "cleaning_frequency" | "cleaning_weekdays">, date: string) {
   // Checkout day → departure clean (longer). Fall back to normal minutes if departure minutes are missing.
   if (date === stay.departure_date) return { type: "DEPARTURE", minutes: stay.departure_minutes ?? stay.normal_minutes ?? 0 } as const;
-  const elapsed = dayDifference(stay.arrival_date, date); // nights since arrival (0 on arrival day)
+  const stayDay = dayDifference(stay.arrival_date, date) + 1; // arrival is stay day 1
   // Regular (full) clean when the category schedule says so; otherwise express (short) clean
   const regular = stay.cleaning_frequency === "DAILY" // every day
-    || stay.cleaning_frequency === "EVERY_SECOND_DAY" && elapsed % 2 === 0 // arrival, then every other day
-    || stay.cleaning_frequency === "WEEKLY" && elapsed % 7 === 0 // arrival, then weekly
+    || stay.cleaning_frequency === "EVERY_SECOND_DAY" && stayDay % 2 === 0 // regular on stay days 2, 4, 6, ...
+    || stay.cleaning_frequency === "WEEKLY" && stayDay % 7 === 0 // regular on stay days 7, 14, 21, ...
     || stay.cleaning_frequency === "ON_REQUEST" && (stay.cleaning_weekdays ?? []).includes(isoWeekday(date)); // only listed weekdays
   return regular
     ? { type: "REGULAR", minutes: stay.normal_minutes ?? 0 } as const
