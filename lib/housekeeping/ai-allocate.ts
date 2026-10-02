@@ -115,7 +115,7 @@ async function collectFacts(prisma: PrismaClient, hotelTenantId: string, date: s
     }),
     prisma.roomOperationalState.findMany({
       where: { hotelTenantId },
-      select: { roomId: true, cleanliness: true, breakfastInRoom: true, doNotDisturb: true, noService: true, isExpress: true },
+      select: { roomId: true, cleanliness: true, breakfastInRoom: true, doNotDisturb: true, noService: true, isExpress: true, guestCleaningPreference: true },
     }),
   ]);
   const stateByRoom = new Map(states.map((row) => [row.roomId, row]));
@@ -126,6 +126,7 @@ async function collectFacts(prisma: PrismaClient, hotelTenantId: string, date: s
     const departure = dateOnly(stay.departureDate);
     const category = stay.room.category;
     const plan = cleaningPlan({
+      guest_cleaning_preference: stateByRoom.get(stay.roomId)?.guestCleaningPreference,
       arrival_date: arrival,
       departure_date: departure,
       normal_minutes: category?.normalMinutes ?? null,
@@ -158,7 +159,7 @@ async function collectFacts(prisma: PrismaClient, hotelTenantId: string, date: s
       assignedToId: assignment?.assignedToId ?? null,
       completed: Boolean(assignment?.completedAt),
     };
-  });
+  }).filter((room) => room.cleaningType !== "NONE");
   const nearby = (target: string) => stays.filter((stay) => dateOnly(stay.arrivalDate) === target || dateOnly(stay.departureDate) === target).slice(0, 40).map((stay) => ({
     room: stay.room.number,
     arrival: dateOnly(stay.arrivalDate),

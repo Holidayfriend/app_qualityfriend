@@ -2,74 +2,82 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { cleaningPlan, linenDueToday } from "../lib/housekeeping/daily-plan";
 
-const base = { arrival_date: "2026-09-14", departure_date: "2026-09-21", normal_minutes: 40, express_minutes: 20, departure_minutes: 50, cleaning_weekdays: [] as number[] };
+const base = { arrival_date: "2026-09-14", departure_date: "2026-10-14", normal_minutes: 40, express_minutes: 20, departure_minutes: 50, cleaning_weekdays: [] as number[], linen_weekdays: [] as number[], cleaning_frequency: "EVERY_SECOND_DAY", linen_frequency: "WEEKLY" };
+const date = (nights: number) => new Date(Date.UTC(2026, 8, 14 + nights)).toISOString().slice(0, 10);
 
-test("daily frequency creates regular cleaning every day", () => {
-  assert.deepEqual(cleaningPlan({ ...base, cleaning_frequency: "DAILY" }, "2026-09-15"), { type: "REGULAR", minutes: 40 });
-});
-
-test("four-day stay starts express, alternates, and ends with departure cleaning", () => {
-  const stay = { ...base, departure_date: "2026-09-17", cleaning_frequency: "EVERY_SECOND_DAY" };
-  assert.deepEqual(cleaningPlan(stay, "2026-09-14"), { type: "EXPRESS", minutes: 20 });
-  assert.deepEqual(cleaningPlan(stay, "2026-09-15"), { type: "REGULAR", minutes: 40 });
-  assert.deepEqual(cleaningPlan(stay, "2026-09-16"), { type: "EXPRESS", minutes: 20 });
-  assert.deepEqual(cleaningPlan(stay, "2026-09-17"), { type: "DEPARTURE", minutes: 50 });
-});
-
-test("weekly cleaning is regular on stay days 7 and 14, express between them", () => {
-  const stay = { ...base, departure_date: "2026-09-29", cleaning_frequency: "WEEKLY" };
-  for (let day = 1; day <= 15; day++) {
-    const date = `2026-09-${String(13 + day).padStart(2, "0")}`;
-    assert.deepEqual(cleaningPlan(stay, date), day % 7 === 0
-      ? { type: "REGULAR", minutes: 40 }
-      : { type: "EXPRESS", minutes: 20 });
+test("one-, two- and three-night stays follow the client's examples", () => {
+  for (const nights of [1, 2, 3]) {
+    const stay = { ...base, departure_date: date(nights) };
+    assert.deepEqual(cleaningPlan(stay, date(0)), { type: "NONE", minutes: 0 });
+    for (let n = 1; n < nights; n++) {
+      assert.deepEqual(cleaningPlan(stay, date(n)), n % 2
+        ? { type: "EXPRESS", minutes: 20 } : { type: "REGULAR", minutes: 40 });
+    }
+    assert.deepEqual(cleaningPlan(stay, date(nights)), { type: "DEPARTURE", minutes: 50 });
+    assert.equal(linenDueToday({ ...stay, linen_frequency: "DAILY" }, date(nights)), false);
   }
 });
 
-test("custom weekdays use regular cleaning only on selected days", () => {
-  const schedule = { ...base, cleaning_frequency: "ON_REQUEST", cleaning_weekdays: [1, 4] };
-  assert.equal(cleaningPlan(schedule, "2026-09-14").type, "REGULAR");
-  assert.equal(cleaningPlan(schedule, "2026-09-15").type, "EXPRESS");
-  assert.equal(cleaningPlan(schedule, "2026-09-17").type, "REGULAR");
+test("arrival has no stay cleaning or linen for any frequency", () => {
+  for (const frequency of ["DAILY", "EVERY_SECOND_DAY", "WEEKLY", "ON_REQUEST"]) {
+    const stay = { ...base, cleaning_frequency: frequency, linen_frequency: frequency, cleaning_weekdays: [1], linen_weekdays: [1] };
+    assert.equal(cleaningPlan(stay, date(0)).type, "NONE");
+    assert.equal(linenDueToday(stay, date(0)), false);
+  }
 });
 
-test("departure date uses departure cleaning and minutes", () => {
-  assert.deepEqual(cleaningPlan({ ...base, cleaning_frequency: "WEEKLY" }, "2026-09-21"), { type: "DEPARTURE", minutes: 50 });
+test("daily cleaning and linen begin after the first night", () => {
+  const stay = { ...base, cleaning_frequency: "DAILY", linen_frequency: "DAILY" };
+  for (let n = 1; n < 20; n++) {
+    assert.deepEqual(cleaningPlan(stay, date(n)), { type: "REGULAR", minutes: 40 });
+    assert.equal(linenDueToday(stay, date(n)), true);
+  }
 });
 
-const linen = { arrival_date: "2026-09-14", linen_weekdays: [] as number[] };
-
-test("daily linen is due every occupied day", () => {
-  assert.equal(linenDueToday({ ...linen, linen_frequency: "DAILY" }, "2026-09-15"), true);
+test("every-second-day cleaning and linen use completed nights across month boundaries", () => {
+  const stay = { ...base, arrival_date: "2026-09-20", linen_frequency: "EVERY_SECOND_DAY" };
+  for (const [day, regular] of [["2026-09-30", true], ["2026-10-01", false], ["2026-10-02", true]] as const) {
+    assert.equal(cleaningPlan(stay, day).type, regular ? "REGULAR" : "EXPRESS");
+    assert.equal(linenDueToday(stay, day), regular);
+  }
 });
 
-test("every-second-day linen starts on stay day 2, not arrival", () => {
-  const stay = { ...linen, linen_frequency: "EVERY_SECOND_DAY" };
-  assert.equal(linenDueToday(stay, "2026-09-14"), false);
-  assert.equal(linenDueToday(stay, "2026-09-15"), true);
-  assert.equal(linenDueToday(stay, "2026-09-16"), false);
+test("weekly cleaning and linen occur after 7, 14 and 21 completed nights", () => {
+  const stay = { ...base, cleaning_frequency: "WEEKLY" };
+  for (let n = 1; n <= 22; n++) {
+    assert.equal(cleaningPlan(stay, date(n)).type, n % 7 === 0 ? "REGULAR" : "EXPRESS");
+    assert.equal(linenDueToday(stay, date(n)), n % 7 === 0);
+  }
+});
+
+test("selected weekdays still apply after arrival", () => {
+  const stay = { ...base, cleaning_frequency: "ON_REQUEST", linen_frequency: "ON_REQUEST", cleaning_weekdays: [1, 4], linen_weekdays: [1, 4] };
+  assert.equal(cleaningPlan(stay, "2026-09-15").type, "EXPRESS");
+  assert.equal(linenDueToday(stay, "2026-09-15"), false);
+  assert.equal(cleaningPlan(stay, "2026-09-17").type, "REGULAR");
   assert.equal(linenDueToday(stay, "2026-09-17"), true);
 });
 
-test("September 20 arrival has linen due on October 1, stay day 12", () => {
-  const stay = { ...linen, arrival_date: "2026-09-20", linen_frequency: "EVERY_SECOND_DAY" };
-  assert.equal(linenDueToday(stay, "2026-09-30"), false);
-  assert.equal(linenDueToday(stay, "2026-10-01"), true);
-  assert.equal(linenDueToday(stay, "2026-10-02"), false);
+test("departure overrides no-cleaning preference and weekly linen due date", () => {
+  const stay = { ...base, departure_date: date(7), guest_cleaning_preference: "NONE" };
+  assert.deepEqual(cleaningPlan(stay, date(7)), { type: "DEPARTURE", minutes: 50 });
+  assert.equal(linenDueToday(stay, date(7)), false);
+  assert.equal(linenDueToday({ ...stay, guest_cleaning_preference: "DAILY" }, date(7)), false);
+  assert.equal(cleaningPlan({ ...stay, departure_minutes: null }, date(7)).minutes, 40);
 });
 
-test("weekly linen is due on stay days 7 and 14 only", () => {
-  const stay = { ...linen, linen_frequency: "WEEKLY" };
-  for (const date of ["2026-09-14", "2026-09-19", "2026-09-21", "2026-09-26", "2026-09-28"]) {
-    assert.equal(linenDueToday(stay, date), false, date);
+test("skipped service never shifts the arrival-based rhythm or catches up", () => {
+  assert.equal(cleaningPlan({ ...base, guest_cleaning_preference: "NONE" }, date(1)).type, "NONE");
+  assert.equal(cleaningPlan({ ...base, guest_cleaning_preference: "DAILY" }, date(2)).type, "REGULAR");
+  assert.equal(cleaningPlan(base, date(3)).type, "EXPRESS");
+  assert.equal(linenDueToday({ ...base, guest_cleaning_preference: "NONE" }, date(7)), false);
+  assert.equal(linenDueToday(base, date(8)), false);
+  assert.equal(linenDueToday(base, date(14)), true);
+});
+
+test("outside the stay there is no service", () => {
+  for (const day of ["2026-09-13", "2026-10-15"]) {
+    assert.equal(cleaningPlan(base, day).type, "NONE");
+    assert.equal(linenDueToday(base, day), false);
   }
-  assert.equal(linenDueToday(stay, "2026-09-20"), true);
-  assert.equal(linenDueToday(stay, "2026-09-27"), true);
-});
-
-test("on-request linen is due only on selected weekdays", () => {
-  const schedule = { ...linen, linen_frequency: "ON_REQUEST", linen_weekdays: [1, 4] };
-  assert.equal(linenDueToday(schedule, "2026-09-14"), true);
-  assert.equal(linenDueToday(schedule, "2026-09-15"), false);
-  assert.equal(linenDueToday(schedule, "2026-09-17"), true);
 });

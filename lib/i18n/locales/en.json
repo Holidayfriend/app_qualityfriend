@@ -194,7 +194,7 @@
     "inspectionInProgress": "Inspection in progress",
     "noCleaningDesired": "No cleaning desired",
       "hkNote": "⚡ Rooms 45 & 51 express priority until 14:00 · 🚫 Room 50 no service",
-      "hkExpressRooms": "⚡ Rooms {rooms} express priority",
+      "hkExpressRooms": "⚡ Rooms {rooms} express cleaning",
       "hkNoServiceRooms": "🚫 Room {rooms} no service",
       "hkNoteNone": "No express or no-service rooms today",
       "onDuty": "On duty today",

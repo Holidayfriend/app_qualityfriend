@@ -9,7 +9,7 @@ import type { PrismaClient } from "../../app/generated/prisma/client"; // Type o
  */
 
 // Shape of one stay row returned by the DISTINCT ON query below
-type StayRow = { stay_id: string; room_id: string; arrival_date: string; departure_date: string; normal_minutes: number | null; express_minutes: number | null; departure_minutes: number | null; cleaning_frequency: string | null; cleaning_weekdays: number[] | null; linen_frequency: string | null; linen_weekdays: number[] | null; assigned_to_id: string | null };
+type StayRow = { stay_id: string; room_id: string; arrival_date: string; departure_date: string; normal_minutes: number | null; express_minutes: number | null; departure_minutes: number | null; cleaning_frequency: string | null; cleaning_weekdays: number[] | null; linen_frequency: string | null; linen_weekdays: number[] | null; assigned_to_id: string | null; guest_cleaning_preference?: string | null };
 
 // Convert "now" into YYYY-MM-DD in a hotel time zone (e.g. Europe/Rome), not the server clock
 export function hotelLocalDate(timeZone: string, now = new Date()) {
@@ -32,22 +32,24 @@ function isoWeekday(date: string) {
 }
 
 // Decide cleaning type + minutes for one stay on one work date
-export function cleaningPlan(stay: Pick<StayRow, "arrival_date" | "departure_date" | "normal_minutes" | "express_minutes" | "departure_minutes" | "cleaning_frequency" | "cleaning_weekdays">, date: string) {
+export function cleaningPlan(stay: Pick<StayRow, "arrival_date" | "departure_date" | "normal_minutes" | "express_minutes" | "departure_minutes" | "cleaning_frequency" | "cleaning_weekdays" | "guest_cleaning_preference">, date: string) {
   // Checkout day → departure clean (longer). Fall back to normal minutes if departure minutes are missing.
   if (date === stay.departure_date) return { type: "DEPARTURE", minutes: stay.departure_minutes ?? stay.normal_minutes ?? 0 } as const;
-  const stayDay = dayDifference(stay.arrival_date, date) + 1; // arrival is stay day 1
+  const stayDay = dayDifference(stay.arrival_date, date); // completed nights; arrival is zero
+  if (stayDay <= 0 || date > stay.departure_date || stay.guest_cleaning_preference === "NONE") return { type: "NONE", minutes: 0 } as const;
   // Regular (full) clean when the category schedule says so; otherwise express (short) clean
   const regular = stay.cleaning_frequency === "DAILY" // every day
-    || stay.cleaning_frequency === "EVERY_SECOND_DAY" && stayDay % 2 === 0 // regular on stay days 2, 4, 6, ...
-    || stay.cleaning_frequency === "WEEKLY" && stayDay % 7 === 0 // regular on stay days 7, 14, 21, ...
+    || stay.cleaning_frequency === "EVERY_SECOND_DAY" && stayDay % 2 === 0 // regular after nights 2, 4, 6, ...
+    || stay.cleaning_frequency === "WEEKLY" && stayDay % 7 === 0 // regular after nights 7, 14, 21, ...
     || stay.cleaning_frequency === "ON_REQUEST" && (stay.cleaning_weekdays ?? []).includes(isoWeekday(date)); // only listed weekdays
   return regular
     ? { type: "REGULAR", minutes: stay.normal_minutes ?? 0 } as const
     : { type: "EXPRESS", minutes: stay.express_minutes ?? 0 } as const;
 }
 
-export function linenDueToday(stay: Pick<StayRow, "arrival_date" | "linen_frequency" | "linen_weekdays">, date: string) {
-  const stayDay = dayDifference(stay.arrival_date, date) + 1; // arrival is stay day 1
+export function linenDueToday(stay: Pick<StayRow, "arrival_date" | "departure_date" | "linen_frequency" | "linen_weekdays" | "guest_cleaning_preference">, date: string) {
+  const stayDay = dayDifference(stay.arrival_date, date);
+  if (stayDay <= 0 || date >= stay.departure_date || stay.guest_cleaning_preference === "NONE") return false;
   return stay.linen_frequency === "DAILY"
     || stay.linen_frequency === "EVERY_SECOND_DAY" && stayDay % 2 === 0
     || stay.linen_frequency === "WEEKLY" && stayDay % 7 === 0
@@ -89,32 +91,48 @@ export async function generateHotelDailyPlan(prisma: PrismaClient, hotelTenantId
           noService: false,
           doNotDisturbUntil: null,
           noServiceUntil: null,
+          isExpress: false,
+          linenChange: false,
         },
       });
 
-      // Occupied rooms today: one stay per room (latest arrival if two overlap).
+      // One stay per room: departure takes precedence over a same-day arrival.
       // Joins reservation (skip cancelled/no-show), room, category minutes/frequency, permanent cleaner.
       const stays = await tx.$queryRaw<StayRow[]>`
         SELECT DISTINCT ON (s.room_id)
           s.id AS stay_id, s.room_id, s.arrival_date::text, s.departure_date::text,
           c.normal_minutes, c.express_minutes, c.departure_minutes, c.cleaning_frequency, c.cleaning_weekdays,
           c.linen_frequency, c.linen_weekdays,
-          p.assigned_to_id
+          p.assigned_to_id, o.guest_cleaning_preference
         FROM reservation_room_stays s
         JOIN reservations v ON v.id=s.reservation_id AND v.hotel_tenant_id=s.hotel_tenant_id
         JOIN rooms r ON r.id=s.room_id AND r.hotel_tenant_id=s.hotel_tenant_id
         LEFT JOIN room_categories c ON c.id=r.category_id AND c.hotel_tenant_id=r.hotel_tenant_id
         LEFT JOIN housekeeping_permanent_room_assignments p ON p.room_id=r.id AND p.hotel_tenant_id=r.hotel_tenant_id
+        LEFT JOIN room_operational_states o ON o.room_id=r.id AND o.hotel_tenant_id=r.hotel_tenant_id
         WHERE s.hotel_tenant_id=${hotelTenantId}::uuid
           AND ${workDate}::date BETWEEN s.arrival_date AND s.departure_date
           AND v.source_present=true
           AND v.status NOT IN ('CANCELLED','NO_SHOW')
           AND r.is_active=true AND r.archived_at IS NULL
-        ORDER BY s.room_id, s.arrival_date DESC`;
+        ORDER BY s.room_id, (s.departure_date=${workDate}::date) DESC, s.arrival_date DESC, s.id`;
 
+      let roomsGenerated = 0;
       for (const stay of stays) {
-        const plan = cleaningPlan(stay, workDate); // REGULAR / EXPRESS / DEPARTURE + planned minutes
+        const plan = cleaningPlan(stay, workDate); // REGULAR / EXPRESS / DEPARTURE / NONE + planned minutes
         const linenChange = linenDueToday(stay, workDate);
+        if (plan.type === "NONE") {
+          // Remove stale assignments on rerun while preserving the room's cleanliness.
+          await tx.$executeRaw`
+            DELETE FROM housekeeping_room_assignments
+            WHERE hotel_tenant_id=${hotelTenantId}::uuid AND room_id=${stay.room_id}::uuid AND work_date=${workDate}::date`;
+          await tx.roomOperationalState.updateMany({
+            where: { hotelTenantId, roomId: stay.room_id },
+            data: { noService: stay.guest_cleaning_preference === "NONE" && stay.arrival_date < workDate },
+          });
+          continue;
+        }
+        roomsGenerated++;
         // Insert today's room assignment, or update stay/type/minutes if it already exists.
         // If origin is PERMANENT, also refresh the cleaner; if TODAY_ONLY, keep the person already assigned.
         await tx.$executeRaw`
@@ -172,10 +190,10 @@ export async function generateHotelDailyPlan(prisma: PrismaClient, hotelTenantId
       // Mark this hotel+date run finished and store how many rooms/extras were generated
       await tx.$executeRaw`
         UPDATE housekeeping_daily_runs
-        SET status='SUCCEEDED', rooms_generated=${stays.length}, extras_generated=${extras.length}, finished_at=NOW()
+        SET status='SUCCEEDED', rooms_generated=${roomsGenerated}, extras_generated=${extras.length}, finished_at=NOW()
         WHERE hotel_tenant_id=${hotelTenantId}::uuid AND work_date=${workDate}::date`;
 
-      return { rooms: stays.length, extras: extras.length }; // logged as JSON by the CLI script
+      return { rooms: roomsGenerated, extras: extras.length }; // logged as JSON by the CLI script
     }, { timeout: 120_000 });
   } catch (error) {
     await recordFailure(prisma, hotelTenantId, workDate, error); // write FAILED outside the rolled-back transaction

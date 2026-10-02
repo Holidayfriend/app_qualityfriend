@@ -192,7 +192,7 @@
       "ready": "Pronte",
       "inspected": "Ispezionate",
       "hkNote": "⚡ Camere 45 e 51 priorità express entro le 14:00 · 🚫 Camera 50 nessun servizio",
-      "hkExpressRooms": "⚡ Camere {rooms} priorità express",
+      "hkExpressRooms": "⚡ Camere {rooms} pulizia express",
       "hkNoServiceRooms": "🚫 Camera {rooms} nessun servizio",
       "hkNoteNone": "Nessuna camera express o senza servizio oggi",
       "onDuty": "In servizio oggi",
