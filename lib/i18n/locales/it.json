@@ -563,6 +563,7 @@
     }
   },
   "housekeepingMessages": {
+    "legend": "Legenda",
     "housekeeping": "Housekeeping",
     "dailyPlans": "Piani giornalieri",
     "settings": "Impostazioni",

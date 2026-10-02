@@ -565,6 +565,7 @@
     }
   },
   "housekeepingMessages": {
+    "legend": "Legend",
     "housekeeping": "Housekeeping",
     "dailyPlans": "Daily plans",
     "settings": "Settings",
