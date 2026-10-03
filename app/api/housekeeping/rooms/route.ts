@@ -180,7 +180,7 @@ export async function GET(request: Request) {
     return Response.json({ categories: categories.map((category) => ({ id: category.id, name: translatedName(category, activeLocale) })), floors: floors.map((floor) => ({ id: floor.id, name: translatedName(floor, activeLocale) || floor.code })) }, { headers: { "Cache-Control": "no-store" } });
   }
   const rooms = await prisma.room.findMany({
-    where: { hotelTenantId: user.hotelTenantId, isActive: true, archivedAt: null },
+    where: { hotelTenantId: user.hotelTenantId, isActive: true, archivedAt: null, number: { notIn: ["100", "200"] } },
     orderBy: { number: "asc" },
     select: {
       id: true,
