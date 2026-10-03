@@ -68,7 +68,7 @@ export async function GET(request: Request) {
       },
     }),
     prisma.housekeepingRoomAssignment.findMany({
-      where: { hotelTenantId: user.hotelTenantId, workDate },
+      where: { hotelTenantId: user.hotelTenantId, workDate, cleaningType: { not: "NONE" } },
       orderBy: [{ room: { number: "asc" } }],
       select: {
         id: true,

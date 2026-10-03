@@ -40,6 +40,7 @@ enum RoomCleanliness {
 }
 
 enum HousekeepingCleaningType {
+  NONE
   REGULAR
   EXPRESS
   DEPARTURE

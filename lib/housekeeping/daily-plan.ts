@@ -121,18 +121,6 @@ export async function generateHotelDailyPlan(prisma: PrismaClient, hotelTenantId
       for (const stay of stays) {
         const plan = cleaningPlan(stay, workDate); // REGULAR / EXPRESS / DEPARTURE / NONE + planned minutes
         const linenChange = linenDueToday(stay, workDate);
-        if (plan.type === "NONE") {
-          // Remove stale assignments on rerun while preserving the room's cleanliness.
-          await tx.$executeRaw`
-            DELETE FROM housekeeping_room_assignments
-            WHERE hotel_tenant_id=${hotelTenantId}::uuid AND room_id=${stay.room_id}::uuid AND work_date=${workDate}::date`;
-          await tx.roomOperationalState.updateMany({
-            where: { hotelTenantId, roomId: stay.room_id },
-            data: { noService: stay.guest_cleaning_preference === "NONE" && stay.arrival_date < workDate },
-          });
-          continue;
-        }
-        roomsGenerated++;
         // Insert today's room assignment, or update stay/type/minutes if it already exists.
         // If origin is PERMANENT, also refresh the cleaner; if TODAY_ONLY, keep the person already assigned.
         await tx.$executeRaw`
@@ -154,6 +142,16 @@ export async function generateHotelDailyPlan(prisma: PrismaClient, hotelTenantId
               ELSE housekeeping_room_assignments.assigned_to_id
             END,
             updated_at=NOW()`;
+
+        if (plan.type === "NONE") {
+          // Preserve responsibility without inventing cleaning work or changing cleanliness.
+          await tx.roomOperationalState.updateMany({
+            where: { hotelTenantId, roomId: stay.room_id },
+            data: { noService: stay.guest_cleaning_preference === "NONE" && stay.arrival_date < workDate },
+          });
+          continue;
+        }
+        roomsGenerated++;
 
         // Every daily run: occupied rooms become DIRTY. Express = dirty + ⚡ (is_express), regular = dirty only.
         await tx.$executeRaw`
