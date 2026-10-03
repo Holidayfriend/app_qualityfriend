@@ -16,3 +16,7 @@ export function extraJobInput(body: unknown) {
 export function extraJobSnapshot(job: { descriptionEn: string; descriptionDe: string; descriptionIt: string; minutes: number }) {
   return { en: job.descriptionEn, de: job.descriptionDe, it: job.descriptionIt, minutes: job.minutes };
 }
+
+export function extraJobDescription(job: { descriptionEn: string; descriptionDe: string; descriptionIt: string }, locale: ExtraLocale) {
+  return [job[descriptionFields[locale]], job.descriptionEn, job.descriptionDe, job.descriptionIt].map(text => text.trim()).find(Boolean) ?? "";
+}

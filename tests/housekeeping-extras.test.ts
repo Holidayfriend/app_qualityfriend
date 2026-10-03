@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { extraJobInput, extraJobSnapshot } from "../lib/housekeeping/extra-job-fields";
+import { extraJobDescription, extraJobInput, extraJobSnapshot } from "../lib/housekeeping/extra-job-fields";
 
 for (const [locale, field] of [["en", "descriptionEn"], ["de", "descriptionDe"], ["it", "descriptionIt"]] as const) {
   test(`${locale} edits preserve the other translations and ignore injected fields`, () => {
@@ -21,4 +21,12 @@ test("rejects unsupported locales, missing descriptions and invalid times", () =
   }
   assert.equal(extraJobInput(null), null);
   assert.ok(extraJobInput({ ...valid, minutes: 0 }));
+});
+
+
+test("additional jobs show an existing description when the selected translation is missing", () => {
+  const job = { descriptionEn: " ", descriptionDe: "Sauna reinigen", descriptionIt: "Pulire la sauna" };
+  assert.equal(extraJobDescription(job, "en"), "Sauna reinigen");
+  assert.equal(extraJobDescription(job, "it"), "Pulire la sauna");
+  assert.equal(extraJobDescription({ descriptionEn: "", descriptionDe: "", descriptionIt: "" }, "en"), "");
 });

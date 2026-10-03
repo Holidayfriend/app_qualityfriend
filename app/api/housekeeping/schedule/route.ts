@@ -1,3 +1,4 @@
+import { extraJobDescription } from "../../../../lib/housekeeping/extra-job-fields";
 import { Prisma } from "../../../../app/generated/prisma/client";
 import { hotelTimeZone } from "../../../../lib/hotel/clock";
 import { housekeepingAccess } from "../../../../lib/housekeeping/access";
@@ -9,7 +10,6 @@ type Locale = "en" | "de" | "it";
 type AssignmentRow = { id: string; assigned_to_id: string | null; item_id: string; planned_minutes: number; completed_at: Date | null };
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const locale = (value: string | null): Locale => value === "de" || value === "it" ? value : "en";
-const translated = (activeLocale: Locale, item: { descriptionEn: string; descriptionDe: string; descriptionIt: string }) => activeLocale === "de" ? item.descriptionDe || item.descriptionEn : activeLocale === "it" ? item.descriptionIt || item.descriptionEn : item.descriptionEn;
 function hotelDate(timeZone: string) {
   const parts = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts();
   const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
@@ -59,7 +59,7 @@ export async function GET(request: Request) {
   return Response.json({ date, timeZone, employees: employeeWorkload,
     floors: [...new Map(rooms.filter((room) => room.floor).map((room) => [room.floor!.id, room.floor!])).values()].sort((a, b) => a.sortOrder - b.sortOrder).map((floor) => ({ id: floor.id, code: floor.code, name: (activeLocale === "de" ? floor.nameDe || floor.nameEn : activeLocale === "it" ? floor.nameIt || floor.nameEn : floor.nameEn) || floor.code,
       rooms: rooms.filter((room) => room.floor?.id === floor.id).map((room) => ({ id: room.id, number: room.number, plannedMinutes: room.category?.normalMinutes ?? 0, assignedToId: roomAssignments.find((assignment) => assignment.item_id === room.id)?.assigned_to_id ?? null })) })),
-    extras: extras.map((extra) => ({ id: extra.id, description: translated(activeLocale, extra), minutes: extra.minutes, assignedToIds: extraAssignments.filter((assignment) => assignment.item_id === extra.id).map((assignment) => assignment.assigned_to_id) })),
+    extras: extras.map((extra) => ({ id: extra.id, description: extraJobDescription(extra, activeLocale), minutes: extra.minutes, assignedToIds: extraAssignments.filter((assignment) => assignment.item_id === extra.id).map((assignment) => assignment.assigned_to_id) })),
   }, { headers: { "Cache-Control": "no-store" } });
 }
 
