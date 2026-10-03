@@ -19,6 +19,11 @@ export async function POST(request: Request) {
       title,
       departmentName,
       workType,
+      startFrom: typeof body?.startFrom === "string" ? body.startFrom.trim().slice(0, 120) : "",
+      benefits: typeof body?.benefits === "string" ? body.benefits.trim().slice(0, 400) : "",
+      location: typeof body?.location === "string" ? body.location.trim().slice(0, 200) : "",
+      descriptionHtml: typeof body?.descriptionHtml === "string" ? body.descriptionHtml.trim().slice(0, 20000) : "",
+      cvRequired: body?.cvRequired === true,
       locale,
     });
     return NextResponse.json(draft);

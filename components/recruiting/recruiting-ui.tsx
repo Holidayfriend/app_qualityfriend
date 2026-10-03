@@ -523,6 +523,11 @@ function JobCreate({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }
           title: title.trim(),
           departmentName: deptName,
           workType: type,
+          startFrom: start,
+          benefits: notes,
+          location,
+          descriptionHtml: descriptionRef.current?.getHtml() ?? description,
+          cvRequired,
           locale,
         }),
       });
@@ -531,12 +536,8 @@ function JobCreate({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }
         setError(res.status === 400 ? t.generateNeedTitle : t.generateFailed);
         return;
       }
-      if (typeof data.title === "string" && data.title.trim()) setTitle(data.title.trim());
-      if (typeof data.startFrom === "string") setStart(data.startFrom);
-      if (typeof data.benefits === "string") setNotes(data.benefits);
-      if (typeof data.location === "string") setLocation(data.location);
       if (typeof data.descriptionHtml === "string") setDescription(data.descriptionHtml);
-      if (typeof data.thankYouHtml === "string") setAutoMessage(data.thankYouHtml);
+      if (!htmlToPlain(autoMessageRef.current?.getHtml() ?? autoMessage) && typeof data.thankYouHtml === "string") setAutoMessage(data.thankYouHtml);
       setGenerated(true);
       setPreviewLang(langs[locale] ? locale : langs.de ? "de" : langs.en ? "en" : "it");
     } catch {
