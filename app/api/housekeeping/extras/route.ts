@@ -1,7 +1,8 @@
+import { translateEntityName } from "../../../../lib/settings/translate";
 import { prisma } from "../../../../lib/prisma";
 import { recordAuditLog } from "../../../../lib/audit/audit-service";
 import { extraJobActor } from "../../../../lib/housekeeping/extra-job-access";
-import { extraJobDescription, extraJobInput, extraJobSnapshot, isExtraLocale } from "../../../../lib/housekeeping/extra-job-fields";
+import { localizeExtraJobInput, extraJobDescription, extraJobInput, extraJobSnapshot, isExtraLocale } from "../../../../lib/housekeeping/extra-job-fields";
 
 export async function GET(request: Request) {
   const actor = await extraJobActor();
@@ -17,8 +18,9 @@ export async function POST(request: Request) {
   if (!actor) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
   const input = extraJobInput(await request.json().catch(() => null));
   if (!input) return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
+  const data = await localizeExtraJobInput(input, (locale, description) => translateEntityName(actor.hotel_tenant_id, locale, description, "housekeeping additional job"));
   const job = await prisma.$transaction(async tx => {
-    const created = await tx.extraJob.create({ data: { hotelTenantId: actor.hotel_tenant_id, ...input.data } });
+    const created = await tx.extraJob.create({ data: { hotelTenantId: actor.hotel_tenant_id, ...data } });
     await recordAuditLog(tx, { hotelTenantId: actor.hotel_tenant_id, actorId: actor.id, action: "CREATE", entityType: "EXTRA_JOB", entityId: created.id, changes: { locale: input.locale, after: extraJobSnapshot(created) } });
     return created;
   });
