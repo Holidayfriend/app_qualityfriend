@@ -1,3 +1,4 @@
+import { totalChildren } from "../../../../lib/housekeeping/guest-counts";
 import { recordAuditLog } from "../../../../lib/audit/audit-service";
 import { roomAuditSnapshot } from "../../../../lib/housekeeping/settings-audit";
 import { hotelTimeZone } from "../../../../lib/hotel/clock";
@@ -106,7 +107,7 @@ export async function GET(request: Request) {
       assignedCleanerId: assignment?.assignedToId ?? null,
       reservation: stay ? {
         arrival: dateOnly(stay.arrivalDate), departure: dateOnly(stay.departureDate), days: Math.round((stay.departureDate.getTime() - stay.arrivalDate.getTime()) / 86400000),
-        sourceStatus: stay.sourceStatus, adults: stay.adultCount, children: stay.childCount, childK1: stay.childK1Count, childK2: stay.childK2Count, childK3: stay.childK3Count,
+        sourceStatus: stay.sourceStatus, adults: stay.adultCount, children: totalChildren(stay.childCount, stay.childK1Count, stay.childK2Count, stay.childK3Count), childK1: stay.childK1Count, childK2: stay.childK2Count, childK3: stay.childK3Count,
         bookingGroup: stay.reservation.bookingGroup, offer: stay.reservation.offer, board: stay.reservation.board, note: stay.serviceRemarks,
         fromRoom: stay.sourceFromRoomNumber, toRoom: stay.sourceToRoomNumber,
         guests: stay.reservationGuestRecords.map((guest) => ({ name: guest.name, dateOfBirth: guest.dateOfBirth ? dateOnly(guest.dateOfBirth) : null, language: guest.language, vip: guest.vip, previousStays: guest.previousStayCount })),

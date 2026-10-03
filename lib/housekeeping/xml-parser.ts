@@ -1,3 +1,4 @@
+import { totalChildren } from "./guest-counts";
 import { createHash } from "node:crypto";
 import { XMLParser, XMLValidator } from "fast-xml-parser";
 
@@ -55,11 +56,12 @@ export function parseAsaXml(xml: string) {
         vip: ["true", "1", "yes", "ja"].includes(vip) ? true : ["false", "0", "no", "nein"].includes(vip) ? false : null,
         previousStays: count(attr(guest, "Stays")) };
     });
+    const k1 = count(attr(node, "K1")), k2 = count(attr(node, "K2")), k3 = count(attr(node, "K3"));
     const note = node.CombiBemerkungZimmerservice;
     const remarks = typeof note === "object" && note ? String((note as Node)["#text"] ?? "") : String(note ?? "");
     records.push({ key, room, category, arrival, departure, sourceStatus, status: statuses[sourceStatus],
       adults: count(attr(node, "AnzahlErwachsene")) ?? (zsb !== null || erw !== null ? (zsb ?? 0) + (erw ?? 0) : null),
-      children: count(attr(node, "AnzahlKinder")), k1: count(attr(node, "K1")), k2: count(attr(node, "K2")), k3: count(attr(node, "K3")),
+      children: totalChildren(count(attr(node, "AnzahlKinder")), k1, k2, k3), k1, k2, k3,
       board: bounded(attr(node, "Verpflegung"), 120) || null, offer: bounded(attr(node, "Offer"), 10000) || null,
       bookingGroup: bounded(attr(node, "BookingGroup"), 255) || null, remarks: bounded(remarks, 50000) || null,
       from: bounded(attr(list(node.VonZimmerreservierung)[0] ?? {}, "Nummer"), 40) || null,

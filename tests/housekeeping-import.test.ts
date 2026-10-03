@@ -15,7 +15,7 @@ test("ASA fields preserve room numbers, count fallback, guest-specific metadata,
   assert.equal(row.room, "004A");
   assert.equal(row.category, "Suite & View");
   assert.equal(row.adults, 3);
-  assert.equal(row.children, null);
+  assert.equal(row.children, 1);
   assert.equal(row.k1, 0);
   assert.equal(row.to, "5");
   assert.equal(row.remarks, "Use <soft> cloth");
@@ -158,4 +158,14 @@ test("system import failure records an audit entry without a user notification",
   assert.ok(db.queries.some(query => query.sql.includes("INSERT INTO audit_logs")));
   assert.ok(!db.queries.some(query => query.sql.includes("INSERT INTO notifications")));
   assert.equal(db.queries.at(-1)?.sql, "COMMIT");
+});
+
+
+test("missing child total falls back to ASA age groups, including room 62's K3-only export", () => {
+  for (const [attributes, expected] of [
+    ['K3="1"', 1], ['K1="1" K2="2" K3="3"', 6], ['K1="0" K2="0" K3="0"', 0],
+    ['', null], ['AnzahlKinder="4" K3="1"', 4], ['AnzahlKinder="0" K3="1"', 0],
+  ] as const) {
+    assert.equal(parseAsaXml(xml(record(attributes))).records[0].children, expected, attributes);
+  }
 });
