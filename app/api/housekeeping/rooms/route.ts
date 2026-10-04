@@ -81,6 +81,18 @@ export async function GET(request: Request) {
     });
     if (!room) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
     const stay = room.reservationRoomStayRecords[room.reservationRoomStayRecords.length - 1];
+    const departureStay = stay?.arrivalDate.getTime() === day.getTime()
+      ? room.reservationRoomStayRecords.find(candidate => candidate !== stay && candidate.departureDate.getTime() === day.getTime())
+      : undefined;
+    const serializeStay = (stay: (typeof room.reservationRoomStayRecords)[number]) => ({
+        arrival: dateOnly(stay.arrivalDate), departure: dateOnly(stay.departureDate), days: Math.round((stay.departureDate.getTime() - stay.arrivalDate.getTime()) / 86400000),
+        sourceStatus: stay.sourceStatus, adults: stay.adultCount, children: totalChildren(stay.childCount, stay.childK1Count, stay.childK2Count, stay.childK3Count), childK1: stay.childK1Count, childK2: stay.childK2Count, childK3: stay.childK3Count,
+        bookingGroup: stay.reservation.bookingGroup, offer: stay.reservation.offer, board: stay.reservation.board, note: stay.serviceRemarks,
+        fromRoom: stay.sourceFromRoomNumber, toRoom: stay.sourceToRoomNumber,
+        guests: stay.reservationGuestRecords.map((guest) => ({ name: guest.name, dateOfBirth: guest.dateOfBirth ? dateOnly(guest.dateOfBirth) : null, language: guest.language, vip: guest.vip, previousStays: guest.previousStayCount })),
+        birthdays: stay.reservationGuestRecords.filter((guest) => birthdayDuringStay(guest.dateOfBirth, stay.arrivalDate, stay.departureDate)).map((guest) => ({ name: guest.name, dateOfBirth: dateOnly(guest.dateOfBirth!) })),
+
+    });
     const checklist = room.checklistTemplate;
     const roomChecks = activeLocale === "de" ? strings(checklist?.roomChecksDe) : activeLocale === "it" ? strings(checklist?.roomChecksIt) : strings(checklist?.roomChecksEn);
     const arrivalChecks = activeLocale === "de" ? strings(checklist?.arrivalChecksDe) : activeLocale === "it" ? strings(checklist?.arrivalChecksIt) : strings(checklist?.arrivalChecksEn);
@@ -105,14 +117,9 @@ export async function GET(request: Request) {
       roomChecks: roomChecks.map((label, index) => ({ index, label, checked: completed.has(`ROOM:${index}`) })),
       arrivalChecks: arrivalChecks.map((label, index) => ({ index, label, checked: completed.has(`ARRIVAL:${index}`) })), cleaners,
       assignedCleanerId: assignment?.assignedToId ?? null,
-      reservation: stay ? {
-        arrival: dateOnly(stay.arrivalDate), departure: dateOnly(stay.departureDate), days: Math.round((stay.departureDate.getTime() - stay.arrivalDate.getTime()) / 86400000),
-        sourceStatus: stay.sourceStatus, adults: stay.adultCount, children: totalChildren(stay.childCount, stay.childK1Count, stay.childK2Count, stay.childK3Count), childK1: stay.childK1Count, childK2: stay.childK2Count, childK3: stay.childK3Count,
-        bookingGroup: stay.reservation.bookingGroup, offer: stay.reservation.offer, board: stay.reservation.board, note: stay.serviceRemarks,
-        fromRoom: stay.sourceFromRoomNumber, toRoom: stay.sourceToRoomNumber,
-        guests: stay.reservationGuestRecords.map((guest) => ({ name: guest.name, dateOfBirth: guest.dateOfBirth ? dateOnly(guest.dateOfBirth) : null, language: guest.language, vip: guest.vip, previousStays: guest.previousStayCount })),
-        birthdays: stay.reservationGuestRecords.filter((guest) => birthdayDuringStay(guest.dateOfBirth, stay.arrivalDate, stay.departureDate)).map((guest) => ({ name: guest.name, dateOfBirth: dateOnly(guest.dateOfBirth!) })),
-      } : null,
+      reservation: stay ? serializeStay(stay) : null,
+      departureReservation: departureStay ? serializeStay(departureStay) : null,
+
     } }, { headers: { "Cache-Control": "no-store" } });
   }
   if (new URL(request.url).searchParams.get("board") === "1") {
