@@ -1,3 +1,4 @@
+import { translateJobFields } from "../../../../../lib/recruiting/translate-job";
 import { prisma } from "../../../../../lib/prisma";
 import { recordAuditLog } from "../../../../../lib/audit/audit-service";
 import { recruitingActor } from "../../../../../lib/recruiting/access";
@@ -36,6 +37,14 @@ export async function PUT(request: Request, context: Context) {
     select: { id: true, nameEn: true, nameDe: true, nameIt: true },
   });
   if (!department) return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
+  const exists = await prisma.recruitingJob.findFirst({ where: { id, hotelTenantId: actor.hotel_tenant_id }, select: { id: true } });
+  if (!exists) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
+  let translations;
+  try {
+    translations = await translateJobFields(actor.hotel_tenant_id, locale, input);
+  } catch {
+    return Response.json({ error: "TRANSLATION_FAILED" }, { status: 502 });
+  }
   const updated = await prisma.$transaction(async (tx) => {
     const existing = await tx.recruitingJob.findFirst({ where: { id, hotelTenantId: actor.hotel_tenant_id } });
     if (!existing) return null;
@@ -48,11 +57,11 @@ export async function PUT(request: Request, context: Context) {
           autoMessage: input.autoMessage,
           location: input.location,
         }),
+        ...translations,
         status: input.status,
         departmentId: department.id,
         workType: input.workType,
         startFrom: input.startFrom,
-        notes: input.notes,
         cvRequired: input.cvRequired,
         languages: input.languages,
         listingImage: input.listingImage,

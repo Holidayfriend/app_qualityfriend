@@ -1,0 +1,3 @@
+ALTER TABLE "recruiting_jobs"
+ADD COLUMN "notes_de" TEXT NOT NULL DEFAULT '',
+ADD COLUMN "notes_it" TEXT NOT NULL DEFAULT '';

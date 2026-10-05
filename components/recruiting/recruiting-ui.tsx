@@ -536,6 +536,10 @@ function JobCreate({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }
         setError(res.status === 400 ? t.generateNeedTitle : t.generateFailed);
         return;
       }
+      if (typeof data.title === "string" && data.title.trim()) setTitle(data.title.trim());
+      if (typeof data.startFrom === "string" && data.startFrom.trim()) setStart(data.startFrom);
+      if (typeof data.benefits === "string" && data.benefits.trim()) setNotes(data.benefits);
+      if (typeof data.location === "string") setLocation((current) => current.trim() ? current : data.location);
       if (typeof data.descriptionHtml === "string") setDescription(data.descriptionHtml);
       if (!htmlToPlain(autoMessageRef.current?.getHtml() ?? autoMessage) && typeof data.thankYouHtml === "string") setAutoMessage(data.thankYouHtml);
       setGenerated(true);

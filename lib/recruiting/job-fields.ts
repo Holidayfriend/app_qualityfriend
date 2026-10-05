@@ -231,7 +231,7 @@ export function toPublicJob(job: RecruitingJob, apps = 0, locale?: string, inclu
     dept: department ? pickLocalized(department.nameEn, department.nameDe, department.nameIt, locale) : "",
     type: job.workType,
     start: job.startFrom,
-    notes: job.notes,
+    notes: pickLocalized(job.notes, job.notesDe, job.notesIt, locale),
     description: pickLocalized(job.description, job.descriptionDe, job.descriptionIt, locale),
     autoMessage: pickLocalized(job.autoMessage, job.autoMessageDe, job.autoMessageIt, locale),
     location: pickLocalized(job.location, job.locationDe, job.locationIt, locale),

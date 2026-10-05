@@ -1444,6 +1444,8 @@ model RecruitingJob {
   workType      String              @map("work_type") @db.VarChar(40)
   startFrom     String              @default("") @map("start_from") @db.VarChar(120)
   notes         String              @default("") @db.Text
+  notesDe       String              @default("") @map("notes_de") @db.Text
+  notesIt       String              @default("") @map("notes_it") @db.Text
   description   String              @default("") @db.Text
   descriptionDe String              @default("") @map("description_de") @db.Text
   descriptionIt String              @default("") @map("description_it") @db.Text
