@@ -1,5 +1,7 @@
 "use client";
 
+import { isValidApplicationEmail } from "../../lib/recruiting/email-validation";
+
 import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from "react";
 import type { RecruitingMessages } from "../../lib/i18n/recruiting-messages";
 import type { Locale } from "../../lib/i18n/dictionaries";
@@ -114,7 +116,7 @@ export function QuizApplyPage({
   async function submitForm(event: FormEvent, element: QuizElement) {
     event.preventDefault();
     setShowErrors(true);
-    const emailOk = /^\S+@\S+\.\S+$/.test(email.trim());
+    const emailOk = isValidApplicationEmail(email);
     const cvName = Object.values(files).filter(Boolean)[0] ?? "";
     const cvFile = Object.values(fileBlobs)[0] ?? null;
     if (!firstName.trim() || !lastName.trim() || !emailOk || (cvRequired && !cvName)) {
@@ -272,7 +274,8 @@ export function QuizApplyPage({
       <form style={wrap} className="quiz-form" noValidate onSubmit={(event) => void submitForm(event, element)}>
         <input className={`quiz-form-input${showErrors && !firstName.trim() ? " is-invalid" : ""}`} placeholder={t.firstNamePh} value={firstName} onChange={(event) => setFirstName(event.target.value)} />
         <input className={`quiz-form-input${showErrors && !lastName.trim() ? " is-invalid" : ""}`} placeholder={t.lastNamePh} value={lastName} onChange={(event) => setLastName(event.target.value)} />
-        <input className={`quiz-form-input${showErrors && !/^\S+@\S+\.\S+$/.test(email.trim()) ? " is-invalid" : ""}`} type="email" placeholder={t.email} value={email} onChange={(event) => setEmail(event.target.value)} />
+        <input className={`quiz-form-input${showErrors && !isValidApplicationEmail(email) ? " is-invalid" : ""}`} aria-invalid={showErrors && !isValidApplicationEmail(email)} aria-describedby={showErrors && !isValidApplicationEmail(email) ? "application-email-error" : undefined} type="email" placeholder={t.email} value={email} onChange={(event) => setEmail(event.target.value)} />
+        {showErrors && !isValidApplicationEmail(email) ? <span id="application-email-error" className="job-apply-error" role="alert">{t.emailFormatError}</span> : null}
         <input className="quiz-form-input" type="tel" placeholder={t.phone} value={phone} onChange={(event) => setPhone(event.target.value)} />
         <label className="quiz-copy" style={{ fontSize: 14 }}><input type="checkbox" required /> {t.privacyAgree}</label>
         {error ? <p className="job-apply-error">{error}</p> : null}

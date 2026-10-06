@@ -1,3 +1,4 @@
+import { isValidApplicationEmail } from "./email-validation";
 import { Prisma, type RecruitingJob, type RecruitingJobFormat, type RecruitingJobStatus } from "../../app/generated/prisma/client";
 
 export const locales = ["de", "en", "it"] as const;
@@ -176,9 +177,9 @@ export function parseApplicationInput(body: unknown, format: FormatKey, cvRequir
   const data = body as Record<string, unknown>;
   const firstName = text(data.firstName, 120);
   const lastName = text(data.lastName, 120);
-  const email = text(data.email, 320);
+  const email = typeof data.email === "string" ? data.email.trim() : "";
   const locale = locales.includes(data.locale as JobLocale) ? data.locale as JobLocale : "en";
-  if (!firstName || !lastName || !email.includes("@")) return null;
+  if (!firstName || !lastName || !isValidApplicationEmail(email)) return null;
   const cvFileName = text(data.cvFileName, 255);
   if (cvRequired && !cvFileName) return null;
   const answers = Array.isArray(data.answers) ? data.answers : [];

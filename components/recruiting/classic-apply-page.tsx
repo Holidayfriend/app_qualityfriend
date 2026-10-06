@@ -1,5 +1,7 @@
 "use client";
 
+import { isValidApplicationEmail } from "../../lib/recruiting/email-validation";
+
 import { useState, type FormEvent } from "react";
 import { fill, type RecruitingMessages } from "../../lib/i18n/recruiting-messages";
 import type { Locale } from "../../lib/i18n/dictionaries";
@@ -52,7 +54,7 @@ export function ClassicApplyPage({ t, job, slug, locale, langs, onLocaleChange, 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setShowErrors(true);
-    const emailOk = /^\S+@\S+\.\S+$/.test(email.trim());
+    const emailOk = isValidApplicationEmail(email);
     const checksOk = privacy && keep;
     if (!first.trim() || !last.trim() || !emailOk || (job.cvRequired && !cvName) || !checksOk) {
       setError(checksOk ? "" : t.agreeRequired);
@@ -128,7 +130,7 @@ export function ClassicApplyPage({ t, job, slug, locale, langs, onLocaleChange, 
                 <label>{t.firstName}<input className={showErrors && !first.trim() ? "is-invalid" : ""} value={first} onChange={(event) => setFirst(event.target.value)} /></label>
                 <label>{t.lastName}<input className={showErrors && !last.trim() ? "is-invalid" : ""} value={last} onChange={(event) => setLast(event.target.value)} /></label>
               </div>
-              <label>{t.email}<input className={showErrors && !/^\S+@\S+\.\S+$/.test(email.trim()) ? "is-invalid" : ""} type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
+              <label>{t.email}<input className={showErrors && !isValidApplicationEmail(email) ? "is-invalid" : ""} aria-invalid={showErrors && !isValidApplicationEmail(email)} aria-describedby={showErrors && !isValidApplicationEmail(email) ? "application-email-error" : undefined} type="email" value={email} onChange={(event) => setEmail(event.target.value)} />{showErrors && !isValidApplicationEmail(email) ? <span id="application-email-error" className="job-apply-error" role="alert" style={{ display: "block", fontSize: 12, marginTop: 4 }}>{t.emailFormatError}</span> : null}</label>
               <label>{t.phone}<input type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} /></label>
               <label>{t.message}<textarea rows={4} value={message} onChange={(event) => setMessage(event.target.value)} placeholder={t.optional} /></label>
               <label>

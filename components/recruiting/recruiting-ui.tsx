@@ -1,5 +1,7 @@
 "use client";
 
+import { isValidApplicationEmail } from "../../lib/recruiting/email-validation";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useEffect, useRef, type FormEvent } from "react";
@@ -860,7 +862,7 @@ function ApplicationCreate({ t, locale }: { t: T; locale: Locale }) {
     return () => { ignore = true; };
   }, [locale, setJobs]);
   const openJobs = jobs.filter((job) => job.status === "active" || job.status === "draft");
-  const missing = { first: !first.trim(), last: !last.trim(), jobId: !jobId };
+  const missing = { first: !first.trim(), last: !last.trim(), jobId: !jobId, email: Boolean(email.trim()) && !isValidApplicationEmail(email) };
   async function save(event: FormEvent) {
     event.preventDefault();
     setShowErrors(true);
@@ -901,7 +903,7 @@ function ApplicationCreate({ t, locale }: { t: T; locale: Locale }) {
           <label><span className="field-lbl">{t.firstName}</span><input className={`field-input${showErrors && missing.first ? " is-invalid" : ""}`} value={first} onChange={(event) => setFirst(event.target.value)} placeholder={t.firstNamePh} /></label>
           <label><span className="field-lbl">{t.lastName}</span><input className={`field-input${showErrors && missing.last ? " is-invalid" : ""}`} value={last} onChange={(event) => setLast(event.target.value)} placeholder={t.lastNamePh} /></label>
         </div>
-        <label><span className="field-lbl">{t.email}</span><input className="field-input" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" /></label>
+        <label><span className="field-lbl">{t.email}</span><input type="email" className={`field-input${showErrors && missing.email ? " is-invalid" : ""}`} aria-invalid={showErrors && missing.email} aria-describedby={showErrors && missing.email ? "manual-email-error" : undefined} value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" />{showErrors && missing.email ? <span id="manual-email-error" className="job-apply-error" role="alert" style={{ display: "block", fontSize: 12, marginTop: 4 }}>{t.emailFormatError}</span> : null}</label>
         <label><span className="field-lbl">{t.phone}</span><input className="field-input" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+39 ..." /></label>
         <label><span className="field-lbl">{t.selectJob}</span>
           <select className={`field-select${showErrors && missing.jobId ? " is-invalid" : ""}`} value={jobId} onChange={(event) => setJobId(event.target.value)}>
@@ -948,6 +950,31 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
   const [loading, setLoading] = useState(true);
   const [comment, setComment] = useState("");
   const [tag, setTag] = useState("");
+  const [emailDraft, setEmailDraft] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState("");
+  const [emailBusy, setEmailBusy] = useState(false);
+  async function saveEmail() {
+    if (emailDraft === null || emailBusy) return;
+    const email = emailDraft.trim();
+    if (!isValidApplicationEmail(email)) { setEmailError(t.emailFormatError); return; }
+    setEmailError("");
+    setEmailBusy(true);
+    try {
+      const res = await fetch(`/api/recruiting/applications/${encodeURIComponent(id)}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, locale }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.application) {
+        setEmailError(data?.error === "INVALID_EMAIL" ? t.emailFormatError : t.saveFailed);
+        return;
+      }
+      const next = data.application as Applicant;
+      setItem(next);
+      setApplicants([next, ...applicants.filter((row) => row.id !== next.id)]);
+      setEmailDraft(null);
+    } catch { setEmailError(t.saveFailed); }
+    finally { setEmailBusy(false); }
+  }
   const [notesBusy, setNotesBusy] = useState(false);
   const [notesError, setNotesError] = useState("");
   const [notesOk, setNotesOk] = useState("");
@@ -1286,7 +1313,14 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
             </div>
           </div>
           <div className="cb" style={{ borderTop: "1px solid var(--border)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 20px" }}>
-            <Field label={t.email} value={item.email} /><Field label={t.phone} value={item.phone} />
+            <div>
+              {emailDraft === null ? <><Field label={t.email} value={item.email} /><button type="button" className="btn btn-ghost" onClick={() => { setEmailDraft(item.email === "\u2013" ? "" : item.email); setEmailError(""); }}>{t.editEmail}</button></> : <>
+                <label><span className="field-lbl">{t.email}</span><input className={`field-input${emailError && !isValidApplicationEmail(emailDraft) ? " is-invalid" : ""}`} type="email" value={emailDraft} disabled={emailBusy} aria-invalid={Boolean(emailError) && !isValidApplicationEmail(emailDraft)} aria-describedby={emailError ? "detail-email-error" : undefined} onChange={(event) => { setEmailDraft(event.target.value); setEmailError(""); }} /></label>
+                {emailError ? <p id="detail-email-error" className="job-apply-error" role="alert">{emailError}</p> : null}
+                <button type="button" className="btn btn-primary" disabled={emailBusy} onClick={() => void saveEmail()}>{t.save}</button>
+                <button type="button" className="btn btn-ghost" disabled={emailBusy} onClick={() => { setEmailDraft(null); setEmailError(""); }}>{t.cancel}</button>
+              </>}
+            </div><Field label={t.phone} value={item.phone} />
             <Field label={t.bestTime} value={item.bestTime} /><Field label={t.appliedOn} value={item.date} />
             <Field label={t.source} value={item.source} />
             <div>

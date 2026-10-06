@@ -1,3 +1,4 @@
+import { isValidApplicationEmail } from "../../../../../lib/recruiting/email-validation";
 import { Prisma } from "../../../../../app/generated/prisma/client";
 import { prisma } from "../../../../../lib/prisma";
 import { recordAuditLog } from "../../../../../lib/audit/audit-service";
@@ -57,11 +58,14 @@ export async function PATCH(request: Request, context: Context) {
   if (!isUuid(id)) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== "object") return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
-  const data = body as { stage?: string; locale?: string; tags?: unknown; comments?: unknown; competencies?: unknown };
+  const data = body as { email?: unknown; stage?: string; locale?: string; tags?: unknown; comments?: unknown; competencies?: unknown };
+  const hasEmail = "email" in data;
+  const email = typeof data.email === "string" ? data.email.trim() : "";
+  if (hasEmail && !isValidApplicationEmail(email)) return Response.json({ error: "INVALID_EMAIL" }, { status: 400 });
   const stage = typeof data.stage === "string" ? toDbStage(data.stage) : null;
   const hasNotes = "tags" in data || "comments" in data;
   const competencies = parseCompetencies(data.competencies);
-  if (!stage && !hasNotes && !competencies) return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
+  if (!stage && !hasNotes && !competencies && !hasEmail) return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
   const locale = typeof data.locale === "string" ? data.locale : "";
 
   const updated = await prisma.$transaction(async (tx) => {
@@ -69,6 +73,7 @@ export async function PATCH(request: Request, context: Context) {
     if (!before) return null;
     const patch: Prisma.RecruitingApplicationUncheckedUpdateInput = {};
     if (stage) patch.stage = stage;
+    if (hasEmail) patch.email = email;
     if (competencies) {
       patch.aiSocial = competencies.social;
       patch.aiProfessional = competencies.professional;
@@ -97,6 +102,7 @@ export async function PATCH(request: Request, context: Context) {
       entityType: "RECRUITING_APPLICATION",
       entityId: id,
       changes: {
+        ...(hasEmail ? { email: { before: before.email, after: after.email } } : {}),
         before: stage ? { stage: before.stage } : competencies ? { competencies: { social: before.aiSocial, professional: before.aiProfessional, methodical: before.aiMethodical, personal: before.aiPersonal } } : { notes: before.notes },
         after: stage ? { stage: after.stage } : competencies ? { competencies } : { notes: after.notes },
       },

@@ -1,3 +1,4 @@
+import { isValidApplicationEmail } from "./email-validation";
 import type { RecruitingApplication, RecruitingApplicationStage } from "../../app/generated/prisma/client";
 import type { DeptId } from "../i18n/recruiting-messages";
 import type { AppStage, Applicant } from "./preview-data";
@@ -273,12 +274,13 @@ export function parseManualApplication(body: unknown) {
   const firstName = text(data.firstName, 120);
   const lastName = text(data.lastName, 120);
   const jobId = typeof data.jobId === "string" && uuid.test(data.jobId) ? data.jobId : "";
-  if (!firstName || !lastName || !jobId) return null;
+  const email = typeof data.email === "string" ? data.email.trim() : "";
+  if (!firstName || !lastName || !jobId || (email && !isValidApplicationEmail(email))) return null;
   return {
     jobId,
     firstName,
     lastName,
-    email: text(data.email, 320),
+    email,
     phone: text(data.phone, 40),
     message: text(data.message, 8000),
     cvFileName: text(data.cvFileName, 255),
