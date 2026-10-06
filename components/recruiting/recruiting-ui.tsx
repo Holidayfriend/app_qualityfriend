@@ -985,6 +985,7 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
   const [actionBusy, setActionBusy] = useState(false);
   const [confirmation, setConfirmation] = useState<{ stage: "offer" | "rejected"; token: string; preview: { to: string; subject: string; html: string; willSend: boolean } } | null>(null);
   const confirmationRef = useRef<HTMLDialogElement>(null);
+  const recheckConfirmRef = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     if (confirmation) confirmationRef.current?.showModal();
     else confirmationRef.current?.close();
@@ -1300,7 +1301,8 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
     setActionBusy(false);
   }
   async function recheckAi() {
-    if (!item || actionBusy) return;
+    if (!item || actionBusy || compBusy || item.aiStatus === "PENDING") return;
+    recheckConfirmRef.current?.close();
     setActionBusy(true);
     const res = await fetch(`/api/recruiting/applications/${encodeURIComponent(id)}/ai-score?locale=${locale}`, { method: "POST" }).catch(() => null);
     const data = res ? await res.json().catch(() => null) : null;
@@ -1455,7 +1457,7 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
         <div className="ch"><div className="ct">{t.actions}</div></div>
         <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <div>{stageBadge(t, item.stage)}</div>
-          <button type="button" className="btn btn-ghost" disabled={actionBusy || item.aiStatus === "PENDING"} onClick={() => void recheckAi()}>{t.recheckAi}</button>
+          <button type="button" className="btn btn-ghost" disabled={actionBusy || compBusy || item.aiStatus === "PENDING"} onClick={() => recheckConfirmRef.current?.showModal()}>{t.recheckAi}</button>
           {canChangeApplicationStage(item.stage, "invited") ? <button type="button" className="btn btn-ghost" disabled={actionBusy} onClick={() => void setStage("invited")}>{t.stageInvited}</button> : null}
           {canChangeApplicationStage(item.stage, "offer") ? <button type="button" className="btn btn-primary" disabled={actionBusy} onClick={() => void setStage("offer")}>{t.sendOffer}</button> : null}
           {canChangeApplicationStage(item.stage, "rejected") ? <button type="button" className="btn btn-ghost" disabled={actionBusy} onClick={() => void setStage("rejected")}>{t.reject}</button> : null}
@@ -1467,6 +1469,14 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
         </div>
       </div>
     </div>
+    <dialog ref={recheckConfirmRef} className="job-apply-dialog recruiting-confirm-dialog" aria-labelledby="recheck-confirm-title" aria-describedby="recheck-confirm-warning">
+      <h3 id="recheck-confirm-title">{t.recheckConfirmTitle}</h3>
+      <p id="recheck-confirm-warning">{t.recheckConfirmWarning}</p>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+        <button type="button" className="btn btn-ghost" autoFocus onClick={() => recheckConfirmRef.current?.close()}>{t.cancel}</button>
+        <button type="button" className="btn btn-primary" disabled={actionBusy || compBusy || item.aiStatus === "PENDING"} onClick={() => void recheckAi()}>{t.recheckConfirmAction}</button>
+      </div>
+    </dialog>
     <dialog ref={confirmationRef} className="job-apply-dialog recruiting-confirm-dialog" aria-labelledby="application-confirm-title" onCancel={(event) => { event.preventDefault(); if (!actionBusy) setConfirmation(null); }}>
       {confirmation ? <>
         <h3 id="application-confirm-title">{t.actionConfirmTitle}: {confirmation.stage === "offer" ? t.stageOffer : t.stageRejected}</h3>
