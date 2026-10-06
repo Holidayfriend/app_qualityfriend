@@ -14,6 +14,7 @@ import { BrandLoader } from "../ui/brand-loader";
 import { useToast } from "../ui/toast-provider";
 import { htmlToPlain, RichTextEditor, sanitizeJobHtml, type RichTextEditorHandle } from "./rich-text-editor";
 import { formatHotelDate, readHotelTimeZone } from "../../lib/hotel/clock";
+import { jobSaveErrorKey } from "../../lib/recruiting/job-save-error";
 import type { PublicJob } from "../../lib/recruiting/job-fields";
 
 export type RecruitingView =
@@ -470,6 +471,16 @@ function JobEdit({ t, locale, id }: { t: T; locale: Locale; id: string }) {
 
 function JobCreate({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }) {
   const router = useRouter();
+  const formRef = useRef<HTMLDivElement>(null);
+  const [invalidDepartment, setInvalidDepartment] = useState(false);
+  function revealInvalidField() {
+    requestAnimationFrame(() => {
+      const field = formRef.current?.querySelector<HTMLElement>(".is-invalid");
+      field?.scrollIntoView({ behavior: "smooth", block: "center" });
+      const control = field?.matches("input, select, button") ? field : field?.querySelector<HTMLElement>("[contenteditable=true], textarea, input");
+      control?.focus({ preventScroll: true });
+    });
+  }
   const { jobs, setJobs } = useRecruiting();
   const departments = useHotelDepartments(locale);
   const descriptionRef = useRef<RichTextEditorHandle>(null);
@@ -495,7 +506,7 @@ function JobCreate({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }
   const typeLabel = type === "full" ? t.typeFull : type === "part" ? t.typePart : type === "apprentice" ? t.typeApprentice : t.typeFullOrPart;
   const missing = {
     title: !title.trim(),
-    dept: !dept,
+    dept: !dept || invalidDepartment,
     start: !start.trim(),
     description: !htmlToPlain(description),
     location: !location.trim(),
@@ -561,7 +572,11 @@ function JobCreate({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }
       ...missing,
       description: !htmlToPlain(nextDescription),
     };
-    if (Object.values(nextMissing).some(Boolean)) return;
+    if (Object.values(nextMissing).some(Boolean)) {
+      setError(t.jobRequiredFields);
+      revealInvalidField();
+      return;
+    }
     setBusy(true);
     try {
       const langsOn = (["de", "en", "it"] as Locale[]).filter((lang) => langs[lang]);
@@ -578,14 +593,18 @@ function JobCreate({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
-        setError(t.saveFailed);
+        setError(t[jobSaveErrorKey(res.status, data?.error, data?.reason)]);
+        if (data?.error === "INVALID_DEPARTMENT") {
+          setInvalidDepartment(true);
+          revealInvalidField();
+        }
         setBusy(false);
         return;
       }
       if (data?.job) setJobs(job ? jobs.map((item) => item.id === data.job.id ? data.job : item) : [data.job, ...jobs]);
       router.push("/recruiting/jobs");
     } catch {
-      setError(t.saveFailed);
+      setError(t.jobNetworkFailed);
       setBusy(false);
     }
   }
@@ -594,7 +613,7 @@ function JobCreate({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }
       <Back href="/recruiting/jobs" label={t.backJobs} />
       <ApplyPageLink slug={job?.slug} title={t.applyOpen} />
     </div>
-    <div className="g2">
+    <div className="g2 recruiting-job-form" ref={formRef}>
       <div>
         {job ? null : (
         <div className="card" style={{ marginBottom: 16 }}>
@@ -612,9 +631,9 @@ function JobCreate({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="ch"><div className="ct">{t.basicsStep}</div></div>
           <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <label><span className="field-lbl">{t.roleTitle}</span><input className={`field-input${invalid("title") ? " is-invalid" : ""}`} value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t.rolePlaceholder} /></label>
+            <label><span className="field-lbl">{t.roleTitle}</span><input className={`field-input${invalid("title") ? " is-invalid" : ""}`} aria-invalid={invalid("title")} value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t.rolePlaceholder} /></label>
             <div className="field-row">
-              <label><span className="field-lbl">{t.department}</span><select className={`field-select${invalid("dept") ? " is-invalid" : ""}`} value={dept} onChange={(event) => setDept(event.target.value)}>
+              <label><span className="field-lbl">{t.department}</span><select className={`field-select${invalid("dept") ? " is-invalid" : ""}`} aria-invalid={invalid("dept")} value={dept} onChange={(event) => { setDept(event.target.value); setInvalidDepartment(false); }}>
                 <option value=""></option>
                 {departments.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
               </select></label>
@@ -622,13 +641,13 @@ function JobCreate({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }
                 <option value="fullOrPart">{t.typeFullOrPart}</option><option value="full">{t.typeFull}</option><option value="part">{t.typePart}</option><option value="apprentice">{t.typeApprentice}</option>
               </select></label>
             </div>
-            <label><span className="field-lbl">{t.startFrom}</span><input className={`field-input${invalid("start") ? " is-invalid" : ""}`} value={start} onChange={(event) => setStart(event.target.value)} placeholder={t.startPlaceholder} /></label>
+            <label><span className="field-lbl">{t.startFrom}</span><input className={`field-input${invalid("start") ? " is-invalid" : ""}`} aria-invalid={invalid("start")} value={start} onChange={(event) => setStart(event.target.value)} placeholder={t.startPlaceholder} /></label>
             <label><span className="field-lbl">{t.aiNotes}</span><input className="field-input" value={notes} onChange={(event) => setNotes(event.target.value)} placeholder={t.aiNotesPlaceholder} /></label>
             <div>
               <span className="field-lbl">{t.jobDescription}</span>
               <RichTextEditor ref={descriptionRef} value={description} onChange={setDescription} placeholder={t.jobDescriptionPlaceholder} locale={locale} invalid={invalid("description")} />
             </div>
-            <label><span className="field-lbl">{t.location}</span><input className={`field-input${invalid("location") ? " is-invalid" : ""}`} value={location} onChange={(event) => setLocation(event.target.value)} placeholder={t.locationPlaceholder} /></label>
+            <label><span className="field-lbl">{t.location}</span><input className={`field-input${invalid("location") ? " is-invalid" : ""}`} aria-invalid={invalid("location")} value={location} onChange={(event) => setLocation(event.target.value)} placeholder={t.locationPlaceholder} /></label>
             <div>
               <span className="field-lbl">{t.autoMessage}</span>
               <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 400, color: "var(--text3)" }}>{t.autoMessageHint}</p>
@@ -735,7 +754,7 @@ function JobQuiz({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }) 
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
-        setError(t.saveFailed);
+        setError(t[jobSaveErrorKey(res.status, data?.error, data?.reason)]);
         setBusy(false);
         return;
       }

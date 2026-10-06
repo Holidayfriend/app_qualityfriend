@@ -1,3 +1,4 @@
+import { jobTranslationFailureReason } from "../../../../lib/recruiting/job-save-error";
 import { translateJobFields } from "../../../../lib/recruiting/translate-job";
 import { prisma } from "../../../../lib/prisma";
 import { recordAuditLog } from "../../../../lib/audit/audit-service";
@@ -29,12 +30,14 @@ export async function POST(request: Request) {
     where: { id: input.departmentId, hotelTenantId: actor.hotel_tenant_id, isDeleted: false, isActive: true },
     select: { id: true, nameEn: true, nameDe: true, nameIt: true },
   });
-  if (!department) return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
+  if (!department) return Response.json({ error: "INVALID_DEPARTMENT" }, { status: 400 });
   let translations;
   try {
     translations = await translateJobFields(actor.hotel_tenant_id, locale, input);
-  } catch {
-    return Response.json({ error: "TRANSLATION_FAILED" }, { status: 502 });
+  } catch (error) {
+    const reason = jobTranslationFailureReason(error);
+    console.error("Recruiting job translation failed", { hotelTenantId: actor.hotel_tenant_id, reason });
+    return Response.json({ error: "TRANSLATION_FAILED", reason }, { status: 502 });
   }
   const job = await prisma.$transaction(async (tx) => {
     const slug = await uniqueSlug(async (value) => !!(await tx.recruitingJob.findUnique({ where: { slug: value }, select: { id: true } })), input.title);
