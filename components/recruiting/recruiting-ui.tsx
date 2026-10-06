@@ -802,7 +802,7 @@ function Applications({ t, locale }: { t: T; locale: Locale }) {
     return () => { ignore = true; };
   }, [locale, setApplicants]);
   const rows = applicants.filter((item) => (filter === "all" || item.stage === filter) && `${item.name} ${item.role} ${t.depts[item.dept]}`.toLowerCase().includes(search.toLowerCase()));
-  const filters: Array<["all" | AppStage, string]> = [["all", t.all], ["new", t.stageNew], ["offer", t.stageOffer], ["hired", t.stageHired], ["rejected", t.stageRejected], ["archived", t.stageArchived]];
+  const filters: Array<["all" | AppStage, string]> = [["all", t.all], ["new", t.stageNew], ["invited", t.stageInvited], ["offer", t.stageOffer], ["hired", t.stageHired], ["rejected", t.stageRejected], ["archived", t.stageArchived]];
   return <>
     <Back href="/recruiting" label={t.backRecruiting} />
     <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
@@ -1226,6 +1226,7 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
     }).catch(() => null);
     const data = res && res.ok ? await res.json().catch(() => null) : null;
     if (!data?.application) {
+      update({ stage: item.stage, dateDisplay: item.dateDisplay, suggestion: item.suggestion });
       showToast({ message: t.stageUpdateFailed, tone: "error" });
       setActionBusy(false);
       return;
@@ -1238,7 +1239,7 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
         : fill(data.emailSent ? t.rejectSent : t.rejectStatusUpdated, { name: item.name });
       showToast({ message, tone: "success" });
     } else {
-      const message = stage === "archived" ? t.archivedApp : t.unarchivedApp;
+      const message = stage === "invited" ? t.invitedStatusUpdated : stage === "archived" ? t.archivedApp : t.unarchivedApp;
       showToast({ message: fill(message, { name: item.name }), tone: "success" });
     }
     setActionBusy(false);
@@ -1430,6 +1431,7 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
         <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <div>{stageBadge(t, item.stage)}</div>
           <button type="button" className="btn btn-ghost" disabled={actionBusy || item.aiStatus === "PENDING"} onClick={() => void recheckAi()}>{t.recheckAi}</button>
+          <button type="button" className="btn btn-ghost" disabled={actionBusy || item.stage === "invited"} onClick={() => void setStage("invited")}>{t.stageInvited}</button>
           <button type="button" className="btn btn-primary" disabled={actionBusy} onClick={() => void setStage("offer")}>{t.sendOffer}</button>
           <button type="button" className="btn btn-ghost" disabled={actionBusy} onClick={() => void setStage("rejected")}>{t.reject}</button>
           <button type="button" className="btn btn-ghost" disabled={actionBusy} onClick={() => void convert()}>{t.makeEmployee}</button>
