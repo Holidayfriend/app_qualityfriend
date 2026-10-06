@@ -758,3 +758,6 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 
 /* Keep job validation visible, including focused fields and upload buttons. */
 .qf-dashboard .recruiting-job-form .is-invalid { outline:2px solid #dc2626;outline-offset:1px;scroll-margin-top:100px }
+
+.recruiting-confirm-dialog { border:0;max-width:620px;max-height:85vh;overflow:auto;margin:auto }
+.recruiting-confirm-dialog::backdrop { background:rgba(28,34,51,.45) }

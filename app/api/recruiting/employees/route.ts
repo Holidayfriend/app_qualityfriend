@@ -1,3 +1,4 @@
+import { canChangeApplicationStage } from "../../../../lib/recruiting/application-actions";
 import { Prisma } from "../../../../app/generated/prisma/client";
 import { prisma } from "../../../../lib/prisma";
 import { recordAuditLog } from "../../../../lib/audit/audit-service";
@@ -58,7 +59,13 @@ export async function POST(request: Request) {
           include: { job: { select: { departmentId: true } } },
         });
         if (!application) return { kind: "missing" as const };
+        if (!canChangeApplicationStage(application.stage, "hired")) return { kind: "invalidStage" as const };
 
+        const changed = await tx.recruitingApplication.updateMany({
+          where: { id: application.id, hotelTenantId: actor.hotel_tenant_id, stage: application.stage, updatedAt: application.updatedAt },
+          data: { stage: "HIRED" },
+        });
+        if (changed.count !== 1) return { kind: "invalidStage" as const };
         const notes = parseApplicationNotes(application.notes);
         const created = await tx.recruitingEmployee.create({
           data: {
@@ -78,10 +85,6 @@ export async function POST(request: Request) {
           },
           include: { department: departmentSelect },
         });
-        await tx.recruitingApplication.update({
-          where: { id: application.id },
-          data: { stage: "HIRED" },
-        });
         await recordAuditLog(tx, {
           hotelTenantId: actor.hotel_tenant_id,
           actorId: actor.id,
@@ -100,6 +103,7 @@ export async function POST(request: Request) {
         });
         return { kind: "created" as const, employee: created };
       });
+      if (result.kind === "invalidStage") return Response.json({ error: "INVALID_STAGE" }, { status: 409 });
       if (result.kind === "missing") return Response.json({ error: "NOT_FOUND" }, { status: 404 });
       return Response.json({
         employee: toPublicEmployee(result.employee, locale, timeZone),

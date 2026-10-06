@@ -1,4 +1,6 @@
 import "server-only";
+import { createHash } from "node:crypto";
+import { isValidApplicationEmail } from "./email-validation";
 
 import { Prisma } from "../../app/generated/prisma/client";
 import { prisma } from "../prisma";
@@ -71,11 +73,11 @@ function jobTitleForLocale(job: { title: string; titleDe: string; titleIt: strin
   return job.title.trim() || job.titleDe.trim() || job.titleIt.trim();
 }
 
-export async function sendRecruitingTemplateEmail(input: {
+export async function prepareRecruitingTemplateEmail(input: {
   hotelTenantId: string;
   category: EmailCat;
   applicationId: string;
-}): Promise<{ sent: boolean; auto: boolean; reason?: string }> {
+}) {
   const application = await prisma.recruitingApplication.findFirst({
     where: { id: input.applicationId, hotelTenantId: input.hotelTenantId },
     include: {
@@ -83,8 +85,7 @@ export async function sendRecruitingTemplateEmail(input: {
       hotelTenant: { select: { hotelNameEn: true, hotelNameDe: true, hotelNameIt: true, email: true } },
     },
   });
-  if (!application) return { sent: false, auto: false, reason: "APPLICATION_NOT_FOUND" };
-  if (!application.email.trim()) return { sent: false, auto: false, reason: "NO_RECIPIENT" };
+  if (!application) throw new Error("APPLICATION_NOT_FOUND");
 
   const rows = await ensureTemplates(input.hotelTenantId);
   const locale = normalizeLocale(application.locale);
@@ -92,8 +93,7 @@ export async function sendRecruitingTemplateEmail(input: {
   const template = rows.find((row) => row.category === category && row.locale === locale)
     || rows.find((row) => row.category === category && row.locale === "en")
     || rows.find((row) => row.category === category);
-  if (!template) return { sent: false, auto: false, reason: "TEMPLATE_MISSING" };
-  if (!template.autoSend) return { sent: false, auto: false, reason: "AUTO_OFF" };
+  if (!template) throw new Error("TEMPLATE_MISSING");
 
   const settings = await prisma.recruitingSettings.findUnique({ where: { hotelTenantId: input.hotelTenantId } });
   const hotelEmail = settings?.replyEmail?.trim() || application.hotelTenant.email || "";
@@ -110,18 +110,36 @@ export async function sendRecruitingTemplateEmail(input: {
   const htmlSource = fill(template.body, { ...vars, logo: "{{logo}}" });
   const htmlBody = renderBodyHtml(htmlSource, logoUrl);
 
+  return {
+    to: application.email.trim(), subject, text: textBody, html: htmlBody,
+    replyTo: hotelEmail || undefined,
+    auto: template.autoSend,
+    willSend: template.autoSend && isValidApplicationEmail(application.email),
+  };
+}
+
+export type RecruitingEmailPreview = Awaited<ReturnType<typeof prepareRecruitingTemplateEmail>>;
+
+export function recruitingConfirmationToken(stage: string, version: string, preview: RecruitingEmailPreview) {
+  return createHash("sha256").update(JSON.stringify({ stage, version, preview })).digest("hex");
+}
+
+export async function sendPreparedRecruitingEmail(preview: RecruitingEmailPreview): Promise<{ sent: boolean; auto: boolean; reason?: string }> {
+  if (!preview.willSend) return { sent: false, auto: preview.auto, reason: preview.auto ? "NO_RECIPIENT" : "AUTO_OFF" };
   try {
-    const result = await sendMail({
-      to: application.email.trim(),
-      subject,
-      text: textBody,
-      html: htmlBody,
-      replyTo: hotelEmail || undefined,
-    });
+    const result = await sendMail({ to: preview.to, subject: preview.subject, text: preview.text, html: preview.html, replyTo: preview.replyTo });
     if (!result.sent) return { sent: false, auto: true, reason: result.reason };
     return { sent: true, auto: true };
   } catch (error) {
     console.error("Recruiting email send failed", error);
     return { sent: false, auto: true, reason: "SEND_FAILED" };
+  }
+}
+
+export async function sendRecruitingTemplateEmail(input: { hotelTenantId: string; category: EmailCat; applicationId: string }) {
+  try {
+    return await sendPreparedRecruitingEmail(await prepareRecruitingTemplateEmail(input));
+  } catch {
+    return { sent: false, auto: false, reason: "PREPARE_FAILED" };
   }
 }

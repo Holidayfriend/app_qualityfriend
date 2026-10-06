@@ -1,3 +1,4 @@
+import { canChangeApplicationStage } from "../../../../../lib/recruiting/application-actions";
 import { isValidApplicationEmail } from "../../../../../lib/recruiting/email-validation";
 import { Prisma } from "../../../../../app/generated/prisma/client";
 import { prisma } from "../../../../../lib/prisma";
@@ -5,7 +6,7 @@ import { recordAuditLog } from "../../../../../lib/audit/audit-service";
 import { hotelTimeZoneFor } from "../../../../../lib/hotel/context";
 import { recruitingActor } from "../../../../../lib/recruiting/access";
 import { isUuid, notesPayload, parseApplicationNotes, toDbStage, toPublicApplicant } from "../../../../../lib/recruiting/application-fields";
-import { sendRecruitingTemplateEmail } from "../../../../../lib/recruiting/send-recruiting-email";
+import { prepareRecruitingTemplateEmail, recruitingConfirmationToken, sendPreparedRecruitingEmail, type RecruitingEmailPreview } from "../../../../../lib/recruiting/send-recruiting-email";
 import type { Applicant } from "../../../../../lib/recruiting/preview-data";
 
 type Context = { params: Promise<{ id: string }> };
@@ -48,6 +49,16 @@ export async function GET(request: Request, context: Context) {
     include: { job: jobInclude },
   });
   if (!row) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
+  const previewStage = new URL(request.url).searchParams.get("previewStage");
+  if (previewStage) {
+    if ((previewStage !== "offer" && previewStage !== "rejected") || !canChangeApplicationStage(row.stage, previewStage)) return Response.json({ error: "INVALID_STAGE" }, { status: 409 });
+    try {
+      const preview = await prepareRecruitingTemplateEmail({ hotelTenantId: actor.hotel_tenant_id, applicationId: id, category: previewStage === "offer" ? "offer" : "reject" });
+      return Response.json({ preview, token: recruitingConfirmationToken(previewStage, row.updatedAt.toISOString(), preview) }, { headers: { "Cache-Control": "no-store" } });
+    } catch {
+      return Response.json({ error: "PREVIEW_FAILED" }, { status: 502 });
+    }
+  }
   return Response.json({ application: toPublicApplicant(row, row.job, locale, { timeZone: await hotelTimeZoneFor(actor.hotel_tenant_id) }) }, { headers: { "Cache-Control": "no-store" } });
 }
 
@@ -58,7 +69,7 @@ export async function PATCH(request: Request, context: Context) {
   if (!isUuid(id)) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== "object") return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
-  const data = body as { email?: unknown; stage?: string; locale?: string; tags?: unknown; comments?: unknown; competencies?: unknown };
+  const data = body as { confirmationToken?: unknown; email?: unknown; stage?: string; locale?: string; tags?: unknown; comments?: unknown; competencies?: unknown };
   const hasEmail = "email" in data;
   const email = typeof data.email === "string" ? data.email.trim() : "";
   if (hasEmail && !isValidApplicationEmail(email)) return Response.json({ error: "INVALID_EMAIL" }, { status: 400 });
@@ -68,9 +79,25 @@ export async function PATCH(request: Request, context: Context) {
   if (!stage && !hasNotes && !competencies && !hasEmail) return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
   const locale = typeof data.locale === "string" ? data.locale : "";
 
+  let preparedEmail: RecruitingEmailPreview | null = null;
+  let confirmedVersion: string | null = null;
+  if (stage === "OFFER" || stage === "REJECTED") {
+    if (typeof data.confirmationToken !== "string" || hasEmail || hasNotes || competencies) return Response.json({ error: "CONFIRMATION_REQUIRED" }, { status: 409 });
+    const current = await prisma.recruitingApplication.findFirst({ where: { id, hotelTenantId: actor.hotel_tenant_id } });
+    if (!current) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
+    if (!canChangeApplicationStage(current.stage, stage)) return Response.json({ error: "INVALID_STAGE" }, { status: 409 });
+    try {
+      preparedEmail = await prepareRecruitingTemplateEmail({ hotelTenantId: actor.hotel_tenant_id, applicationId: id, category: stage === "OFFER" ? "offer" : "reject" });
+    } catch { return Response.json({ error: "PREVIEW_FAILED" }, { status: 502 }); }
+    confirmedVersion = current.updatedAt.toISOString();
+    if (data.confirmationToken !== recruitingConfirmationToken(stage.toLowerCase(), confirmedVersion, preparedEmail)) return Response.json({ error: "PREVIEW_CHANGED" }, { status: 409 });
+  }
+
   const updated = await prisma.$transaction(async (tx) => {
     const before = await tx.recruitingApplication.findFirst({ where: { id, hotelTenantId: actor.hotel_tenant_id } });
     if (!before) return null;
+    if (stage && (!canChangeApplicationStage(before.stage, stage) || stage === "HIRED")) return { conflict: true as const };
+    if (confirmedVersion && before.updatedAt.toISOString() !== confirmedVersion) return { conflict: true as const };
     const patch: Prisma.RecruitingApplicationUncheckedUpdateInput = {};
     if (stage) patch.stage = stage;
     if (hasEmail) patch.email = email;
@@ -90,11 +117,12 @@ export async function PATCH(request: Request, context: Context) {
         : current.comments;
       patch.notes = notesPayload(tags, comments, current.files, current.campaign) as Prisma.InputJsonValue;
     }
-    const after = await tx.recruitingApplication.update({
-      where: { id },
+    const changed = await tx.recruitingApplication.updateMany({
+      where: { id, hotelTenantId: actor.hotel_tenant_id, updatedAt: before.updatedAt, stage: before.stage },
       data: patch,
-      include: { job: jobInclude },
     });
+    if (changed.count !== 1) return { conflict: true as const };
+    const after = await tx.recruitingApplication.findUniqueOrThrow({ where: { id }, include: { job: jobInclude } });
     await recordAuditLog(tx, {
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
@@ -110,20 +138,14 @@ export async function PATCH(request: Request, context: Context) {
     return { after, previousStage: before.stage };
   });
   if (!updated) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
+  if ("conflict" in updated) return Response.json({ error: "INVALID_STAGE" }, { status: 409 });
 
   let emailSent = false;
   let emailAuto = false;
-  if (stage && stage !== updated.previousStage) {
-    const category = stage === "OFFER" ? "offer" : stage === "REJECTED" ? "reject" : null;
-    if (category) {
-      const mail = await sendRecruitingTemplateEmail({
-        hotelTenantId: actor.hotel_tenant_id,
-        category,
-        applicationId: id,
-      });
-      emailSent = mail.sent;
-      emailAuto = mail.auto;
-    }
+  if (preparedEmail) {
+    const mail = await sendPreparedRecruitingEmail(preparedEmail);
+    emailSent = mail.sent;
+    emailAuto = mail.auto;
   }
 
   return Response.json({

@@ -1,5 +1,6 @@
 "use client";
 
+import { canChangeApplicationStage } from "../../lib/recruiting/application-actions";
 import { isValidApplicationEmail } from "../../lib/recruiting/email-validation";
 
 import Link from "next/link";
@@ -982,6 +983,27 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
   const [compBusy, setCompBusy] = useState(false);
   const [compMsg, setCompMsg] = useState("");
   const [actionBusy, setActionBusy] = useState(false);
+  const [confirmation, setConfirmation] = useState<{ stage: "offer" | "rejected"; token: string; preview: { to: string; subject: string; html: string; willSend: boolean } } | null>(null);
+  const confirmationRef = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    if (confirmation) confirmationRef.current?.showModal();
+    else confirmationRef.current?.close();
+  }, [confirmation]);
+  async function reviewStage(stage: "offer" | "rejected") {
+    if (!item || actionBusy || !canChangeApplicationStage(item.stage, stage)) return;
+    setActionBusy(true);
+    try {
+      const res = await fetch(`/api/recruiting/applications/${encodeURIComponent(id)}?previewStage=${stage}`);
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.preview || !data?.token) {
+        showToast({ message: res.status === 409 ? t.actionChanged : t.actionPreviewFailed, tone: "error" });
+        return;
+      }
+      setConfirmation({ stage, token: data.token, preview: data.preview });
+    } catch { showToast({ message: t.actionPreviewFailed, tone: "error" }); }
+    finally { setActionBusy(false); }
+  }
+
   const [authorName, setAuthorName] = useState("Team");
   const [cvBusy, setCvBusy] = useState(false);
   const [manageFilesOpen, setManageFilesOpen] = useState(false);
@@ -1209,8 +1231,9 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
     }
     setCompBusy(false);
   }
-  async function setStage(stage: AppStage) {
-    if (!item || actionBusy) return;
+  async function setStage(stage: AppStage, confirmationToken?: string) {
+    if (!item || actionBusy || !canChangeApplicationStage(item.stage, stage)) return;
+    if ((stage === "offer" || stage === "rejected") && !confirmationToken) { await reviewStage(stage); return; }
     setActionBusy(true);
     const today = formatHotelDate(new Date(), locale, readHotelTimeZone());
     const patch: Partial<Applicant> = {
@@ -1222,22 +1245,24 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
     const res = await fetch(`/api/recruiting/applications/${encodeURIComponent(id)}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ stage, locale }),
+      body: JSON.stringify({ stage, locale, confirmationToken }),
     }).catch(() => null);
     const data = res && res.ok ? await res.json().catch(() => null) : null;
     if (!data?.application) {
       update({ stage: item.stage, dateDisplay: item.dateDisplay, suggestion: item.suggestion });
-      showToast({ message: t.stageUpdateFailed, tone: "error" });
+      showToast({ message: res?.status === 409 ? t.actionChanged : t.stageUpdateFailed, tone: "error" });
+      setConfirmation(null);
       setActionBusy(false);
       return;
     }
+    setConfirmation(null);
     setItem(data.application as Applicant);
     setApplicants(applicants.map((row) => row.id === id ? data.application as Applicant : row));
     if (stage === "offer" || stage === "rejected") {
       const message = stage === "offer"
         ? fill(data.emailSent ? t.offerSent : t.offerStatusUpdated, { name: item.name })
         : fill(data.emailSent ? t.rejectSent : t.rejectStatusUpdated, { name: item.name });
-      showToast({ message, tone: "success" });
+      showToast({ message: data.emailAuto && !data.emailSent ? t.actionEmailFailed : message, tone: data.emailAuto && !data.emailSent ? "error" : "success" });
     } else {
       const message = stage === "invited" ? t.invitedStatusUpdated : stage === "archived" ? t.archivedApp : t.unarchivedApp;
       showToast({ message: fill(message, { name: item.name }), tone: "success" });
@@ -1431,16 +1456,30 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
         <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <div>{stageBadge(t, item.stage)}</div>
           <button type="button" className="btn btn-ghost" disabled={actionBusy || item.aiStatus === "PENDING"} onClick={() => void recheckAi()}>{t.recheckAi}</button>
-          <button type="button" className="btn btn-ghost" disabled={actionBusy || item.stage === "invited"} onClick={() => void setStage("invited")}>{t.stageInvited}</button>
-          <button type="button" className="btn btn-primary" disabled={actionBusy} onClick={() => void setStage("offer")}>{t.sendOffer}</button>
-          <button type="button" className="btn btn-ghost" disabled={actionBusy} onClick={() => void setStage("rejected")}>{t.reject}</button>
-          <button type="button" className="btn btn-ghost" disabled={actionBusy} onClick={() => void convert()}>{t.makeEmployee}</button>
-          {item.stage === "archived"
-            ? <button type="button" className="btn btn-ghost" disabled={actionBusy} onClick={() => void setStage("new")}>{t.unarchive}</button>
+          {canChangeApplicationStage(item.stage, "invited") ? <button type="button" className="btn btn-ghost" disabled={actionBusy} onClick={() => void setStage("invited")}>{t.stageInvited}</button> : null}
+          {canChangeApplicationStage(item.stage, "offer") ? <button type="button" className="btn btn-primary" disabled={actionBusy} onClick={() => void setStage("offer")}>{t.sendOffer}</button> : null}
+          {canChangeApplicationStage(item.stage, "rejected") ? <button type="button" className="btn btn-ghost" disabled={actionBusy} onClick={() => void setStage("rejected")}>{t.reject}</button> : null}
+          {canChangeApplicationStage(item.stage, "hired") ? <button type="button" className="btn btn-ghost" disabled={actionBusy} onClick={() => void convert()}>{t.makeEmployee}</button> : null}
+          {item.stage === "rejected" ? <button type="button" className="btn btn-ghost" disabled={actionBusy} onClick={() => void setStage("archived")}>{t.archive}</button> : null}
+          {item.stage === "archived" || item.stage === "rejected"
+            ? <button type="button" className="btn btn-ghost" disabled={actionBusy} onClick={() => void setStage("new")}>{item.stage === "rejected" ? t.actionReopen : t.unarchive}</button>
             : <button type="button" className="btn btn-ghost" disabled={actionBusy} onClick={() => void setStage("archived")}>{t.archive}</button>}
         </div>
       </div>
     </div>
+    <dialog ref={confirmationRef} className="job-apply-dialog recruiting-confirm-dialog" aria-labelledby="application-confirm-title" onCancel={(event) => { event.preventDefault(); if (!actionBusy) setConfirmation(null); }}>
+      {confirmation ? <>
+        <h3 id="application-confirm-title">{t.actionConfirmTitle}: {confirmation.stage === "offer" ? t.stageOffer : t.stageRejected}</h3>
+        <p>{confirmation.preview.willSend ? t.actionWillEmail : t.actionNoEmail}</p>
+        <div className="field-lbl">{t.actionRecipient}: {confirmation.preview.to || "\u2013"}</div>
+        <div className="field-lbl">{t.subject}: {confirmation.preview.subject}</div>
+        <iframe title={t.actionEmailPreview} sandbox="" referrerPolicy="no-referrer" srcDoc={confirmation.preview.html} style={{ width: "100%", height: 280, border: "1px solid #ddd", background: "white", margin: "12px 0" }} />
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+          <button type="button" className="btn btn-ghost" disabled={actionBusy} onClick={() => setConfirmation(null)}>{t.cancel}</button>
+          <button type="button" className="btn btn-primary" disabled={actionBusy} onClick={() => void setStage(confirmation.stage, confirmation.token)}>{confirmation.preview.willSend ? t.actionConfirmSend : t.actionConfirmOnly}</button>
+        </div>
+      </> : null}
+    </dialog>
     {manageFilesOpen ? (
       <div className="job-apply-overlay" onClick={() => setManageFilesOpen(false)}>
         <div className="job-apply-dialog manage-files-dialog" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
