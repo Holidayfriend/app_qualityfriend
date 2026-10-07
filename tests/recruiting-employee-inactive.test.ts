@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { normalizeCertificatesInput, parseEmployeePatch } from "../lib/recruiting/employee-fields";
+import { isValidEmployeeTaxId, normalizeCertificatesInput, parseEmployeePatch } from "../lib/recruiting/employee-fields";
 
 test("marking inactive requires a reason and an end date", () => {
   assert.equal(parseEmployeePatch({ status: "inactive" }), null);
@@ -18,6 +18,13 @@ test("marking active clears the reason and end date", () => {
   assert.equal(patch?.employedTo, null);
 });
 
+test("tax code rejects ABC and accepts a codice fiscale", () => {
+  assert.equal(isValidEmployeeTaxId("ABC"), false);
+  assert.equal(isValidEmployeeTaxId(""), true);
+  assert.equal(isValidEmployeeTaxId("RSSMRA85T10A562S"), true);
+  assert.equal(parseEmployeePatch({ taxId: "ABC" }), null);
+  assert.equal(parseEmployeePatch({ taxId: "rssmra85t10a562s" })?.taxId, "RSSMRA85T10A562S");
+});
 test("training valid-until before completion is rejected", () => {
   assert.equal(normalizeCertificatesInput([{ name: "haccp", completed: "2026-06-01", expires: "2026-01-01" }]), null);
   const saved = normalizeCertificatesInput([{ name: "firstAid", completed: "2026-01-01", expires: "2026-06-01" }]);

@@ -72,6 +72,17 @@ export function formatHotelDate(value: Date, locale: string, timeZone?: string |
   return value.toLocaleDateString(localeTag(locale), { timeZone: hotelTimeZone(timeZone) });
 }
 
+export function formatStoredDate(iso: string, locale: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
+  const [year, month, day] = iso.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString(localeTag(locale), {
+    timeZone: "UTC",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
 export function formatHotelDateTime(value: Date, locale: string, timeZone?: string | null) {
   return value.toLocaleString(localeTag(locale), { dateStyle: "short", timeStyle: "short", timeZone: hotelTimeZone(timeZone) });
 }

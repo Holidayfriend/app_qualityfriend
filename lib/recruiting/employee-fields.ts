@@ -5,6 +5,41 @@ import { hotelLocalIso } from "../hotel/clock";
 import { trainingTypeIds, type CertStatus, type Employee, type EmpStatus, type TrainingType } from "./preview-data";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const codiceFiscale = /^[A-Z]{6}\d{2}[A-Z]\d{2}[A-Z]\d{3}[A-Z]$/;
+const codiceOdd: Record<string, number> = {
+  "0": 1, "1": 0, "2": 5, "3": 7, "4": 9, "5": 13, "6": 15, "7": 17, "8": 19, "9": 21,
+  A: 1, B: 0, C: 5, D: 7, E: 9, F: 13, G: 15, H: 17, I: 19, J: 21,
+  K: 2, L: 4, M: 18, N: 20, O: 11, P: 3, Q: 6, R: 8, S: 12, T: 14,
+  U: 16, V: 10, W: 22, X: 25, Y: 24, Z: 23,
+};
+const codiceEven: Record<string, number> = {
+  "0": 0, "1": 1, "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7, "8": 8, "9": 9,
+  A: 0, B: 1, C: 2, D: 3, E: 4, F: 5, G: 6, H: 7, I: 8, J: 9,
+  K: 10, L: 11, M: 12, N: 13, O: 14, P: 15, Q: 16, R: 17, S: 18, T: 19,
+  U: 20, V: 21, W: 22, X: 23, Y: 24, Z: 25,
+};
+
+export function normalizeEmployeeTaxId(value: string) {
+  return value.trim().toUpperCase().replace(/\s+/g, "");
+}
+
+export function isValidEmployeeTaxId(value: string) {
+  const code = normalizeEmployeeTaxId(value);
+  if (!code) return true;
+  if (!codiceFiscale.test(code)) return false;
+  let sum = 0;
+  for (let index = 0; index < 15; index += 1) {
+    const char = code[index];
+    sum += index % 2 === 0 ? codiceOdd[char] : codiceEven[char];
+  }
+  return code[15] === String.fromCharCode(65 + (sum % 26));
+}
+
+function employeeTaxId(value: unknown) {
+  const code = normalizeEmployeeTaxId(text(value, 32));
+  if (!isValidEmployeeTaxId(code)) return undefined;
+  return code;
+}
 
 export type EmployeeDepartment = { nameEn: string; nameDe: string; nameIt: string };
 
@@ -169,14 +204,15 @@ export function parseManualEmployee(body: unknown) {
   const birthdate = "birthdate" in data ? parseOptionalDate(data.birthdate) : null;
   const employedFrom = "employedFrom" in data ? parseOptionalDate(data.employedFrom) : null;
   const employedTo = "employedTo" in data ? parseOptionalDate(data.employedTo) : null;
-  if (birthdate === undefined || employedFrom === undefined || employedTo === undefined) return null;
+  const taxId = employeeTaxId(data.taxId);
+  if (birthdate === undefined || employedFrom === undefined || employedTo === undefined || taxId === undefined) return null;
   return {
     firstName,
     lastName,
     departmentId,
     email: text(data.email, 320),
     phone: text(data.phone, 40),
-    taxId: text(data.taxId, 64),
+    taxId,
     birthdate,
     birthplace: text(data.birthplace, 180),
     employedFrom,
@@ -218,7 +254,11 @@ export function parseEmployeePatch(body: unknown) {
       patch.inactiveReason = reason.toUpperCase() as RecruitingInactiveReason;
     } else return null;
   }
-  if (typeof data.taxId === "string") patch.taxId = text(data.taxId, 64);
+  if (typeof data.taxId === "string") {
+    const taxId = employeeTaxId(data.taxId);
+    if (taxId === undefined) return null;
+    patch.taxId = taxId;
+  }
   if (typeof data.birthplace === "string") patch.birthplace = text(data.birthplace, 180);
   if (typeof data.comments === "string") patch.comments = text(data.comments, 8000);
   if (typeof data.email === "string") patch.email = text(data.email, 320);

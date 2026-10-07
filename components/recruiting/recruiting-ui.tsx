@@ -16,7 +16,8 @@ import { createDefaultQuiz, DEFAULT_FOOTER_URL, QuizCanvasCard, QuizToolsCard, t
 import { BrandLoader } from "../ui/brand-loader";
 import { useToast } from "../ui/toast-provider";
 import { htmlToPlain, RichTextEditor, sanitizeJobHtml, type RichTextEditorHandle } from "./rich-text-editor";
-import { formatHotelDate, readHotelTimeZone } from "../../lib/hotel/clock";
+import { formatHotelDate, formatStoredDate, readHotelTimeZone } from "../../lib/hotel/clock";
+import { isValidEmployeeTaxId } from "../../lib/recruiting/employee-fields";
 import { jobSaveErrorKey } from "../../lib/recruiting/job-save-error";
 import type { PublicJob } from "../../lib/recruiting/job-fields";
 
@@ -105,7 +106,7 @@ function Hub({ t, locale }: { t: T; locale: Locale }) {
       .catch(() => undefined);
     return () => { ignore = true; };
   }, [locale, setJobs, setApplicants, setEmployees]);
-  const reminders = useMemo(() => buildReminders(employees, t), [employees, t]);
+  const reminders = useMemo(() => buildReminders(employees, t, locale), [employees, t, locale]);
   const openJobs = jobs.filter((job) => job.status === "active").length;
   const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
   const newApps = applicants.filter((item) => {
@@ -1657,6 +1658,7 @@ function EmployeeCreate({ t, locale }: { t: T; locale: Locale }) {
     setShowErrors(true);
     setError("");
     if (Object.values(missing).some(Boolean)) return;
+    if (!isValidEmployeeTaxId(taxId)) { setError(t.taxIdFormatError); return; }
     setBusy(true);
     try {
       const res = await fetch("/api/recruiting/employees", {
@@ -1702,7 +1704,7 @@ function EmployeeCreate({ t, locale }: { t: T; locale: Locale }) {
           <label><span className="field-lbl">{t.phone}</span><input className="field-input" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="+39 ..." /></label>
         </div>
         <label><span className="field-lbl">{t.department}</span><select className={`field-select${showErrors && missing.departmentId ? " is-invalid" : ""}`} value={departmentId} onChange={(event) => setDepartmentId(event.target.value)}>{departments.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-        <label><span className="field-lbl">{t.taxId}</span><input className="field-input" value={taxId} onChange={(event) => setTaxId(event.target.value)} /></label>
+        <label><span className="field-lbl">{t.taxId}</span><input className={`field-input${showErrors && taxId.trim() && !isValidEmployeeTaxId(taxId) ? " is-invalid" : ""}`} value={taxId} onChange={(event) => { setTaxId(event.target.value); setError(""); }} aria-invalid={Boolean(showErrors && taxId.trim() && !isValidEmployeeTaxId(taxId))} /></label>
         <div className="field-row">
           <label><span className="field-lbl">{t.birthdate}</span><input className="field-input" type="date" value={birthdate} onChange={(event) => setBirthdate(event.target.value)} /></label>
           <label><span className="field-lbl">{t.birthplace}</span><input className="field-input" value={birthplace} onChange={(event) => setBirthplace(event.target.value)} /></label>
@@ -1834,6 +1836,10 @@ function EmployeeDetail({ t, locale, id }: { t: T; locale: Locale; id: string })
   async function saveEdit(event: FormEvent) {
     event.preventDefault();
     if (!item || busy) return;
+    if (!isValidEmployeeTaxId(taxId)) {
+      showToast({ message: t.taxIdFormatError, tone: "error" });
+      return;
+    }
     setBusy(true);
     const res = await fetch(`/api/recruiting/employees/${encodeURIComponent(id)}?locale=${locale}`, {
       method: "PATCH",
@@ -1923,7 +1929,7 @@ function EmployeeDetail({ t, locale, id }: { t: T; locale: Locale; id: string })
                 <label><span className="field-lbl">{emailLabel}</span><input className="field-input" type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
                 <label><span className="field-lbl">{t.phone}</span><input className="field-input" value={phone} onChange={(event) => setPhone(event.target.value)} /></label>
               </div>
-              <label><span className="field-lbl">{t.taxId}</span><input className="field-input" value={taxId} onChange={(event) => setTaxId(event.target.value)} /></label>
+              <label><span className="field-lbl">{t.taxId}</span><input className={`field-input${taxId.trim() && !isValidEmployeeTaxId(taxId) ? " is-invalid" : ""}`} value={taxId} onChange={(event) => setTaxId(event.target.value)} aria-invalid={Boolean(taxId.trim() && !isValidEmployeeTaxId(taxId))} /></label>
               <div className="field-row">
                 <label><span className="field-lbl">{t.birthdate}</span><input className="field-input" type="date" value={birthdate} onChange={(event) => setBirthdate(event.target.value)} /></label>
                 <label><span className="field-lbl">{t.birthplace}</span><input className="field-input" value={birthplace} onChange={(event) => setBirthplace(event.target.value)} /></label>
@@ -1938,7 +1944,7 @@ function EmployeeDetail({ t, locale, id }: { t: T; locale: Locale; id: string })
             <>
               <div className="cb" style={{ borderTop: "1px solid var(--border)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 20px" }}>
                 <Field label={emailLabel} value={item.email || "–"} /><Field label={t.phone} value={item.phone || "–"} />
-                <Field label={t.taxId} value={item.taxId || t.stillNeeded} /><Field label={t.birthdate} value={item.birthdate || t.stillNeeded} />
+                <Field label={t.taxId} value={item.taxId || t.stillNeeded} /><Field label={t.birthdate} value={item.birthdate ? formatStoredDate(item.birthdate, locale) : t.stillNeeded} />
                 <Field label={t.birthplace} value={item.birthplace || t.stillNeeded} /><Field label={t.employedFromTo} value={item.employment || t.stillNeeded} />
               </div>
               <div className="cb" style={{ borderTop: "1px solid var(--border)" }}>
@@ -1958,7 +1964,7 @@ function EmployeeDetail({ t, locale, id }: { t: T; locale: Locale; id: string })
                 <div className="doc-ic">🦺</div>
                 <div style={{ flex: 1 }}>
                   <div className="doc-name">{t[cert.name]}</div>
-                  <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2 }}>{fill(t.completedOn, { date: cert.completed, until: cert.expires })}</div>
+                  <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2 }}>{fill(t.completedOn, { date: formatStoredDate(cert.completed, locale), until: formatStoredDate(cert.expires, locale) })}</div>
                 </div>
                 <span className={`chip ${cert.status === "valid" ? "chip-g" : cert.status === "expiring" ? "chip-a" : "chip-r"}`}>
                   {cert.status === "valid" ? t.valid : cert.status === "expiring" ? t.expiring : t.expired}
@@ -2216,7 +2222,7 @@ function stageBadge(t: T, stage: AppStage) {
   return <span className={cls}>{label}</span>;
 }
 
-function buildReminders(employees: Employee[], t: T) {
+function buildReminders(employees: Employee[], t: T, locale: Locale) {
   const start = new Date();
   start.setHours(0, 0, 0, 0);
   const items: Array<{ icon: string; cls: string; title: string; meta: string }> = [];
@@ -2230,8 +2236,8 @@ function buildReminders(employees: Employee[], t: T) {
       if (diff >= 0 && diff <= 7) items.push({ icon: "🎂", cls: "p", title: diff === 0 ? fill(t.birthdayToday, { name: employee.name }) : fill(t.birthdayIn, { name: employee.name, n: diff }), meta: employee.departmentName || t.depts[employee.dept] });
     }
     for (const cert of employee.certificates) {
-      if (cert.status === "expiring") items.push({ icon: "⚠️", cls: "a", title: fill(t.certExpiring, { training: t[cert.name] }), meta: fill(t.validUntil, { name: employee.name, date: cert.expires }) });
-      if (cert.status === "expired") items.push({ icon: "🚫", cls: "r", title: fill(t.certExpired, { training: t[cert.name] }), meta: fill(t.wasValidUntil, { name: employee.name, date: cert.expires }) });
+      if (cert.status === "expiring") items.push({ icon: "⚠️", cls: "a", title: fill(t.certExpiring, { training: t[cert.name] }), meta: fill(t.validUntil, { name: employee.name, date: formatStoredDate(cert.expires, locale) }) });
+      if (cert.status === "expired") items.push({ icon: "🚫", cls: "r", title: fill(t.certExpired, { training: t[cert.name] }), meta: fill(t.wasValidUntil, { name: employee.name, date: formatStoredDate(cert.expires, locale) }) });
     }
   }
   return items;
