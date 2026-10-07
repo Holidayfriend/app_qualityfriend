@@ -44,7 +44,7 @@ export async function collectRecruitingFacts(prisma: PrismaClient, hotelTenantId
   const [jobs, applications] = await Promise.all([
     prisma.recruitingJob.findMany({
       where: { hotelTenantId },
-      select: { title: true, status: true, clickCount: true, createdAt: true, _count: { select: { applications: true } } },
+      select: { title: true, status: true, clickCount: true, createdAt: true, _count: { select: { applications: { where: { viaPublicPage: true } } } } },
     }),
     prisma.recruitingApplication.findMany({
       where: { hotelTenantId },

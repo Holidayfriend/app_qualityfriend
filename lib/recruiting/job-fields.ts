@@ -198,6 +198,10 @@ export function parseApplicationInput(body: unknown, format: FormatKey, cvRequir
   };
 }
 
+export const publicApplicationCountSelect = {
+  applications: { where: { viaPublicPage: true } },
+} as const;
+
 function conv(clicks: number, apps: number) {
   if (!clicks) return "–";
   return `${((apps / clicks) * 100).toFixed(2)}%`;

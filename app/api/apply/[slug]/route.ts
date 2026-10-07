@@ -73,7 +73,7 @@ export async function GET(request: Request, context: Context) {
   if (click && campaignCode) {
     await incrementCampaignClicks(campaignCode, job.id).catch((error) => console.error("Campaign click failed", error));
   }
-  const apps = await prisma.recruitingApplication.count({ where: { jobId: current.id } });
+  const apps = await prisma.recruitingApplication.count({ where: { jobId: current.id, viaPublicPage: true } });
   const hotel = job.hotelTenant;
   return Response.json({ job: { ...toPublicJob(current, apps, locale, true, job.department), policies: { dataProtection: { en: hotel?.dataProtectionEn ?? "", de: hotel?.dataProtectionDe ?? "", it: hotel?.dataProtectionIt ?? "" }, privacyPolicy: { en: hotel?.privacyPolicyEn ?? "", de: hotel?.privacyPolicyDe ?? "", it: hotel?.privacyPolicyIt ?? "" } } } }, { headers: { "Cache-Control": "no-store" } });
 }
@@ -123,6 +123,7 @@ export async function POST(request: Request, context: Context) {
         message: input.message,
         cvFileName,
         keepForOtherJobs: input.keepForOtherJobs,
+        viaPublicPage: true,
         answers: input.answers,
         ...(notes ? { notes: notes as Prisma.InputJsonValue } : {}),
       },

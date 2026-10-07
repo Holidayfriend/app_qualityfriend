@@ -3,7 +3,7 @@ import { translateJobFields } from "../../../../../lib/recruiting/translate-job"
 import { prisma } from "../../../../../lib/prisma";
 import { recordAuditLog } from "../../../../../lib/audit/audit-service";
 import { recruitingActor } from "../../../../../lib/recruiting/access";
-import { jobAuditSnapshot, listingStatuses, localeFieldPatch, parseJobInput, toPublicJob } from "../../../../../lib/recruiting/job-fields";
+import { jobAuditSnapshot, listingStatuses, localeFieldPatch, parseJobInput, publicApplicationCountSelect, toPublicJob } from "../../../../../lib/recruiting/job-fields";
 import type { RecruitingJobStatus } from "../../../../../app/generated/prisma/client";
 
 type Context = { params: Promise<{ id: string }> };
@@ -18,7 +18,7 @@ export async function GET(request: Request, context: Context) {
   const locale = new URL(request.url).searchParams.get("locale") ?? "";
   const job = await prisma.recruitingJob.findFirst({
     where: { id, hotelTenantId: actor.hotel_tenant_id },
-    include: { department: departmentSelect, _count: { select: { applications: true } } },
+    include: { department: departmentSelect, _count: { select: publicApplicationCountSelect } },
   });
   if (!job) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
   return Response.json({ job: toPublicJob(job, job._count.applications, locale, true, job.department) }, { headers: { "Cache-Control": "no-store" } });
@@ -85,7 +85,7 @@ export async function PUT(request: Request, context: Context) {
     return after;
   });
   if (!updated) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
-  const apps = await prisma.recruitingApplication.count({ where: { jobId: updated.id } });
+  const apps = await prisma.recruitingApplication.count({ where: { jobId: updated.id, viaPublicPage: true } });
   return Response.json({ job: toPublicJob(updated, apps, locale, true, updated.department) });
 }
 
@@ -115,6 +115,6 @@ export async function PATCH(request: Request, context: Context) {
     return after;
   });
   if (!updated) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
-  const apps = await prisma.recruitingApplication.count({ where: { jobId: updated.id } });
+  const apps = await prisma.recruitingApplication.count({ where: { jobId: updated.id, viaPublicPage: true } });
   return Response.json({ job: toPublicJob(updated, apps, undefined, true, updated.department) });
 }

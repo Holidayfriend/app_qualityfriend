@@ -3,7 +3,7 @@ import { translateJobFields } from "../../../../lib/recruiting/translate-job";
 import { prisma } from "../../../../lib/prisma";
 import { recordAuditLog } from "../../../../lib/audit/audit-service";
 import { recruitingActor } from "../../../../lib/recruiting/access";
-import { jobAuditSnapshot, parseJobInput, toPublicJob, uniqueSlug } from "../../../../lib/recruiting/job-fields";
+import { jobAuditSnapshot, parseJobInput, publicApplicationCountSelect, toPublicJob, uniqueSlug } from "../../../../lib/recruiting/job-fields";
 
 const departmentSelect = { select: { nameEn: true, nameDe: true, nameIt: true } } as const;
 
@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   const jobs = await prisma.recruitingJob.findMany({
     where: { hotelTenantId: actor.hotel_tenant_id },
     orderBy: { createdAt: "desc" },
-    include: { _count: { select: { applications: true } }, department: departmentSelect },
+    include: { _count: { select: publicApplicationCountSelect }, department: departmentSelect },
   });
   return Response.json({ jobs: jobs.map((job) => toPublicJob(job, job._count.applications, locale, false, job.department)) }, { headers: { "Cache-Control": "no-store" } });
 }

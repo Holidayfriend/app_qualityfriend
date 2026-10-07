@@ -1488,6 +1488,7 @@ model RecruitingApplication {
   message          String                      @default("") @db.Text
   cvFileName       String                      @default("") @map("cv_file_name") @db.VarChar(255)
   keepForOtherJobs Boolean                     @default(false) @map("keep_for_other_jobs")
+  viaPublicPage    Boolean                     @default(false) @map("via_public_page")
   answers          Json
   notes            Json                        @default("{}")
   aiStatus         String                      @default("PENDING") @map("ai_status") @db.VarChar(20)

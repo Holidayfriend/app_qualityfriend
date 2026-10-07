@@ -51,7 +51,7 @@ async function recruitingPack(hotelTenantId: string, locale: ChatLocale) {
       orderBy: { updatedAt: "desc" },
       select: {
         title: true, titleDe: true, titleIt: true, workType: true, location: true, clickCount: true,
-        _count: { select: { applications: true } },
+        _count: { select: { applications: { where: { viaPublicPage: true } } } },
       },
     }),
     prisma.recruitingApplication.findMany({
@@ -64,7 +64,7 @@ async function recruitingPack(hotelTenantId: string, locale: ChatLocale) {
       },
     }),
   ]);
-  const jobLines = jobs.map((job) => `${textOf(job.title, job.titleDe, job.titleIt, locale)} ${job.workType} ${job.location} clicks:${job.clickCount} applications:${job._count.applications}`).join("\n") || "(no active jobs)";
+  const jobLines = jobs.map((job) => `${textOf(job.title, job.titleDe, job.titleIt, locale)} ${job.workType} ${job.location} clicks:${job.clickCount} publicApplications:${job._count.applications}`).join("\n") || "(no active jobs)";
   const applicationLines = applications.map((row) => {
     const score = row.aiScore == null ? "" : ` score:${row.aiScore}${row.aiRecommendation ? ` ${row.aiRecommendation}` : ""}`;
     return `${row.firstName} ${row.lastName} stage:${row.stage}${score} job:${textOf(row.job.title, row.job.titleDe, row.job.titleIt, locale)}`;

@@ -186,7 +186,7 @@ async function countsPack(hotelTenantId: string) {
   const [jobs, stages, recent] = await Promise.all([
     prisma.recruitingJob.findMany({
       where: { hotelTenantId },
-      select: { title: true, status: true, format: true, clickCount: true, _count: { select: { applications: true } } },
+      select: { title: true, status: true, format: true, clickCount: true, _count: { select: { applications: { where: { viaPublicPage: true } } } } },
       orderBy: { updatedAt: "desc" },
       take: 40,
     }),
@@ -202,7 +202,7 @@ async function countsPack(hotelTenantId: string) {
       take: 20,
     }),
   ]);
-  const jobLines = jobs.map((job) => `${job.title} [${job.status}/${job.format}] clicks=${job.clickCount} applications=${job._count.applications}`).join("\n") || "(no jobs)";
+  const jobLines = jobs.map((job) => `${job.title} [${job.status}/${job.format}] clicks=${job.clickCount} publicApplications=${job._count.applications}`).join("\n") || "(no jobs)";
   const stageLines = stages.map((row) => `${row.stage}: ${row._count._all}`).join("\n") || "(no applications)";
   const recentLines = recent.map((row) => `${fullName(row)} → ${row.job.title} · ${row.stage} · score ${row.aiScore ?? "–"} ${row.aiRecommendation ?? ""}`).join("\n") || "(none)";
   const byStatus = { ACTIVE: 0, DRAFT: 0, ARCHIVED: 0 };
@@ -227,7 +227,7 @@ async function jobsCountPack(hotelTenantId: string) {
     }),
     prisma.recruitingJob.findMany({
       where: { hotelTenantId, status: "ACTIVE" },
-      select: { title: true, format: true, clickCount: true, _count: { select: { applications: true } } },
+      select: { title: true, format: true, clickCount: true, _count: { select: { applications: { where: { viaPublicPage: true } } } } },
       orderBy: { updatedAt: "desc" },
       take: 80,
     }),
@@ -236,7 +236,7 @@ async function jobsCountPack(hotelTenantId: string) {
   for (const row of byStatus) {
     if (row.status in totals) totals[row.status as keyof typeof totals] = row._count._all;
   }
-  const list = active.map((job) => `${job.title} · ${job.format} · clicks ${job.clickCount} · applications ${job._count.applications}`).join("\n") || "(none)";
+  const list = active.map((job) => `${job.title} · ${job.format} · clicks ${job.clickCount} · public applications ${job._count.applications}`).join("\n") || "(none)";
   return [
     "PACK TYPE: job counts. ACTIVE = live ads. Do not list candidates. Do not invent jobs.",
     `ACTIVE jobs: ${totals.ACTIVE}`,
