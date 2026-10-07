@@ -8,11 +8,14 @@ import type { Locale } from "../../lib/i18n/dictionaries";
 import { jobsSeed } from "../../lib/recruiting/preview-data";
 import type { QuizFooter, QuizPage } from "./quiz-builder";
 
+type ClosedListing = { title: string; hotelName: string; langs: Locale[] };
+
 type ApplyJob = {
   id: string;
   slug: string;
   format: "classic" | "quiz";
   title: string;
+  hotelName?: string;
   dept: string;
   type: string;
   start: string;
@@ -49,9 +52,30 @@ function campaignCodeFromUrl() {
   return new URLSearchParams(window.location.search).get("c")?.trim().slice(0, 32) || "";
 }
 
+function browserLocale(): Locale {
+  if (typeof navigator === "undefined") return "de";
+  const code = navigator.language.slice(0, 2);
+  return code === "en" || code === "it" ? code : "de";
+}
+
+function readClosed(value: unknown): ClosedListing | null {
+  if (!value || typeof value !== "object") return null;
+  const row = value as { title?: unknown; hotelName?: unknown; langs?: unknown };
+  const title = typeof row.title === "string" ? row.title.trim() : "";
+  const hotelName = typeof row.hotelName === "string" ? row.hotelName.trim() : "";
+  if (!title && !hotelName) return null;
+  return { title, hotelName, langs: listingLangs(row.langs) };
+}
+
+function tabTitle(position: string, hotel: string) {
+  if (position && hotel) return `${position} – ${hotel}`;
+  return position || hotel;
+}
+
 export function ApplyJobScreen({ slug }: { slug: string }) {
   const [locale, setLocale] = useState<Locale | null>(null);
   const [job, setJob] = useState<ApplyJob | null>(null);
+  const [closed, setClosed] = useState<ClosedListing | null>(null);
   const [missing, setMissing] = useState(false);
   const [campaignCode] = useState(campaignCodeFromUrl);
   const t = getRecruitingMessages(locale ?? "de");
@@ -67,39 +91,80 @@ export function ApplyJobScreen({ slug }: { slug: string }) {
     if (campaignCode) params.set("c", campaignCode);
     const query = params.toString();
     fetch(`/api/apply/${encodeURIComponent(slug)}${query ? `?${query}` : ""}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
+      .then(async (res) => ({ ok: res.ok, data: await res.json().catch(() => null) }))
+      .then(({ ok, data }) => {
         if (ignore) return;
-        if (data?.job) {
+        if (ok && data?.job) {
           const langs = listingLangs(data.job.langs);
           const nextLocale = pickApplyLocale(langs, locale);
           if (!locale || locale !== nextLocale) {
             setLocale(nextLocale);
             return;
           }
-          setJob({ ...data.job, langs } as ApplyJob);
+          const hotelName = typeof data.job.hotelName === "string" ? data.job.hotelName.trim() : "";
+          setClosed(null);
+          setJob({ ...data.job, langs, hotelName } as ApplyJob);
           setMissing(false);
-        } else {
-          const seed = jobsSeed.find((item) => item.id === slug);
-          if (seed) {
-            const langs = listingLangs(seed.langs);
-            const nextLocale = pickApplyLocale(langs, locale);
-            if (!locale || locale !== nextLocale) {
-              setLocale(nextLocale);
-              return;
-            }
-            setJob({
-              id: seed.id, slug: seed.id, format: "classic", title: seed.title, dept: seed.dept, type: seed.type,
-              start: seed.start, notes: seed.notes, description: seed.description, autoMessage: seed.autoMessage,
-              location: seed.location, cvRequired: seed.cvRequired, langs, quiz: null,
-            });
-            setMissing(false);
-          } else setMissing(true);
+          return;
         }
+        const hidden = readClosed(data?.closed);
+        if (hidden) {
+          const nextLocale = pickApplyLocale(hidden.langs, locale);
+          if (!locale || locale !== nextLocale) {
+            setLocale(nextLocale);
+            return;
+          }
+          setJob(null);
+          setClosed(hidden);
+          setMissing(true);
+          return;
+        }
+        const seed = jobsSeed.find((item) => item.id === slug);
+        if (seed) {
+          const langs = listingLangs(seed.langs);
+          const nextLocale = pickApplyLocale(langs, locale);
+          if (!locale || locale !== nextLocale) {
+            setLocale(nextLocale);
+            return;
+          }
+          setClosed(null);
+          setJob({
+            id: seed.id, slug: seed.id, format: "classic", title: seed.title, dept: seed.dept, type: seed.type,
+            start: seed.start, notes: seed.notes, description: seed.description, autoMessage: seed.autoMessage,
+            location: seed.location, cvRequired: seed.cvRequired, langs, quiz: null,
+          });
+          setMissing(false);
+          return;
+        }
+        if (!locale) {
+          setLocale(browserLocale());
+          return;
+        }
+        setJob(null);
+        setClosed(null);
+        setMissing(true);
       })
-      .catch(() => { if (!ignore) setMissing(true); });
+      .catch(() => {
+        if (ignore) return;
+        if (!locale) setLocale(browserLocale());
+        else {
+          setJob(null);
+          setClosed(null);
+          setMissing(true);
+        }
+      });
     return () => { ignore = true; };
   }, [slug, locale, campaignCode]);
+
+  useEffect(() => {
+    const position = (job?.title || closed?.title || "").trim();
+    const hotel = (job?.hotelName || closed?.hotelName || "").trim();
+    const next = tabTitle(position, hotel) || (missing ? t.applyJobMissing : "");
+    if (!next) return;
+    const previous = document.title;
+    document.title = next;
+    return () => { document.title = previous; };
+  }, [job?.title, job?.hotelName, closed?.title, closed?.hotelName, missing, t.applyJobMissing]);
 
   useEffect(() => {
     const href = job?.logoImage;
@@ -117,7 +182,7 @@ export function ApplyJobScreen({ slug }: { slug: string }) {
     };
   }, [job?.logoImage]);
 
-  if (missing) return <p className="job-apply-missing">Job not found.</p>;
+  if (missing) return <p className="job-apply-missing">{t.applyJobMissing}</p>;
   if (!job || !locale) return <p className="job-apply-missing">{t.loading}</p>;
   if (job.format === "quiz") {
     return (

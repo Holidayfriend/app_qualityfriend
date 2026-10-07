@@ -284,7 +284,7 @@ export function QuizApplyPage({
     );
   }
 
-  if (!page) return <p className="job-apply-missing">Job not found.</p>;
+  if (!page) return <p className="job-apply-missing">{t.applyJobMissing}</p>;
 
   return (
     <div className="job-apply job-apply-quiz qf-dashboard">

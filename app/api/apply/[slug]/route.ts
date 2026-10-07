@@ -4,22 +4,31 @@ import { notesPayload } from "../../../../lib/recruiting/application-fields";
 import { incrementCampaignApplications, incrementCampaignClicks } from "../../../../lib/recruiting/campaigns";
 import { packCvRef, saveRecruitingCv } from "../../../../lib/recruiting/cv-storage";
 import { dispatchRecruitingAiScore } from "../../../../lib/recruiting/dispatch-ai-score";
-import { parseApplicationInput, toPublicJob } from "../../../../lib/recruiting/job-fields";
+import { parseApplicationInput, pickLocalized, toPublicJob } from "../../../../lib/recruiting/job-fields";
 import { notifyNewRecruitingApplication } from "../../../../lib/recruiting/notify-new-application";
 import { sendRecruitingTemplateEmail } from "../../../../lib/recruiting/send-recruiting-email";
 
 type Context = { params: Promise<{ slug: string }> };
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-async function publicJob(slug: string) {
+const jobInclude = {
+  department: { select: { nameEn: true, nameDe: true, nameIt: true } },
+  hotelTenant: { select: { hotelNameEn: true, hotelNameDe: true, hotelNameIt: true, dataProtectionEn: true, dataProtectionDe: true, dataProtectionIt: true, privacyPolicyEn: true, privacyPolicyDe: true, privacyPolicyIt: true } },
+} as const;
+
+async function jobBySlug(slug: string) {
   if (!slugPattern.test(slug) || slug.length > 80) return null;
-  return prisma.recruitingJob.findFirst({
-    where: { slug, status: "ACTIVE" },
-    include: {
-      department: { select: { nameEn: true, nameDe: true, nameIt: true } },
-      hotelTenant: { select: { dataProtectionEn: true, dataProtectionDe: true, dataProtectionIt: true, privacyPolicyEn: true, privacyPolicyDe: true, privacyPolicyIt: true } },
-    },
-  });
+  return prisma.recruitingJob.findFirst({ where: { slug }, include: jobInclude });
+}
+
+async function publicJob(slug: string) {
+  const job = await jobBySlug(slug);
+  return job?.status === "ACTIVE" ? job : null;
+}
+
+function hotelLabel(hotel: { hotelNameEn: string; hotelNameDe: string; hotelNameIt: string } | null, locale: string) {
+  if (!hotel) return "";
+  return pickLocalized(hotel.hotelNameEn, hotel.hotelNameDe, hotel.hotelNameIt, locale);
 }
 
 function campaignCodeFrom(value: unknown) {
@@ -61,10 +70,19 @@ async function readApplyBody(request: Request) {
 
 export async function GET(request: Request, context: Context) {
   const { slug } = await context.params;
-  const job = await publicJob(slug);
-  if (!job) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
+  const job = await jobBySlug(slug);
   const url = new URL(request.url);
   const locale = url.searchParams.get("locale") ?? "";
+  if (!job) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
+  if (job.status !== "ACTIVE") {
+    return Response.json({
+      closed: {
+        title: pickLocalized(job.title, job.titleDe, job.titleIt, locale),
+        hotelName: hotelLabel(job.hotelTenant, locale),
+        langs: job.languages,
+      },
+    }, { status: 404, headers: { "Cache-Control": "no-store" } });
+  }
   const click = url.searchParams.get("click") === "1";
   const campaignCode = campaignCodeFrom(url.searchParams.get("c"));
   const current = click
@@ -75,7 +93,7 @@ export async function GET(request: Request, context: Context) {
   }
   const apps = await prisma.recruitingApplication.count({ where: { jobId: current.id, viaPublicPage: true } });
   const hotel = job.hotelTenant;
-  return Response.json({ job: { ...toPublicJob(current, apps, locale, true, job.department), policies: { dataProtection: { en: hotel?.dataProtectionEn ?? "", de: hotel?.dataProtectionDe ?? "", it: hotel?.dataProtectionIt ?? "" }, privacyPolicy: { en: hotel?.privacyPolicyEn ?? "", de: hotel?.privacyPolicyDe ?? "", it: hotel?.privacyPolicyIt ?? "" } } } }, { headers: { "Cache-Control": "no-store" } });
+  return Response.json({ job: { ...toPublicJob(current, apps, locale, true, job.department), hotelName: hotelLabel(hotel, locale), policies: { dataProtection: { en: hotel?.dataProtectionEn ?? "", de: hotel?.dataProtectionDe ?? "", it: hotel?.dataProtectionIt ?? "" }, privacyPolicy: { en: hotel?.privacyPolicyEn ?? "", de: hotel?.privacyPolicyDe ?? "", it: hotel?.privacyPolicyIt ?? "" } } } }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST(request: Request, context: Context) {
