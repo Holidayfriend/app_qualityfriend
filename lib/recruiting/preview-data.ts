@@ -5,6 +5,8 @@ export type JobStatus = "active" | "draft" | "archived";
 export type AppStage = "new" | "invited" | "offer" | "hired" | "rejected" | "archived";
 export type EmpStatus = "active" | "inactive";
 export type CertStatus = "valid" | "expiring" | "expired";
+export const trainingTypeIds = ["safetyBasic", "firstAid", "fireSafety", "haccp"] as const;
+export type TrainingType = (typeof trainingTypeIds)[number];
 export type EmailCat = "received" | "offer" | "reject";
 
 export type Job = { id: string; slug?: string; format?: "classic" | "quiz"; title: string; dept: string; type: string; start: string; notes: string; description: string; autoMessage: string; location: string; cvRequired: boolean; status: JobStatus; langs: Locale[]; clicks: number; apps: number; conv: string };
@@ -44,7 +46,7 @@ export type Employee = {
   employment: string;
   comments: string;
   tags: string[];
-  certificates: Array<{ name: "safetyBasic" | "haccp"; completed: string; expires: string; status: CertStatus }>;
+  certificates: Array<{ name: TrainingType; completed: string; expires: string; status: CertStatus }>;
 };
 export type EmailTemplates = Record<EmailCat, Record<Locale, { subject: string; body: string }>>;
 

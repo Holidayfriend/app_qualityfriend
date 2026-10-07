@@ -2,7 +2,7 @@ import type { RecruitingEmployee, RecruitingEmployeeStatus, RecruitingInactiveRe
 import type { DeptId } from "../i18n/recruiting-messages";
 import { mapDeptId } from "./application-fields";
 import { hotelLocalIso } from "../hotel/clock";
-import type { CertStatus, Employee, EmpStatus } from "./preview-data";
+import { trainingTypeIds, type CertStatus, type Employee, type EmpStatus, type TrainingType } from "./preview-data";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -70,7 +70,7 @@ export function parseCertificates(value: unknown, timeZone?: string | null): Emp
   for (const entry of value.slice(0, 40)) {
     if (!entry || typeof entry !== "object") continue;
     const item = entry as Record<string, unknown>;
-    const name = item.name === "haccp" ? "haccp" : item.name === "safetyBasic" ? "safetyBasic" : null;
+    const name = trainingTypeIds.includes(item.name as TrainingType) ? item.name as TrainingType : null;
     if (!name) continue;
     const completed = parseIsoOrEmpty(item.completed) || text(item.completed, 40);
     const expires = parseIsoOrEmpty(item.expires) || text(item.expires, 40);
@@ -91,10 +91,10 @@ export function normalizeCertificatesInput(value: unknown): Employee["certificat
   for (const entry of value) {
     if (!entry || typeof entry !== "object") return null;
     const item = entry as Record<string, unknown>;
-    const name = item.name === "haccp" ? "haccp" : item.name === "safetyBasic" ? "safetyBasic" : null;
+    const name = trainingTypeIds.includes(item.name as TrainingType) ? item.name as TrainingType : null;
     const completed = parseIsoOrEmpty(item.completed);
     const expires = parseIsoOrEmpty(item.expires);
-    if (!name || !completed || !expires) return null;
+    if (!name || !completed || !expires || expires < completed) return null;
     rows.push({ name, completed, expires, status: certificateStatusFromExpires(expires) });
   }
   return rows;

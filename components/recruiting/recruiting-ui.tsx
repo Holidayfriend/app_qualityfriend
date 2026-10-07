@@ -10,7 +10,7 @@ import { AppShell } from "../dashboard/app-shell";
 import { useI18n } from "../i18n/i18n-provider";
 import { fill, getRecruitingMessages, type DeptId, type RecruitingMessages } from "../../lib/i18n/recruiting-messages";
 import type { Locale } from "../../lib/i18n/dictionaries";
-import { langFlags, type Applicant, type AppStage, type EmailCat, type EmailTemplates, type Employee, type Job, type JobStatus } from "../../lib/recruiting/preview-data";
+import { langFlags, trainingTypeIds, type Applicant, type AppStage, type EmailCat, type EmailTemplates, type Employee, type Job, type JobStatus, type TrainingType } from "../../lib/recruiting/preview-data";
 import { useRecruiting } from "./recruiting-provider";
 import { createDefaultQuiz, DEFAULT_FOOTER_URL, QuizCanvasCard, QuizToolsCard, type QuizFooter, type QuizPage } from "./quiz-builder";
 import { BrandLoader } from "../ui/brand-loader";
@@ -1725,7 +1725,7 @@ function EmployeeDetail({ t, locale, id }: { t: T; locale: Locale; id: string })
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [trainingOpen, setTrainingOpen] = useState(false);
-  const [certName, setCertName] = useState<"safetyBasic" | "haccp">("safetyBasic");
+  const [certName, setCertName] = useState<TrainingType>("safetyBasic");
   const [certCompleted, setCertCompleted] = useState("");
   const [certExpires, setCertExpires] = useState("");
   const [trainingErrors, setTrainingErrors] = useState(false);
@@ -1886,6 +1886,10 @@ function EmployeeDetail({ t, locale, id }: { t: T; locale: Locale; id: string })
       showToast({ message: t.trainingMissingFields, tone: "error" });
       return;
     }
+    if (certExpires < certCompleted) {
+      showToast({ message: t.trainingDateOrder, tone: "error" });
+      return;
+    }
     await saveCertificates(
       [...item.certificates, { name: certName, completed: certCompleted, expires: certExpires, status: "valid" }],
       t.trainingAdded,
@@ -1985,9 +1989,8 @@ function EmployeeDetail({ t, locale, id }: { t: T; locale: Locale; id: string })
           <form style={{ display: "flex", flexDirection: "column", gap: 12 }} onSubmit={(event) => void addTraining(event)} noValidate>
             <label>
               <span className="field-lbl">{t.trainingType}</span>
-              <select className="field-select" value={certName} onChange={(event) => setCertName(event.target.value as "safetyBasic" | "haccp")}>
-                <option value="safetyBasic">{t.safetyBasic}</option>
-                <option value="haccp">{t.haccp}</option>
+              <select className="field-select" value={certName} onChange={(event) => setCertName(event.target.value as TrainingType)}>
+                {trainingTypeIds.map((type) => <option key={type} value={type}>{t[type]}</option>)}
               </select>
             </label>
             <label>
@@ -1996,7 +1999,7 @@ function EmployeeDetail({ t, locale, id }: { t: T; locale: Locale; id: string })
             </label>
             <label>
               <span className="field-lbl">{t.expiresDate}</span>
-              <input className={`field-input${trainingErrors && !certExpires ? " is-invalid" : ""}`} type="date" value={certExpires} onChange={(event) => setCertExpires(event.target.value)} />
+              <input className={`field-input${trainingErrors && (!certExpires || certExpires < certCompleted) ? " is-invalid" : ""}`} type="date" value={certExpires} onChange={(event) => setCertExpires(event.target.value)} />
             </label>
             <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
               <button type="submit" className="btn btn-primary" disabled={busy}>{t.save}</button>
@@ -2227,8 +2230,8 @@ function buildReminders(employees: Employee[], t: T) {
       if (diff >= 0 && diff <= 7) items.push({ icon: "🎂", cls: "p", title: diff === 0 ? fill(t.birthdayToday, { name: employee.name }) : fill(t.birthdayIn, { name: employee.name, n: diff }), meta: employee.departmentName || t.depts[employee.dept] });
     }
     for (const cert of employee.certificates) {
-      if (cert.status === "expiring") items.push({ icon: "⚠️", cls: "a", title: t.certExpiring, meta: fill(t.validUntil, { name: employee.name, date: cert.expires }) });
-      if (cert.status === "expired") items.push({ icon: "🚫", cls: "r", title: t.certExpired, meta: fill(t.wasValidUntil, { name: employee.name, date: cert.expires }) });
+      if (cert.status === "expiring") items.push({ icon: "⚠️", cls: "a", title: fill(t.certExpiring, { training: t[cert.name] }), meta: fill(t.validUntil, { name: employee.name, date: cert.expires }) });
+      if (cert.status === "expired") items.push({ icon: "🚫", cls: "r", title: fill(t.certExpired, { training: t[cert.name] }), meta: fill(t.wasValidUntil, { name: employee.name, date: cert.expires }) });
     }
   }
   return items;

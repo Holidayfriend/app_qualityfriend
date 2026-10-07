@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseEmployeePatch } from "../lib/recruiting/employee-fields";
+import { normalizeCertificatesInput, parseEmployeePatch } from "../lib/recruiting/employee-fields";
 
 test("marking inactive requires a reason and an end date", () => {
   assert.equal(parseEmployeePatch({ status: "inactive" }), null);
@@ -16,4 +16,11 @@ test("marking active clears the reason and end date", () => {
   assert.equal(patch?.status, "ACTIVE");
   assert.equal(patch?.inactiveReason, null);
   assert.equal(patch?.employedTo, null);
+});
+
+test("training valid-until before completion is rejected", () => {
+  assert.equal(normalizeCertificatesInput([{ name: "haccp", completed: "2026-06-01", expires: "2026-01-01" }]), null);
+  const saved = normalizeCertificatesInput([{ name: "firstAid", completed: "2026-01-01", expires: "2026-06-01" }]);
+  assert.equal(saved?.[0]?.name, "firstAid");
+  assert.equal(normalizeCertificatesInput([{ name: "fireSafety", completed: "2026-03-01", expires: "2026-03-01" }])?.[0]?.name, "fireSafety");
 });
