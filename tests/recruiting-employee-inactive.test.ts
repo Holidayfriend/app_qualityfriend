@@ -18,6 +18,20 @@ test("marking active clears the reason and end date", () => {
   assert.equal(patch?.employedTo, null);
 });
 
+test("personnel file patch accepts department, tags and employment dates", () => {
+  const departmentId = "11111111-1111-4111-8111-111111111111";
+  const patch = parseEmployeePatch({
+    departmentId,
+    tags: ["Service", ""],
+    employedFrom: "2022-03-01",
+    employedTo: "2025-12-31",
+  });
+  assert.equal(patch?.departmentId, departmentId);
+  assert.deepEqual(patch?.tags, ["Service"]);
+  assert.equal(patch?.employedFrom?.toISOString().slice(0, 10), "2022-03-01");
+  assert.equal(parseEmployeePatch({ departmentId: "not-a-uuid" }), null);
+});
+
 test("tax code rejects ABC and accepts a codice fiscale", () => {
   assert.equal(isValidEmployeeTaxId("ABC"), false);
   assert.equal(isValidEmployeeTaxId(""), true);

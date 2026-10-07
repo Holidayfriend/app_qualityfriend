@@ -19,6 +19,17 @@ function hotelCalendarDate(timeZone: string) {
   return new Date(`${hotelLocalIso(timeZone)}T00:00:00.000Z`);
 }
 
+function employmentStart(startFrom: string, timeZone: string) {
+  const value = startFrom.trim();
+  const iso = value.match(/(\d{4})-(\d{2})(?:-(\d{2}))?/);
+  if (iso) return new Date(Date.UTC(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3] || 1)));
+  const full = value.match(/(\d{2})\.(\d{2})\.(\d{4})/);
+  if (full) return new Date(Date.UTC(Number(full[3]), Number(full[2]) - 1, Number(full[1])));
+  const month = value.match(/(\d{2})\.(\d{4})/);
+  if (month) return new Date(Date.UTC(Number(month[2]), Number(month[1]) - 1, 1));
+  return hotelCalendarDate(timeZone);
+}
+
 export async function GET(request: Request) {
   const actor = await recruitingActor();
   if (!actor) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
@@ -56,7 +67,7 @@ export async function POST(request: Request) {
 
         const application = await tx.recruitingApplication.findFirst({
           where: { id: applicationId, hotelTenantId: actor.hotel_tenant_id },
-          include: { job: { select: { departmentId: true } } },
+          include: { job: { select: { departmentId: true, startFrom: true } } },
         });
         if (!application) return { kind: "missing" as const };
         if (!canChangeApplicationStage(application.stage, "hired")) return { kind: "invalidStage" as const };
@@ -78,7 +89,7 @@ export async function POST(request: Request) {
             phone: application.phone,
             taxId: "",
             birthplace: "",
-            employedFrom: hotelCalendarDate(timeZone),
+            employedFrom: employmentStart(application.job.startFrom, timeZone),
             comments: "",
             tags: notes.tags,
             certificates: [],

@@ -1645,6 +1645,7 @@ function EmployeeCreate({ t, locale }: { t: T; locale: Locale }) {
   const [taxId, setTaxId] = useState("");
   const [birthdate, setBirthdate] = useState("");
   const [birthplace, setBirthplace] = useState("");
+  const [employedFrom, setEmployedFrom] = useState(() => new Date().toISOString().slice(0, 7));
   const [comments, setComments] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -1673,6 +1674,7 @@ function EmployeeCreate({ t, locale }: { t: T; locale: Locale }) {
           taxId: taxId.trim(),
           birthdate: birthdate || null,
           birthplace: birthplace.trim(),
+          employedFrom: employedFrom ? `${employedFrom}-01` : null,
           comments: comments.trim(),
           locale,
         }),
@@ -1709,6 +1711,7 @@ function EmployeeCreate({ t, locale }: { t: T; locale: Locale }) {
           <label><span className="field-lbl">{t.birthdate}</span><input className="field-input" type="date" value={birthdate} onChange={(event) => setBirthdate(event.target.value)} /></label>
           <label><span className="field-lbl">{t.birthplace}</span><input className="field-input" value={birthplace} onChange={(event) => setBirthplace(event.target.value)} /></label>
         </div>
+        <label><span className="field-lbl">{t.employedFrom}</span><input className="field-input" type="month" value={employedFrom} onChange={(event) => setEmployedFrom(event.target.value)} /></label>
         <label><span className="field-lbl">{t.comments}</span><textarea className="field-input" style={{ minHeight: 70, resize: "vertical" }} value={comments} onChange={(event) => setComments(event.target.value)} /></label>
         {error ? <p className="job-apply-error">{error}</p> : null}
         <button type="submit" className="btn btn-primary" disabled={busy || !departments.length}>{t.save}</button>
@@ -1721,6 +1724,7 @@ function EmployeeCreate({ t, locale }: { t: T; locale: Locale }) {
 function EmployeeDetail({ t, locale, id }: { t: T; locale: Locale; id: string }) {
   const showToast = useToast();
   const { employees, setEmployees } = useRecruiting();
+  const departments = useHotelDepartments(locale);
   const [item, setItem] = useState<Employee | null>(null);
   const [missing, setMissing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -1737,6 +1741,11 @@ function EmployeeDetail({ t, locale, id }: { t: T; locale: Locale; id: string })
   const [birthdate, setBirthdate] = useState("");
   const [birthplace, setBirthplace] = useState("");
   const [comments, setComments] = useState("");
+  const [departmentId, setDepartmentId] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagDraft, setTagDraft] = useState("");
+  const [employedFromMonth, setEmployedFromMonth] = useState("");
+  const [employedToMonth, setEmployedToMonth] = useState("");
   const [inactiveOpen, setInactiveOpen] = useState(false);
   const [inactiveReason, setInactiveReason] = useState<"pension" | "resignation">("pension");
   const [inactiveUntil, setInactiveUntil] = useState("");
@@ -1779,6 +1788,11 @@ function EmployeeDetail({ t, locale, id }: { t: T; locale: Locale; id: string })
     setBirthdate(item.birthdate);
     setBirthplace(item.birthplace);
     setComments(item.comments);
+    setDepartmentId(item.departmentId || "");
+    setTags(item.tags);
+    setTagDraft("");
+    setEmployedFromMonth(item.employedFrom.slice(0, 7));
+    setEmployedToMonth(item.employedTo.slice(0, 7));
     setEditing(true);
   }
   function reasonLabel(reason: Employee["reason"]) {
@@ -1840,6 +1854,16 @@ function EmployeeDetail({ t, locale, id }: { t: T; locale: Locale; id: string })
       showToast({ message: t.taxIdFormatError, tone: "error" });
       return;
     }
+    const fromDate = employedFromMonth ? `${employedFromMonth}-01` : "";
+    const toDate = lastDayOfMonth(employedToMonth);
+    if (fromDate && toDate && toDate < fromDate) {
+      showToast({ message: t.inactiveEndBeforeStart, tone: "error" });
+      return;
+    }
+    if (!departmentId) {
+      showToast({ message: t.employeeSaveFailed, tone: "error" });
+      return;
+    }
     setBusy(true);
     const res = await fetch(`/api/recruiting/employees/${encodeURIComponent(id)}?locale=${locale}`, {
       method: "PATCH",
@@ -1851,6 +1875,10 @@ function EmployeeDetail({ t, locale, id }: { t: T; locale: Locale; id: string })
         birthdate: birthdate || null,
         birthplace: birthplace.trim(),
         comments: comments.trim(),
+        departmentId,
+        tags,
+        employedFrom: fromDate || null,
+        employedTo: toDate || null,
       }),
     }).catch(() => null);
     setBusy(false);
@@ -1935,6 +1963,26 @@ function EmployeeDetail({ t, locale, id }: { t: T; locale: Locale; id: string })
                 <label><span className="field-lbl">{t.birthplace}</span><input className="field-input" value={birthplace} onChange={(event) => setBirthplace(event.target.value)} /></label>
               </div>
               <label><span className="field-lbl">{t.comments}</span><textarea className="field-input" style={{ minHeight: 70, resize: "vertical" }} value={comments} onChange={(event) => setComments(event.target.value)} /></label>
+              <label><span className="field-lbl">{t.department}</span>
+                <select className="field-select" value={departmentId} onChange={(event) => setDepartmentId(event.target.value)}>
+                  {(departmentId && !departments.some((row) => row.id === departmentId) ? [{ id: departmentId, name: item.departmentName || departmentId }, ...departments] : departments).map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
+                </select>
+              </label>
+              <div className="field-row">
+                <label><span className="field-lbl">{t.employedFrom}</span><input className="field-input" type="month" value={employedFromMonth} onChange={(event) => setEmployedFromMonth(event.target.value)} /></label>
+                <label><span className="field-lbl">{t.employedTo}</span><input className="field-input" type="month" value={employedToMonth} onChange={(event) => setEmployedToMonth(event.target.value)} /></label>
+              </div>
+              <label><span className="field-lbl">{t.tags}</span>
+                <input className="field-input" value={tagDraft} placeholder={t.tagsPlaceholder} onChange={(event) => setTagDraft(event.target.value)} onKeyDown={(event) => {
+                  if (event.key !== "Enter") return;
+                  event.preventDefault();
+                  const next = tagDraft.trim();
+                  if (!next || tags.includes(next)) { setTagDraft(""); return; }
+                  setTags([...tags, next]);
+                  setTagDraft("");
+                }} />
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>{tags.map((entry) => <span className="chip chip-n" key={entry}>{entry} <button type="button" onClick={() => setTags(tags.filter((tag) => tag !== entry))}>✕</button></span>)}</div>
+              </label>
               <div style={{ display: "flex", gap: 8 }}>
                 <button type="submit" className="btn btn-primary" disabled={busy}>{t.save}</button>
                 <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setEditing(false)}>{t.cancel}</button>

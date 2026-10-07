@@ -235,6 +235,8 @@ export function parseEmployeePatch(body: unknown) {
     comments?: string;
     email?: string;
     phone?: string;
+    departmentId?: string;
+    tags?: string[];
     certificates?: Employee["certificates"];
   } = {};
   if (typeof data.status === "string") {
@@ -253,6 +255,14 @@ export function parseEmployeePatch(body: unknown) {
       if (reason !== "pension" && reason !== "resignation") return null;
       patch.inactiveReason = reason.toUpperCase() as RecruitingInactiveReason;
     } else return null;
+  }
+  if (typeof data.departmentId === "string") {
+    if (!uuid.test(data.departmentId)) return null;
+    patch.departmentId = data.departmentId;
+  }
+  if ("tags" in data) {
+    if (!Array.isArray(data.tags) || data.tags.length > 40) return null;
+    patch.tags = data.tags.map((tag) => text(tag, 80)).filter(Boolean);
   }
   if (typeof data.taxId === "string") {
     const taxId = employeeTaxId(data.taxId);

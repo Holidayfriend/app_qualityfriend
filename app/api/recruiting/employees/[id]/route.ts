@@ -42,9 +42,16 @@ export async function PATCH(request: Request, context: Context) {
       include: { department: departmentSelect },
     });
     if (!before) return null;
-    if (patch.status === "INACTIVE" && before.employedFrom && patch.employedTo && patch.employedTo < before.employedFrom) {
-      return "END_BEFORE_START" as const;
+    if (patch.departmentId) {
+      const department = await tx.department.findFirst({
+        where: { id: patch.departmentId, hotelTenantId: actor.hotel_tenant_id, isDeleted: false, isActive: true },
+        select: { id: true },
+      });
+      if (!department) return null;
     }
+    const employedFrom = patch.employedFrom !== undefined ? patch.employedFrom : before.employedFrom;
+    const employedTo = patch.employedTo !== undefined ? patch.employedTo : before.employedTo;
+    if (employedFrom && employedTo && employedTo < employedFrom) return "END_BEFORE_START" as const;
     const after = await tx.recruitingEmployee.update({
       where: { id },
       data: patch,
