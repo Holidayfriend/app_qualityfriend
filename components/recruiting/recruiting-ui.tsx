@@ -1163,7 +1163,10 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
       ? applicants.map((row) => row.id === id ? next : row)
       : [next, ...applicants]);
   }
-  async function persistNotes(nextTags: string[], nextComments: Applicant["comments"]) {
+  function commentEntry(text: string) {
+    return { text, author: authorName, date: formatHotelDate(new Date(), locale, readHotelTimeZone()) };
+  }
+  async function persistNotes(nextTags: string[], nextComments: Applicant["comments"], okMessage: string) {
     setNotesBusy(true);
     setNotesError("");
     setNotesOk("");
@@ -1182,28 +1185,37 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
       }
       setItem(data.application as Applicant);
       setApplicants(applicants.map((row) => row.id === id ? data.application as Applicant : row));
-      setNotesOk(t.notesSaved);
+      setNotesOk(okMessage);
     } catch {
       setNotesError(t.notesSaveFailed);
     }
     setNotesBusy(false);
   }
   async function addTag() {
-    if (!item || !tag.trim()) return;
+    if (!item || notesBusy || !tag.trim()) return;
     const nextTags = [...item.tags, tag.trim()];
+    const pendingComment = comment.trim();
     setTag("");
-    await persistNotes(nextTags, item.comments);
+    if (!pendingComment) {
+      await persistNotes(nextTags, item.comments, t.tagSaved);
+      return;
+    }
+    setComment("");
+    await persistNotes(nextTags, [...item.comments, commentEntry(pendingComment)], t.commentSaved);
   }
   async function removeTag(index: number) {
-    if (!item) return;
-    await persistNotes(item.tags.filter((_, i) => i !== index), item.comments);
+    if (!item || notesBusy) return;
+    await persistNotes(item.tags.filter((_, i) => i !== index), item.comments, t.tagRemoved);
   }
   async function saveComment() {
-    if (!item) return;
+    if (!item || notesBusy) return;
     if (!comment.trim()) { alert(t.enterComment); return; }
-    const nextComments = [...item.comments, { text: comment.trim(), author: authorName, date: formatHotelDate(new Date(), locale, readHotelTimeZone()) }];
+    const pendingTag = tag.trim();
+    const nextTags = pendingTag ? [...item.tags, pendingTag] : item.tags;
+    const nextComments = [...item.comments, commentEntry(comment.trim())];
     setComment("");
-    await persistNotes(item.tags, nextComments);
+    setTag("");
+    await persistNotes(nextTags, nextComments, t.commentSaved);
   }
   async function saveCompetencies() {
     if (!item || compBusy || item.aiStatus === "PENDING") return;
