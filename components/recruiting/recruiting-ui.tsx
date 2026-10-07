@@ -204,6 +204,12 @@ function Campaigns({ t, locale }: { t: T; locale: Locale }) {
   }, [locale, setJobs]);
 
   const openJobs = jobs.filter((job) => job.status === "active" || job.status === "draft");
+  const firstJobId = openJobs[0]?.id ?? "";
+  const openJobIds = openJobs.map((job) => job.id).join("\n");
+  useEffect(() => {
+    if (!firstJobId) return;
+    if (!openJobIds.split("\n").includes(jobId)) setJobId(firstJobId);
+  }, [firstJobId, jobId, openJobIds]);
 
   async function create(event: FormEvent) {
     event.preventDefault();
@@ -271,7 +277,6 @@ function Campaigns({ t, locale }: { t: T; locale: Locale }) {
           <label>
             <span className="field-lbl">{t.campaignJob}</span>
             <select className="field-select" value={jobId} onChange={(event) => setJobId(event.target.value)}>
-              <option value=""></option>
               {openJobs.map((job) => <option key={job.id} value={job.id}>{job.title}</option>)}
             </select>
           </label>
