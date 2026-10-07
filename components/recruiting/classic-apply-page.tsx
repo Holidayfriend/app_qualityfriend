@@ -143,6 +143,7 @@ export function ClassicApplyPage({ t, job, slug, locale, langs, onLocaleChange, 
                   }} />
                   {cvName ? <em>{cvName}</em> : <small>{t.clickOrDropFile}</small>}
                 </span>
+                {showErrors && job.cvRequired && !cvName ? <span className="job-apply-error" role="alert" style={{ display: "block", fontSize: 12, marginTop: 4 }}>{t.cvRequired}</span> : null}
               </label>
               <label className={`job-apply-agree${showErrors && !privacy ? " is-invalid" : ""}`}>
                 <input type="checkbox" checked={privacy} onChange={(event) => setPrivacy(event.target.checked)} />
