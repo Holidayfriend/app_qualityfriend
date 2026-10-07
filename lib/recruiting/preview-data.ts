@@ -34,6 +34,8 @@ export type Employee = {
   departmentName?: string;
   status: EmpStatus;
   reason: "" | "pension" | "resignation";
+  employedFrom: string;
+  employedTo: string;
   email: string;
   phone: string;
   taxId: string;

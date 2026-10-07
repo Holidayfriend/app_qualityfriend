@@ -1,7 +1,7 @@
 import type { RecruitingEmployee, RecruitingEmployeeStatus, RecruitingInactiveReason } from "../../app/generated/prisma/client";
 import type { DeptId } from "../i18n/recruiting-messages";
 import { mapDeptId } from "./application-fields";
-import { formatHotelDate, hotelLocalIso } from "../hotel/clock";
+import { hotelLocalIso } from "../hotel/clock";
 import type { CertStatus, Employee, EmpStatus } from "./preview-data";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -25,9 +25,10 @@ function pickDeptName(dept: EmployeeDepartment | null | undefined, locale?: stri
   return dept.nameEn || dept.nameDe || dept.nameIt;
 }
 
-function formatDate(value: Date | null | undefined, locale?: string, timeZone?: string | null) {
+function formatEmploymentMonth(value: Date | null | undefined) {
   if (!value) return "";
-  return formatHotelDate(value, locale || "en", timeZone);
+  const month = String(value.getUTCMonth() + 1).padStart(2, "0");
+  return `${month}.${value.getUTCFullYear()}`;
 }
 
 function isoDate(value: Date | null | undefined) {
@@ -111,8 +112,8 @@ function mapReason(reason: RecruitingInactiveReason | null | undefined): Employe
 
 export function toPublicEmployee(row: EmployeeRow, locale?: string, timeZone?: string | null): Employee {
   const deptName = pickDeptName(row.department, locale);
-  const from = formatDate(row.employedFrom, locale, timeZone);
-  const to = formatDate(row.employedTo, locale, timeZone);
+  const from = formatEmploymentMonth(row.employedFrom);
+  const to = formatEmploymentMonth(row.employedTo);
   const employment = from && to ? `${from} – ${to}` : from || to || "";
   return {
     id: row.id,
@@ -129,6 +130,8 @@ export function toPublicEmployee(row: EmployeeRow, locale?: string, timeZone?: s
     taxId: row.taxId || "",
     birthdate: isoDate(row.birthdate),
     birthplace: row.birthplace || "",
+    employedFrom: isoDate(row.employedFrom),
+    employedTo: isoDate(row.employedTo),
     employment,
     comments: row.comments || "",
     tags: parseTags(row.tags),
@@ -202,7 +205,10 @@ export function parseEmployeePatch(body: unknown) {
     const status = data.status.toLowerCase();
     if (status !== "active" && status !== "inactive") return null;
     patch.status = status.toUpperCase() as RecruitingEmployeeStatus;
-    if (status === "active") patch.inactiveReason = null;
+    if (status === "active") {
+      patch.inactiveReason = null;
+      patch.employedTo = null;
+    }
   }
   if ("inactiveReason" in data) {
     if (data.inactiveReason === null || data.inactiveReason === "") patch.inactiveReason = null;
@@ -237,6 +243,7 @@ export function parseEmployeePatch(body: unknown) {
     if (!certificates) return null;
     patch.certificates = certificates;
   }
+  if (patch.status === "INACTIVE" && (!patch.inactiveReason || !patch.employedTo)) return null;
   if (!Object.keys(patch).length) return null;
   return patch;
 }

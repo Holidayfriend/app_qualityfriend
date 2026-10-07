@@ -42,6 +42,9 @@ export async function PATCH(request: Request, context: Context) {
       include: { department: departmentSelect },
     });
     if (!before) return null;
+    if (patch.status === "INACTIVE" && before.employedFrom && patch.employedTo && patch.employedTo < before.employedFrom) {
+      return "END_BEFORE_START" as const;
+    }
     const after = await tx.recruitingEmployee.update({
       where: { id },
       data: patch,
@@ -57,6 +60,7 @@ export async function PATCH(request: Request, context: Context) {
     });
     return after;
   });
+  if (updated === "END_BEFORE_START") return Response.json({ error: "END_BEFORE_START" }, { status: 400 });
   if (!updated) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
   return Response.json({ employee: toPublicEmployee(updated, locale || undefined, await hotelTimeZoneFor(actor.hotel_tenant_id)) });
 }

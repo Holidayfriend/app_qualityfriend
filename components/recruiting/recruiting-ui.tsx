@@ -1730,6 +1730,10 @@ function EmployeeDetail({ t, locale, id }: { t: T; locale: Locale; id: string })
   const [birthdate, setBirthdate] = useState("");
   const [birthplace, setBirthplace] = useState("");
   const [comments, setComments] = useState("");
+  const [inactiveOpen, setInactiveOpen] = useState(false);
+  const [inactiveReason, setInactiveReason] = useState<"pension" | "resignation">("pension");
+  const [inactiveUntil, setInactiveUntil] = useState("");
+  const [inactiveError, setInactiveError] = useState("");
   useEffect(() => {
     let ignore = false;
     setLoading(true);
@@ -1770,25 +1774,57 @@ function EmployeeDetail({ t, locale, id }: { t: T; locale: Locale; id: string })
     setComments(item.comments);
     setEditing(true);
   }
-  async function setStatus(status: "active" | "inactive") {
+  function reasonLabel(reason: Employee["reason"]) {
+    if (reason === "pension") return t.pension;
+    if (reason === "resignation") return t.resignation;
+    return "";
+  }
+  function lastDayOfMonth(month: string) {
+    const match = /^(\d{4})-(\d{2})$/.exec(month);
+    if (!match) return "";
+    const year = Number(match[1]);
+    const monthIndex = Number(match[2]);
+    const last = new Date(Date.UTC(year, monthIndex, 0));
+    return last.toISOString().slice(0, 10);
+  }
+  async function setStatus(status: "active" | "inactive", extra?: { inactiveReason: "pension" | "resignation"; employedTo: string }) {
     if (!item || busy) return;
     setBusy(true);
     const res = await fetch(`/api/recruiting/employees/${encodeURIComponent(id)}?locale=${locale}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify(status === "inactive" ? { status, ...extra } : { status }),
     }).catch(() => null);
     setBusy(false);
-    const data = res && res.ok ? await res.json().catch(() => null) : null;
-    if (!data?.employee) {
-      showToast({ message: t.employeeSaveFailed, tone: "error" });
+    const data = res ? await res.json().catch(() => null) : null;
+    if (!res?.ok || !data?.employee) {
+      const message = data?.error === "END_BEFORE_START" ? t.inactiveEndBeforeStart : t.employeeSaveFailed;
+      if (status === "inactive") setInactiveError(message);
+      showToast({ message, tone: "error" });
       return;
     }
     applyEmployee(data.employee as Employee);
+    setInactiveOpen(false);
+    setInactiveError("");
     showToast({
       message: fill(status === "inactive" ? t.markInactiveOk : t.markActiveOk, { name: (data.employee as Employee).name }),
       tone: "success",
     });
+  }
+  function confirmInactive(event: FormEvent) {
+    event.preventDefault();
+    if (!item) return;
+    const employedTo = lastDayOfMonth(inactiveUntil);
+    if (!inactiveReason || !employedTo) {
+      setInactiveError(t.inactiveFieldsRequired);
+      return;
+    }
+    if (item.employedFrom && employedTo < item.employedFrom) {
+      setInactiveError(t.inactiveEndBeforeStart);
+      return;
+    }
+    setInactiveError("");
+    void setStatus("inactive", { inactiveReason, employedTo });
   }
   async function saveEdit(event: FormEvent) {
     event.preventDefault();
@@ -1867,7 +1903,7 @@ function EmployeeDetail({ t, locale, id }: { t: T; locale: Locale; id: string })
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
                 <div style={{ fontSize: 17, fontWeight: 700 }}>{item.name}</div>
-                <span className={`status-pill ${item.status === "active" ? "active" : "inactive"}`}>{item.status === "active" ? t.active : t.inactive}</span>
+                <span className={`status-pill ${item.status === "active" ? "active" : "inactive"}`}>{item.status === "active" ? t.active : item.reason ? fill(t.inactiveWithReason, { reason: reasonLabel(item.reason) }) : t.inactive}</span>
               </div>
               <div style={{ fontSize: 12.5, color: "var(--text2)" }}>{item.departmentName || t.depts[item.dept]}</div>
             </div>
@@ -1930,7 +1966,7 @@ function EmployeeDetail({ t, locale, id }: { t: T; locale: Locale; id: string })
           <button type="button" className="btn btn-primary" disabled={busy || editing || trainingOpen} onClick={startEdit}>{t.editFile}</button>
           <button type="button" className="btn btn-ghost" disabled={busy || editing} onClick={() => { setTrainingOpen(true); setTrainingErrors(false); }}>{t.addTraining}</button>
           {item.status === "active" ? (
-            <button type="button" className="btn btn-ghost" style={{ color: "var(--red)" }} disabled={busy || editing || trainingOpen} onClick={() => void setStatus("inactive")}>{t.markInactive}</button>
+            <button type="button" className="btn btn-ghost" style={{ color: "var(--red)" }} disabled={busy || editing || trainingOpen} onClick={() => { setInactiveReason("pension"); setInactiveUntil(""); setInactiveError(""); setInactiveOpen(true); }}>{t.markInactive}</button>
           ) : (
             <button type="button" className="btn btn-ghost" disabled={busy || editing || trainingOpen} onClick={() => void setStatus("active")}>{t.markActive}</button>
           )}
@@ -1960,6 +1996,32 @@ function EmployeeDetail({ t, locale, id }: { t: T; locale: Locale; id: string })
             <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
               <button type="submit" className="btn btn-primary" disabled={busy}>{t.save}</button>
               <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setTrainingOpen(false)}>{t.cancel}</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    ) : null}
+    {inactiveOpen ? (
+      <div className="job-apply-overlay" onClick={() => !busy && setInactiveOpen(false)}>
+        <div className="job-apply-dialog" role="dialog" aria-modal="true" aria-labelledby="inactive-dialog-title" onClick={(event) => event.stopPropagation()}>
+          <h3 id="inactive-dialog-title">{t.markInactive}</h3>
+          <p>{t.inactiveDialogHint}</p>
+          <form style={{ display: "flex", flexDirection: "column", gap: 12 }} onSubmit={confirmInactive} noValidate>
+            <label>
+              <span className="field-lbl">{t.colReason}</span>
+              <select className="field-select" value={inactiveReason} onChange={(event) => setInactiveReason(event.target.value as "pension" | "resignation")}>
+                <option value="pension">{t.pension}</option>
+                <option value="resignation">{t.resignation}</option>
+              </select>
+            </label>
+            <label>
+              <span className="field-lbl">{t.employedTo}</span>
+              <input className="field-input" type="month" value={inactiveUntil} onChange={(event) => setInactiveUntil(event.target.value)} required />
+            </label>
+            {inactiveError ? <p className="job-apply-error" role="alert">{inactiveError}</p> : null}
+            <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+              <button type="submit" className="btn btn-primary" disabled={busy}>{t.save}</button>
+              <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setInactiveOpen(false)}>{t.cancel}</button>
             </div>
           </form>
         </div>
