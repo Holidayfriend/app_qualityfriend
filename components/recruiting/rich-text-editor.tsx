@@ -86,6 +86,14 @@ export function sanitizeJobHtml(html: string) {
     .replace(/\s(?:href|src)\s*=\s*(['"])\s*javascript:[^'"]*\1/gi, "");
 }
 
+export function richTextHtml(value: string) {
+  const source = value ?? "";
+  if (!source.trim()) return "";
+  if (/<\/?[a-z][^>]*>/i.test(source)) return sanitizeJobHtml(source);
+  const escaped = source.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return escaped.split(/\n{2,}/).map((block) => `<p>${block.replace(/\n/g, "<br>")}</p>`).join("");
+}
+
 export type RichTextEditorHandle = { getHtml: () => string };
 
 export const RichTextEditor = forwardRef<RichTextEditorHandle, {

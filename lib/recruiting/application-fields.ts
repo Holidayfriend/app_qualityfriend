@@ -1,9 +1,11 @@
 import { isValidApplicationEmail } from "./email-validation";
 import type { RecruitingApplication, RecruitingApplicationStage } from "../../app/generated/prisma/client";
-import type { DeptId } from "../i18n/recruiting-messages";
 import type { AppStage, Applicant } from "./preview-data";
 import { formatHotelDate } from "../hotel/clock";
 import { unpackCvRef } from "./cv-storage";
+import { mapDeptId } from "./dept-map";
+
+export { mapDeptId };
 
 const stages = ["new", "invited", "offer", "hired", "rejected", "archived"] as const;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -53,16 +55,6 @@ function mapAi(row: RecruitingApplication, stage: AppStage) {
     competencies,
     aiStatus: "PENDING" as const,
   };
-}
-
-export function mapDeptId(name: string | undefined | null): DeptId {
-  const value = (name || "").toLowerCase();
-  if (value.includes("house") || value.includes("zimmer") || value.includes("puliz")) return "housekeeping";
-  if (value.includes("kitchen") || value.includes("küche") || value.includes("cucina") || value.includes("koch")) return "kitchen";
-  if (value.includes("spa") || value.includes("wellness") || value.includes("sea")) return "seaspa";
-  if (value.includes("maint") || value.includes("technik") || value.includes("tecn")) return "maintenance";
-  if (value.includes("rest") || value.includes("service") || value.includes("gastro") || value.includes("f&b")) return "restaurant";
-  return "reception";
 }
 
 export function mapStage(stage: RecruitingApplicationStage | string): AppStage {

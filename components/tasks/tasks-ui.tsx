@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { AppShell } from "../dashboard/app-shell";
 import { useI18n } from "../i18n/i18n-provider";
 import { BrandLoader } from "../ui/brand-loader";
 import { useToast } from "../ui/toast-provider";
 import { getTasksMessages, type TasksMessages } from "../../lib/i18n/tasks-messages";
+import { RichTextEditor, richTextHtml, sanitizeJobHtml, type RichTextEditorHandle } from "../recruiting/rich-text-editor";
 import { hotelLocalIso, readHotelTimeZone } from "../../lib/hotel/clock";
 import { useTasks, type PublicChecklist, type PublicTask } from "./tasks-provider";
 
@@ -379,6 +380,7 @@ export function ChecklistsListPage() {
 
 export function ChecklistFormPage({ id }: { id?: string }) {
   const t = useT();
+  const { locale } = useI18n();
   const router = useRouter();
   const toast = useToast();
   const search = useSearchParams();
@@ -403,10 +405,11 @@ export function ChecklistFormPage({ id }: { id?: string }) {
   const [noEnd, setNoEnd] = useState(true);
   const [busy, setBusy] = useState(false);
   const [picked, setPicked] = useState("");
+  const descRef = useRef<RichTextEditorHandle>(null);
 
   function fillFrom(selected: PublicChecklist) {
     setTitle(selected.title);
-    setDesc(selected.desc);
+    setDesc(richTextHtml(selected.desc));
     setItems(selected.items.map((row) => row.text));
     setAssignType(selected.assignType);
     setDepartmentId(selected.departmentId || departments[0]?.id || "");
@@ -447,8 +450,9 @@ export function ChecklistFormPage({ id }: { id?: string }) {
   async function save(status: "active" | "draft", kind: "checklist" | "template") {
     if (!title.trim()) { toast({ message: t.titleRequired, tone: "error" }); return; }
     setBusy(true);
+    const nextDesc = sanitizeJobHtml(descRef.current?.getHtml() ?? desc);
     const nextId = await saveChecklist(id && !asTemplate ? id : undefined, {
-      title, desc, items, assignType, departmentId, assigneeId, dueType, recurrence: recurrence as PublicChecklist["recurrence"], weekdays, dueIso, startIso, endIso, noEnd, status, kind,
+      title, desc: nextDesc, items, assignType, departmentId, assigneeId, dueType, recurrence: recurrence as PublicChecklist["recurrence"], weekdays, dueIso, startIso, endIso, noEnd, status, kind,
     });
     setBusy(false);
     if (!nextId) { toast({ message: t.checklistSaveFailed, tone: "error" }); return; }
@@ -479,7 +483,9 @@ export function ChecklistFormPage({ id }: { id?: string }) {
             <label className="field-lbl">{t.title}</label>
             <input className="field-input" style={{ marginBottom: 14 }} value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t.titlePlaceholder} />
             <label className="field-lbl">{t.desc}</label>
-            <textarea className="field-input" style={{ minHeight: 100, resize: "vertical", lineHeight: 1.6, marginBottom: 16 }} value={desc} onChange={(event) => setDesc(event.target.value)} placeholder={t.descPlaceholder} />
+            <div style={{ marginBottom: 16 }}>
+              <RichTextEditor ref={descRef} value={desc} onChange={setDesc} placeholder={t.descPlaceholder} locale={locale} height={280} />
+            </div>
             <div style={{ fontSize: 11.5, color: "var(--text3)", marginBottom: 16 }}>{t.autoTranslate}</div>
             <label className="field-lbl">{t.points}</label>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
@@ -601,7 +607,7 @@ export function ChecklistDetailPage({ id }: { id: string }) {
             <span className={`status-pill ${item.status === "active" ? "active" : "inactive"}`}>{item.completedAt ? t.statusDone : statusLabel(item.status, t)}</span>
           </div>
           <div className="cb">
-            <div style={{ fontSize: 13, color: "var(--text2)", marginBottom: 14, lineHeight: 1.6 }}>{item.desc}</div>
+            {item.desc ? <div className="job-desc-preview" style={{ fontSize: 13, color: "var(--text2)", marginBottom: 14, lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: richTextHtml(item.desc) }} /> : null}
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               {item.items.map((row) => (
                 <button key={row.id} type="button" className="todo" style={{ width: "100%", background: "none", border: 0, textAlign: "left", font: "inherit", color: "inherit", cursor: canComplete ? "pointer" : "default" }} onClick={() => void toggle(row.id)}>

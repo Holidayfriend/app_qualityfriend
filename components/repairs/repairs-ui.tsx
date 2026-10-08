@@ -8,6 +8,7 @@ import { useI18n } from "../i18n/i18n-provider";
 import { BrandLoader } from "../ui/brand-loader";
 import { useToast } from "../ui/toast-provider";
 import { getRepairsMessages, type RepairsMessages } from "../../lib/i18n/repairs-messages";
+import { RichTextEditor, richTextHtml, sanitizeJobHtml, type RichTextEditorHandle } from "../recruiting/rich-text-editor";
 import { REPAIR_AREA_KEYS, STATUS_CHIP, type RepairAreaKey, type RepairFile, type RepairStatus, type RepairVisibility } from "../../lib/repairs/demo-data";
 import { useRepairs, type HotelDept, type HotelUser, type PublicRepair } from "./repairs-provider";
 
@@ -208,6 +209,7 @@ export function RepairsFormPage({ id }: { id?: string }) {
   const [uploads, setUploads] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const descRef = useRef<RichTextEditorHandle>(null);
 
   useEffect(() => {
     if (!existing) return;
@@ -215,7 +217,7 @@ export function RepairsFormPage({ id }: { id?: string }) {
     setTitle(existing.title);
     setLocation(key);
     setCustomLocation(REPAIR_AREA_KEYS.includes(key as RepairAreaKey) || /^\d+[a-z]?$/i.test(key) ? "" : key);
-    setDesc(existing.desc);
+    setDesc(richTextHtml(existing.desc));
     setVisibility(existing.visibility);
     setDepts(existing.depts);
     setAssignee(existing.assigneeId || assigneeSelectValue(existing.assignee, users));
@@ -230,7 +232,7 @@ export function RepairsFormPage({ id }: { id?: string }) {
     if (!selected) return;
     const key = selected.locationKey || selected.location || "";
     setTitle(selected.title);
-    setDesc(selected.desc);
+    setDesc(richTextHtml(selected.desc));
     setLocation(key);
     setCustomLocation(REPAIR_AREA_KEYS.includes(key as RepairAreaKey) || /^\d+[a-z]?$/i.test(key) ? "" : key);
     setVisibility(selected.visibility);
@@ -262,7 +264,7 @@ export function RepairsFormPage({ id }: { id?: string }) {
       const isEdit = Boolean(existing) && kind === "repair";
       const form = new FormData();
       form.set("title", title.trim());
-      form.set("description", desc);
+      form.set("description", sanitizeJobHtml(descRef.current?.getHtml() ?? desc));
       form.set("locationKey", savedLocation);
       form.set("locationLabel", locationLabel(savedLocation, t));
       form.set("tags", JSON.stringify(tags));
@@ -333,7 +335,9 @@ export function RepairsFormPage({ id }: { id?: string }) {
               </>;
             })()}
             <label className="field-lbl">{t.description}</label>
-            <textarea className="field-input" style={{ minHeight: 140, resize: "vertical", lineHeight: 1.6 }} placeholder={t.descPlaceholder} value={desc} onChange={(event) => setDesc(event.target.value)} />
+            <div style={{ marginBottom: 6 }}>
+              <RichTextEditor ref={descRef} value={desc} onChange={setDesc} placeholder={t.descPlaceholder} locale={locale} height={280} />
+            </div>
             <div style={{ fontSize: 11.5, color: "var(--text3)", margin: "6px 0 16px" }}>{t.autoTranslate}</div>
             <label className="field-lbl">{t.attachment}</label>
             <button type="button" className="dropzone" style={{ marginBottom: 0 }} onClick={() => fileInput.current?.click()}>{t.dropzone}<br /><span style={{ fontSize: 11 }}>{t.dropHint}</span></button>
@@ -435,7 +439,7 @@ export function RepairsDetailPage({ id }: { id: string }) {
         </div>
       </div>
       <div className="cb">
-        <div style={{ fontSize: 13.5, lineHeight: 1.7, whiteSpace: "pre-line", marginBottom: 14 }}>{item.desc}</div>
+        {item.desc ? <div className="job-desc-preview" style={{ fontSize: 13.5, lineHeight: 1.7, marginBottom: 14 }} dangerouslySetInnerHTML={{ __html: richTextHtml(item.desc) }} /> : null}
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>{item.depts.length ? item.depts.map((dept) => <span key={dept} className="chip chip-n">{deptName(dept, departments, t)}</span>) : <span className="chip chip-n">{t.visibleAll}</span>}</div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{item.tags.map((tag) => <span key={tag} className="chip chip-b">{tag}</span>)}</div>
         {item.status === "erledigt" && item.completedAt ? <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 12 }}>{t.completedMeta.replace("{when}", item.completedAt).replace("{name}", item.completedBy || "–")}</div> : null}

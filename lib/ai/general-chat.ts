@@ -188,7 +188,7 @@ async function repairsPack(locale: ChatLocale) {
     select: { status: true, title: true, titleDe: true, titleIt: true, location: true, locationDe: true, locationIt: true, description: true, descriptionDe: true, descriptionIt: true },
   });
   const lines = rows.map((row) => {
-    const description = textOf(row.description, row.descriptionDe, row.descriptionIt, locale).replace(/\s+/g, " ").slice(0, 160);
+    const description = textOf(row.description, row.descriptionDe, row.descriptionIt, locale).replace(/<[^>]+>/g, " ").replace(/&nbsp;/gi, " ").replace(/\s+/g, " ").trim().slice(0, 160);
     return `${row.status} ${textOf(row.title, row.titleDe, row.titleIt, locale)} @ ${textOf(row.location, row.locationDe, row.locationIt, locale)}${description ? ` — ${description}` : ""}`;
   }).join("\n") || "(no open repairs)";
   return `REPAIRS (open tickets only)\n${lines}`.slice(0, 2500);

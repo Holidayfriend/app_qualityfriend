@@ -1,6 +1,6 @@
 import type { RecruitingEmployee, RecruitingEmployeeStatus, RecruitingInactiveReason } from "../../app/generated/prisma/client";
 import type { DeptId } from "../i18n/recruiting-messages";
-import { mapDeptId } from "./application-fields";
+import { mapDeptId } from "./dept-map";
 import { hotelLocalIso } from "../hotel/clock";
 import { trainingTypeIds, type CertStatus, type Employee, type EmpStatus, type TrainingType } from "./preview-data";
 
