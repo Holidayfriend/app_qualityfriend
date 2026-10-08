@@ -738,11 +738,40 @@ function JobQuiz({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }) 
   const [selectedElId, setSelectedElId] = useState<string | null>(null);
   const [footer, setFooter] = useState<QuizFooter>(job?.quiz?.footer ?? { impressumUrl: DEFAULT_FOOTER_URL, privacyUrl: DEFAULT_FOOTER_URL });
   const [busy, setBusy] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
   const [error, setError] = useState("");
   const [showErrors, setShowErrors] = useState(false);
   const quizPages = pagesByLang[locale];
   function setQuizPages(pages: QuizPage[]) {
     setPagesByLang({ ...pagesByLang, [locale]: pages });
+  }
+  async function generateQuiz() {
+    const departmentName = departments.find((item) => item.id === dept)?.name || "";
+    if (!title.trim() || !departmentName) {
+      setShowErrors(true);
+      setError(t.generateQuizNeedFields);
+      return;
+    }
+    setError("");
+    setAiBusy(true);
+    try {
+      const res = await fetch("/api/recruiting/jobs/generate-quiz", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: title.trim(), departmentName, locale, pages: pagesByLang[locale] }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !Array.isArray(data?.pages)) {
+        setError(res.status === 400 ? t.generateQuizNeedFields : t.generateQuizFailed);
+        return;
+      }
+      setPagesByLang((current) => ({ ...current, [locale]: data.pages as QuizPage[] }));
+      setSelectedElId(null);
+    } catch {
+      setError(t.generateQuizFailed);
+    } finally {
+      setAiBusy(false);
+    }
   }
   async function save(status: JobStatus) {
     setShowErrors(true);
@@ -783,13 +812,14 @@ function JobQuiz({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }) 
         <option value=""></option>
         {departments.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
       </select>
+      <button type="button" className="btn btn-primary" disabled={aiBusy} onClick={() => void generateQuiz()}>{t.generateQuizAi}</button>
       {error ? <span className="job-apply-error">{error}</span> : null}
     </div>
     <div className="g2 g2-quiz">
       <QuizToolsCard t={t} pages={quizPages} setPages={setQuizPages} activePageId={activePageId} setActivePageId={setActivePageId} selectedId={selectedElId} setSelectedId={setSelectedElId} footer={footer} setFooter={setFooter} />
       <QuizCanvasCard t={t} pages={quizPages} setPages={setQuizPages} activePageId={activePageId} setActivePageId={setActivePageId} selectedId={selectedElId} setSelectedId={setSelectedElId} footer={footer} setFooter={setFooter} onPublish={() => void save("active")} onDraft={() => void save("draft")} />
     </div>
-    {busy ? <BrandLoader label={t.loading} overlay /> : null}
+    {busy || aiBusy ? <BrandLoader label={t.loading} overlay /> : null}
   </>;
 }
 
