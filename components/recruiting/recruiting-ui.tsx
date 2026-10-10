@@ -20,6 +20,7 @@ import { formatHotelDate, formatStoredDate, readHotelTimeZone } from "../../lib/
 import { isValidEmployeeTaxId } from "../../lib/recruiting/employee-fields";
 import { jobSaveErrorKey } from "../../lib/recruiting/job-save-error";
 import type { PublicJob } from "../../lib/recruiting/job-fields";
+import { classicJobFieldRequired, hasMissingClassicJobFields } from "../../lib/recruiting/job-validation";
 
 export type RecruitingView =
   | "hub" | "jobs" | "job-create" | "job-edit" | "job-quiz" | "campaigns" | "applications" | "application-create" | "application-detail"
@@ -510,7 +511,7 @@ function JobCreate({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }
   const [logo, setLogo] = useState(job?.logoImage ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [showErrors, setShowErrors] = useState(false);
+  const [validationStatus, setValidationStatus] = useState<JobStatus | null>(null);
   const [aiBusy, setAiBusy] = useState(false);
   const typeLabel = type === "full" ? t.typeFull : type === "part" ? t.typePart : type === "apprentice" ? t.typeApprentice : t.typeFullOrPart;
   const missing = {
@@ -522,14 +523,14 @@ function JobCreate({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }
     image: !image,
     logo: !logo,
   };
-  const invalid = (field: keyof typeof missing) => showErrors && missing[field];
+  const invalid = (field: keyof typeof missing) => Boolean(validationStatus && missing[field] && classicJobFieldRequired(field, validationStatus));
   const deptName = departments.find((item) => item.id === dept)?.name || "";
   function defaultDescription() {
     return `<p>${fill(t.lookingFor, { dept: deptName })}${notes ? ` – ${notes}` : ""}.</p>`;
   }
   async function generate() {
     if (!title.trim()) {
-      setShowErrors(true);
+      setValidationStatus("active");
       setError(t.generateNeedTitle);
       return;
     }
@@ -575,13 +576,13 @@ function JobCreate({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }
     const nextAutoMessage = sanitizeJobHtml(autoMessageRef.current?.getHtml() ?? autoMessage);
     setDescription(nextDescription);
     setAutoMessage(nextAutoMessage);
-    setShowErrors(true);
+    setValidationStatus(status);
     setError("");
     const nextMissing = {
       ...missing,
       description: !htmlToPlain(nextDescription),
     };
-    if (Object.values(nextMissing).some(Boolean)) {
+    if (hasMissingClassicJobFields(nextMissing, status)) {
       setError(t.jobRequiredFields);
       revealInvalidField();
       return;
