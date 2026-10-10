@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { AppShell } from "../dashboard/app-shell";
 import { useI18n } from "../i18n/i18n-provider";
 import { BrandLoader } from "../ui/brand-loader";
 import { AttachmentField, AttachmentGallery, AttachmentIndicator, type AttachmentItem } from "../ui/attachment-field";
 import { useToast } from "../ui/toast-provider";
+import { RichTextEditor, richTextHtml, sanitizeJobHtml, type RichTextEditorHandle } from "../recruiting/rich-text-editor";
 import { getHandoversMessages, type HandoversMessages } from "../../lib/i18n/handovers-messages";
 import { useHandovers, type HotelDept } from "./handovers-provider";
 
@@ -33,14 +34,7 @@ function statusLabel(status: string, t: T) {
 }
 
 function HandoverBody({ desc }: { desc: string }) {
-  const parts = desc.split(/\n\s*\n/).map((part) => part.trim()).filter(Boolean);
-  const sectioned = parts.length > 1 && parts.some((part) => /^[⚠️🏷📦]/.test(part));
-  if (!sectioned) return <div className="hov-text">{desc}</div>;
-  return parts.map((part, index) => (
-    <div key={index} className="hov-section" style={index === parts.length - 1 ? { marginBottom: 0 } : undefined}>
-      <div className="hov-text">{part}</div>
-    </div>
-  ));
+  return <div className="hov-text job-desc-preview" dangerouslySetInnerHTML={{ __html: richTextHtml(desc) }} />;
 }
 
 function Shell({ title, children }: { title: string; children: ReactNode }) {
@@ -174,11 +168,12 @@ export function HandoversFormPage({ id, aiDraft = false }: { id?: string; aiDraf
   const [uploads, setUploads] = useState<File[]>([]);
   const [attachmentsBusy, setAttachmentsBusy] = useState(false);
   const [busy, setBusy] = useState(false);
+  const descRef = useRef<RichTextEditorHandle>(null);
 
   useEffect(() => {
     if (existing) {
       setTitle(existing.title);
-      setDesc(existing.desc);
+      setDesc(richTextHtml(existing.desc));
       setVisibility(existing.visibility);
       setDepts(existing.depts);
       setTags(existing.tags);
@@ -188,7 +183,7 @@ export function HandoversFormPage({ id, aiDraft = false }: { id?: string; aiDraf
     }
     if (!aiDraft) return;
     setTitle(t.aiDraftTitle);
-    setDesc(`⚠️ ${t.aiDraftUrgent}\n\n🏷 ${t.aiDraftGuests}\n\n📦 ${t.aiDraftOther}`);
+    setDesc(richTextHtml(`⚠️ ${t.aiDraftUrgent}\n\n🏷 ${t.aiDraftGuests}\n\n📦 ${t.aiDraftOther}`));
   }, [existing, aiDraft, t.aiDraftTitle, t.aiDraftUrgent, t.aiDraftGuests, t.aiDraftOther]);
 
   function applyTemplate(value: string) {
@@ -196,7 +191,7 @@ export function HandoversFormPage({ id, aiDraft = false }: { id?: string; aiDraf
     const selected = templates.find((item) => item.id === value);
     if (!selected) return;
     setTitle(selected.title);
-    setDesc(selected.desc);
+    setDesc(richTextHtml(selected.desc));
     setVisibility(selected.visibility);
     setDepts(selected.depts);
     setTags(selected.tags);
@@ -219,7 +214,9 @@ export function HandoversFormPage({ id, aiDraft = false }: { id?: string; aiDraf
       const isEdit = Boolean(existing) && kind === "handover";
       const form = new FormData();
       form.set("title", title.trim());
-      form.set("description", desc);
+      const description = sanitizeJobHtml(descRef.current?.getHtml() ?? desc);
+      setDesc(description);
+      form.set("description", description);
       form.set("tags", JSON.stringify(tags));
       form.set("visibility", visibility);
       form.set("departmentIds", JSON.stringify(depts));
@@ -260,7 +257,7 @@ export function HandoversFormPage({ id, aiDraft = false }: { id?: string; aiDraf
             <label className="field-lbl">{t.title}</label>
             <input className="field-input" style={{ marginBottom: 14 }} placeholder={t.titlePlaceholder} value={title} onChange={(event) => setTitle(event.target.value)} />
             <label className="field-lbl">{t.description}</label>
-            <textarea className="field-input" style={{ minHeight: 180, resize: "vertical", lineHeight: 1.6 }} placeholder={t.descPlaceholder} value={desc} onChange={(event) => setDesc(event.target.value)} />
+            <RichTextEditor ref={descRef} value={desc} onChange={setDesc} placeholder={t.descPlaceholder} locale={locale} height={280} />
             <div style={{ fontSize: 11.5, color: "var(--text3)", margin: "6px 0 0" }}>{t.autoTranslate}</div>
             <div style={{ marginTop: 16 }}><AttachmentField existing={kept} files={uploads} onExistingChange={setKept} onFilesChange={setUploads} onProcessingChange={setAttachmentsBusy} /></div>
           </div>
@@ -324,7 +321,7 @@ export function HandoversDetailPage({ id }: { id: string }) {
         <span className={`chip ${item.status === "erledigt" ? "chip-g" : item.status === "draft" ? "chip-a" : "chip-b"}`}>{statusLabel(item.status, t)}</span>
       </div>
       <div className="cb">
-        <div style={{ fontSize: 13.5, lineHeight: 1.7, whiteSpace: "pre-line", marginBottom: 14 }}>{item.desc}</div>
+        {item.desc ? <div className="job-desc-preview" style={{ fontSize: 13.5, lineHeight: 1.7, marginBottom: 14 }} dangerouslySetInnerHTML={{ __html: richTextHtml(item.desc) }} /> : null}
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
           {item.depts.length ? item.depts.map((dept) => <span key={dept} className="chip chip-n">{deptName(dept, departments)}</span>) : <span className="chip chip-n">{visLabel(item.visibility, t)}</span>}
         </div>
