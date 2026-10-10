@@ -27,7 +27,7 @@ export async function PUT(request: Request) {
         ? await tx.recruitingSettings.update({ where: { hotelTenantId: actor.hotel_tenant_id }, data })
         : await tx.recruitingSettings.create({ data: { hotelTenantId: actor.hotel_tenant_id, ...data } });
       const afterSnapshot = settingsAuditSnapshot(toPublicSettings(after));
-      await recordAuditLog(tx, {
+      await recordAuditLog(tx, { module: "recruiting",
         hotelTenantId: actor.hotel_tenant_id,
         actorId: actor.id,
         action: before ? "UPDATE" : "CREATE",

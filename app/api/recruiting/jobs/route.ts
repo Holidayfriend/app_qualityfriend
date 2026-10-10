@@ -64,7 +64,7 @@ export async function POST(request: Request) {
         quiz: input.quiz,
       },
     });
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "recruiting",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "CREATE",

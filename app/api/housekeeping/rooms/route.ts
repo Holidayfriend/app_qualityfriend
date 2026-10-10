@@ -223,7 +223,7 @@ export async function POST(request: Request) {
   if (duplicate) return Response.json({ error: "ROOM_NUMBER_EXISTS" }, { status: 409 });
   const room = await prisma.$transaction(async tx => {
     const created = await tx.room.create({ data: { hotelTenantId: user.hotelTenantId, ...input.room, checklistTemplate: { create: { hotelTenantId: user.hotelTenantId, ...input.checklist } } }, include: { checklistTemplate: true } });
-    await recordAuditLog(tx, { hotelTenantId: user.hotelTenantId, actorId: user.id, action: "CREATE", entityType: "ROOM", entityId: created.id, changes: { after: roomAuditSnapshot(created, created.checklistTemplate) } });
+    await recordAuditLog(tx, { module: "housekeeping", hotelTenantId: user.hotelTenantId, actorId: user.id, action: "CREATE", entityType: "ROOM", entityId: created.id, changes: { after: roomAuditSnapshot(created, created.checklistTemplate) } });
     return created;
   });
   return Response.json({ id: room.id }, { status: 201 });

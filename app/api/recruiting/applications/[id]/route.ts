@@ -123,7 +123,7 @@ export async function PATCH(request: Request, context: Context) {
     });
     if (changed.count !== 1) return { conflict: true as const };
     const after = await tx.recruitingApplication.findUniqueOrThrow({ where: { id }, include: { job: jobInclude } });
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "recruiting",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: stage ? "STATUS_CHANGE" : "UPDATE",

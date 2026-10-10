@@ -45,7 +45,7 @@ export async function PATCH(request: Request, context: Context) {
     if (!before) return false;
     const after = await tx.room.update({ where, data: { number, categoryId, floorId, ...translation } });
     const afterChecklist = await tx.roomChecklistTemplate.upsert({ where: { roomId: id }, update: checklist, create: { hotelTenantId: user.hotelTenantId, roomId: id, roomChecksEn: activeLocale === "en" ? roomChecks : [], roomChecksDe: activeLocale === "de" ? roomChecks : [], roomChecksIt: activeLocale === "it" ? roomChecks : [], arrivalChecksEn: activeLocale === "en" ? arrivalChecks : [], arrivalChecksDe: activeLocale === "de" ? arrivalChecks : [], arrivalChecksIt: activeLocale === "it" ? arrivalChecks : [] } });
-    await recordAuditLog(tx, { hotelTenantId: user.hotelTenantId, actorId: user.id, action: "UPDATE", entityType: "ROOM", entityId: id, changes: { before: roomAuditSnapshot(before, before.checklistTemplate), after: roomAuditSnapshot(after, afterChecklist) } });
+    await recordAuditLog(tx, { module: "housekeeping", hotelTenantId: user.hotelTenantId, actorId: user.id, action: "UPDATE", entityType: "ROOM", entityId: id, changes: { before: roomAuditSnapshot(before, before.checklistTemplate), after: roomAuditSnapshot(after, afterChecklist) } });
     return true;
   });
   if (!updated) return Response.json({ error: "NOT_FOUND" }, { status: 404 });

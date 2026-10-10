@@ -246,7 +246,7 @@ export async function createTask(actor: TasksActor, body: Record<string, unknown
       data: { hotelTenantId: actor.hotel_tenant_id, createdById: actor.id, ...parsed },
       include,
     });
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "tasks",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "CREATE",
@@ -275,7 +275,7 @@ export async function updateTask(actor: TasksActor, id: string, body: Record<str
   if ("error" in parsed) return parsed;
   const row = await prisma.$transaction(async (tx) => {
     const updated = await tx.hotelTask.update({ where: { id }, data: parsed, include });
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "tasks",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "UPDATE",
@@ -319,7 +319,7 @@ export async function updateTaskStatus(actor: TasksActor, id: string, status: st
       },
       include,
     });
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "tasks",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "STATUS_CHANGE",

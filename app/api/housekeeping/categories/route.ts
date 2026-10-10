@@ -42,7 +42,7 @@ export async function POST(request: Request) {
   const linenWeekdays = linenFrequency === "ON_REQUEST" ? [...selectedLinenWeekdays].sort((a, b) => a - b) : [];
   const category = await prisma.$transaction(async tx => {
     const created = await tx.roomCategory.create({ data: { hotelTenantId: user.hotelTenantId, nameEn: name, nameDe: activeLocale === "de" ? name : null, nameIt: activeLocale === "it" ? name : null, expressMinutes: expressMinutes as number | null, normalMinutes: normalMinutes as number | null, departureMinutes: departureMinutes as number | null, finalMinutes: finalMinutes as number | null, cleaningFrequency: cleaningFrequency as Frequency, cleaningWeekdays, linenFrequency: linenFrequency as Frequency, linenWeekdays } });
-    await recordAuditLog(tx, { hotelTenantId: user.hotelTenantId, actorId: user.id, action: "CREATE", entityType: "ROOM_CATEGORY", entityId: created.id, changes: { after: categoryAuditSnapshot(created) } });
+    await recordAuditLog(tx, { module: "housekeeping", hotelTenantId: user.hotelTenantId, actorId: user.id, action: "CREATE", entityType: "ROOM_CATEGORY", entityId: created.id, changes: { after: categoryAuditSnapshot(created) } });
     return created;
   });
   return Response.json({ id: category.id }, { status: 201 });

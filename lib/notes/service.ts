@@ -336,7 +336,7 @@ export async function createNote(actor: NotesActor, form: FormData, locale: stri
         data: saved.map((file) => ({ id: randomUUID(), noteId: id, ...file })),
       });
     }
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "notes",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "CREATE",
@@ -407,7 +407,7 @@ export async function updateNote(actor: NotesActor, id: string, form: FormData, 
       });
     }
     const row = await tx.hotelNote.findFirstOrThrow({ where: { id }, include });
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "notes",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "UPDATE",
@@ -431,7 +431,7 @@ export async function updateNoteStatus(actor: NotesActor, id: string, status: Ho
   if (!actor.canManage) return { error: "FORBIDDEN" as const };
   const row = await prisma.$transaction(async (tx) => {
     const updated = await tx.hotelNote.update({ where: { id }, data: { status }, include });
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "notes",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "STATUS_CHANGE",
@@ -457,7 +457,7 @@ export async function addNoteComment(actor: NotesActor, id: string, text: string
     await tx.hotelNoteComment.create({
       data: { noteId: id, authorId: actor.id, text: value, textDe: value, textIt: value },
     });
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "notes",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "UPDATE",

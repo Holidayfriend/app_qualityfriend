@@ -17,8 +17,8 @@ export async function dispatchHousekeepingImport(hotelTenantId: string, actorId:
       db: { executeSql: (sql, values) => client.query(sql, values) } });
     if (!jobId) { await client.query("ROLLBACK"); return null; }
     await client.query(`INSERT INTO import_runs (id,hotel_tenant_id,source_id,status,updated_at) VALUES ($1,$2,$3,'QUEUED',NOW())`, [runId, hotelTenantId, data.sourceId]);
-    await client.query(`INSERT INTO audit_logs (id,hotel_tenant_id,actor_id,action,entity_type,entity_id,changes,description)
-      VALUES ($1,$2,$3,'CREATE','HOUSEKEEPING_IMPORT',$4,$5::jsonb,$6::jsonb)`,
+    await client.query(`INSERT INTO audit_logs (id,hotel_tenant_id,actor_id,module,action,entity_type,entity_id,changes,description)
+      VALUES ($1,$2,$3,'housekeeping','CREATE','HOUSEKEEPING_IMPORT',$4,$5::jsonb,$6::jsonb)`,
     [randomUUID(), hotelTenantId, actorId, runId, JSON.stringify({ jobId, status: "QUEUED" }), JSON.stringify({ en: "Housekeeping XML import dispatched", de: "Housekeeping-XML-Import gestartet", it: "Importazione XML Housekeeping avviata" })]);
     await client.query("COMMIT");
     return runId;

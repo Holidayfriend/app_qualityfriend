@@ -50,7 +50,7 @@ export async function createEntity(request: Request, type: EntityType) {
         if (mcp) { const mcpDepartmentId = await createSyncedMcpDepartment(mcp.token, mcp.hotelId, values.nameEn); await tx.department.update({ where: { id: department.id }, data: { mcpDepartmentId } }); }
         created = department;
       } else created = await tx.team.create({ data, select: { id: true, nameEn: true, nameDe: true, nameIt: true } });
-      await recordAuditLog(tx, { hotelTenantId: current.hotelTenantId, actorId: current.id, action: "CREATE", entityType: type.toUpperCase(), entityId: created.id, changes: { after: output(created).names } });
+      await recordAuditLog(tx, { module: "settings", hotelTenantId: current.hotelTenantId, actorId: current.id, action: "CREATE", entityType: type.toUpperCase(), entityId: created.id, changes: { after: output(created).names } });
       return created;
     }, { timeout: 20_000 });
     return NextResponse.json(output(entity), { status: 201 });
@@ -68,11 +68,11 @@ export async function updateEntity(request: Request, type: EntityType, id: strin
         let mcpDepartmentId = previous.mcpDepartmentId;
         if (mcp) { if (mcpDepartmentId) await updateMcpDepartment(mcp.token, mcpDepartmentId, mcp.hotelId, values.nameEn, true); else mcpDepartmentId = await createSyncedMcpDepartment(mcp.token, mcp.hotelId, values.nameEn); }
         const updated = await tx.department.update({ where: { id }, data: { ...values, updatedById: current.id, mcpDepartmentId }, select: { id: true, nameEn: true, nameDe: true, nameIt: true, _count: { select: { memberships: { where: { user: { isActive: true, isDeleted: false } } } } } } });
-        await recordAuditLog(tx, { hotelTenantId: current.hotelTenantId, actorId: current.id, action: "UPDATE", entityType: "DEPARTMENT", entityId: id, changes: { before: output(previous).names, after: output(updated).names } }); return updated;
+        await recordAuditLog(tx, { module: "settings", hotelTenantId: current.hotelTenantId, actorId: current.id, action: "UPDATE", entityType: "DEPARTMENT", entityId: id, changes: { before: output(previous).names, after: output(updated).names } }); return updated;
       }
       const previous = await tx.team.findFirst({ where: { id, hotelTenantId: current.hotelTenantId, isDeleted: false }, select: { id: true, nameEn: true, nameDe: true, nameIt: true } }); if (!previous) return null;
       const updated = await tx.team.update({ where: { id }, data: { ...values, updatedById: current.id }, select: { id: true, nameEn: true, nameDe: true, nameIt: true, _count: { select: { memberships: { where: { user: { isActive: true, isDeleted: false } } } } } } });
-      await recordAuditLog(tx, { hotelTenantId: current.hotelTenantId, actorId: current.id, action: "UPDATE", entityType: "TEAM", entityId: id, changes: { before: output(previous).names, after: output(updated).names } }); return updated;
+      await recordAuditLog(tx, { module: "settings", hotelTenantId: current.hotelTenantId, actorId: current.id, action: "UPDATE", entityType: "TEAM", entityId: id, changes: { before: output(previous).names, after: output(updated).names } }); return updated;
     }, { timeout: 20_000 });
     return entity ? NextResponse.json(output(entity)) : NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
   } catch (error) { if (conflict(error)) return NextResponse.json({ error: "NAME_EXISTS" }, { status: 409 }); if (type === "department") return syncFailure(error); throw error; }
@@ -90,11 +90,11 @@ export async function deleteEntity(type: EntityType, id: string) {
         const affected = await tx.user.findMany({ where: { departmentId: id }, select: { id: true, departmentMemberships: { select: { departmentId: true }, take: 1 } } });
         for (const member of affected) await tx.user.update({ where: { id: member.id }, data: { departmentId: member.departmentMemberships[0]?.departmentId ?? null } });
         await tx.department.update({ where: { id }, data: { isDeleted: true, isActive: false, deletedAt: new Date(), updatedById: current.id } });
-        await recordAuditLog(tx, { hotelTenantId: current.hotelTenantId, actorId: current.id, action: "DELETE", entityType: "DEPARTMENT", entityId: id, changes: { before: output(previous).names, after: { isDeleted: true, isActive: false } } }); return previous;
+        await recordAuditLog(tx, { module: "settings", hotelTenantId: current.hotelTenantId, actorId: current.id, action: "DELETE", entityType: "DEPARTMENT", entityId: id, changes: { before: output(previous).names, after: { isDeleted: true, isActive: false } } }); return previous;
       }
       const previous = await tx.team.findFirst({ where: { id, hotelTenantId: current.hotelTenantId, isDeleted: false }, select: { id: true, nameEn: true, nameDe: true, nameIt: true } }); if (!previous) return null;
       await tx.team.update({ where: { id }, data: { isDeleted: true, isActive: false, deletedAt: new Date(), updatedById: current.id } });
-      await recordAuditLog(tx, { hotelTenantId: current.hotelTenantId, actorId: current.id, action: "DELETE", entityType: "TEAM", entityId: id, changes: { before: output(previous).names, after: { isDeleted: true, isActive: false } } }); return previous;
+      await recordAuditLog(tx, { module: "settings", hotelTenantId: current.hotelTenantId, actorId: current.id, action: "DELETE", entityType: "TEAM", entityId: id, changes: { before: output(previous).names, after: { isDeleted: true, isActive: false } } }); return previous;
     }, { timeout: 20_000 });
     return entity ? NextResponse.json({ success: true }) : NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
   } catch (error) { if (type === "department") return syncFailure(error); throw error; }

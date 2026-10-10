@@ -57,7 +57,7 @@ export async function PATCH(request: Request, context: Context) {
       data: patch,
       include: { department: departmentSelect },
     });
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "recruiting",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: patch.status && patch.status !== before.status ? "STATUS_CHANGE" : "UPDATE",

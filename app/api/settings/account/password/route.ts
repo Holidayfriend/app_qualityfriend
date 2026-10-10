@@ -18,7 +18,7 @@ export async function PATCH(request: Request) {
   const passwordHash = await bcrypt.hash(newPassword, 12);
   await prisma.$transaction(async (tx) => {
     await tx.user.update({ where: { id: userId }, data: { passwordHash, passwordResetTokenHash: null, passwordResetExpiresAt: null } });
-    await recordAuditLog(tx, { hotelTenantId: user.hotelTenantId, actorId: userId, action: "UPDATE", entityType: "USER", entityId: userId, changes: { passwordChanged: true } });
+    await recordAuditLog(tx, { module: "settings", hotelTenantId: user.hotelTenantId, actorId: userId, action: "UPDATE", entityType: "USER", entityId: userId, changes: { passwordChanged: true } });
   });
   return NextResponse.json({ success: true });
 }

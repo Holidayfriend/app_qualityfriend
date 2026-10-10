@@ -410,7 +410,7 @@ export async function copyWeekShifts(actor: ScheduleActor, fromWeekStart: string
       await writeShiftRow(tx, "hotel_shift_drafts", actor, row.userId, targetDates[index], data);
       copied += 1;
     }
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "schedule",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "CREATE",
@@ -466,7 +466,7 @@ export async function publishWeekShifts(actor: ScheduleActor) {
     });
     const publishedUserIds = [...new Set(drafts.map((draft) => draft.userId))];
     await notifySchedulePublished(tx, actor.hotel_tenant_id, publishedUserIds, actor.id);
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "schedule",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "STATUS_CHANGE",
@@ -548,7 +548,7 @@ export async function saveShiftAssignment(actor: ScheduleActor, body: Record<str
       noteDe: notes.de,
       noteIt: notes.it,
     });
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "schedule",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "CREATE",

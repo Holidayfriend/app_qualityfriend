@@ -27,7 +27,7 @@ export async function POST(request: Request) {
       const user = await tx.user.create({ data: { hotelTenantId: current.hotelTenantId, firstName, lastName, email, passwordHash: await bcrypt.hash(password, 12), phoneNumber: phone, language: hotel.hotelLanguage, role: role, departmentId, teamId: teamIds[0] ?? null, isActive } });
       await replaceUserDepartments(tx, user.id, departmentIds);
       await replaceUserTeams(tx, user.id, teamIds);
-      await recordAuditLog(tx, { hotelTenantId: current.hotelTenantId, actorId: current.id, action: "CREATE", entityType: "USER", entityId: user.id, changes: { after: { firstName, lastName, email, role } } });
+      await recordAuditLog(tx, { module: "settings", hotelTenantId: current.hotelTenantId, actorId: current.id, action: "CREATE", entityType: "USER", entityId: user.id, changes: { after: { firstName, lastName, email, role } } });
       return user.id;
     });
   } catch (error) { if (error && typeof error === "object" && "code" in error && error.code === "P2002") return NextResponse.json({ error: "EMAIL_EXISTS" }, { status: 409 }); console.error("User creation failed", error); return NextResponse.json({ error: "SAVE_FAILED" }, { status: 500 }); }

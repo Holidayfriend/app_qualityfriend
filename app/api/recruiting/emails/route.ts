@@ -60,7 +60,7 @@ export async function PUT(request: Request) {
     }
     const afterRows = await tx.recruitingEmailTemplate.findMany({ where: { hotelTenantId: actor.hotel_tenant_id } });
     const after = { templates: toPublicEmailTemplates(afterRows), auto: toPublicEmailAuto(afterRows) };
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "recruiting",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: beforeRows.length ? "UPDATE" : "CREATE",

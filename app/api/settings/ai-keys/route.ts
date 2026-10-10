@@ -36,7 +36,7 @@ export async function PUT(request: Request) {
     clearKey: body?.clearKey === true,
     activeProvider,
   });
-  await recordAuditLog(prisma, {
+  await recordAuditLog(prisma, { module: "settings",
     hotelTenantId: user.hotel_tenant_id,
     actorId: user.id,
     action: "UPDATE",

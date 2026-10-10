@@ -24,7 +24,7 @@ export async function createFloor(_: CreateFloorState, formData: FormData): Prom
         nameEn: "",
       },
     });
-    await recordAuditLog(tx, { hotelTenantId: actor.hotel_tenant_id, actorId: actor.id, action: "CREATE", entityType: "FLOOR", entityId: floor.id, changes: { after: { en: floor.code, de: floor.code, it: floor.code, code: floor.code } } });
+    await recordAuditLog(tx, { module: "housekeeping", hotelTenantId: actor.hotel_tenant_id, actorId: actor.id, action: "CREATE", entityType: "FLOOR", entityId: floor.id, changes: { after: { en: floor.code, de: floor.code, it: floor.code, code: floor.code } } });
     });
   } catch (error) {
     if (error && typeof error === "object" && "code" in error && error.code === "P2002") {

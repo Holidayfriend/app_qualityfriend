@@ -49,7 +49,7 @@ export async function PATCH(request: Request, context: Context) {
       WHERE hotel_tenant_id=${user.hotelTenantId}::uuid AND room_id=${room.id}::uuid AND work_date=${workDate}::date AND assigned_to_id IS NOT NULL`;
     else if (target === "DIRTY" || target === "CLEANING" || target === "UNKNOWN") await tx.$executeRaw`UPDATE housekeeping_room_assignments SET completed_at=NULL,updated_at=NOW()
       WHERE hotel_tenant_id=${user.hotelTenantId}::uuid AND room_id=${room.id}::uuid AND work_date=${workDate}::date AND completed_at IS NOT NULL`;
-    await recordAuditLog(tx, { hotelTenantId: user.hotelTenantId, actorId: user.id, action: "STATUS_CHANGE", entityType: "ROOM", entityId: room.id, changes: { roomNumber: room.number, workDate, before, after: { cleanliness: target, breakfastInRoom: body.breakfastInRoom, doNotDisturb: body.doNotDisturb, noService, isUrgent: body.isUrgent ?? before?.isUrgent ?? false, guestCleaningPreference: body.guestCleaningPreference ?? before?.guestCleaningPreference ?? "DAILY" }, assignmentCompleted: target === "CLEAN" } });
+    await recordAuditLog(tx, { module: "housekeeping", hotelTenantId: user.hotelTenantId, actorId: user.id, action: "STATUS_CHANGE", entityType: "ROOM", entityId: room.id, changes: { roomNumber: room.number, workDate, before, after: { cleanliness: target, breakfastInRoom: body.breakfastInRoom, doNotDisturb: body.doNotDisturb, noService, isUrgent: body.isUrgent ?? before?.isUrgent ?? false, guestCleaningPreference: body.guestCleaningPreference ?? before?.guestCleaningPreference ?? "DAILY" }, assignmentCompleted: target === "CLEAN" } });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   return Response.json({ success: true, status });
 }

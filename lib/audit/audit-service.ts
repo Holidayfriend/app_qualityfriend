@@ -3,10 +3,12 @@ import "server-only";
 import type { Prisma } from "../../app/generated/prisma/client";
 
 export type AuditAction = "CREATE" | "UPDATE" | "DELETE" | "RESTORE" | "STATUS_CHANGE";
+export type AuditModule = "settings" | "manuals" | "recruiting" | "revenue" | "schedule" | "notes" | "repairs" | "housekeeping" | "tasks" | "handovers";
 
 type AuditEntry = {
   hotelTenantId: string;
   actorId: string;
+  module: AuditModule;
   action: AuditAction;
   entityType: string;
   entityId?: string | null;
@@ -65,5 +67,5 @@ function descriptions(actor: string, entry: AuditEntry) {
 export async function recordAuditLog(client: Prisma.TransactionClient, entry: AuditEntry) {
   const actor=await client.user.findUnique({where:{id:entry.actorId},select:{firstName:true,lastName:true}});
   const description=descriptions(actor?`${actor.firstName} ${actor.lastName}`:"User",entry);
-  return client.auditLog.create({data:{hotelTenantId:entry.hotelTenantId,actorId:entry.actorId,action:entry.action,entityType:entry.entityType,entityId:entry.entityId??null,changes:(entry.changes??null) as Prisma.InputJsonValue,description:description as Prisma.InputJsonValue}});
+  return client.auditLog.create({data:{hotelTenantId:entry.hotelTenantId,actorId:entry.actorId,module:entry.module,action:entry.action,entityType:entry.entityType,entityId:entry.entityId??null,changes:(entry.changes??null) as Prisma.InputJsonValue,description:description as Prisma.InputJsonValue}});
 }

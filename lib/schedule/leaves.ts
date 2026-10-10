@@ -210,7 +210,7 @@ export async function createAbsence(actor: ScheduleActor, body: Record<string, u
     if (!applyNow) {
       await notifyLeaveRequested(tx, actor.hotel_tenant_id, actor.id, personName(employee), category === "swap", swapPartnerName);
     }
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "schedule",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "CREATE",
@@ -265,7 +265,7 @@ export async function decideAbsence(actor: ScheduleActor, id: string, status: "a
       await notifyLeaveDecided(tx, actor.hotel_tenant_id, previous.swapWithUserId, actor.id, status === "approved", true);
     }
     const pairTitle = `${personName(previous.user)}${previous.swapWith ? ` ↔ ${personName(previous.swapWith)}` : ""}`;
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "schedule",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "STATUS_CHANGE",

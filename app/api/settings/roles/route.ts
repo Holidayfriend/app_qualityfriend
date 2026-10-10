@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     const access = new Set(resolveRoleModules("EMPLOYEE", employeePermissions));
     const created = await tx.hotelRole.create({ data: { hotelTenantId: actor.hotelTenantId, key, ...names } });
     await tx.roleModulePermission.createMany({ data: editableModuleKeys.map((moduleKey) => ({ hotelTenantId: actor.hotelTenantId, role: key, moduleKey, canView: access.has(moduleKey) })) });
-    await recordAuditLog(tx, { hotelTenantId: actor.hotelTenantId, actorId: actor.id, action: "CREATE", entityType: "HOTEL_ROLE", entityId: key, changes: { after: { en: names.nameEn, de: names.nameDe, it: names.nameIt } } });
+    await recordAuditLog(tx, { module: "settings", hotelTenantId: actor.hotelTenantId, actorId: actor.id, action: "CREATE", entityType: "HOTEL_ROLE", entityId: key, changes: { after: { en: names.nameEn, de: names.nameDe, it: names.nameIt } } });
     return created;
   });
   return Response.json(role, { status: 201 });

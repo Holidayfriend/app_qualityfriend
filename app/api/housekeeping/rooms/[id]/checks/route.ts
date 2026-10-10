@@ -48,14 +48,14 @@ export async function POST(request: Request, context: Context) {
   const result = await prisma.$transaction(async (tx) => {
     if (!body.checked) {
       const deleted = await tx.$queryRaw<{ id: string }[]>`DELETE FROM housekeeping_checklist_completions WHERE hotel_tenant_id=${user.hotelTenantId}::uuid AND room_id=${room.id}::uuid AND work_date=${workDate}::date AND checklist_type=${type}::"HousekeepingChecklistType" AND check_index=${index} RETURNING id`;
-      if (deleted.length) await recordAuditLog(tx, { hotelTenantId: user.hotelTenantId, actorId: user.id, action: "STATUS_CHANGE", entityType: "HOUSEKEEPING_CHECK", entityId: deleted[0].id, changes: { roomNumber: room.number, workDate, type, checkIndex: index, checked: false, text } });
+      if (deleted.length) await recordAuditLog(tx, { module: "housekeeping", hotelTenantId: user.hotelTenantId, actorId: user.id, action: "STATUS_CHANGE", entityType: "HOUSEKEEPING_CHECK", entityId: deleted[0].id, changes: { roomNumber: room.number, workDate, type, checkIndex: index, checked: false, text } });
       return { checked: false, changed: Boolean(deleted.length) };
     }
     const created = await tx.$queryRaw<{ id: string }[]>`INSERT INTO housekeeping_checklist_completions (id,hotel_tenant_id,room_id,work_date,checklist_type,check_index,check_text_en,check_text_de,check_text_it,checked_by_id)
       VALUES (${randomUUID()}::uuid,${user.hotelTenantId}::uuid,${room.id}::uuid,${workDate}::date,${type}::"HousekeepingChecklistType",${index},${text.en},${text.de},${text.it},${user.id}::uuid)
       ON CONFLICT (hotel_tenant_id,work_date,room_id,checklist_type,check_index) DO NOTHING RETURNING id`;
     if (!created.length) return { checked: true, changed: false };
-    await recordAuditLog(tx, { hotelTenantId: user.hotelTenantId, actorId: user.id, action: "STATUS_CHANGE", entityType: "HOUSEKEEPING_CHECK", entityId: created[0].id, changes: { roomNumber: room.number, workDate, type, checkIndex: index, checked: true, text } });
+    await recordAuditLog(tx, { module: "housekeeping", hotelTenantId: user.hotelTenantId, actorId: user.id, action: "STATUS_CHANGE", entityType: "HOUSEKEEPING_CHECK", entityId: created[0].id, changes: { roomNumber: room.number, workDate, type, checkIndex: index, checked: true, text } });
     await tx.notification.create({ data: { hotelTenantId: user.hotelTenantId, recipientId: user.id, moduleKey: "housekeeping", eventKey: `housekeeping-check:${created[0].id}`, icon: "housekeeping", destination: `/housekeeping/rooms/${room.id}`,
       titleEn: "Room check completed", titleDe: "Zimmerkontrolle erledigt", titleIt: "Controllo camera completato",
       bodyEn: `${actorName} marked “${text.en}” in room ${room.number}.`, bodyDe: `${actorName} hat „${text.de}“ in Zimmer ${room.number} markiert.`, bodyIt: `${actorName} ha contrassegnato “${text.it}” nella camera ${room.number}.`, requiredScope: "OWN" } });

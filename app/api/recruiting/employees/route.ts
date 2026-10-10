@@ -96,7 +96,7 @@ export async function POST(request: Request) {
           },
           include: { department: departmentSelect },
         });
-        await recordAuditLog(tx, {
+        await recordAuditLog(tx, { module: "recruiting",
           hotelTenantId: actor.hotel_tenant_id,
           actorId: actor.id,
           action: "CREATE",
@@ -104,7 +104,7 @@ export async function POST(request: Request) {
           entityId: created.id,
           changes: { after: employeeAuditSnapshot(created) },
         });
-        await recordAuditLog(tx, {
+        await recordAuditLog(tx, { module: "recruiting",
           hotelTenantId: actor.hotel_tenant_id,
           actorId: actor.id,
           action: "STATUS_CHANGE",
@@ -159,7 +159,7 @@ export async function POST(request: Request) {
       },
       include: { department: departmentSelect },
     });
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "recruiting",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "CREATE",

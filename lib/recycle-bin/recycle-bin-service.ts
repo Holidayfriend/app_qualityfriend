@@ -45,7 +45,7 @@ export async function restoreDeletedItem(type: RecyclableType, id: string) {
         if (row) { const name = `${row.firstName} ${row.lastName}`; names = { en: name, de: name, it: name }; let remote: { id: string; password: string } | null = null; if (userMcp) remote = await createRemoteUser(userMcp, { email: row.email, role: row.role, isActive: true, departmentId: row.departmentId }); await tx.user.update({ where: { id }, data: { isDeleted: false, isActive: true, deletedAt: null, mcpUserId: remote?.id ?? row.mcpUserId, mcpUserPassword: remote?.password ?? row.mcpUserPassword } }); }
       }
       if (!names) return null;
-      await recordAuditLog(tx, { hotelTenantId: current.hotelTenantId, actorId: current.id, action: "RESTORE", entityType: type.toUpperCase(), entityId: id, changes: { after: names } });
+      await recordAuditLog(tx, { module: "settings", hotelTenantId: current.hotelTenantId, actorId: current.id, action: "RESTORE", entityType: type.toUpperCase(), entityId: id, changes: { after: names } });
       return names;
     }, { timeout: 20_000 });
     return restored ? NextResponse.json({ success: true, item: { id, type, names: restored, deletedAt: null } }) : NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });

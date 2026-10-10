@@ -76,7 +76,7 @@ export async function POST(request: Request, context: Context) {
       });
       const previous = unpackCvRef(before.cvFileName);
       if (previous.storageKey) await deleteRecruitingCv(previous.storageKey);
-      await recordAuditLog(tx, {
+      await recordAuditLog(tx, { module: "recruiting",
         hotelTenantId: actor.hotel_tenant_id,
         actorId: actor.id,
         action: "UPDATE",
@@ -115,7 +115,7 @@ export async function DELETE(request: Request, context: Context) {
     });
     const previous = unpackCvRef(before.cvFileName);
     if (previous.storageKey) await deleteRecruitingCv(previous.storageKey);
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "recruiting",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "UPDATE",

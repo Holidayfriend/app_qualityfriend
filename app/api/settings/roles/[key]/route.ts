@@ -21,7 +21,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ke
     if (!previous || previous.isSystem) return null;
     // Only labels change: the stable key, user assignments and permissions stay intact.
     const result = await tx.hotelRole.update({ where, data: { nameEn: names.en, nameDe: names.de, nameIt: names.it } });
-    await recordAuditLog(tx, { hotelTenantId: actor.hotelTenantId, actorId: actor.id, action: "UPDATE", entityType: "HOTEL_ROLE", entityId: key, changes: { before: { en: previous.nameEn, de: previous.nameDe, it: previous.nameIt }, after: names } });
+    await recordAuditLog(tx, { module: "settings", hotelTenantId: actor.hotelTenantId, actorId: actor.id, action: "UPDATE", entityType: "HOTEL_ROLE", entityId: key, changes: { before: { en: previous.nameEn, de: previous.nameDe, it: previous.nameIt }, after: names } });
     return result;
   });
   return updated ? Response.json(updated) : Response.json({ error: "NOT_FOUND" }, { status: 404 });

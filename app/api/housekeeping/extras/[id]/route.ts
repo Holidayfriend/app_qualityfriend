@@ -35,7 +35,7 @@ export async function PATCH(request: Request, context: Context) {
     const before = await tx.extraJob.findFirst({ where });
     if (!before) return false;
     const after = await tx.extraJob.update({ where, data });
-    await recordAuditLog(tx, { hotelTenantId: actor.hotel_tenant_id, actorId: actor.id, action: "UPDATE", entityType: "EXTRA_JOB", entityId: id, changes: { locale: input.locale, before: extraJobSnapshot(before), after: extraJobSnapshot(after) } });
+    await recordAuditLog(tx, { module: "housekeeping", hotelTenantId: actor.hotel_tenant_id, actorId: actor.id, action: "UPDATE", entityType: "EXTRA_JOB", entityId: id, changes: { locale: input.locale, before: extraJobSnapshot(before), after: extraJobSnapshot(after) } });
     return true;
   });
   return updated ? Response.json({ success: true }) : Response.json({ error: "NOT_FOUND" }, { status: 404 });

@@ -219,7 +219,7 @@ export async function createChecklist(actor: TasksActor, body: Record<string, un
       },
       include,
     });
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "tasks",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "CREATE",
@@ -269,7 +269,7 @@ export async function updateChecklist(actor: TasksActor, id: string, body: Recor
       },
       include,
     });
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "tasks",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "UPDATE",
@@ -291,7 +291,7 @@ export async function updateChecklistStatus(actor: TasksActor, id: string, statu
   const { today, timeZone } = await hotelToday(actor);
   const row = await prisma.$transaction(async (tx) => {
     const updated = await tx.hotelChecklist.update({ where: { id }, data: { status: next }, include });
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "tasks",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "STATUS_CHANGE",
@@ -333,7 +333,7 @@ export async function completeChecklist(actor: TasksActor, id: string, comment: 
     await tx.hotelChecklistCompletion.create({
       data: { checklistId: id, authorId: actor.id, comment: comment.trim().slice(0, 2000) },
     });
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "tasks",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "STATUS_CHANGE",

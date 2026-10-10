@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     if (result !== "VALID") return NextResponse.json({ error: result === "EXPIRED" ? "CODE_EXPIRED" : "INVALID_CODE" }, { status: 400 });
     await prisma.$transaction(async (tx) => {
       await tx.user.update({ where: { id: user.id }, data: { twoFactorEnabled: false, twoFactorSecret: null, twoFactorRecoveryCodes: [], twoFactorEnabledAt: null } });
-      await recordAuditLog(tx, { hotelTenantId: user.hotelTenantId, actorId: user.id, action: "STATUS_CHANGE", entityType: "USER", entityId: user.id, changes: { field: "twoFactorEnabled", before: true, after: false, method: "verified_email_recovery" } });
+      await recordAuditLog(tx, { module: "settings", hotelTenantId: user.hotelTenantId, actorId: user.id, action: "STATUS_CHANGE", entityType: "USER", entityId: user.id, changes: { field: "twoFactorEnabled", before: true, after: false, method: "verified_email_recovery" } });
     });
     await createSession(user.id);
     await clearTwoFactorChallenge();

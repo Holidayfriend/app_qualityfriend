@@ -144,7 +144,7 @@ export async function createShiftTemplate(actor: ScheduleActor, body: Record<str
         ...locales,
       },
     });
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "schedule",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "CREATE",
@@ -175,7 +175,7 @@ export async function updateShiftTemplate(actor: ScheduleActor, id: string, body
         ...locales,
       },
     });
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "schedule",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "UPDATE",
@@ -196,7 +196,7 @@ export async function deleteShiftTemplate(actor: ScheduleActor, id: string) {
     const previous = await tx.hotelShiftTemplate.findFirst({ where: { id, hotelTenantId: actor.hotel_tenant_id } });
     if (!previous) return null;
     await tx.hotelShiftTemplate.delete({ where: { id } });
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "schedule",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "DELETE",

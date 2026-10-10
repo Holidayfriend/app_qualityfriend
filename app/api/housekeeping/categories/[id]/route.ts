@@ -51,7 +51,7 @@ export async function PATCH(request: Request, context: Context) {
     const before = await tx.roomCategory.findFirst({ where });
     if (!before) return false;
     const after = await tx.roomCategory.update({ where, data: { ...translatedName, expressMinutes: expressMinutes as number | null, normalMinutes: normalMinutes as number | null, departureMinutes: departureMinutes as number | null, finalMinutes: finalMinutes as number | null, cleaningFrequency: cleaningFrequency as Frequency, cleaningWeekdays, linenFrequency: linenFrequency as Frequency, linenWeekdays } });
-    await recordAuditLog(tx, { hotelTenantId: user.hotelTenantId, actorId: user.id, action: "UPDATE", entityType: "ROOM_CATEGORY", entityId: id, changes: { before: categoryAuditSnapshot(before), after: categoryAuditSnapshot(after) } });
+    await recordAuditLog(tx, { module: "housekeeping", hotelTenantId: user.hotelTenantId, actorId: user.id, action: "UPDATE", entityType: "ROOM_CATEGORY", entityId: id, changes: { before: categoryAuditSnapshot(before), after: categoryAuditSnapshot(after) } });
     return true;
   });
   return updated ? Response.json({ success: true }) : Response.json({ error: "NOT_FOUND" }, { status: 404 });
@@ -71,7 +71,7 @@ export async function DELETE(_request: Request, context: Context) {
     const room = await tx.room.findFirst({ where: { categoryId: id, hotelTenantId: user.hotelTenantId }, select: { id: true } });
     if (room) return "CATEGORY_HAS_ROOMS";
     await tx.roomCategory.delete({ where });
-    await recordAuditLog(tx, { hotelTenantId: user.hotelTenantId, actorId: user.id, action: "DELETE", entityType: "ROOM_CATEGORY", entityId: id, changes: { before: categoryAuditSnapshot(before) } });
+    await recordAuditLog(tx, { module: "housekeeping", hotelTenantId: user.hotelTenantId, actorId: user.id, action: "DELETE", entityType: "ROOM_CATEGORY", entityId: id, changes: { before: categoryAuditSnapshot(before) } });
     return "DELETED";
   });
   if (result === "NOT_FOUND") return Response.json({ error: result }, { status: 404 });

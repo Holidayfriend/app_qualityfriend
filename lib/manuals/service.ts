@@ -185,7 +185,7 @@ export async function createManual(actor: ManualsActor, form: FormData) {
           byteSize: stored.byteSize,
         },
       });
-      await recordAuditLog(tx, {
+      await recordAuditLog(tx, { module: "manuals",
         hotelTenantId: actor.hotel_tenant_id,
         actorId: actor.id,
         action: "CREATE",
@@ -216,7 +216,7 @@ export async function removeManual(actor: ManualsActor, id: string) {
   if (!document) return { error: "NOT_FOUND" as const };
   await prisma.$transaction(async (tx) => {
     await tx.manualDocument.delete({ where: { id } });
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "manuals",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "DELETE",

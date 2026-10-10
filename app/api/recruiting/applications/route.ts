@@ -89,7 +89,7 @@ export async function POST(request: Request) {
       },
       include: { job: jobInclude },
     });
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "recruiting",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "CREATE",

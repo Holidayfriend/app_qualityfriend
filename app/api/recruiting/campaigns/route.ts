@@ -49,7 +49,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "INVALID_FIELDS", message: "Job not found." }, { status: 400 });
     }
     await prisma.$transaction(async (tx) => {
-      await recordAuditLog(tx, {
+      await recordAuditLog(tx, { module: "recruiting",
         hotelTenantId: actor.hotel_tenant_id,
         actorId: actor.id,
         action: "CREATE",

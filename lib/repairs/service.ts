@@ -434,7 +434,7 @@ export async function createRepair(actor: RepairsActor, form: FormData, locale: 
     if (incoming.length) {
       await tx.repairAttachment.createMany({ data: incoming.map((file) => ({ id: randomUUID(), repairId: id, ...file })) });
     }
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "repairs",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "CREATE",
@@ -512,7 +512,7 @@ export async function updateRepair(actor: RepairsActor, id: string, form: FormDa
     if (incoming.length) {
       await tx.repairAttachment.createMany({ data: incoming.map((file) => ({ id: randomUUID(), repairId: id, ...file })) });
     }
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "repairs",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "UPDATE",
@@ -561,7 +561,7 @@ export async function updateRepairStatus(actor: RepairsActor, id: string, status
       },
       include,
     });
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "repairs",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "STATUS_CHANGE",
@@ -604,7 +604,7 @@ export async function updateRepairAssignee(actor: RepairsActor, id: string, assi
       },
       include,
     });
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "repairs",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: nextStatus !== existing.status ? "STATUS_CHANGE" : "UPDATE",
@@ -642,7 +642,7 @@ export async function addRepairComment(actor: RepairsActor, id: string, text: st
     await tx.repairComment.create({
       data: { id: randomUUID(), repairId: id, authorId: actor.id, text: value, textDe: value, textIt: value },
     });
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "repairs",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "UPDATE",

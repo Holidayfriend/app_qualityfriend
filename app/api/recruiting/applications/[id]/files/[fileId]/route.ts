@@ -64,7 +64,7 @@ export async function DELETE(_request: Request, context: Context) {
           notes: notesPayload(notes.tags, notes.comments, nextFiles, notes.campaign) as Prisma.InputJsonValue,
         },
       });
-      await recordAuditLog(tx, {
+      await recordAuditLog(tx, { module: "recruiting",
         hotelTenantId: actor.hotel_tenant_id,
         actorId: actor.id,
         action: "DELETE",

@@ -311,14 +311,39 @@
   "auditMessages": {
     "allUsers": "Aktivitäten aller Hotelbenutzer werden angezeigt.",
     "onlyYou": "Nur Ihre Aktivitäten werden angezeigt.",
+    "description": "Nachweisbares Protokoll aller abgeschlossenen Checklisten, Kontrollen und wichtigen Änderungen.",
+    "hotel": "Hotel",
     "empty": "Noch keine Aktivität aufgezeichnet.",
     "filterDate": "Datum",
     "filterUser": "Hotelbenutzer",
     "everyUser": "Alle Benutzer",
+    "search": "Suchen...",
+    "allModules": "Alle",
+    "clear": "Filter zurücksetzen",
+    "columns": {
+      "dateTime": "Datum & Zeit",
+      "type": "Typ",
+      "title": "Titel",
+      "performedBy": "Ausgeführt von",
+      "result": "Ergebnis"
+    },
+    "modules": {
+      "settings": "Einstellungen",
+      "manuals": "Handbücher",
+      "recruiting": "Recruiting",
+      "revenue": "Revenue",
+      "schedule": "Dienstplan",
+      "notes": "Notizen",
+      "repairs": "Reparaturen",
+      "housekeeping": "Housekeeping",
+      "tasks": "Aufgaben",
+      "handovers": "Übergaben"
+    },
     "actions": {
       "CREATE": "erstellt",
       "UPDATE": "aktualisiert",
       "DELETE": "gelöscht",
+      "RESTORE": "wiederhergestellt",
       "STATUS_CHANGE": "Status geändert"
     },
     "entities": {

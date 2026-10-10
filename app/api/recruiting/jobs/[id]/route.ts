@@ -74,7 +74,7 @@ export async function PUT(request: Request, context: Context) {
       include: { department: departmentSelect },
     });
     const statusChanged = existing.status !== after.status;
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "recruiting",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: statusChanged ? "STATUS_CHANGE" : "UPDATE",
@@ -104,7 +104,7 @@ export async function PATCH(request: Request, context: Context) {
     const before = await tx.recruitingJob.findFirst({ where });
     if (!before) return null;
     const after = await tx.recruitingJob.update({ where: { id }, data: { status }, include: { department: departmentSelect } });
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "recruiting",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "STATUS_CHANGE",

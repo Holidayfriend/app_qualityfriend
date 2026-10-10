@@ -235,7 +235,7 @@ export async function createHandover(actor: HandoversActor, body: Record<string,
     if (departmentIds.length) {
       await tx.handoverShareDepartment.createMany({ data: departmentIds.map((departmentId) => ({ handoverId: id, departmentId })) });
     }
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "handovers",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "CREATE",
@@ -290,7 +290,7 @@ export async function updateHandover(actor: HandoversActor, id: string, body: Re
     if (departmentIds.length) {
       await tx.handoverShareDepartment.createMany({ data: departmentIds.map((departmentId) => ({ handoverId: id, departmentId })) });
     }
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "handovers",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "UPDATE",
@@ -323,7 +323,7 @@ export async function updateHandoverStatus(actor: HandoversActor, id: string, st
       },
       include,
     });
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "handovers",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "STATUS_CHANGE",
@@ -349,7 +349,7 @@ export async function updateHandoverPin(actor: HandoversActor, id: string, pinne
   if (!existing || existing.status !== "OPEN") return { error: "NOT_FOUND" as const };
   const row = await prisma.handover.update({ where: { id }, data: { pinned }, include });
   await prisma.$transaction(async (tx) => {
-    await recordAuditLog(tx, {
+    await recordAuditLog(tx, { module: "handovers",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
       action: "UPDATE",
