@@ -37,6 +37,8 @@ type ChecklistInput = {
   noEnd: boolean;
   status: PublicChecklist["status"];
   kind: "checklist" | "template";
+  keepAttachmentIds: string[];
+  files: File[];
 };
 
 type Ctx = {
@@ -147,10 +149,27 @@ export function TasksProvider({ children }: { children: ReactNode }) {
   }, [locale, reload]);
 
   const saveChecklist = useCallback(async (id: string | undefined, input: ChecklistInput) => {
+    const form = new FormData();
+    form.set("title", input.title);
+    form.set("desc", input.desc);
+    form.set("items", JSON.stringify(input.items));
+    form.set("assignType", input.assignType);
+    form.set("departmentId", input.departmentId);
+    form.set("assigneeId", input.assigneeId);
+    form.set("dueType", input.dueType);
+    form.set("recurrence", input.recurrence);
+    form.set("weekdays", JSON.stringify(input.weekdays));
+    form.set("dueIso", input.dueIso);
+    form.set("startIso", input.startIso);
+    form.set("endIso", input.endIso);
+    form.set("noEnd", String(input.noEnd));
+    form.set("status", input.status);
+    form.set("kind", input.kind);
+    form.set("keepAttachmentIds", JSON.stringify(input.keepAttachmentIds));
+    for (const file of input.files) form.append("files", file);
     const res = await fetch(id ? `/api/checklists/${id}?locale=${locale}` : `/api/checklists?locale=${locale}`, {
       method: id ? "PATCH" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
+      body: form,
     });
     if (!res.ok) return null;
     const data = await res.json() as { checklist?: { id: string } };

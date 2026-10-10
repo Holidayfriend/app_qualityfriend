@@ -23,9 +23,23 @@ export async function PATCH(request: Request, ctx: Ctx) {
   const viewer = await tasksViewer();
   if (!viewer) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   const { id } = await ctx.params;
+  const locale = localeOf(request);
+  if ((request.headers.get("content-type") ?? "").includes("multipart/form-data")) {
+    const actor = await tasksEditor();
+    if (!actor) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+    const form = await request.formData().catch(() => null);
+    if (!form) return NextResponse.json({ error: "INVALID" }, { status: 400 });
+    try {
+      const result = await updateChecklist(actor, id, form, locale);
+      if ("error" in result) return NextResponse.json(result, { status: result.error === "NOT_FOUND" ? 404 : 400 });
+      return NextResponse.json(result);
+    } catch (error) {
+      console.error("Update checklist failed", error);
+      return NextResponse.json({ error: "SAVE_FAILED" }, { status: 500 });
+    }
+  }
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   if (!body) return NextResponse.json({ error: "INVALID" }, { status: 400 });
-  const locale = localeOf(request);
   try {
     if (typeof body.itemId === "string") {
       const result = await toggleChecklistItem(viewer, id, body.itemId, locale);
@@ -44,11 +58,7 @@ export async function PATCH(request: Request, ctx: Ctx) {
       if ("error" in result) return NextResponse.json(result, { status: result.error === "NOT_FOUND" ? 404 : 400 });
       return NextResponse.json(result);
     }
-    const actor = await tasksEditor();
-    if (!actor) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-    const result = await updateChecklist(actor, id, body, locale);
-    if ("error" in result) return NextResponse.json(result, { status: result.error === "NOT_FOUND" ? 404 : 400 });
-    return NextResponse.json(result);
+    return NextResponse.json({ error: "INVALID" }, { status: 400 });
   } catch (error) {
     console.error("Update checklist failed", error);
     return NextResponse.json({ error: "SAVE_FAILED" }, { status: 500 });

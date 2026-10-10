@@ -27,10 +27,10 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const actor = await tasksEditor();
   if (!actor) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
-  if (!body) return NextResponse.json({ error: "INVALID" }, { status: 400 });
+  const form = await request.formData().catch(() => null);
+  if (!form) return NextResponse.json({ error: "INVALID" }, { status: 400 });
   try {
-    const result = await createChecklist(actor, body, localeOf(request));
+    const result = await createChecklist(actor, form, localeOf(request));
     if ("error" in result) return NextResponse.json(result, { status: 400 });
     return NextResponse.json(result, { status: 201 });
   } catch (error) {

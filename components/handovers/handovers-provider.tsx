@@ -19,6 +19,7 @@ export type PublicHandover = {
   completedBy?: string;
   visibility: "alle" | "dept" | "privat";
   depts: string[];
+  attachments?: { id?: string; name: string; type: "photo"; url?: string }[];
 };
 
 type Ctx = {

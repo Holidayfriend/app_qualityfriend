@@ -25,9 +25,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const actor = await handoversEditor();
   if (!actor) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
-  if (!body) return NextResponse.json({ error: "INVALID" }, { status: 400 });
-  const result = await createHandover(actor, body, localeOf(request));
+  const form = await request.formData().catch(() => null);
+  if (!form) return NextResponse.json({ error: "INVALID" }, { status: 400 });
+  const result = await createHandover(actor, form, localeOf(request));
   if ("error" in result) return NextResponse.json(result, { status: result.error === "FORBIDDEN" ? 403 : 400 });
   return NextResponse.json(result, { status: 201 });
 }

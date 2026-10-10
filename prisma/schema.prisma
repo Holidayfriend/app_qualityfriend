@@ -1259,11 +1259,26 @@ model Handover {
   createdBy       User                @relation("HandoverAuthor", fields: [createdById], references: [id], onDelete: Restrict)
   completedBy     User?               @relation("HandoverCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
   departments     HandoverShareDepartment[]
+  attachments     HandoverAttachment[]
 
   @@index([hotelTenantId, kind, status, pinned, createdAt])
   @@index([createdById])
   @@index([completedById])
   @@map("handovers")
+}
+
+model HandoverAttachment {
+  id         String   @id @default(uuid()) @db.Uuid
+  handoverId String   @map("handover_id") @db.Uuid
+  fileName   String   @map("file_name") @db.VarChar(180)
+  storageKey String   @map("storage_key") @db.VarChar(80)
+  mimeType   String   @map("mime_type") @db.VarChar(120)
+  byteSize   Int      @map("byte_size")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  handover   Handover @relation(fields: [handoverId], references: [id], onDelete: Cascade)
+
+  @@index([handoverId])
+  @@map("handover_attachments")
 }
 
 model HandoverShareDepartment {
@@ -1795,6 +1810,7 @@ model HotelChecklist {
   runs            HotelChecklist[]          @relation("ChecklistRuns")
   items           HotelChecklistItem[]
   completions     HotelChecklistCompletion[]
+  attachments     HotelChecklistAttachment[]
 
   @@unique([originalId, dueAt])
   @@index([hotelTenantId, kind, status])
@@ -1804,6 +1820,20 @@ model HotelChecklist {
   @@index([completedById])
   @@index([departmentId])
   @@map("hotel_checklists")
+}
+
+model HotelChecklistAttachment {
+  id          String         @id @default(uuid()) @db.Uuid
+  checklistId String         @map("checklist_id") @db.Uuid
+  fileName    String         @map("file_name") @db.VarChar(180)
+  storageKey  String         @map("storage_key") @db.VarChar(80)
+  mimeType    String         @map("mime_type") @db.VarChar(120)
+  byteSize    Int            @map("byte_size")
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  checklist   HotelChecklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+
+  @@index([checklistId])
+  @@map("hotel_checklist_attachments")
 }
 
 model HotelChecklistItem {

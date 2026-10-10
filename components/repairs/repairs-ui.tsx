@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type R
 import { AppShell } from "../dashboard/app-shell";
 import { useI18n } from "../i18n/i18n-provider";
 import { BrandLoader } from "../ui/brand-loader";
+import { AttachmentField, AttachmentIndicator } from "../ui/attachment-field";
 import { useToast } from "../ui/toast-provider";
 import { getRepairsMessages, type RepairsMessages } from "../../lib/i18n/repairs-messages";
 import { RichTextEditor, richTextHtml, sanitizeJobHtml, type RichTextEditorHandle } from "../recruiting/rich-text-editor";
@@ -110,7 +111,7 @@ export function RepairsDashboardPage() {
             <div className={`rep-prio ${urgent ? "h" : "m"}`} />
             <div className="rep-ic" style={{ background: urgent ? "var(--red-bg)" : "var(--amber-bg)" }}>{urgent ? "🔥" : "🔧"}</div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 700 }}>{item.title}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}><AttachmentIndicator attachments={item.attachments} /><span style={{ fontSize: 14, fontWeight: 700 }}>{item.title}</span></div>
               <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 2 }}>{item.location} · {item.assignee || t.unassigned} · {item.depts.length ? item.depts.map((d) => deptName(d, departments, t)).join(", ") : t.allChip}</div>
               <div style={{ fontSize: 12, color: "var(--text3)", marginTop: 4 }}>{t.reported}: {item.date} · {item.creator}</div>
             </div>
@@ -173,7 +174,7 @@ export function RepairsListPage() {
         <thead><tr><th>{t.colTitle}</th><th>{t.colLocation}</th><th>{t.colAuthor}</th><th>{t.colAssignee}</th><th>{t.colDepts}</th><th>{t.colStatus}</th><th>{t.colDate}</th>{canManage ? <th style={{ textAlign: "right" }}>{t.colActions}</th> : null}</tr></thead>
         <tbody>
           {rows.length ? rows.map((item) => <tr key={item.id} onClick={() => router.push(`/repairs/${item.id}`)} style={{ cursor: "pointer" }}>
-            <td>{item.title}</td>
+            <td><div style={{ display: "flex", alignItems: "center", gap: 8 }}><AttachmentIndicator attachments={item.attachments} /><span>{item.title}</span></div></td>
             <td>{item.location}</td>
             <td>{item.creator}</td>
             <td>{item.assignee || t.unassigned}</td>
@@ -207,8 +208,8 @@ export function RepairsFormPage({ id }: { id?: string }) {
   const [tagInput, setTagInput] = useState("");
   const [kept, setKept] = useState<RepairFile[]>([]);
   const [uploads, setUploads] = useState<File[]>([]);
+  const [attachmentsBusy, setAttachmentsBusy] = useState(false);
   const [busy, setBusy] = useState(false);
-  const fileInput = useRef<HTMLInputElement>(null);
   const descRef = useRef<RichTextEditorHandle>(null);
 
   useEffect(() => {
@@ -247,11 +248,6 @@ export function RepairsFormPage({ id }: { id?: string }) {
     if (!value || tags.includes(value)) return;
     setTags([...tags, value]);
     setTagInput("");
-  }
-
-  function onFiles(files: FileList | null) {
-    if (!files?.length) return;
-    setUploads((current) => [...current, ...files].slice(0, 10));
   }
 
   async function persist(kind: "repair" | "template", status?: "draft") {
@@ -339,13 +335,7 @@ export function RepairsFormPage({ id }: { id?: string }) {
               <RichTextEditor ref={descRef} value={desc} onChange={setDesc} placeholder={t.descPlaceholder} locale={locale} height={280} />
             </div>
             <div style={{ fontSize: 11.5, color: "var(--text3)", margin: "6px 0 16px" }}>{t.autoTranslate}</div>
-            <label className="field-lbl">{t.attachment}</label>
-            <button type="button" className="dropzone" style={{ marginBottom: 0 }} onClick={() => fileInput.current?.click()}>{t.dropzone}<br /><span style={{ fontSize: 11 }}>{t.dropHint}</span></button>
-            <input ref={fileInput} type="file" hidden multiple accept="image/*,video/*,audio/*" onChange={(event) => { onFiles(event.target.files); event.target.value = ""; }} />
-            <div style={{ marginTop: 10 }}>
-              {kept.map((file) => <div key={file.id ?? file.name} className="doc-row"><div className="doc-ic">{fileIcon(file.type)}</div><div className="doc-name">{file.name}</div><button type="button" className="icon-btn danger" onClick={() => setKept(kept.filter((item) => item !== file))}>🗑️</button></div>)}
-              {uploads.map((file, index) => <div key={`${file.name}-${index}`} className="doc-row"><div className="doc-ic">{fileIcon(file.type.startsWith("video") ? "video" : file.type.startsWith("audio") ? "voice" : "photo")}</div><div className="doc-name">{file.name}</div><button type="button" className="icon-btn danger" onClick={() => setUploads(uploads.filter((_, i) => i !== index))}>🗑️</button></div>)}
-            </div>
+            <AttachmentField existing={kept} files={uploads} onExistingChange={setKept} onFilesChange={setUploads} onProcessingChange={setAttachmentsBusy} allowMedia label={t.attachment} />
           </div>
         </div>
       </div>
@@ -380,9 +370,9 @@ export function RepairsFormPage({ id }: { id?: string }) {
         </div>
         <div className="card">
           <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <button type="submit" className="btn btn-primary" disabled={busy}>{t.save}</button>
-            <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void persist("repair", "draft")}>{t.saveDraft}</button>
-            <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void persist("template")}>{t.saveTemplate}</button>
+            <button type="submit" className="btn btn-primary" disabled={busy || attachmentsBusy}>{t.save}</button>
+            <button type="button" className="btn btn-ghost" disabled={busy || attachmentsBusy} onClick={() => void persist("repair", "draft")}>{t.saveDraft}</button>
+            <button type="button" className="btn btn-ghost" disabled={busy || attachmentsBusy} onClick={() => void persist("template")}>{t.saveTemplate}</button>
           </div>
         </div>
       </div>

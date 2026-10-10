@@ -1,5 +1,6 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
 import type { HotelChecklistAssignType, HotelChecklistDueType, HotelChecklistItemState, HotelChecklistKind, HotelChecklistRecurrence, HotelChecklistStatus, Prisma } from "../../app/generated/prisma/client";
 import { recordAuditLog } from "../audit/audit-service";
 import { pickLocalized } from "../recruiting/job-fields";
@@ -8,6 +9,7 @@ import { hotelTimeZoneFor } from "../hotel/context";
 import { prisma } from "../prisma";
 import { departmentIdsOf } from "../users/memberships";
 import type { TasksActor } from "../tasks/access";
+import { copyAttachmentFile, deleteAttachmentFile, isAttachmentUpload, saveAttachmentFile } from "../attachments/storage";
 import { hotelTodayIso, isoDate, nextDueIso, parseIsoDate } from "./recurrence";
 import { notifyChecklist, recipientIds } from "./spawn";
 import { translateChecklistFields } from "./translate";
@@ -18,6 +20,8 @@ const include = {
   assignee: { select: { id: true, firstName: true, lastName: true } },
   completedBy: { select: { firstName: true, lastName: true } },
   department: { select: { id: true, nameEn: true, nameDe: true, nameIt: true } },
+  attachments: { orderBy: { createdAt: "asc" as const } },
+  original: { select: { id: true, attachments: { orderBy: { createdAt: "asc" as const } } } },
   items: { orderBy: { sortOrder: "asc" as const } },
   completions: {
     orderBy: { createdAt: "desc" as const },
@@ -76,6 +80,7 @@ export function toPublicChecklist(row: Row, locale: string, today: string, timeZ
       : "";
   const done = row.items.filter((item) => item.state === "DONE").length;
   const nextIso = row.origin === "RUN" ? isoDate(row.dueAt) : nextDueIso(row, today);
+  const attachments = row.origin === "RUN" && row.original ? row.original.attachments : row.attachments;
   return {
     id: row.id,
     originalId: row.originalId || "",
@@ -99,6 +104,12 @@ export function toPublicChecklist(row: Row, locale: string, today: string, timeZ
     nextDueIso: nextIso,
     completedAt: dateTimeOf(row.completedAt, locale, timeZone),
     completedBy: nameOf(row.completedBy),
+    attachments: attachments.map((file) => ({
+      id: file.id,
+      name: file.fileName,
+      type: "photo" as const,
+      url: `/api/checklists/${row.id}/attachments/${file.id}`,
+    })),
     items: row.items.map((item) => ({
       id: item.id,
       text: pickLocalized(item.text, item.textDe, item.textIt, locale),
@@ -113,6 +124,72 @@ export function toPublicChecklist(row: Row, locale: string, today: string, timeZ
       date: dateOf(item.createdAt, locale, timeZone),
     })),
   };
+}
+
+const MAX_CHECKLIST_FILES = 10;
+
+function parseJsonList(value: FormDataEntryValue | null) {
+  if (typeof value !== "string" || !value.trim()) return [] as string[];
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) ? parsed.map((item) => String(item).trim()).filter(Boolean) : [];
+  } catch {
+    return value.split(",").map((item) => item.trim()).filter(Boolean);
+  }
+}
+
+function formValue(form: FormData, key: string) {
+  return String(form.get(key) ?? "");
+}
+
+function checklistBody(form: FormData): Record<string, unknown> {
+  return {
+    title: formValue(form, "title"),
+    desc: formValue(form, "desc"),
+    items: parseJsonList(form.get("items")),
+    assignType: formValue(form, "assignType"),
+    departmentId: formValue(form, "departmentId"),
+    assigneeId: formValue(form, "assigneeId"),
+    dueType: formValue(form, "dueType"),
+    recurrence: formValue(form, "recurrence"),
+    weekdays: parseJsonList(form.get("weekdays")),
+    dueIso: formValue(form, "dueIso"),
+    startIso: formValue(form, "startIso"),
+    endIso: formValue(form, "endIso"),
+    noEnd: formValue(form, "noEnd") === "true",
+    status: formValue(form, "status"),
+    kind: formValue(form, "kind"),
+  };
+}
+
+async function saveUploads(files: File[]) {
+  const saved: { fileName: string; storageKey: string; mimeType: string; byteSize: number }[] = [];
+  for (const file of files) {
+    const stored = await saveAttachmentFile("checklists", file);
+    if (stored) saved.push({ fileName: stored.originalName, storageKey: stored.storageKey, mimeType: stored.mimeType, byteSize: stored.byteSize });
+  }
+  return saved;
+}
+
+async function copyAttachments(hotelTenantId: string, ids: string[]) {
+  if (!ids.length) return [] as { fileName: string; storageKey: string; mimeType: string; byteSize: number }[];
+  const rows = await prisma.hotelChecklistAttachment.findMany({ where: { id: { in: ids }, checklist: { hotelTenantId } } });
+  const copied: { fileName: string; storageKey: string; mimeType: string; byteSize: number }[] = [];
+  for (const file of rows) {
+    const storageKey = await copyAttachmentFile("checklists", file.storageKey);
+    if (storageKey) copied.push({ fileName: file.fileName, storageKey, mimeType: file.mimeType, byteSize: file.byteSize });
+  }
+  return copied;
+}
+
+async function collectAttachments(form: FormData, hotelTenantId: string, existing?: { attachments: { id: string; storageKey: string }[] }) {
+  const keepIds = parseJsonList(form.get("keepAttachmentIds")).filter(isUuid);
+  const kept = existing?.attachments.filter((file) => keepIds.includes(file.id)) ?? [];
+  const copied = await copyAttachments(hotelTenantId, keepIds.filter((id) => !kept.some((file) => file.id === id)));
+  const remaining = MAX_CHECKLIST_FILES - kept.length - copied.length;
+  const saved = await saveUploads(form.getAll("files").filter(isAttachmentUpload).slice(0, Math.max(0, remaining)));
+  const removed = existing?.attachments.filter((file) => !keepIds.includes(file.id)) ?? [];
+  return { copied, saved, removed };
 }
 
 async function validDepartmentId(hotelTenantId: string, id: string) {
@@ -196,10 +273,12 @@ export async function getChecklist(actor: TasksActor, id: string, locale: string
   return row ? toPublicChecklist(row, locale, today, timeZone) : null;
 }
 
-export async function createChecklist(actor: TasksActor, body: Record<string, unknown>, locale: string) {
+export async function createChecklist(actor: TasksActor, form: FormData, locale: string) {
+  const body = checklistBody(form);
   const parsed = await parsedBody(actor, body, locale);
   if ("error" in parsed) return parsed;
   const { itemLocales, ...data } = parsed;
+  const files = await collectAttachments(form, actor.hotel_tenant_id);
   const { today, timeZone } = await hotelToday(actor);
   const row = await prisma.$transaction(async (tx) => {
     const created = await tx.hotelChecklist.create({
@@ -227,6 +306,8 @@ export async function createChecklist(actor: TasksActor, body: Record<string, un
       entityId: created.id,
       changes: { after: titlesOf(created) },
     });
+    const incoming = [...files.copied, ...files.saved];
+    if (incoming.length) await tx.hotelChecklistAttachment.createMany({ data: incoming.map((file) => ({ id: randomUUID(), checklistId: created.id, ...file })) });
     const notify = created.kind === "CHECKLIST" && created.status === "ACTIVE";
     if (notify) {
       await notifyChecklist(tx, {
@@ -239,18 +320,20 @@ export async function createChecklist(actor: TasksActor, body: Record<string, un
         ids: await recipientIds(tx, actor.hotel_tenant_id, created, actor.id),
       });
     }
-    return created;
+    return tx.hotelChecklist.findFirstOrThrow({ where: { id: created.id }, include });
   });
   return { checklist: toPublicChecklist(row, locale, today, timeZone) };
 }
 
-export async function updateChecklist(actor: TasksActor, id: string, body: Record<string, unknown>, locale: string) {
+export async function updateChecklist(actor: TasksActor, id: string, form: FormData, locale: string) {
   if (!isUuid(id)) return { error: "NOT_FOUND" as const };
-  const existing = await prisma.hotelChecklist.findFirst({ where: { id, hotelTenantId: actor.hotel_tenant_id, origin: "ORIGINAL" } });
+  const existing = await prisma.hotelChecklist.findFirst({ where: { id, hotelTenantId: actor.hotel_tenant_id, origin: "ORIGINAL" }, include: { attachments: true } });
   if (!existing) return { error: "NOT_FOUND" as const };
+  const body = checklistBody(form);
   const parsed = await parsedBody(actor, body, locale);
   if ("error" in parsed) return parsed;
   const { itemLocales, ...data } = parsed;
+  const files = await collectAttachments(form, actor.hotel_tenant_id, existing);
   const { today, timeZone } = await hotelToday(actor);
   const row = await prisma.$transaction(async (tx) => {
     await tx.hotelChecklistItem.deleteMany({ where: { checklistId: id } });
@@ -269,6 +352,9 @@ export async function updateChecklist(actor: TasksActor, id: string, body: Recor
       },
       include,
     });
+    if (files.removed.length) await tx.hotelChecklistAttachment.deleteMany({ where: { checklistId: id, id: { in: files.removed.map((file) => file.id) } } });
+    const incoming = [...files.copied, ...files.saved];
+    if (incoming.length) await tx.hotelChecklistAttachment.createMany({ data: incoming.map((file) => ({ id: randomUUID(), checklistId: id, ...file })) });
     await recordAuditLog(tx, { module: "tasks",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
@@ -277,8 +363,9 @@ export async function updateChecklist(actor: TasksActor, id: string, body: Recor
       entityId: id,
       changes: { before: titlesOf(existing), after: titlesOf(updated) },
     });
-    return updated;
+    return tx.hotelChecklist.findFirstOrThrow({ where: { id }, include });
   });
+  for (const file of files.removed) await deleteAttachmentFile("checklists", file.storageKey);
   return { checklist: toPublicChecklist(row, locale, today, timeZone) };
 }
 

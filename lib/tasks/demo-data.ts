@@ -40,6 +40,7 @@ export type PublicChecklist = {
   nextDueIso: string;
   completedAt: string;
   completedBy: string;
+  attachments?: { id?: string; name: string; type: "photo"; url?: string }[];
   items: PublicChecklistItem[];
   progress: string;
   completions: { id: string; result: string; author: string; date: string }[];

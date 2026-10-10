@@ -8,6 +8,7 @@ import { formatHotelDate, formatHotelDateTime } from "../hotel/clock";
 import { hotelTimeZoneFor } from "../hotel/context";
 import { prisma } from "../prisma";
 import { departmentIdsOf, usersInDepartments } from "../users/memberships";
+import { copyAttachmentFile, deleteAttachmentFile, isAttachmentUpload, saveAttachmentFile } from "../attachments/storage";
 import type { HandoversActor } from "./access";
 import { translateHandoverFields } from "./translate";
 
@@ -16,6 +17,7 @@ const include = {
   createdBy: { select: { firstName: true, lastName: true } },
   completedBy: { select: { firstName: true, lastName: true } },
   departments: { select: { departmentId: true } },
+  attachments: { orderBy: { createdAt: "asc" as const } },
 };
 
 type Row = Prisma.HandoverGetPayload<{ include: typeof include }>;
@@ -83,7 +85,59 @@ export function toPublicHandover(row: Row, locale: string, timeZone?: string | n
     origLang: row.originalLocale,
     completedAt: row.completedAt ? dateTimeOf(row.completedAt, locale, timeZone) : "",
     completedBy: nameOf(row.completedBy),
+    attachments: row.attachments.map((file) => ({
+      id: file.id,
+      name: file.fileName,
+      type: "photo" as const,
+      url: `/api/handovers/${row.id}/attachments/${file.id}`,
+    })),
   };
+}
+
+const MAX_HANDOVER_FILES = 10;
+
+function parseJsonList(value: FormDataEntryValue | null) {
+  if (typeof value !== "string" || !value.trim()) return [] as string[];
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) ? [...new Set(parsed.map((item) => String(item).trim()).filter(Boolean))] : [];
+  } catch {
+    return value.split(",").map((item) => item.trim()).filter(Boolean);
+  }
+}
+
+function formValue(form: FormData, key: string) {
+  return String(form.get(key) ?? "");
+}
+
+async function saveUploads(files: File[]) {
+  const saved: { fileName: string; storageKey: string; mimeType: string; byteSize: number }[] = [];
+  for (const file of files) {
+    const stored = await saveAttachmentFile("handovers", file);
+    if (stored) saved.push({ fileName: stored.originalName, storageKey: stored.storageKey, mimeType: stored.mimeType, byteSize: stored.byteSize });
+  }
+  return saved;
+}
+
+async function copyAttachments(hotelTenantId: string, ids: string[]) {
+  if (!ids.length) return [] as { fileName: string; storageKey: string; mimeType: string; byteSize: number }[];
+  const rows = await prisma.handoverAttachment.findMany({ where: { id: { in: ids }, handover: { hotelTenantId } } });
+  const copied: { fileName: string; storageKey: string; mimeType: string; byteSize: number }[] = [];
+  for (const file of rows) {
+    const storageKey = await copyAttachmentFile("handovers", file.storageKey);
+    if (storageKey) copied.push({ fileName: file.fileName, storageKey, mimeType: file.mimeType, byteSize: file.byteSize });
+  }
+  return copied;
+}
+
+async function collectAttachments(form: FormData, hotelTenantId: string, existing?: { attachments: { id: string; storageKey: string }[] }) {
+  const keepIds = parseJsonList(form.get("keepAttachmentIds")).filter(isUuid);
+  const kept = existing?.attachments.filter((file) => keepIds.includes(file.id)) ?? [];
+  const copied = await copyAttachments(hotelTenantId, keepIds.filter((id) => !kept.some((file) => file.id === id)));
+  const remaining = MAX_HANDOVER_FILES - kept.length - copied.length;
+  const saved = await saveUploads(form.getAll("files").filter(isAttachmentUpload).slice(0, Math.max(0, remaining)));
+  const removed = existing?.attachments.filter((file) => !keepIds.includes(file.id)) ?? [];
+  return { copied, saved, removed };
 }
 
 async function validDepartmentIds(hotelTenantId: string, ids: string[]) {
@@ -190,25 +244,32 @@ export async function getHandover(actor: HandoversActor, id: string, locale: str
   if (!isUuid(id)) return null;
   const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   const row = await prisma.handover.findFirst({
-    where: { id, ...visibleWhere(actor, "HANDOVER") },
+    where: {
+      id,
+      OR: [
+        visibleWhere(actor, "HANDOVER"),
+        ...(actor.canManage ? [{ hotelTenantId: actor.hotel_tenant_id, kind: "TEMPLATE" as const }] : []),
+      ],
+    },
     include,
   });
   return row ? toPublicHandover(row, locale, timeZone) : null;
 }
 
-export async function createHandover(actor: HandoversActor, body: Record<string, unknown>, locale: string) {
+export async function createHandover(actor: HandoversActor, form: FormData, locale: string) {
   const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   if (!actor.canManage) return { error: "FORBIDDEN" as const };
-  const title = String(body.title ?? "").trim().slice(0, 180);
-  const description = String(body.description ?? "").trim().slice(0, 20000);
+  const title = formValue(form, "title").trim().slice(0, 180);
+  const description = formValue(form, "description").trim().slice(0, 20000);
   if (!title) return { error: "TITLE_REQUIRED" as const };
-  const kind = kindOf(String(body.kind ?? "handover"));
-  const draft = String(body.status ?? "") === "draft";
+  const kind = kindOf(formValue(form, "kind") || "handover");
+  const draft = formValue(form, "status") === "draft";
   const status: HandoverStatus = kind === "TEMPLATE" ? "OPEN" : draft ? "DRAFT" : "OPEN";
-  const visibility = visibilityOf(String(body.visibility ?? "alle"));
-  const tags = Array.isArray(body.tags) ? body.tags.map((item) => String(item).trim()).filter(Boolean).slice(0, 40) : [];
-  const requestedDepts = Array.isArray(body.departmentIds) ? body.departmentIds.map(String) : [];
+  const visibility = visibilityOf(formValue(form, "visibility") || "alle");
+  const tags = parseJsonList(form.get("tags")).slice(0, 40);
+  const requestedDepts = parseJsonList(form.get("departmentIds"));
   const departmentIds = visibility === "DEPARTMENT" || kind === "TEMPLATE" ? await validDepartmentIds(actor.hotel_tenant_id, requestedDepts) : [];
+  const files = await collectAttachments(form, actor.hotel_tenant_id);
   const locales = await translateHandoverFields(actor.hotel_tenant_id, locale, { title, description, tags });
   const id = randomUUID();
   const created = await prisma.$transaction(async (tx) => {
@@ -235,6 +296,8 @@ export async function createHandover(actor: HandoversActor, body: Record<string,
     if (departmentIds.length) {
       await tx.handoverShareDepartment.createMany({ data: departmentIds.map((departmentId) => ({ handoverId: id, departmentId })) });
     }
+    const incoming = [...files.copied, ...files.saved];
+    if (incoming.length) await tx.handoverAttachment.createMany({ data: incoming.map((file) => ({ id: randomUUID(), handoverId: id, ...file })) });
     await recordAuditLog(tx, { module: "handovers",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
@@ -251,20 +314,21 @@ export async function createHandover(actor: HandoversActor, body: Record<string,
   return { handover: toPublicHandover(created, locale, timeZone) };
 }
 
-export async function updateHandover(actor: HandoversActor, id: string, body: Record<string, unknown>, locale: string) {
+export async function updateHandover(actor: HandoversActor, id: string, form: FormData, locale: string) {
   const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   if (!actor.canManage) return { error: "FORBIDDEN" as const };
   if (!isUuid(id)) return { error: "NOT_FOUND" as const };
   const existing = await prisma.handover.findFirst({ where: { id, ...visibleWhere(actor, "HANDOVER") }, include });
   if (!existing) return { error: "NOT_FOUND" as const };
-  const title = String(body.title ?? "").trim().slice(0, 180);
-  const description = String(body.description ?? "").trim().slice(0, 20000);
+  const title = formValue(form, "title").trim().slice(0, 180);
+  const description = formValue(form, "description").trim().slice(0, 20000);
   if (!title) return { error: "TITLE_REQUIRED" as const };
-  const draft = String(body.status ?? "") === "draft";
+  const draft = formValue(form, "status") === "draft";
   const status: HandoverStatus = draft ? "DRAFT" : existing.status === "DONE" ? "DONE" : "OPEN";
-  const visibility = visibilityOf(String(body.visibility ?? "alle"));
-  const tags = Array.isArray(body.tags) ? body.tags.map((item) => String(item).trim()).filter(Boolean).slice(0, 40) : [];
-  const departmentIds = visibility === "DEPARTMENT" ? await validDepartmentIds(actor.hotel_tenant_id, Array.isArray(body.departmentIds) ? body.departmentIds.map(String) : []) : [];
+  const visibility = visibilityOf(formValue(form, "visibility") || "alle");
+  const tags = parseJsonList(form.get("tags")).slice(0, 40);
+  const departmentIds = visibility === "DEPARTMENT" ? await validDepartmentIds(actor.hotel_tenant_id, parseJsonList(form.get("departmentIds"))) : [];
+  const files = await collectAttachments(form, actor.hotel_tenant_id, existing);
   const locales = await translateHandoverFields(actor.hotel_tenant_id, locale, { title, description, tags });
   const wasDraft = existing.status === "DRAFT";
   const updated = await prisma.$transaction(async (tx) => {
@@ -290,6 +354,9 @@ export async function updateHandover(actor: HandoversActor, id: string, body: Re
     if (departmentIds.length) {
       await tx.handoverShareDepartment.createMany({ data: departmentIds.map((departmentId) => ({ handoverId: id, departmentId })) });
     }
+    if (files.removed.length) await tx.handoverAttachment.deleteMany({ where: { handoverId: id, id: { in: files.removed.map((file) => file.id) } } });
+    const incoming = [...files.copied, ...files.saved];
+    if (incoming.length) await tx.handoverAttachment.createMany({ data: incoming.map((file) => ({ id: randomUUID(), handoverId: id, ...file })) });
     await recordAuditLog(tx, { module: "handovers",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
@@ -303,6 +370,7 @@ export async function updateHandover(actor: HandoversActor, id: string, body: Re
     }
     return tx.handover.findFirstOrThrow({ where: { id }, include });
   }, { timeout: 40000 });
+  for (const file of files.removed) await deleteAttachmentFile("handovers", file.storageKey);
   return { handover: toPublicHandover(updated, locale, timeZone) };
 }
 

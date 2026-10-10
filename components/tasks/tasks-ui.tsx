@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type R
 import { AppShell } from "../dashboard/app-shell";
 import { useI18n } from "../i18n/i18n-provider";
 import { BrandLoader } from "../ui/brand-loader";
+import { AttachmentField, AttachmentGallery, AttachmentIndicator, type AttachmentItem } from "../ui/attachment-field";
 import { useToast } from "../ui/toast-provider";
 import { getTasksMessages, type TasksMessages } from "../../lib/i18n/tasks-messages";
 import { RichTextEditor, richTextHtml, sanitizeJobHtml, type RichTextEditorHandle } from "../recruiting/rich-text-editor";
@@ -143,6 +144,7 @@ export function TasksDashboardPage() {
               const done = item.items.length > 0 && item.items.every((row) => row.state === "done");
               return <Link key={item.id} href={`/tasks/checklists/${item.id}`} className="todo" style={{ textDecoration: "none", color: "inherit" }}>
                 <div className={`todo-cb${done ? " done" : ""}`}>{done ? "✓" : ""}</div>
+                <AttachmentIndicator attachments={item.attachments} />
                 <div className={`todo-t${done ? " done" : ""}`}>{item.title}</div>
                 <div className="todo-dept">{item.nextDue}</div>
                 <span className={`chip ${done ? "chip-g" : "chip-a"}`}>{done ? "✓" : t.open}</span>
@@ -354,7 +356,7 @@ export function ChecklistsListPage() {
         <tbody>
           {rows.length ? rows.map((item) => (
             <tr key={item.id} onClick={() => openRow(item)} style={{ cursor: "pointer" }}>
-              <td>{item.title}</td>
+              <td><div style={{ display: "flex", alignItems: "center", gap: 8 }}><AttachmentIndicator attachments={item.attachments} /><span>{item.title}</span></div></td>
               <td>{item.assignType === "all" ? t.everyone : item.assignee || "–"}</td>
               <td>{recurrenceLabel(item, t)}</td>
               <td>{item.nextDue || "–"}</td>
@@ -405,6 +407,9 @@ export function ChecklistFormPage({ id }: { id?: string }) {
   const [noEnd, setNoEnd] = useState(true);
   const [busy, setBusy] = useState(false);
   const [picked, setPicked] = useState("");
+  const [kept, setKept] = useState<AttachmentItem[]>([]);
+  const [uploads, setUploads] = useState<File[]>([]);
+  const [attachmentsBusy, setAttachmentsBusy] = useState(false);
   const descRef = useRef<RichTextEditorHandle>(null);
 
   function fillFrom(selected: PublicChecklist) {
@@ -421,6 +426,8 @@ export function ChecklistFormPage({ id }: { id?: string }) {
     setStartIso(selected.startIso);
     setEndIso(selected.endIso);
     setNoEnd(!selected.endIso);
+    setKept(selected.attachments ?? []);
+    setUploads([]);
   }
 
   useEffect(() => {
@@ -453,6 +460,7 @@ export function ChecklistFormPage({ id }: { id?: string }) {
     const nextDesc = sanitizeJobHtml(descRef.current?.getHtml() ?? desc);
     const nextId = await saveChecklist(id && !asTemplate ? id : undefined, {
       title, desc: nextDesc, items, assignType, departmentId, assigneeId, dueType, recurrence: recurrence as PublicChecklist["recurrence"], weekdays, dueIso, startIso, endIso, noEnd, status, kind,
+      keepAttachmentIds: kept.map((file) => file.id).filter((id): id is string => Boolean(id)), files: uploads,
     });
     setBusy(false);
     if (!nextId) { toast({ message: t.checklistSaveFailed, tone: "error" }); return; }
@@ -487,6 +495,7 @@ export function ChecklistFormPage({ id }: { id?: string }) {
               <RichTextEditor ref={descRef} value={desc} onChange={setDesc} placeholder={t.descPlaceholder} locale={locale} height={280} />
             </div>
             <div style={{ fontSize: 11.5, color: "var(--text3)", marginBottom: 16 }}>{t.autoTranslate}</div>
+            <div style={{ marginBottom: 16 }}><AttachmentField existing={kept} files={uploads} onExistingChange={setKept} onFilesChange={setUploads} onProcessingChange={setAttachmentsBusy} /></div>
             <label className="field-lbl">{t.points}</label>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
               {items.map((item, index) => (
@@ -558,9 +567,9 @@ export function ChecklistFormPage({ id }: { id?: string }) {
         </div>
         <div className="card">
           <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void save("active", asTemplate ? "template" : "checklist")}>{t.save}</button>
-            <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void save("draft", "checklist")}>{t.saveDraft}</button>
-            <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void save("active", "template")}>{t.saveTemplate}</button>
+            <button type="button" className="btn btn-primary" disabled={busy || attachmentsBusy} onClick={() => void save("active", asTemplate ? "template" : "checklist")}>{t.save}</button>
+            <button type="button" className="btn btn-ghost" disabled={busy || attachmentsBusy} onClick={() => void save("draft", "checklist")}>{t.saveDraft}</button>
+            <button type="button" className="btn btn-ghost" disabled={busy || attachmentsBusy} onClick={() => void save("active", "template")}>{t.saveTemplate}</button>
           </div>
         </div>
       </div>
@@ -608,6 +617,7 @@ export function ChecklistDetailPage({ id }: { id: string }) {
           </div>
           <div className="cb">
             {item.desc ? <div className="job-desc-preview" style={{ fontSize: 13, color: "var(--text2)", marginBottom: 14, lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: richTextHtml(item.desc) }} /> : null}
+            <AttachmentGallery attachments={item.attachments} />
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               {item.items.map((row) => (
                 <button key={row.id} type="button" className="todo" style={{ width: "100%", background: "none", border: 0, textAlign: "left", font: "inherit", color: "inherit", cursor: canComplete ? "pointer" : "default" }} onClick={() => void toggle(row.id)}>

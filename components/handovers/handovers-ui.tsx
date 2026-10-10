@@ -6,6 +6,7 @@ import { useEffect, useState, type FormEvent, type KeyboardEvent, type ReactNode
 import { AppShell } from "../dashboard/app-shell";
 import { useI18n } from "../i18n/i18n-provider";
 import { BrandLoader } from "../ui/brand-loader";
+import { AttachmentField, AttachmentGallery, AttachmentIndicator, type AttachmentItem } from "../ui/attachment-field";
 import { useToast } from "../ui/toast-provider";
 import { getHandoversMessages, type HandoversMessages } from "../../lib/i18n/handovers-messages";
 import { useHandovers, type HotelDept } from "./handovers-provider";
@@ -69,7 +70,7 @@ export function HandoversDashboardPage() {
         {current.length ? current.map((item) => (
           <Link key={item.id} href={`/handovers/${item.id}`} className="hov-card">
             <div className="hov-header">
-              <span className="hov-shift-badge">{item.title}</span>
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}><AttachmentIndicator attachments={item.attachments} /><span className="hov-shift-badge">{item.title}</span></span>
               <div className="hov-from" style={{ marginLeft: "auto" }}>{item.creator} · {item.date}</div>
             </div>
             <HandoverBody desc={item.desc} />
@@ -98,7 +99,7 @@ export function HandoversDashboardPage() {
               <Link key={item.id} href={`/handovers/${item.id}`} className="al" style={{ textDecoration: "none" }}>
                 <div className={`al-ic ${item.status === "erledigt" ? "g" : "b"}`}>{item.status === "erledigt" ? "✓" : "📋"}</div>
                 <div>
-                  <div className="al-t">{item.title}</div>
+                  <div className="al-t" style={{ display: "flex", alignItems: "center", gap: 8 }}><AttachmentIndicator attachments={item.attachments} />{item.title}</div>
                   <div className="al-m">{item.date} · {item.creator}</div>
                 </div>
                 <div className="al-r"><span className={`chip ${item.status === "erledigt" ? "chip-g" : "chip-b"}`}>{statusLabel(item.status, t)}</span></div>
@@ -141,7 +142,7 @@ export function HandoversListPage() {
         <tbody>
           {rows.length ? rows.map((item) => <tr key={item.id} onClick={() => router.push(`/handovers/${item.id}`)} style={{ cursor: "pointer" }}>
             <td>{item.pinned ? "📌" : ""}</td>
-            <td>{item.title}</td>
+            <td><div style={{ display: "flex", alignItems: "center", gap: 8 }}><AttachmentIndicator attachments={item.attachments} /><span>{item.title}</span></div></td>
             <td>{item.creator}</td>
             <td>{item.depts.length ? item.depts.map((d) => <span key={d} className="chip chip-n" style={{ marginRight: 4 }}>{deptName(d, departments)}</span>) : <span className="chip chip-n">{item.visibility === "privat" ? t.visMe : t.allChip}</span>}</td>
             <td>{visLabel(item.visibility, t)}</td>
@@ -169,6 +170,9 @@ export function HandoversFormPage({ id, aiDraft = false }: { id?: string; aiDraf
   const [depts, setDepts] = useState<string[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
+  const [kept, setKept] = useState<AttachmentItem[]>([]);
+  const [uploads, setUploads] = useState<File[]>([]);
+  const [attachmentsBusy, setAttachmentsBusy] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -178,6 +182,8 @@ export function HandoversFormPage({ id, aiDraft = false }: { id?: string; aiDraf
       setVisibility(existing.visibility);
       setDepts(existing.depts);
       setTags(existing.tags);
+      setKept(existing.attachments ?? []);
+      setUploads([]);
       return;
     }
     if (!aiDraft) return;
@@ -194,6 +200,8 @@ export function HandoversFormPage({ id, aiDraft = false }: { id?: string; aiDraf
     setVisibility(selected.visibility);
     setDepts(selected.depts);
     setTags(selected.tags);
+    setKept(selected.attachments ?? []);
+    setUploads([]);
   }
 
   function addTag() {
@@ -203,28 +211,25 @@ export function HandoversFormPage({ id, aiDraft = false }: { id?: string; aiDraf
     setTagInput("");
   }
 
-  function payload(kind: "handover" | "template", status?: "draft") {
-    return {
-      title: title.trim(),
-      description: desc,
-      tags,
-      visibility,
-      departmentIds: depts,
-      kind,
-      status,
-    };
-  }
-
   async function persist(kind: "handover" | "template", status?: "draft") {
     if (!title.trim()) { toast({ message: t.titleRequired, tone: "error" }); return; }
     setBusy(true);
     toast({ message: t.translating });
     try {
       const isEdit = Boolean(existing) && kind === "handover";
+      const form = new FormData();
+      form.set("title", title.trim());
+      form.set("description", desc);
+      form.set("tags", JSON.stringify(tags));
+      form.set("visibility", visibility);
+      form.set("departmentIds", JSON.stringify(depts));
+      form.set("kind", kind);
+      if (status) form.set("status", status);
+      form.set("keepAttachmentIds", JSON.stringify(kept.map((file) => file.id).filter(Boolean)));
+      for (const file of uploads) form.append("files", file);
       const res = await fetch(isEdit ? `/api/handovers/${existing!.id}?locale=${locale}` : `/api/handovers?locale=${locale}`, {
         method: isEdit ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload(kind, status)),
+        body: form,
       });
       if (!res.ok) { toast({ message: t.saveFailed, tone: "error" }); return; }
       await reload();
@@ -257,6 +262,7 @@ export function HandoversFormPage({ id, aiDraft = false }: { id?: string; aiDraf
             <label className="field-lbl">{t.description}</label>
             <textarea className="field-input" style={{ minHeight: 180, resize: "vertical", lineHeight: 1.6 }} placeholder={t.descPlaceholder} value={desc} onChange={(event) => setDesc(event.target.value)} />
             <div style={{ fontSize: 11.5, color: "var(--text3)", margin: "6px 0 0" }}>{t.autoTranslate}</div>
+            <div style={{ marginTop: 16 }}><AttachmentField existing={kept} files={uploads} onExistingChange={setKept} onFilesChange={setUploads} onProcessingChange={setAttachmentsBusy} /></div>
           </div>
         </div>
       </div>
@@ -282,9 +288,9 @@ export function HandoversFormPage({ id, aiDraft = false }: { id?: string; aiDraf
         </div>
         <div className="card">
           <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <button type="submit" className="btn btn-primary" disabled={busy}>{t.save}</button>
-            <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void persist("handover", "draft")}>{t.saveDraft}</button>
-            <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void persist("template")}>{t.saveTemplate}</button>
+            <button type="submit" className="btn btn-primary" disabled={busy || attachmentsBusy}>{t.save}</button>
+            <button type="button" className="btn btn-ghost" disabled={busy || attachmentsBusy} onClick={() => void persist("handover", "draft")}>{t.saveDraft}</button>
+            <button type="button" className="btn btn-ghost" disabled={busy || attachmentsBusy} onClick={() => void persist("template")}>{t.saveTemplate}</button>
           </div>
         </div>
       </div>
@@ -323,6 +329,7 @@ export function HandoversDetailPage({ id }: { id: string }) {
           {item.depts.length ? item.depts.map((dept) => <span key={dept} className="chip chip-n">{deptName(dept, departments)}</span>) : <span className="chip chip-n">{visLabel(item.visibility, t)}</span>}
         </div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{item.tags.map((tag) => <span key={tag} className="chip chip-b">{tag}</span>)}</div>
+        <AttachmentGallery attachments={item.attachments} />
         {item.status === "erledigt" && item.completedAt ? <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 12 }}>{t.completedMeta.replace("{when}", item.completedAt).replace("{name}", item.completedBy || "–")}</div> : null}
       </div>
       <div className="cb" style={{ borderTop: "1px solid var(--border)", display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
