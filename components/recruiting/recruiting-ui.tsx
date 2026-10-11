@@ -728,8 +728,14 @@ function JobQuiz({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }) 
   const showToast = useToast();
   const { jobs, setJobs } = useRecruiting();
   const departments = useHotelDepartments(locale);
+  const savedFacts = job?.quiz?.factsByLang?.[locale];
   const [title, setTitle] = useState(job?.title ?? "");
   const [dept, setDept] = useState(job?.departmentId ?? "");
+  const [startFrom, setStartFrom] = useState(savedFacts?.startFrom ?? job?.start ?? "");
+  const [workHours, setWorkHours] = useState(savedFacts?.workHours ?? "");
+  const [salary, setSalary] = useState(savedFacts?.salary ?? "");
+  const [benefits, setBenefits] = useState(savedFacts?.benefits ?? job?.notes ?? "");
+  const [contactPerson, setContactPerson] = useState(savedFacts?.contactPerson ?? "");
   const [pagesByLang, setPagesByLang] = useState<Record<Locale, QuizPage[]>>(() => ({
     de: Array.isArray(job?.quiz?.pagesByLang?.de) ? job.quiz.pagesByLang.de as QuizPage[] : createDefaultQuiz(getRecruitingMessages("de")),
     en: Array.isArray(job?.quiz?.pagesByLang?.en) ? job.quiz.pagesByLang.en as QuizPage[] : createDefaultQuiz(getRecruitingMessages("en")),
@@ -762,7 +768,7 @@ function JobQuiz({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }) 
       const res = await fetch("/api/recruiting/jobs/generate-quiz", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: title.trim(), departmentName, locale, pages: pagesByLang[locale] }),
+        body: JSON.stringify({ title: title.trim(), departmentName, locale, pages: pagesByLang[locale], facts: { startFrom, workHours, salary, benefits, contactPerson } }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !Array.isArray(data?.pages)) {
@@ -771,6 +777,7 @@ function JobQuiz({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }) 
       }
       setPagesByLang((current) => ({ ...current, [locale]: data.pages as QuizPage[] }));
       setSelectedElId(null);
+      if (data.imagesGenerated === 0) setError(t.generateQuizImagesFailed);
     } catch {
       setError(t.generateQuizFailed);
     } finally {
@@ -788,10 +795,10 @@ function JobQuiz({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }) 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           format: "quiz", status, title: title.trim(), departmentId: dept, workType: job?.type || "fullOrPart",
-          startFrom: job?.start || t.immediately, notes: job?.notes || "", description: job?.description || "",
+          startFrom: startFrom.trim(), notes: benefits.trim(), description: job?.description || "",
           autoMessage: job?.autoMessage || "", location: job?.location || "", cvRequired: job?.cvRequired === true,
           languages: job?.langs?.length ? job.langs : [locale], listingImage: job?.listingImage || "", logoImage: job?.logoImage || "",
-          quiz: { footer, pagesByLang }, locale,
+          quiz: { footer, pagesByLang, factsByLang: { ...(job?.quiz?.factsByLang ?? {}), [locale]: { startFrom, workHours, salary, benefits, contactPerson } } }, locale,
         }),
       });
       const data = await res.json().catch(() => null);
@@ -819,6 +826,16 @@ function JobQuiz({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }) 
       </select>
       <button type="button" className="btn btn-primary" disabled={aiBusy} onClick={() => void generateQuiz()}>{t.generateQuizAi}</button>
       {error ? <span className="job-apply-error">{error}</span> : null}
+    </div>
+    <div className="card" style={{ marginBottom: 16, padding: 16 }}>
+      <div className="field-lbl" style={{ marginBottom: 10 }}>{t.quizFactsTitle}</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+        <label><span className="field-lbl">{t.startFrom}</span><input className="field-input" value={startFrom} onChange={(event) => setStartFrom(event.target.value)} placeholder={t.startPlaceholder} /></label>
+        <label><span className="field-lbl">{t.quizHours}</span><input className="field-input" value={workHours} onChange={(event) => setWorkHours(event.target.value)} placeholder={t.quizHoursPlaceholder} /></label>
+        <label><span className="field-lbl">{t.quizSalary}</span><input className="field-input" value={salary} onChange={(event) => setSalary(event.target.value)} placeholder={t.quizSalaryPlaceholder} /></label>
+        <label><span className="field-lbl">{t.quizBenefits}</span><input className="field-input" value={benefits} onChange={(event) => setBenefits(event.target.value)} placeholder={t.quizBenefitsPlaceholder} /></label>
+        <label><span className="field-lbl">{t.quizContact}</span><input className="field-input" value={contactPerson} onChange={(event) => setContactPerson(event.target.value)} placeholder={t.quizContactPlaceholder} /></label>
+      </div>
     </div>
     <div className="g2 g2-quiz">
       <QuizToolsCard t={t} pages={quizPages} setPages={setQuizPages} activePageId={activePageId} setActivePageId={setActivePageId} selectedId={selectedElId} setSelectedId={setSelectedElId} footer={footer} setFooter={setFooter} />

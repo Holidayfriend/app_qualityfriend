@@ -38,6 +38,7 @@ export type PublicJob = {
     footer: { impressumUrl: string; privacyUrl: string };
     pages: unknown[];
     pagesByLang?: Record<string, unknown>;
+    factsByLang?: Record<string, { startFrom: string; workHours: string; salary: string; benefits: string; contactPerson: string }>;
   } | null;
 };
 
@@ -102,7 +103,7 @@ export function quizHasDataForm(quiz: unknown) {
 
 export function parseQuiz(value: unknown): Prisma.InputJsonValue | null {
   if (!value || typeof value !== "object") return null;
-  const body = value as { footer?: unknown; pagesByLang?: unknown };
+  const body = value as { footer?: unknown; pagesByLang?: unknown; factsByLang?: unknown };
   const footer = body.footer && typeof body.footer === "object" ? body.footer as { impressumUrl?: unknown; privacyUrl?: unknown } : {};
   const pagesByLang = body.pagesByLang && typeof body.pagesByLang === "object" ? body.pagesByLang as Record<string, unknown> : null;
   if (!pagesByLang) return null;
@@ -111,12 +112,25 @@ export function parseQuiz(value: unknown): Prisma.InputJsonValue | null {
     if (Array.isArray(pagesByLang[locale])) packed[locale] = pagesByLang[locale];
   }
   if (!Object.keys(packed).length) return null;
+  const factsByLang: Record<string, unknown> = {};
+  const rawFacts = body.factsByLang && typeof body.factsByLang === "object" ? body.factsByLang as Record<string, unknown> : {};
+  for (const locale of locales) {
+    const row = rawFacts[locale] && typeof rawFacts[locale] === "object" ? rawFacts[locale] as Record<string, unknown> : null;
+    if (row) factsByLang[locale] = {
+      startFrom: text(row.startFrom, 120),
+      workHours: text(row.workHours, 200),
+      salary: text(row.salary, 200),
+      benefits: text(row.benefits, 1000),
+      contactPerson: text(row.contactPerson, 200),
+    };
+  }
   const quiz = {
     footer: {
       impressumUrl: text(footer.impressumUrl, 500) || "https://qualityfriend.solutions/",
       privacyUrl: text(footer.privacyUrl, 500) || "https://qualityfriend.solutions/",
     },
     pagesByLang: packed,
+    factsByLang,
   };
   return quizHasDataForm(quiz) ? (quiz as Prisma.InputJsonValue) : null;
 }
@@ -252,6 +266,7 @@ export function toPublicJob(job: RecruitingJob, apps = 0, locale?: string, inclu
       footer: quizFooter(job.quiz),
       pages: pagesForLocale(job.quiz, locale || langs[0] || "en"),
       pagesByLang: job.quiz && typeof job.quiz === "object" ? (job.quiz as { pagesByLang?: Record<string, unknown> }).pagesByLang : undefined,
+      factsByLang: job.quiz && typeof job.quiz === "object" ? (job.quiz as { factsByLang?: Record<string, { startFrom: string; workHours: string; salary: string; benefits: string; contactPerson: string }> }).factsByLang : undefined,
     } : null,
   };
 }

@@ -161,6 +161,35 @@ async function loadActiveCredential(prisma: HotelAiDb, hotelTenantId: string) {
   return { provider, model, apiKey: decryptAiSecret(row.apiKeyEncrypted) };
 }
 
+export async function generateHotelImages(
+  prisma: HotelAiDb,
+  hotelTenantId: string,
+  prompt: string,
+  count = 3,
+) {
+  const credential = await loadActiveCredential(prisma, hotelTenantId);
+  if (!credential) throw new HotelAiNotConfiguredError();
+  if (credential.provider !== "openai") throw new Error("Job-specific image generation currently requires OpenAI as the active AI provider.");
+  const response = await fetch("https://api.openai.com/v1/images/generations", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${credential.apiKey}` },
+    body: JSON.stringify({
+      model: "gpt-image-1",
+      prompt,
+      n: Math.max(1, Math.min(4, count)),
+      size: "1024x1024",
+      quality: "low",
+      output_format: "png",
+    }),
+    cache: "no-store",
+    signal: AbortSignal.timeout(180_000),
+  });
+  const data = await response.json().catch(() => null) as { data?: Array<{ b64_json?: string }>; error?: { message?: string } } | null;
+  if (!response.ok) throw new Error(data?.error?.message || "OpenAI image generation failed.");
+  const images = (data?.data ?? []).map((item) => item.b64_json || "").filter(Boolean);
+  if (!images.length) throw new Error("Image generation returned no images.");
+  return images;
+}
 type ChatMessage = { role: string; content: string };
 type ChatOptions = { json?: boolean; temperature?: number; timeoutMs?: number; maxTokens?: number };
 type Completion = { content: string; usage: TokenUsage };
