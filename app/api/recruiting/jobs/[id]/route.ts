@@ -1,4 +1,5 @@
 import { jobTranslationFailureReason } from "../../../../../lib/recruiting/job-save-error";
+import { jobTranslationFallbackPatch } from "../../../../../lib/recruiting/job-translations";
 import { translateJobFields } from "../../../../../lib/recruiting/translate-job";
 import { prisma } from "../../../../../lib/prisma";
 import { recordAuditLog } from "../../../../../lib/audit/audit-service";
@@ -41,12 +42,13 @@ export async function PUT(request: Request, context: Context) {
   const exists = await prisma.recruitingJob.findFirst({ where: { id, hotelTenantId: actor.hotel_tenant_id }, select: { id: true } });
   if (!exists) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
   let translations;
+  let translationWarning: ReturnType<typeof jobTranslationFailureReason> | null = null;
   try {
     translations = await translateJobFields(actor.hotel_tenant_id, locale, input);
   } catch (error) {
-    const reason = jobTranslationFailureReason(error);
-    console.error("Recruiting job translation failed", { hotelTenantId: actor.hotel_tenant_id, reason });
-    return Response.json({ error: "TRANSLATION_FAILED", reason }, { status: 502 });
+    translationWarning = jobTranslationFailureReason(error);
+    translations = jobTranslationFallbackPatch(locale, input);
+    console.error("Recruiting job translation failed; saving source content", { hotelTenantId: actor.hotel_tenant_id, reason: translationWarning });
   }
   const updated = await prisma.$transaction(async (tx) => {
     const existing = await tx.recruitingJob.findFirst({ where: { id, hotelTenantId: actor.hotel_tenant_id } });
@@ -86,7 +88,10 @@ export async function PUT(request: Request, context: Context) {
   });
   if (!updated) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
   const apps = await prisma.recruitingApplication.count({ where: { jobId: updated.id, viaPublicPage: true } });
-  return Response.json({ job: toPublicJob(updated, apps, locale, true, updated.department) });
+  return Response.json({
+    job: toPublicJob(updated, apps, locale, true, updated.department),
+    ...(translationWarning ? { warning: { code: "TRANSLATION_FAILED", reason: translationWarning } } : {}),
+  });
 }
 
 export async function PATCH(request: Request, context: Context) {

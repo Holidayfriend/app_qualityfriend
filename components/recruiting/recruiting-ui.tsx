@@ -481,6 +481,7 @@ function JobEdit({ t, locale, id }: { t: T; locale: Locale; id: string }) {
 
 function JobCreate({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }) {
   const router = useRouter();
+  const showToast = useToast();
   const formRef = useRef<HTMLDivElement>(null);
   const [invalidDepartment, setInvalidDepartment] = useState(false);
   function revealInvalidField() {
@@ -612,6 +613,7 @@ function JobCreate({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }
         return;
       }
       if (data?.job) setJobs(job ? jobs.map((item) => item.id === data.job.id ? data.job : item) : [data.job, ...jobs]);
+      if (data?.warning?.code === "TRANSLATION_FAILED") showToast({ message: t.jobTranslationWarning, tone: "info" });
       router.push("/recruiting/jobs");
     } catch {
       setError(t.jobNetworkFailed);
@@ -723,6 +725,7 @@ function JobCreate({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }
 
 function JobQuiz({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }) {
   const router = useRouter();
+  const showToast = useToast();
   const { jobs, setJobs } = useRecruiting();
   const departments = useHotelDepartments(locale);
   const [title, setTitle] = useState(job?.title ?? "");
@@ -798,6 +801,7 @@ function JobQuiz({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }) 
         return;
       }
       if (data?.job) setJobs(job ? jobs.map((item) => item.id === data.job.id ? data.job : item) : [data.job, ...jobs]);
+      if (data?.warning?.code === "TRANSLATION_FAILED") showToast({ message: t.jobTranslationWarning, tone: "info" });
       router.push("/recruiting/jobs");
     } catch {
       setError(t.saveFailed);

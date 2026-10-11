@@ -1,4 +1,5 @@
 import { jobTranslationFailureReason } from "../../../../lib/recruiting/job-save-error";
+import { jobTranslationFallbackPatch } from "../../../../lib/recruiting/job-translations";
 import { translateJobFields } from "../../../../lib/recruiting/translate-job";
 import { prisma } from "../../../../lib/prisma";
 import { recordAuditLog } from "../../../../lib/audit/audit-service";
@@ -32,12 +33,13 @@ export async function POST(request: Request) {
   });
   if (!department) return Response.json({ error: "INVALID_DEPARTMENT" }, { status: 400 });
   let translations;
+  let translationWarning: ReturnType<typeof jobTranslationFailureReason> | null = null;
   try {
     translations = await translateJobFields(actor.hotel_tenant_id, locale, input);
   } catch (error) {
-    const reason = jobTranslationFailureReason(error);
-    console.error("Recruiting job translation failed", { hotelTenantId: actor.hotel_tenant_id, reason });
-    return Response.json({ error: "TRANSLATION_FAILED", reason }, { status: 502 });
+    translationWarning = jobTranslationFailureReason(error);
+    translations = jobTranslationFallbackPatch(locale, input, true);
+    console.error("Recruiting job translation failed; saving source content", { hotelTenantId: actor.hotel_tenant_id, reason: translationWarning });
   }
   const job = await prisma.$transaction(async (tx) => {
     const slug = await uniqueSlug(async (value) => !!(await tx.recruitingJob.findUnique({ where: { slug: value }, select: { id: true } })), input.title);
@@ -74,5 +76,8 @@ export async function POST(request: Request) {
     });
     return created;
   });
-  return Response.json({ job: toPublicJob(job, 0, locale, true, department) }, { status: 201 });
+  return Response.json({
+    job: toPublicJob(job, 0, locale, true, department),
+    ...(translationWarning ? { warning: { code: "TRANSLATION_FAILED", reason: translationWarning } } : {}),
+  }, { status: 201 });
 }
