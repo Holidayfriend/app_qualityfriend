@@ -6,6 +6,7 @@ import path from "node:path";
 
 import { prisma } from "../prisma";
 import { completeHotelChatJson, generateHotelImages } from "../ai/complete";
+import { countryName } from "../geo/locations";
 
 type JsonRecord = Record<string, unknown>;
 function record(value: unknown): JsonRecord | null {
@@ -133,19 +134,28 @@ function applyGeneratedImages(pages: unknown, urls: string[]) {
     return page ? { ...page, elements: replaceStockImages(page.elements, urls, cursor) } : item;
   });
 }
+function localizedHotelName(hotel: { hotelNameEn: string; hotelNameDe: string; hotelNameIt: string }, locale: string) {
+  if (locale === "de") return hotel.hotelNameDe || hotel.hotelNameEn || hotel.hotelNameIt;
+  if (locale === "it") return hotel.hotelNameIt || hotel.hotelNameEn || hotel.hotelNameDe;
+  return hotel.hotelNameEn || hotel.hotelNameDe || hotel.hotelNameIt;
+}
 export async function generateQuizCopy(input: { hotelTenantId: string; title: string; departmentName: string; locale: string; pages: unknown; facts: { startFrom: string; workHours: string; salary: string; benefits: string; contactPerson: string } }) {
   const hotel = await prisma.hotelTenant.findUnique({
     where: { id: input.hotelTenantId },
-    select: { hotelNameEn: true, hotelNameDe: true, hotelNameIt: true, city: true, country: true },
+    select: { hotelNameEn: true, hotelNameDe: true, hotelNameIt: true, streetAddress: true, postalCode: true, city: true, province: true, country: true },
   });
   if (!hotel) throw new Error("Hotel not found");
   const locale = input.locale === "de" || input.locale === "it" ? input.locale : "en";
   const language = locale === "de" ? "German" : locale === "it" ? "Italian" : "English";
+  const hotelName = localizedHotelName(hotel, locale);
+  const country = countryName(hotel.country, locale);
+  const hotelLocation = [hotel.streetAddress, hotel.postalCode, hotel.city, hotel.province, country].filter(Boolean).join(", ");
+  const hotelContext = { name: hotelName, location: hotelLocation };
   if (!Array.isArray(input.pages)) throw new Error("Quiz pages are required");
   const payload = JSON.stringify(compactPages(input.pages));
   if (payload.length > 60_000) throw new Error("Quiz is too large");
 
-  const imagePromise = generateHotelImages(prisma, input.hotelTenantId, `Create three distinct, photorealistic editorial recruitment images for a hotel ${input.title} role in the ${input.departmentName} department. Show authentic hotel work environments and realistic role-specific tasks. Professional, warm, inclusive, natural lighting, no text, no logos, no watermarks, no collages. Each image should depict a different scene suitable for a recruiting funnel.` , 3)
+  const imagePromise = generateHotelImages(prisma, input.hotelTenantId, `Create three distinct, photorealistic editorial recruitment images for the ${input.title} role in the ${input.departmentName} department at ${hotelName}, located in ${hotelLocation}. Reflect the authentic regional hotel setting and realistic role-specific tasks, but do not render the hotel name, address, or any other text in the image. Professional, warm, inclusive, natural lighting, no text, no logos, no watermarks, no collages. Each image should depict a different scene suitable for a recruiting funnel.` , 3)
     .then(saveGeneratedImages)
     .catch((error) => { console.error("Recruiting quiz image generation failed", error); return [] as string[]; });
 
@@ -156,7 +166,7 @@ export async function generateQuizCopy(input: { hotelTenantId: string; title: st
     },
     {
       role: "user",
-      content: `Rewrite every relevant quiz heading, paragraph, question, answer option, placeholder, call-to-action, success message, and rejection message for this hotel vacancy. Make screening questions specific to the role and department.\n\nJob title: ${input.title}\nDepartment: ${input.departmentName}\nHotel: ${JSON.stringify(hotel)}\nJob facts (the only allowed source for employment conditions and named people): ${JSON.stringify(input.facts)}\n\nReturn exactly {"pages":[]} using this source structure:\n${payload}`,
+      content: `Rewrite every relevant quiz heading, paragraph, question, answer option, placeholder, call-to-action, success message, and rejection message for this hotel vacancy. Make screening questions specific to the role and department.\n\nJob title: ${input.title}\nDepartment: ${input.departmentName}\nHotel from account settings: ${JSON.stringify(hotelContext)}\nJob facts (the only allowed source for employment conditions and named people): ${JSON.stringify(input.facts)}\n\nReturn exactly {"pages":[]} using this source structure:\n${payload}`,
     },
   ], { temperature: 0.45, timeoutMs: 120_000, required: true });
 
