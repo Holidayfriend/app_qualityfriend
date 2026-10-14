@@ -7,19 +7,25 @@ type Db = PrismaClient | Prisma.TransactionClient;
 
 const include = {
   items: { orderBy: { sortOrder: "asc" as const } },
+  departments: { select: { departmentId: true } },
 };
 
 export async function recipientIds(db: Db, hotelTenantId: string, row: {
   assignType: "ALL" | "DEPT" | "PERSON";
   departmentId: string | null;
+  departments?: { departmentId: string }[];
   assigneeId: string | null;
 }, skipId?: string | null) {
   const ids = new Set<string>();
   if (row.assignType === "PERSON" && row.assigneeId) {
     ids.add(row.assigneeId);
-  } else if (row.assignType === "DEPT" && row.departmentId) {
+  } else if (row.assignType === "DEPT") {
+    const departmentIds = row.departments?.length
+      ? row.departments.map((item) => item.departmentId)
+      : row.departmentId ? [row.departmentId] : [];
+    if (!departmentIds.length) return [];
     const users = await db.user.findMany({
-      where: { hotelTenantId, isActive: true, isDeleted: false, ...usersInDepartments([row.departmentId]) },
+      where: { hotelTenantId, isActive: true, isDeleted: false, ...usersInDepartments(departmentIds) },
       select: { id: true },
     });
     for (const user of users) ids.add(user.id);
@@ -96,6 +102,7 @@ export async function spawnRun(db: Db, original: Prisma.HotelChecklistGetPayload
       assignType: original.assignType,
       dueType: original.dueType,
       recurrence: original.recurrence,
+      departments: { create: original.departments.map((item) => ({ departmentId: item.departmentId })) },
       title: original.title,
       titleDe: original.titleDe,
       titleIt: original.titleIt,

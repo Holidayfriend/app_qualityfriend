@@ -20,6 +20,12 @@ const include = {
   assignee: { select: { id: true, firstName: true, lastName: true } },
   completedBy: { select: { firstName: true, lastName: true } },
   department: { select: { id: true, nameEn: true, nameDe: true, nameIt: true } },
+  departments: {
+    select: {
+      departmentId: true,
+      department: { select: { nameEn: true, nameDe: true, nameIt: true } },
+    },
+  },
   attachments: { orderBy: { createdAt: "asc" as const } },
   original: { select: { id: true, attachments: { orderBy: { createdAt: "asc" as const } } } },
   items: { orderBy: { sortOrder: "asc" as const } },
@@ -57,7 +63,13 @@ function titlesOf(row: { title: string; titleDe: string; titleIt: string }) {
 function assignedWhere(actor: TasksActor): Prisma.HotelChecklistWhereInput[] {
   return [
     { assignType: "ALL" },
-    ...(departmentIdsOf(actor).length ? [{ assignType: "DEPT" as const, departmentId: { in: departmentIdsOf(actor) } }] : []),
+    ...(departmentIdsOf(actor).length ? [{
+      assignType: "DEPT" as const,
+      OR: [
+        { departments: { some: { departmentId: { in: departmentIdsOf(actor) } } } },
+        { departmentId: { in: departmentIdsOf(actor) } },
+      ],
+    }] : []),
     { assignType: "PERSON", assigneeId: actor.id },
   ];
 }
@@ -73,11 +85,16 @@ export function visibleChecklistWhere(actor: TasksActor): Prisma.HotelChecklistW
 }
 
 export function toPublicChecklist(row: Row, locale: string, today: string, timeZone?: string | null) {
+  const departmentIds = row.departments.length
+    ? row.departments.map((item) => item.departmentId)
+    : row.departmentId ? [row.departmentId] : [];
   const assignee = row.assignType === "PERSON"
     ? nameOf(row.assignee)
-    : row.assignType === "DEPT" && row.department
-      ? pickLocalized(row.department.nameEn, row.department.nameDe, row.department.nameIt, locale)
-      : "";
+    : row.assignType === "DEPT" && row.departments.length
+      ? row.departments.map((item) => pickLocalized(item.department.nameEn, item.department.nameDe, item.department.nameIt, locale)).join(", ")
+      : row.assignType === "DEPT" && row.department
+        ? pickLocalized(row.department.nameEn, row.department.nameDe, row.department.nameIt, locale)
+        : "";
   const done = row.items.filter((item) => item.state === "DONE").length;
   const nextIso = row.origin === "RUN" ? isoDate(row.dueAt) : nextDueIso(row, today);
   const attachments = row.origin === "RUN" && row.original ? row.original.attachments : row.attachments;
@@ -93,7 +110,8 @@ export function toPublicChecklist(row: Row, locale: string, today: string, timeZ
     assignType: row.assignType === "PERSON" ? "person" : row.assignType === "DEPT" ? "dept" : "all",
     assignee,
     assigneeId: row.assigneeId || "",
-    departmentId: row.departmentId || "",
+    departmentId: departmentIds[0] || "",
+    departmentIds,
     dueType: row.dueType === "RECURRING" ? "recurring" : "once",
     recurrence: row.recurrence.toLowerCase() as "once" | "daily" | "weekly" | "monthly" | "quarterly" | "yearly",
     weekdays: row.weekdays,
@@ -149,6 +167,7 @@ function checklistBody(form: FormData): Record<string, unknown> {
     items: parseJsonList(form.get("items")),
     assignType: formValue(form, "assignType"),
     departmentId: formValue(form, "departmentId"),
+    departmentIds: parseJsonList(form.get("departmentIds")),
     assigneeId: formValue(form, "assigneeId"),
     dueType: formValue(form, "dueType"),
     recurrence: formValue(form, "recurrence"),
@@ -192,13 +211,15 @@ async function collectAttachments(form: FormData, hotelTenantId: string, existin
   return { copied, saved, removed };
 }
 
-async function validDepartmentId(hotelTenantId: string, id: string) {
-  if (!isUuid(id)) return null;
-  const row = await prisma.department.findFirst({
-    where: { hotelTenantId, isDeleted: false, isActive: true, id },
+async function validDepartmentIds(hotelTenantId: string, ids: string[]) {
+  const requested = [...new Set(ids.filter(isUuid))];
+  if (!requested.length) return [] as string[];
+  const rows = await prisma.department.findMany({
+    where: { hotelTenantId, isDeleted: false, isActive: true, id: { in: requested } },
     select: { id: true },
   });
-  return row?.id ?? null;
+  const valid = new Set(rows.map((row) => row.id));
+  return requested.filter((id) => valid.has(id));
 }
 
 async function validUserId(hotelTenantId: string, id: string) {
@@ -221,9 +242,13 @@ async function parsedBody(actor: TasksActor, body: Record<string, unknown>, loca
     daily: "DAILY", weekly: "WEEKLY", monthly: "MONTHLY", quarterly: "QUARTERLY", yearly: "YEARLY", once: "ONCE",
   };
   const recurrence = dueType === "ONCE" ? "ONCE" : (recurrenceMap[String(body.recurrence)] ?? "WEEKLY");
-  const departmentId = assignType === "DEPT" ? await validDepartmentId(actor.hotel_tenant_id, String(body.departmentId ?? "")) : null;
+  const requestedDepartmentIds = Array.isArray(body.departmentIds) && body.departmentIds.length
+    ? body.departmentIds.map((id) => String(id))
+    : [String(body.departmentId ?? "")];
+  const departmentIds = assignType === "DEPT" ? await validDepartmentIds(actor.hotel_tenant_id, requestedDepartmentIds) : [];
+  const departmentId = departmentIds[0] ?? null;
   const assigneeId = assignType === "PERSON" ? await validUserId(actor.hotel_tenant_id, String(body.assigneeId ?? "")) : null;
-  if (assignType === "DEPT" && !departmentId) return { error: "INVALID" as const };
+  if (assignType === "DEPT" && !departmentIds.length) return { error: "INVALID" as const };
   if (assignType === "PERSON" && !assigneeId) return { error: "INVALID" as const };
   const items = Array.isArray(body.items) ? body.items.map((item) => String(item ?? "").trim()).filter(Boolean).slice(0, 80) : [];
   const locales = await translateChecklistFields(actor.hotel_tenant_id, locale, { title, desc: String(body.desc ?? ""), items });
@@ -235,6 +260,7 @@ async function parsedBody(actor: TasksActor, body: Record<string, unknown>, loca
     dueType,
     recurrence,
     departmentId,
+    departmentIds,
     assigneeId,
     weekdays,
     startAt: dueType === "RECURRING" ? parseIsoDate(String(body.startIso ?? "")) : null,
@@ -277,7 +303,7 @@ export async function createChecklist(actor: TasksActor, form: FormData, locale:
   const body = checklistBody(form);
   const parsed = await parsedBody(actor, body, locale);
   if ("error" in parsed) return parsed;
-  const { itemLocales, ...data } = parsed;
+  const { itemLocales, departmentIds, ...data } = parsed;
   const files = await collectAttachments(form, actor.hotel_tenant_id);
   const { today, timeZone } = await hotelToday(actor);
   const row = await prisma.$transaction(async (tx) => {
@@ -287,6 +313,7 @@ export async function createChecklist(actor: TasksActor, form: FormData, locale:
         createdById: actor.id,
         origin: "ORIGINAL",
         ...data,
+        departments: { create: departmentIds.map((departmentId) => ({ departmentId })) },
         items: {
           create: itemLocales.map((item, index) => ({
             sortOrder: index,
@@ -332,7 +359,7 @@ export async function updateChecklist(actor: TasksActor, id: string, form: FormD
   const body = checklistBody(form);
   const parsed = await parsedBody(actor, body, locale);
   if ("error" in parsed) return parsed;
-  const { itemLocales, ...data } = parsed;
+  const { itemLocales, departmentIds, ...data } = parsed;
   const files = await collectAttachments(form, actor.hotel_tenant_id, existing);
   const { today, timeZone } = await hotelToday(actor);
   const row = await prisma.$transaction(async (tx) => {
@@ -341,6 +368,10 @@ export async function updateChecklist(actor: TasksActor, id: string, form: FormD
       where: { id },
       data: {
         ...data,
+        departments: {
+          deleteMany: {},
+          create: departmentIds.map((departmentId) => ({ departmentId })),
+        },
         items: {
           create: itemLocales.map((item, index) => ({
             sortOrder: index,

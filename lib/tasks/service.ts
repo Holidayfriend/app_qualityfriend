@@ -17,6 +17,12 @@ const include = {
   assignee: { select: { id: true, firstName: true, lastName: true } },
   completedBy: { select: { firstName: true, lastName: true } },
   department: { select: { id: true, nameEn: true, nameDe: true, nameIt: true } },
+  departments: {
+    select: {
+      departmentId: true,
+      department: { select: { nameEn: true, nameDe: true, nameIt: true } },
+    },
+  },
 };
 
 type Row = Prisma.HotelTaskGetPayload<{ include: typeof include }>;
@@ -53,11 +59,16 @@ function titlesOf(row: Row) {
 }
 
 export function toPublicTask(row: Row, locale: string, timeZone?: string | null) {
+  const departmentIds = row.departments.length
+    ? row.departments.map((item) => item.departmentId)
+    : row.departmentId ? [row.departmentId] : [];
   const assignee = row.assignType === "PERSON"
     ? nameOf(row.assignee)
-    : row.department
-      ? pickLocalized(row.department.nameEn, row.department.nameDe, row.department.nameIt, locale)
-      : "";
+    : row.departments.length
+      ? row.departments.map((item) => pickLocalized(item.department.nameEn, item.department.nameDe, item.department.nameIt, locale)).join(", ")
+      : row.department
+        ? pickLocalized(row.department.nameEn, row.department.nameDe, row.department.nameIt, locale)
+        : "";
   return {
     id: row.id,
     title: pickLocalized(row.title, row.titleDe, row.titleIt, locale),
@@ -66,7 +77,8 @@ export function toPublicTask(row: Row, locale: string, timeZone?: string | null)
     assignType: row.assignType === "PERSON" ? "person" : "dept",
     assignee,
     assigneeId: row.assigneeId || "",
-    departmentId: row.departmentId || "",
+    departmentId: departmentIds[0] || "",
+    departmentIds,
     due: dateOf(row.dueAt, locale, timeZone),
     dueIso: isoDate(row.dueAt),
     origin: row.origin || "",
@@ -76,13 +88,15 @@ export function toPublicTask(row: Row, locale: string, timeZone?: string | null)
   };
 }
 
-async function validDepartmentId(hotelTenantId: string, id: string) {
-  if (!isUuid(id)) return null;
-  const row = await prisma.department.findFirst({
-    where: { hotelTenantId, isDeleted: false, isActive: true, id },
+async function validDepartmentIds(hotelTenantId: string, ids: string[]) {
+  const requested = [...new Set(ids.filter(isUuid))];
+  if (!requested.length) return [] as string[];
+  const rows = await prisma.department.findMany({
+    where: { hotelTenantId, isDeleted: false, isActive: true, id: { in: requested } },
     select: { id: true },
   });
-  return row?.id ?? null;
+  const valid = new Set(rows.map((row) => row.id));
+  return requested.filter((id) => valid.has(id));
 }
 
 async function validUserId(hotelTenantId: string, id: string) {
@@ -97,14 +111,19 @@ async function validUserId(hotelTenantId: string, id: string) {
 async function recipientIds(tx: Prisma.TransactionClient, actor: TasksActor, row: {
   assignType: HotelTaskAssignType;
   departmentId: string | null;
+  departments?: { departmentId: string }[];
   assigneeId: string | null;
 }) {
   const ids = new Set<string>();
   if (row.assignType === "PERSON" && row.assigneeId) {
     ids.add(row.assigneeId);
-  } else if (row.assignType === "DEPT" && row.departmentId) {
+  } else if (row.assignType === "DEPT") {
+    const departmentIds = row.departments?.length
+      ? row.departments.map((item) => item.departmentId)
+      : row.departmentId ? [row.departmentId] : [];
+    if (!departmentIds.length) return [];
     const users = await tx.user.findMany({
-      where: { hotelTenantId: actor.hotel_tenant_id, isActive: true, isDeleted: false, ...usersInDepartments([row.departmentId]) },
+      where: { hotelTenantId: actor.hotel_tenant_id, isActive: true, isDeleted: false, ...usersInDepartments(departmentIds) },
       select: { id: true },
     });
     for (const user of users) ids.add(user.id);
@@ -185,7 +204,13 @@ export function visibleTaskWhere(actor: { id: string; hotel_tenant_id: string; d
     hotelTenantId: actor.hotel_tenant_id,
     OR: [
       { assigneeId: actor.id },
-      ...(departmentIdsOf(actor).length ? [{ assignType: "DEPT" as const, departmentId: { in: departmentIdsOf(actor) } }] : []),
+      ...(departmentIdsOf(actor).length ? [{
+        assignType: "DEPT" as const,
+        OR: [
+          { departments: { some: { departmentId: { in: departmentIdsOf(actor) } } } },
+          { departmentId: { in: departmentIdsOf(actor) } },
+        ],
+      }] : []),
     ],
   };
 }
@@ -217,14 +242,19 @@ async function parsedBody(actor: TasksActor, body: Record<string, unknown>, loca
   const title = String(body.title ?? "").trim();
   if (!title) return { error: "INVALID" as const };
   const assignType: HotelTaskAssignType = String(body.assignType) === "person" ? "PERSON" : "DEPT";
-  const departmentId = assignType === "DEPT" ? await validDepartmentId(actor.hotel_tenant_id, String(body.departmentId ?? "")) : null;
+  const requestedDepartmentIds = Array.isArray(body.departmentIds)
+    ? body.departmentIds.map((id) => String(id))
+    : [String(body.departmentId ?? "")];
+  const departmentIds = assignType === "DEPT" ? await validDepartmentIds(actor.hotel_tenant_id, requestedDepartmentIds) : [];
+  const departmentId = departmentIds[0] ?? null;
   const assigneeId = assignType === "PERSON" ? await validUserId(actor.hotel_tenant_id, String(body.assigneeId ?? "")) : null;
-  if (assignType === "DEPT" && !departmentId) return { error: "INVALID" as const };
+  if (assignType === "DEPT" && !departmentIds.length) return { error: "INVALID" as const };
   if (assignType === "PERSON" && !assigneeId) return { error: "INVALID" as const };
   const locales = await translateTaskFields(actor.hotel_tenant_id, locale, { title, note: String(body.note ?? "") });
   return {
     assignType,
     departmentId,
+    departmentIds,
     assigneeId,
     dueAt: parseDate(body.dueIso),
     originalLocale: locale === "de" || locale === "it" ? locale : "en",
@@ -241,9 +271,15 @@ export async function createTask(actor: TasksActor, body: Record<string, unknown
   const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   const parsed = await parsedBody(actor, body, locale);
   if ("error" in parsed) return parsed;
+  const { departmentIds, ...data } = parsed;
   const row = await prisma.$transaction(async (tx) => {
     const created = await tx.hotelTask.create({
-      data: { hotelTenantId: actor.hotel_tenant_id, createdById: actor.id, ...parsed },
+      data: {
+        hotelTenantId: actor.hotel_tenant_id,
+        createdById: actor.id,
+        ...data,
+        departments: { create: departmentIds.map((departmentId) => ({ departmentId })) },
+      },
       include,
     });
     await recordAuditLog(tx, { module: "tasks",
@@ -273,8 +309,19 @@ export async function updateTask(actor: TasksActor, id: string, body: Record<str
   if (!existing) return { error: "NOT_FOUND" as const };
   const parsed = await parsedBody(actor, body, locale);
   if ("error" in parsed) return parsed;
+  const { departmentIds, ...data } = parsed;
   const row = await prisma.$transaction(async (tx) => {
-    const updated = await tx.hotelTask.update({ where: { id }, data: parsed, include });
+    const updated = await tx.hotelTask.update({
+      where: { id },
+      data: {
+        ...data,
+        departments: {
+          deleteMany: {},
+          create: departmentIds.map((departmentId) => ({ departmentId })),
+        },
+      },
+      include,
+    });
     await recordAuditLog(tx, { module: "tasks",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,

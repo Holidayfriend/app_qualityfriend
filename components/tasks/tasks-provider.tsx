@@ -15,7 +15,7 @@ export type { HotelDept, HotelUser, PublicChecklist, PublicChecklistItem, Public
 type TaskInput = {
   title: string;
   assignType: "dept" | "person";
-  departmentId: string;
+  departmentIds: string[];
   assigneeId: string;
   dueIso: string;
   note: string;
@@ -26,7 +26,7 @@ type ChecklistInput = {
   desc: string;
   items: string[];
   assignType: "all" | "dept" | "person";
-  departmentId: string;
+  departmentIds: string[];
   assigneeId: string;
   dueType: "once" | "recurring";
   recurrence: PublicChecklist["recurrence"];
@@ -154,7 +154,8 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     form.set("desc", input.desc);
     form.set("items", JSON.stringify(input.items));
     form.set("assignType", input.assignType);
-    form.set("departmentId", input.departmentId);
+    form.set("departmentIds", JSON.stringify(input.departmentIds));
+    form.set("departmentId", input.departmentIds[0] ?? "");
     form.set("assigneeId", input.assigneeId);
     form.set("dueType", input.dueType);
     form.set("recurrence", input.recurrence);

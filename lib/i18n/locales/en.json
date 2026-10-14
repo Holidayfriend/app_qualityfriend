@@ -1433,6 +1433,7 @@
     "titlePlaceholder": "e.g. Check beverage delivery",
     "titleRequired": "Please enter a title.",
     "assignDept": "Department",
+    "addDept": "+ Add department...",
     "assignPerson": "Person",
     "due": "Due on",
     "note": "Note",

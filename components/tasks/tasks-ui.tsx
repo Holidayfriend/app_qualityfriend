@@ -21,6 +21,10 @@ function useT() {
   return getTasksMessages(locale);
 }
 
+function deptName(id: string, departments: { id: string; name: string }[]) {
+  return departments.find((item) => item.id === id)?.name ?? id;
+}
+
 function fill(template: string, vars: Record<string, string>) {
   return Object.entries(vars).reduce((text, [key, value]) => text.replaceAll(`{${key}}`, value), template);
 }
@@ -234,7 +238,7 @@ export function TaskFormPage({ id }: { id?: string }) {
   const existing = id ? tasks.find((item) => item.id === id) : undefined;
   const [title, setTitle] = useState("");
   const [assignType, setAssignType] = useState<"dept" | "person">("dept");
-  const [departmentId, setDepartmentId] = useState("");
+  const [departmentIds, setDepartmentIds] = useState<string[]>([]);
   const [assigneeId, setAssigneeId] = useState("");
   const [dueIso, setDueIso] = useState("");
   const [note, setNote] = useState("");
@@ -244,13 +248,13 @@ export function TaskFormPage({ id }: { id?: string }) {
     if (existing) {
       setTitle(existing.title);
       setAssignType(existing.assignType);
-      setDepartmentId(existing.departmentId);
+      setDepartmentIds(existing.departmentIds?.length ? existing.departmentIds : existing.departmentId ? [existing.departmentId] : []);
       setAssigneeId(existing.assigneeId);
       setDueIso(existing.dueIso);
       setNote(existing.note);
       return;
     }
-    setDepartmentId((prev) => prev || departments[0]?.id || "");
+    setDepartmentIds((prev) => prev.length ? prev : departments[0] ? [departments[0].id] : []);
     setAssigneeId((prev) => prev || users[0]?.id || "");
   }, [departments, existing, users]);
 
@@ -258,7 +262,7 @@ export function TaskFormPage({ id }: { id?: string }) {
     event.preventDefault();
     if (!title.trim()) { toast({ message: t.titleRequired, tone: "error" }); return; }
     setBusy(true);
-    const nextId = await saveTask(id, { title, assignType, departmentId, assigneeId, dueIso, note });
+    const nextId = await saveTask(id, { title, assignType, departmentIds, assigneeId, dueIso, note });
     setBusy(false);
     if (!nextId) { toast({ message: t.saveFailed, tone: "error" }); return; }
     toast({ message: id ? t.savedEdit : t.saved, tone: "success" });
@@ -277,9 +281,10 @@ export function TaskFormPage({ id }: { id?: string }) {
           <label style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}><input type="radio" checked={assignType === "dept"} onChange={() => setAssignType("dept")} /> {t.assignDept}</label>
           <label style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}><input type="radio" checked={assignType === "person"} onChange={() => setAssignType("person")} /> {t.assignPerson}</label>
         </div>
-        {assignType === "dept"
-          ? <select className="field-select" value={departmentId} onChange={(event) => setDepartmentId(event.target.value)}>{departments.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
-          : <select className="field-select" value={assigneeId} onChange={(event) => setAssigneeId(event.target.value)}>{users.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>}
+        {assignType === "dept" ? <div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>{departmentIds.map((departmentId) => <span key={departmentId} className="chip chip-n">{deptName(departmentId, departments)} <span style={{ cursor: "pointer", marginLeft: 4 }} onClick={() => setDepartmentIds(departmentIds.filter((item) => item !== departmentId))}>✕</span></span>)}</div>
+          <select className="field-select" value="" onChange={(event) => { const value = event.target.value; if (value && !departmentIds.includes(value)) setDepartmentIds([...departmentIds, value]); }}><option value="">{t.addDept}</option>{departments.filter((department) => !departmentIds.includes(department.id)).map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}</select>
+        </div> : <select className="field-select" value={assigneeId} onChange={(event) => setAssigneeId(event.target.value)}>{users.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>}
         <div><label className="field-lbl">{t.due}</label><input className="field-input" type="date" value={dueIso} onChange={(event) => setDueIso(event.target.value)} /></div>
         <div><label className="field-lbl">{t.note}</label><input className="field-input" value={note} onChange={(event) => setNote(event.target.value)} placeholder={t.noteOptional} /></div>
         <button className="btn btn-primary" type="submit" disabled={busy}>{t.save}</button>
@@ -396,7 +401,7 @@ export function ChecklistFormPage({ id }: { id?: string }) {
   const [items, setItems] = useState<string[]>([]);
   const [itemInput, setItemInput] = useState("");
   const [assignType, setAssignType] = useState<"all" | "dept" | "person">("all");
-  const [departmentId, setDepartmentId] = useState("");
+  const [departmentIds, setDepartmentIds] = useState<string[]>([]);
   const [assigneeId, setAssigneeId] = useState("");
   const [dueType, setDueType] = useState<"once" | "recurring">("once");
   const [recurrence, setRecurrence] = useState("weekly");
@@ -417,7 +422,7 @@ export function ChecklistFormPage({ id }: { id?: string }) {
     setDesc(richTextHtml(selected.desc));
     setItems(selected.items.map((row) => row.text));
     setAssignType(selected.assignType);
-    setDepartmentId(selected.departmentId || departments[0]?.id || "");
+    setDepartmentIds(selected.departmentIds?.length ? selected.departmentIds : selected.departmentId ? [selected.departmentId] : departments[0] ? [departments[0].id] : []);
     setAssigneeId(selected.assigneeId || users[0]?.id || "");
     setDueType(selected.dueType);
     setRecurrence(selected.recurrence === "once" ? "weekly" : selected.recurrence);
@@ -436,7 +441,7 @@ export function ChecklistFormPage({ id }: { id?: string }) {
       if (templateId) setPicked(templateId);
       return;
     }
-    setDepartmentId((prev) => prev || departments[0]?.id || "");
+    setDepartmentIds((prev) => prev.length ? prev : departments[0] ? [departments[0].id] : []);
     setAssigneeId((prev) => prev || users[0]?.id || "");
   }, [departments, source, templateId, users]);
 
@@ -459,7 +464,7 @@ export function ChecklistFormPage({ id }: { id?: string }) {
     setBusy(true);
     const nextDesc = sanitizeJobHtml(descRef.current?.getHtml() ?? desc);
     const nextId = await saveChecklist(id && !asTemplate ? id : undefined, {
-      title, desc: nextDesc, items, assignType, departmentId, assigneeId, dueType, recurrence: recurrence as PublicChecklist["recurrence"], weekdays, dueIso, startIso, endIso, noEnd, status, kind,
+      title, desc: nextDesc, items, assignType, departmentIds, assigneeId, dueType, recurrence: recurrence as PublicChecklist["recurrence"], weekdays, dueIso, startIso, endIso, noEnd, status, kind,
       keepAttachmentIds: kept.map((file) => file.id).filter((id): id is string => Boolean(id)), files: uploads,
     });
     setBusy(false);
@@ -522,7 +527,10 @@ export function ChecklistFormPage({ id }: { id?: string }) {
               <label style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}><input type="radio" checked={assignType === "dept"} onChange={() => setAssignType("dept")} /> {t.assignDept}</label>
               <label style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}><input type="radio" checked={assignType === "person"} onChange={() => setAssignType("person")} /> {t.assignPerson}</label>
             </div>
-            {assignType === "dept" ? <select className="field-select" style={{ marginBottom: 0 }} value={departmentId} onChange={(event) => setDepartmentId(event.target.value)}>{departments.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select> : null}
+            {assignType === "dept" ? <div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>{departmentIds.map((departmentId) => <span key={departmentId} className="chip chip-n">{deptName(departmentId, departments)} <span style={{ cursor: "pointer", marginLeft: 4 }} onClick={() => setDepartmentIds(departmentIds.filter((item) => item !== departmentId))}>✕</span></span>)}</div>
+              <select className="field-select" style={{ marginBottom: 0 }} value="" onChange={(event) => { const value = event.target.value; if (value && !departmentIds.includes(value)) setDepartmentIds([...departmentIds, value]); }}><option value="">{t.addDept}</option>{departments.filter((department) => !departmentIds.includes(department.id)).map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}</select>
+            </div> : null}
             {assignType === "person" ? <select className="field-select" style={{ marginBottom: 0 }} value={assigneeId} onChange={(event) => setAssigneeId(event.target.value)}>{users.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select> : null}
           </div>
         </div>

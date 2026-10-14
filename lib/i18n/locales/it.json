@@ -1431,6 +1431,7 @@
     "titlePlaceholder": "es. Controllare consegna bevande",
     "titleRequired": "Inserisci un titolo.",
     "assignDept": "Reparto",
+    "addDept": "+ Aggiungi reparto...",
     "assignPerson": "Persona",
     "due": "Scadenza",
     "note": "Nota",

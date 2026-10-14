@@ -1431,6 +1431,7 @@
     "titlePlaceholder": "z. B. Getränkelieferung kontrollieren",
     "titleRequired": "Bitte einen Titel eingeben.",
     "assignDept": "Abteilung",
+    "addDept": "+ Abteilung hinzufügen...",
     "assignPerson": "Person",
     "due": "Fällig am",
     "note": "Notiz",

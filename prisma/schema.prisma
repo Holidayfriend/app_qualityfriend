@@ -971,7 +971,9 @@ model Department {
   repairShares              RepairShareDepartment[]
   handoverShares            HandoverShareDepartment[]
   hotelTasks                HotelTask[]
+  hotelTaskAssignments      HotelTaskDepartment[]
   hotelChecklists           HotelChecklist[]
+  hotelChecklistAssignments HotelChecklistDepartment[]
   manuals                   ManualDocument[]
 
   @@unique([hotelTenantId, nameEn])
@@ -1724,6 +1726,7 @@ model HotelTask {
   assignee       User?               @relation("HotelTaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   completedBy    User?               @relation("HotelTaskCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
   department     Department?         @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  departments    HotelTaskDepartment[]
 
   @@index([hotelTenantId, status, dueAt])
   @@index([createdById])
@@ -1731,6 +1734,17 @@ model HotelTask {
   @@index([completedById])
   @@index([departmentId])
   @@map("hotel_tasks")
+}
+
+model HotelTaskDepartment {
+  taskId       String     @map("task_id") @db.Uuid
+  departmentId String     @map("department_id") @db.Uuid
+  task         HotelTask  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, departmentId])
+  @@index([departmentId])
+  @@map("hotel_task_departments")
 }
 
 enum HotelChecklistKind {
@@ -1808,6 +1822,7 @@ model HotelChecklist {
   assignee        User?                     @relation("HotelChecklistAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   completedBy     User?                     @relation("HotelChecklistCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
   department      Department?               @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  departments     HotelChecklistDepartment[]
   original        HotelChecklist?           @relation("ChecklistRuns", fields: [originalId], references: [id], onDelete: Cascade)
   runs            HotelChecklist[]          @relation("ChecklistRuns")
   items           HotelChecklistItem[]
@@ -1822,6 +1837,17 @@ model HotelChecklist {
   @@index([completedById])
   @@index([departmentId])
   @@map("hotel_checklists")
+}
+
+model HotelChecklistDepartment {
+  checklistId  String         @map("checklist_id") @db.Uuid
+  departmentId String         @map("department_id") @db.Uuid
+  checklist    HotelChecklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  department   Department     @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@id([checklistId, departmentId])
+  @@index([departmentId])
+  @@map("hotel_checklist_departments")
 }
 
 model HotelChecklistAttachment {

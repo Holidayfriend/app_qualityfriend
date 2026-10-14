@@ -9,6 +9,7 @@ export type PublicTask = {
   assignee: string;
   assigneeId: string;
   departmentId: string;
+  departmentIds?: string[];
   due: string;
   dueIso: string;
   origin: string;
@@ -30,6 +31,7 @@ export type PublicChecklist = {
   assignee: string;
   assigneeId: string;
   departmentId: string;
+  departmentIds?: string[];
   dueType: "once" | "recurring";
   recurrence: "once" | "daily" | "weekly" | "monthly" | "quarterly" | "yearly";
   weekdays: string[];
