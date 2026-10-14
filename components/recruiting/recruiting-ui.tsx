@@ -21,6 +21,8 @@ import { isValidEmployeeTaxId } from "../../lib/recruiting/employee-fields";
 import { jobSaveErrorKey } from "../../lib/recruiting/job-save-error";
 import type { PublicJob } from "../../lib/recruiting/job-fields";
 import { classicJobFieldRequired, hasMissingClassicJobFields } from "../../lib/recruiting/job-validation";
+import { internationalPhoneNumber, isValidInternationalPhoneNumber, phoneNumberParts } from "../../lib/recruiting/phone-number";
+import { CountryPhoneInput } from "./country-phone-input";
 
 export type RecruitingView =
   | "hub" | "jobs" | "job-create" | "job-edit" | "job-quiz" | "campaigns" | "applications" | "application-create" | "application-detail"
@@ -505,6 +507,9 @@ function JobCreate({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }
   const [autoMessage, setAutoMessage] = useState(job?.autoMessage ?? "");
   const [location, setLocation] = useState(job?.location ?? "");
   const [cvRequired, setCvRequired] = useState(job?.cvRequired ?? false);
+  const [whatsappEnabled, setWhatsappEnabled] = useState(job?.whatsappEnabled ?? false);
+  const [whatsappCountry, setWhatsappCountry] = useState(() => phoneNumberParts(job?.whatsappNumber).country);
+  const [whatsappLocalNumber, setWhatsappLocalNumber] = useState(() => phoneNumberParts(job?.whatsappNumber).nationalNumber);
   const [langs, setLangs] = useState<Record<Locale, boolean>>({ de: true, en: job?.langs.includes("en") ?? false, it: job?.langs.includes("it") ?? false });
   const [previewLang, setPreviewLang] = useState<Locale>(locale);
   const [generated, setGenerated] = useState(Boolean(job));
@@ -515,6 +520,8 @@ function JobCreate({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }
   const [validationStatus, setValidationStatus] = useState<JobStatus | null>(null);
   const [aiBusy, setAiBusy] = useState(false);
   const typeLabel = type === "full" ? t.typeFull : type === "part" ? t.typePart : type === "apprentice" ? t.typeApprentice : t.typeFullOrPart;
+  const whatsappNumber = internationalPhoneNumber(whatsappCountry, whatsappLocalNumber);
+  const whatsappInvalid = whatsappEnabled && !isValidInternationalPhoneNumber(whatsappNumber);
   const missing = {
     title: !title.trim(),
     dept: !dept || invalidDepartment,
@@ -588,13 +595,18 @@ function JobCreate({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }
       revealInvalidField();
       return;
     }
+    if (whatsappInvalid) {
+      setError(t.whatsappNumberInvalid);
+      revealInvalidField();
+      return;
+    }
     setBusy(true);
     try {
       const langsOn = (["de", "en", "it"] as Locale[]).filter((lang) => langs[lang]);
       const payload = {
         format: job?.format ?? "classic", status, title: title.trim(), departmentId: dept, workType: type,
         startFrom: start.trim() || t.immediately, notes, description: nextDescription,
-        autoMessage: nextAutoMessage, location: location.trim(), cvRequired, languages: langsOn,
+        autoMessage: nextAutoMessage, location: location.trim(), cvRequired, whatsappEnabled, whatsappNumber, languages: langsOn,
         listingImage: image, logoImage: logo, locale,
       };
       const res = await fetch(job ? `/api/recruiting/jobs/${job.id}` : "/api/recruiting/jobs", {
@@ -669,6 +681,26 @@ function JobCreate({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }
               <input type="checkbox" checked={cvRequired} onChange={(event) => setCvRequired(event.target.checked)} />
               {t.cvRequired}
             </label>
+            <div className="whatsapp-job-setting">
+              <label className="quiz-check">
+                <input type="checkbox" checked={whatsappEnabled} onChange={(event) => setWhatsappEnabled(event.target.checked)} />
+                {t.whatsappApplications}
+              </label>
+              <p>{t.whatsappApplicationsHint}</p>
+              {whatsappEnabled ? <>
+                <CountryPhoneInput
+                  country={whatsappCountry}
+                  number={whatsappLocalNumber}
+                  locale={locale}
+                  countryLabel={t.whatsappCountry}
+                  numberLabel={t.whatsappNumber}
+                  invalid={Boolean(validationStatus) && whatsappInvalid}
+                  onCountryChange={setWhatsappCountry}
+                  onNumberChange={setWhatsappLocalNumber}
+                />
+                {Boolean(validationStatus) && whatsappInvalid ? <span className="job-apply-error" role="alert">{t.whatsappNumberInvalid}</span> : null}
+              </> : null}
+            </div>
             <div>
               <span className="field-lbl">{t.listingLanguages}</span>
               <div style={{ display: "flex", gap: 14 }}>
@@ -797,6 +829,7 @@ function JobQuiz({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }) 
           format: "quiz", status, title: title.trim(), departmentId: dept, workType: job?.type || "fullOrPart",
           startFrom: startFrom.trim(), notes: benefits.trim(), description: job?.description || "",
           autoMessage: job?.autoMessage || "", location: job?.location || "", cvRequired: job?.cvRequired === true,
+          whatsappEnabled: job?.whatsappEnabled === true, whatsappNumber: job?.whatsappNumber || "",
           languages: job?.langs?.length ? job.langs : [locale], listingImage: job?.listingImage || "", logoImage: job?.logoImage || "",
           quiz: { footer, pagesByLang, factsByLang: { ...(job?.quiz?.factsByLang ?? {}), [locale]: { startFrom, workHours, salary, benefits, contactPerson } } }, locale,
         }),

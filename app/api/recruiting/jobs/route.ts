@@ -60,6 +60,8 @@ export async function POST(request: Request) {
         locationDe: input.location,
         locationIt: input.location,
         cvRequired: input.cvRequired,
+        whatsappEnabled: input.whatsappEnabled,
+        whatsappNumber: input.whatsappNumber,
         languages: input.languages,
         listingImage: input.listingImage,
         logoImage: input.logoImage,

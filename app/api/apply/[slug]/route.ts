@@ -93,7 +93,7 @@ export async function GET(request: Request, context: Context) {
   }
   const apps = await prisma.recruitingApplication.count({ where: { jobId: current.id, viaPublicPage: true } });
   const hotel = job.hotelTenant;
-  return Response.json({ job: { ...toPublicJob(current, apps, locale, true, job.department), hotelName: hotelLabel(hotel, locale), policies: { dataProtection: { en: hotel?.dataProtectionEn ?? "", de: hotel?.dataProtectionDe ?? "", it: hotel?.dataProtectionIt ?? "" }, privacyPolicy: { en: hotel?.privacyPolicyEn ?? "", de: hotel?.privacyPolicyDe ?? "", it: hotel?.privacyPolicyIt ?? "" } } } }, { headers: { "Cache-Control": "no-store" } });
+  return Response.json({ job: { ...toPublicJob(current, apps, locale, true, job.department), whatsappNumber: current.whatsappEnabled ? current.whatsappNumber : "", hotelName: hotelLabel(hotel, locale), policies: { dataProtection: { en: hotel?.dataProtectionEn ?? "", de: hotel?.dataProtectionDe ?? "", it: hotel?.dataProtectionIt ?? "" }, privacyPolicy: { en: hotel?.privacyPolicyEn ?? "", de: hotel?.privacyPolicyDe ?? "", it: hotel?.privacyPolicyIt ?? "" } } } }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST(request: Request, context: Context) {

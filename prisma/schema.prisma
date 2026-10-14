@@ -1473,6 +1473,8 @@ model RecruitingJob {
   locationDe    String              @default("") @map("location_de") @db.VarChar(180)
   locationIt    String              @default("") @map("location_it") @db.VarChar(180)
   cvRequired    Boolean             @default(false) @map("cv_required")
+  whatsappEnabled Boolean           @default(false) @map("whatsapp_enabled")
+  whatsappNumber  String            @default("") @map("whatsapp_number") @db.VarChar(32)
   languages     Json
   listingImage  String              @default("") @map("listing_image") @db.VarChar(255)
   logoImage     String              @default("") @map("logo_image") @db.VarChar(255)

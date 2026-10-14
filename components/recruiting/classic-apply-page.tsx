@@ -7,6 +7,7 @@ import { fill, type RecruitingMessages } from "../../lib/i18n/recruiting-message
 import type { Locale } from "../../lib/i18n/dictionaries";
 import { LanguageSwitcher } from "../i18n/language-switcher";
 import { htmlToPlain, sanitizeJobHtml } from "./rich-text-editor";
+import { WhatsAppApplyButton } from "./whatsapp-apply-button";
 
 type T = RecruitingMessages;
 
@@ -20,6 +21,8 @@ export type ClassicApplyJob = {
   autoMessage: string;
   location: string;
   cvRequired: boolean;
+  whatsappEnabled: boolean;
+  whatsappNumber: string;
   image: string;
   logo: string;
 };
@@ -87,6 +90,7 @@ export function ClassicApplyPage({ t, job, slug, locale, langs, onLocaleChange, 
 
   return (
     <div className="job-apply">
+      <WhatsAppApplyButton enabled={job.whatsappEnabled} number={job.whatsappNumber} label={t.applyViaWhatsapp} />
       <header className="job-apply-bar">
         {job.logo ? <img className="job-apply-logo" src={job.logo} alt="" /> : <span className="job-apply-logo-empty">QF</span>}
         {langs && langs.length > 1 ? <LanguageSwitcher locales={langs} locale={locale as Locale | undefined} onLocaleChange={onLocaleChange} /> : null}

@@ -68,6 +68,8 @@ export async function PUT(request: Request, context: Context) {
         workType: input.workType,
         startFrom: input.startFrom,
         cvRequired: input.cvRequired,
+        whatsappEnabled: input.whatsappEnabled,
+        whatsappNumber: input.whatsappNumber,
         languages: input.languages,
         listingImage: input.listingImage,
         logoImage: input.logoImage,

@@ -24,6 +24,8 @@ type ApplyJob = {
   autoMessage: string;
   location: string;
   cvRequired: boolean;
+  whatsappEnabled: boolean;
+  whatsappNumber: string;
   listingImage?: string;
   logoImage?: string;
   langs: Locale[];
@@ -131,7 +133,7 @@ export function ApplyJobScreen({ slug }: { slug: string }) {
           setJob({
             id: seed.id, slug: seed.id, format: "classic", title: seed.title, dept: seed.dept, type: seed.type,
             start: seed.start, notes: seed.notes, description: seed.description, autoMessage: seed.autoMessage,
-            location: seed.location, cvRequired: seed.cvRequired, langs, quiz: null,
+            location: seed.location, cvRequired: seed.cvRequired, whatsappEnabled: false, whatsappNumber: "", langs, quiz: null,
           });
           setMissing(false);
           return;
@@ -194,6 +196,8 @@ export function ApplyJobScreen({ slug }: { slug: string }) {
         pages={job.quiz?.pages ?? []}
         footer={job.quiz?.footer ?? { impressumUrl: "", privacyUrl: "" }}
         cvRequired={job.cvRequired}
+        whatsappEnabled={job.whatsappEnabled}
+        whatsappNumber={job.whatsappNumber}
         langs={job.langs}
         onLocaleChange={setLocale}
         campaignCode={campaignCode}
@@ -211,6 +215,7 @@ export function ApplyJobScreen({ slug }: { slug: string }) {
       job={{
         title: job.title, dept: job.dept, type: job.type, start: job.start, notes: job.notes,
         description: job.description, autoMessage: job.autoMessage, location: job.location, cvRequired: job.cvRequired,
+        whatsappEnabled: job.whatsappEnabled, whatsappNumber: job.whatsappNumber,
         image: job.listingImage || "/recruiting/funnel1.png",
         logo: job.logoImage || "/recruiting/logo-icon.png",
       }}

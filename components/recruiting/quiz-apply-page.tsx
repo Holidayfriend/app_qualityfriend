@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from
 import type { RecruitingMessages } from "../../lib/i18n/recruiting-messages";
 import type { Locale } from "../../lib/i18n/dictionaries";
 import { LanguageSwitcher } from "../i18n/language-switcher";
+import { WhatsAppApplyButton } from "./whatsapp-apply-button";
 import {
   DEFAULT_FOOTER_URL, QUIZ_IMAGE_PLACEHOLDER, QUIZ_LOGO, QUIZ_VOICE_AVATAR, QUIZ_VOICE_SAMPLE,
   type QuizChoice, type QuizElement, type QuizFooter, type QuizPage,
@@ -54,7 +55,7 @@ function ctaStyle(element: QuizElement): CSSProperties {
 }
 
 export function QuizApplyPage({
-  t, slug, locale, pages, footer, cvRequired = false, langs, onLocaleChange, campaignCode = "",
+  t, slug, locale, pages, footer, cvRequired = false, whatsappEnabled = false, whatsappNumber = "", langs, onLocaleChange, campaignCode = "",
 }: {
   t: T;
   slug: string;
@@ -62,6 +63,8 @@ export function QuizApplyPage({
   pages: QuizPage[];
   footer: QuizFooter;
   cvRequired?: boolean;
+  whatsappEnabled?: boolean;
+  whatsappNumber?: string;
   langs?: Locale[];
   onLocaleChange?: (locale: Locale) => void;
   campaignCode?: string;
@@ -288,6 +291,7 @@ export function QuizApplyPage({
 
   return (
     <div className="job-apply job-apply-quiz qf-dashboard">
+      <WhatsAppApplyButton enabled={whatsappEnabled} number={whatsappNumber} label={t.applyViaWhatsapp} />
       <header className="job-apply-bar">
         <span />
         {langs && langs.length > 1 ? <LanguageSwitcher locales={langs} locale={locale as Locale} onLocaleChange={onLocaleChange} /> : null}

@@ -1,5 +1,6 @@
 import { isValidApplicationEmail } from "./email-validation";
 import { Prisma, type RecruitingJob, type RecruitingJobFormat, type RecruitingJobStatus } from "../../app/generated/prisma/client";
+import { normalizeInternationalPhoneNumber } from "./phone-number";
 
 export const locales = ["de", "en", "it"] as const;
 export type JobLocale = (typeof locales)[number];
@@ -27,6 +28,8 @@ export type PublicJob = {
   autoMessage: string;
   location: string;
   cvRequired: boolean;
+  whatsappEnabled: boolean;
+  whatsappNumber: string;
   status: StatusKey;
   langs: JobLocale[];
   clicks: number;
@@ -167,6 +170,10 @@ export function parseJobInput(body: unknown) {
   if (!format || !status || !title || !departmentId || !workType) return null;
   const quiz = format === "quiz" ? parseQuiz(data.quiz) : undefined;
   if (format === "quiz" && !quiz) return null;
+  const whatsappEnabled = data.whatsappEnabled === true;
+  const rawWhatsappNumber = text(data.whatsappNumber, 40);
+  const whatsappNumber = normalizeInternationalPhoneNumber(rawWhatsappNumber);
+  if (whatsappEnabled && !whatsappNumber) return null;
   return {
     format: format.toUpperCase() as RecruitingJobFormat,
     status: status.toUpperCase() as RecruitingJobStatus,
@@ -179,6 +186,8 @@ export function parseJobInput(body: unknown) {
     autoMessage: sanitizeJobHtml(typeof data.autoMessage === "string" ? data.autoMessage : ""),
     location: text(data.location, 180),
     cvRequired: data.cvRequired === true,
+    whatsappEnabled,
+    whatsappNumber,
     languages: asLocales(data.languages),
     listingImage: text(data.listingImage, 255),
     logoImage: text(data.logoImage, 255),
@@ -255,6 +264,8 @@ export function toPublicJob(job: RecruitingJob, apps = 0, locale?: string, inclu
     autoMessage: pickLocalized(job.autoMessage, job.autoMessageDe, job.autoMessageIt, locale),
     location: pickLocalized(job.location, job.locationDe, job.locationIt, locale),
     cvRequired: job.cvRequired,
+    whatsappEnabled: job.whatsappEnabled,
+    whatsappNumber: job.whatsappNumber,
     status: job.status.toLowerCase() as StatusKey,
     langs,
     clicks: job.clickCount,
@@ -282,6 +293,8 @@ export function jobAuditSnapshot(job: {
   workType?: string;
   location?: string;
   cvRequired?: boolean;
+  whatsappEnabled?: boolean;
+  whatsappNumber?: string;
   languages?: unknown;
   listingImage?: string;
   logoImage?: string;
@@ -299,6 +312,8 @@ export function jobAuditSnapshot(job: {
     workType: job.workType ?? "",
     location: job.location ?? "",
     cvRequired: job.cvRequired === true,
+    whatsappEnabled: job.whatsappEnabled === true,
+    whatsappNumber: job.whatsappNumber ?? "",
     languages: job.languages ?? [],
     listingImage: job.listingImage ?? "",
     logoImage: job.logoImage ?? "",
