@@ -655,10 +655,12 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 }
 
 .job-apply { min-height:100vh; background:#f7f6f3; color:#1c2233; font-family:var(--qf-font,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif) }
-.job-apply-bar { display:flex; align-items:center; justify-content:space-between; padding:12px 20px; background:#fff; border-bottom:1px solid #e8e6e1 }
-.job-apply-logo { width:32px; height:32px; object-fit:contain; display:block; flex-shrink:0 }
+.job-apply-bar { display:flex; align-items:center; justify-content:space-between; min-height:72px; padding:10px 24px; background:#fff; border-bottom:1px solid #e8e6e1 }
+.job-apply-brand { display:flex; min-width:0; align-items:center; gap:12px }
+.job-apply-logo { width:auto; max-width:112px; height:48px; object-fit:contain; display:block; flex-shrink:0 }
+.job-apply-hotel-name { overflow:hidden; color:#1c2233; font-size:18px; font-weight:750; line-height:1.2; text-overflow:ellipsis; white-space:nowrap }
 .job-apply-logo-empty { font-weight:800; font-size:14px }
-.job-apply-photo { display:block; width:100%; height:220px; object-fit:cover }
+.job-apply-photo { display:block; width:100%; height:clamp(280px,30vw,440px); object-fit:cover; object-position:center 20% }
 .job-apply-main { max-width:640px; margin:0 auto; padding:20px 16px 48px }
 .job-apply-box { background:#fff; border:1px solid #e8e6e1; border-radius:12px; padding:20px; margin-bottom:14px }
 .job-apply-box h1 { margin:0 0 8px; font-size:22px }
@@ -718,7 +720,7 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 .job-apply-quiz .quiz-funnel-footer:hover { border-color:transparent; background:transparent }
 .job-apply-quiz .quiz-cta,
 .job-apply-quiz .quiz-choice { pointer-events:auto }
-@media (max-width: 640px) { .job-apply-row { grid-template-columns:1fr } .job-apply-whatsapp { right:16px;top:auto;bottom:18px;transform:none;width:54px;height:54px } .job-apply-whatsapp:hover { transform:scale(1.06) } }
+@media (max-width: 640px) { .job-apply-bar { min-height:64px; padding:8px 16px } .job-apply-logo { max-width:80px; height:40px } .job-apply-hotel-name { font-size:16px } .job-apply-photo { height:clamp(240px,62vw,340px); object-position:center 18% } .job-apply-row { grid-template-columns:1fr } .job-apply-whatsapp { right:16px;top:auto;bottom:18px;transform:none;width:54px;height:54px } .job-apply-whatsapp:hover { transform:scale(1.06) } }
 
 @media print {
   body:has(.schedule-print-root) {

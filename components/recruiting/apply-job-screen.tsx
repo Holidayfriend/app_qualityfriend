@@ -218,6 +218,7 @@ export function ApplyJobScreen({ slug }: { slug: string }) {
         whatsappEnabled: job.whatsappEnabled, whatsappNumber: job.whatsappNumber,
         image: job.listingImage || "/recruiting/funnel1.png",
         logo: job.logoImage || "/recruiting/logo-icon.png",
+        hotelName: job.hotelName || "",
       }}
       policies={job.policies}
     />

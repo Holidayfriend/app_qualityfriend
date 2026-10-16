@@ -25,6 +25,7 @@ export type ClassicApplyJob = {
   whatsappNumber: string;
   image: string;
   logo: string;
+  hotelName: string;
 };
 
 export type PolicyPack = { en: string; de: string; it: string };
@@ -92,7 +93,10 @@ export function ClassicApplyPage({ t, job, slug, locale, langs, onLocaleChange, 
     <div className="job-apply">
       <WhatsAppApplyButton enabled={job.whatsappEnabled} number={job.whatsappNumber} label={t.applyViaWhatsapp} />
       <header className="job-apply-bar">
-        {job.logo ? <img className="job-apply-logo" src={job.logo} alt="" /> : <span className="job-apply-logo-empty">QF</span>}
+        <div className="job-apply-brand">
+          {job.logo ? <img className="job-apply-logo" src={job.logo} alt="" /> : <span className="job-apply-logo-empty">QF</span>}
+          {job.hotelName ? <span className="job-apply-hotel-name">{job.hotelName}</span> : null}
+        </div>
         {langs && langs.length > 1 ? <LanguageSwitcher locales={langs} locale={locale as Locale | undefined} onLocaleChange={onLocaleChange} /> : null}
       </header>
       <img className="job-apply-photo" src={job.image || "/recruiting/image-placeholder.png"} alt="" />
