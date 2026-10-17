@@ -56,7 +56,7 @@ export function RecruitingUI({ view, id = "" }: { view: RecruitingView; id?: str
     employees: t.employeesTitle, "employee-create": t.employeeCreateTitle, "employee-detail": t.employeeDetailTitle, settings: t.settingsTitle, emails: t.emailsTitle,
   };
   return <AppShell activeItem="recruiting" pageTitle={titles[view]}>
-    <main className={`qf-dashboard ${view === "job-quiz" || view === "job-edit" ? "qf-dashboard-sticky" : ""}`}>
+    <main className={`qf-dashboard ${view === "job-quiz" || view === "job-edit" ? "qf-dashboard-sticky" : ""} ${view === "jobs" ? "qf-recruiting-jobs" : ""}`}>
       {view === "hub" ? <Hub t={t} locale={locale} /> : null}
       {view === "jobs" ? <Jobs t={t} locale={locale} /> : null}
       {view === "job-create" ? <JobCreate t={t} locale={locale} /> : null}
@@ -368,7 +368,7 @@ function Jobs({ t, locale }: { t: T; locale: Locale }) {
       <div className="kpi"><div className="kpi-lbl">{t.avgConversion}<KpiHint text={t.avgConversionHint} /></div><div className="kpi-val">{avgConv}{avgConv !== "–" ? <span>%</span> : null}</div></div>
       <div className="kpi"><div className="kpi-lbl">{t.bestListing}<KpiHint text={t.bestListingHint} /></div><div className="kpi-val" style={{ fontSize: 15 }}>{best?.title.split(" ")[0] || "–"}<span style={{ display: "block", fontSize: 11, color: "var(--text2)", fontWeight: 400 }}>{best ? `${best.conv} ${t.conversion}` : ""}</span></div></div>
     </div>
-    <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
+    <div className="recruiting-jobs-toolbar" style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
       <div className="filter-row" style={{ marginBottom: 0 }}>
         {([["all", t.all], ["active", t.active], ["draft", t.draft], ["archived", t.archived]] as const).map(([key, label]) =>
           <button key={key} type="button" className={`filter-btn ${filter === key ? "active" : ""}`} onClick={() => setFilter(key)}>{label}</button>)}
@@ -376,7 +376,32 @@ function Jobs({ t, locale }: { t: T; locale: Locale }) {
       <input className="field-input" style={{ maxWidth: 220 }} placeholder={t.search} value={search} onChange={(event) => setSearch(event.target.value)} />
       <Link href="/recruiting/jobs/new" className="btn btn-primary" style={{ marginLeft: "auto" }}>{t.newJob}</Link>
     </div>
-    <div className="card" style={{ overflowX: "auto" }}>
+    <div className="recruiting-jobs-mobile" aria-label={t.jobsTitle}>
+      {rows.map((job) => <article className="recruiting-job-card" key={job.id}>
+        <div className="recruiting-job-heading">
+          <div className="recruiting-job-name">
+            <strong>{job.title}</strong>
+            <small>{job.format === "quiz" ? t.formatQuiz : t.formatClassic}{job.slug ? ` \u00B7 /apply/${job.slug}` : ""}</small>
+          </div>
+          <span className={`status-pill ${job.status === "active" ? "active" : "inactive"}`}>{statusLabel(job.status)}</span>
+        </div>
+        <div className="recruiting-job-meta">
+          <span>{t.colDepartment}: <strong>{job.dept}</strong></span>
+          <span>{t.colLanguages}: <strong>{(job.langs ?? []).map((lang) => langFlags[lang]).join("") || "\u2013"}</strong></span>
+        </div>
+        <dl className="recruiting-job-stats">
+          <div><dt>{t.colClicks}</dt><dd>{job.clicks || "\u2013"}</dd></div>
+          <div><dt>{t.colApps}</dt><dd>{job.apps || "\u2013"}</dd></div>
+          <div><dt>{t.colConv}</dt><dd>{job.conv}</dd></div>
+        </dl>
+        <div className="recruiting-job-actions">
+          <ApplyPageLink slug={job.slug} title={t.applyOpen} />
+          <Link href={`/recruiting/jobs/${job.id}`} className="icon-btn" aria-label={`${t.colActions}: ${job.title}`} title={t.colActions}>{"\u270F\uFE0F"}</Link>
+          <button type="button" className="icon-btn" aria-label={job.status === "archived" ? t.unarchive : t.archive} title={job.status === "archived" ? t.unarchive : t.archive} onClick={() => void toggleArchive(job.id)}>{job.status === "archived" ? "\u21A9\uFE0F" : "\uD83D\uDDD1\uFE0F"}</button>
+        </div>
+      </article>)}
+    </div>
+    <div className="card recruiting-jobs-desktop" style={{ overflowX: "auto" }}>
       <table className="bud-table"><thead><tr><th>{t.colTitle}</th><th>{t.colLanguages}</th><th>{t.colDepartment}</th><th>{t.colStatus}</th><th>{t.colClicks}</th><th>{t.colApps}</th><th>{t.colConv}</th><th style={{ textAlign: "right" }}>{t.colActions}</th></tr></thead>
         <tbody>{rows.map((job) => <tr key={job.id}>
           <td>
@@ -2302,7 +2327,7 @@ function Emails({ t, locale }: { t: T; locale: Locale }) {
     <Back href="/recruiting" label={t.backRecruiting} />
     <div className="card">
       <div className="ch" style={{ flexDirection: "column", alignItems: "flex-start", gap: 10 }}>
-        <div className="bud-tab-row">
+        <div className="bud-tab-row recruiting-email-tabs">
           {([["received", t.catReceived], ["offer", t.catOffer], ["reject", t.catReject]] as const).map(([key, label]) =>
             <button key={key} type="button" className={`bud-tab ${cat === key ? "active" : ""}`} onClick={() => setCat(key)}>{label}</button>)}
         </div>

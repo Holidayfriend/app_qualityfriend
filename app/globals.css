@@ -325,6 +325,7 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 .qf-dashboard .ai-mark { font-size:22px;line-height:1;flex-shrink:0 }
 .qf-dashboard .ai-copy { flex:1;min-width:0 }
 .qf-dashboard .recruiting-ai-copy { flex:1 }
+.qf-dashboard .recruiting-jobs-mobile { display:none }
 .qf-dashboard .dash-stack { display:flex;flex-direction:column;gap:18px }
 #p-dashboard .dash-modules { display:none }
 
@@ -675,6 +676,38 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
   .qf-dashboard .recruiting-kpis .kpi-lbl { margin-bottom:6px;font-size:10.5px;letter-spacing:.5px }
   .qf-dashboard .recruiting-kpis .kpi-val { font-size:23px;white-space:nowrap }
   .qf-dashboard .recruiting-kpis .kpi-val span { font-size:13px }
+  .qf-dashboard .recruiting-email-tabs {
+    width:100%;max-width:100%;flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px;
+    scrollbar-width:none;-webkit-overflow-scrolling:touch;
+  }
+  .qf-dashboard .recruiting-email-tabs::-webkit-scrollbar { display:none }
+  .qf-dashboard .recruiting-email-tabs .bud-tab { flex:0 0 auto;padding-inline:14px;white-space:nowrap }
+  .qf-dashboard.qf-recruiting-jobs { width:100%;max-width:100%;overflow-x:hidden }
+  .qf-dashboard.qf-recruiting-jobs > * { min-width:0;max-width:100% }
+  .qf-dashboard .recruiting-jobs-toolbar { display:grid !important;grid-template-columns:minmax(0,1fr) auto;width:100% }
+  .qf-dashboard .recruiting-jobs-toolbar .filter-row { grid-column:1 / -1;min-width:0 }
+  .qf-dashboard .recruiting-jobs-toolbar .field-input { min-width:0;max-width:none !important }
+  .qf-dashboard .recruiting-jobs-toolbar .btn { margin-left:0 !important;white-space:nowrap }
+  .qf-dashboard .recruiting-jobs-desktop { display:none }
+  .qf-dashboard .recruiting-jobs-mobile { display:grid;width:100%;min-width:0;gap:10px;overflow:hidden }
+  .qf-dashboard .recruiting-job-card {
+    width:100%;min-width:0;max-width:100%;overflow:hidden;padding:14px;border:1px solid var(--border);border-radius:14px;background:var(--surface);box-shadow:var(--sh);
+  }
+  .qf-dashboard .recruiting-job-heading { display:flex;align-items:flex-start;justify-content:space-between;gap:10px }
+  .qf-dashboard .recruiting-job-name { min-width:0;flex:1 }
+  .qf-dashboard .recruiting-job-name strong { display:block;font-size:14px;line-height:1.35;overflow-wrap:anywhere }
+  .qf-dashboard .recruiting-job-name small { display:block;overflow:hidden;margin-top:3px;color:var(--text3);font-size:10.5px;text-overflow:ellipsis;white-space:nowrap }
+  .qf-dashboard .recruiting-job-heading .status-pill { flex:0 0 auto }
+  .qf-dashboard .recruiting-job-meta { display:flex;flex-wrap:wrap;gap:5px 14px;margin-top:11px;color:var(--text2);font-size:11.5px }
+  .qf-dashboard .recruiting-job-meta span { min-width:0;max-width:100%;overflow-wrap:anywhere }
+  .qf-dashboard .recruiting-job-meta strong { color:var(--text);font-weight:600 }
+  .qf-dashboard .recruiting-job-stats { display:grid;grid-template-columns:repeat(3,1fr);margin:12px 0 0;border-block:1px solid var(--border) }
+  .qf-dashboard .recruiting-job-stats > div { padding:10px 6px;text-align:center }
+  .qf-dashboard .recruiting-job-stats > div + div { border-left:1px solid var(--border) }
+  .qf-dashboard .recruiting-job-stats dt { color:var(--text3);font-size:9.5px;font-weight:700;letter-spacing:.35px;text-transform:uppercase }
+  .qf-dashboard .recruiting-job-stats dd { margin-top:4px;font-size:14px;font-weight:700 }
+  .qf-dashboard .recruiting-job-actions { display:flex;align-items:center;justify-content:flex-end;gap:7px;padding-top:11px }
+  .qf-dashboard .recruiting-job-actions .icon-btn { display:inline-flex;width:40px;height:40px;align-items:center;justify-content:center;flex:0 0 40px }
 }
 
 /* Schedule: client-approved phone layout. Desktop rules above remain unchanged. */
