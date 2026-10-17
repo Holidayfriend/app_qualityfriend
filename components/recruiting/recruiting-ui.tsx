@@ -56,7 +56,7 @@ export function RecruitingUI({ view, id = "" }: { view: RecruitingView; id?: str
     employees: t.employeesTitle, "employee-create": t.employeeCreateTitle, "employee-detail": t.employeeDetailTitle, settings: t.settingsTitle, emails: t.emailsTitle,
   };
   return <AppShell activeItem="recruiting" pageTitle={titles[view]}>
-    <main className={`qf-dashboard ${view === "job-quiz" || view === "job-edit" ? "qf-dashboard-sticky" : ""} ${view === "jobs" ? "qf-recruiting-jobs" : ""} ${view === "job-create" ? "qf-recruiting-job-create" : ""} ${view === "applications" ? "qf-recruiting-applications" : ""}`}>
+    <main className={`qf-dashboard ${view === "job-quiz" || view === "job-edit" ? "qf-dashboard-sticky" : ""} ${view === "jobs" ? "qf-recruiting-jobs" : ""} ${view === "job-create" ? "qf-recruiting-job-create" : ""} ${view === "applications" ? "qf-recruiting-applications" : ""} ${view === "employees" ? "qf-recruiting-employees" : ""}`}>
       {view === "hub" ? <Hub t={t} locale={locale} /> : null}
       {view === "jobs" ? <Jobs t={t} locale={locale} /> : null}
       {view === "job-create" ? <JobCreate t={t} locale={locale} /> : null}
@@ -1751,7 +1751,7 @@ function Employees({ t, locale }: { t: T; locale: Locale }) {
   return <>
     <Back href="/recruiting" label={t.backRecruiting} />
     <p style={{ fontSize: 12, color: "var(--text2)", marginBottom: 14, lineHeight: 1.5 }}>{t.employeesIntro}</p>
-    <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
+    <div className="recruiting-employees-toolbar" style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
       <div className="filter-row" style={{ marginBottom: 0 }}>
         {([["all", t.all], ["active", t.active], ["inactive", t.inactive]] as const).map(([key, label]) =>
           <button key={key} type="button" className={`filter-btn ${filter === key ? "active" : ""}`} onClick={() => setFilter(key)}>{label}</button>)}
@@ -1759,7 +1759,37 @@ function Employees({ t, locale }: { t: T; locale: Locale }) {
       <input className="field-input" style={{ maxWidth: 220 }} placeholder={t.search} value={search} onChange={(event) => setSearch(event.target.value)} />
       <Link href="/recruiting/employees/new" className="btn btn-primary" style={{ marginLeft: "auto" }}>{t.addEmployee}</Link>
     </div>
-    <div className="card" style={{ overflowX: "auto" }}>
+    <div className="recruiting-employees-mobile" aria-label={t.employeesTitle}>
+      {rows.map((item) => {
+        const worst = item.certificates.some((cert) => cert.status === "expired")
+          ? "expired"
+          : item.certificates.some((cert) => cert.status === "expiring")
+            ? "expiring"
+            : item.certificates.length
+              ? "valid"
+              : null;
+        const chip = !worst ? "chip-n" : worst === "valid" ? "chip-g" : worst === "expiring" ? "chip-a" : "chip-r";
+        const certLabel = !worst ? t.noCertsYet : worst === "valid" ? t.valid : worst === "expiring" ? t.expiring : t.expired;
+        return <article className="recruiting-employee-card" key={item.id}>
+          <div className="recruiting-employee-heading">
+            <Link href={`/recruiting/employees/${item.id}`}>
+              <span className="u-av">{item.initials}</span>
+              <span><strong>{item.name}</strong><small>{item.departmentName || t.depts[item.dept]}</small></span>
+            </Link>
+            <span className={`status-pill ${item.status === "active" ? "active" : "inactive"}`}>{item.status === "active" ? t.active : t.inactive}</span>
+          </div>
+          <div className="recruiting-employee-meta">
+            <div><span>{t.colReason}</span><strong>{item.reason === "pension" ? t.pension : item.reason === "resignation" ? t.resignation : t.none}</strong></div>
+            <div><span>{t.colEmployedSince}</span><strong>{item.employment || t.none}</strong></div>
+          </div>
+          <div className="recruiting-employee-footer">
+            <div><span>{t.colSafety}</span><strong className={`chip ${chip}`}>{certLabel}</strong></div>
+            <Link href={`/recruiting/employees/${item.id}`} className="icon-btn" aria-label={`${t.colActions}: ${item.name}`} title={t.colActions}>{"\uD83D\uDC41\uFE0F"}</Link>
+          </div>
+        </article>;
+      })}
+    </div>
+    <div className="card recruiting-employees-desktop" style={{ overflowX: "auto" }}>
       <table className="bud-table"><thead><tr><th>{t.colEmployee}</th><th>{t.colDepartment}</th><th>{t.colStatus}</th><th>{t.colReason}</th><th>{t.colEmployedSince}</th><th>{t.colSafety}</th><th style={{ textAlign: "right" }}>{t.colActions}</th></tr></thead>
         <tbody>{rows.map((item) => {
           const worst = item.certificates.some((cert) => cert.status === "expired")
