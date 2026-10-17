@@ -529,9 +529,9 @@ export function ChecklistFormPage({ id }: { id?: string }) {
     <div className="g2">
       <div>
         <div className="card" style={{ marginBottom: 16 }}>
-          <div className="ch">
+          <div className="ch checklist-content-header">
             <div className="ct">{t.content}</div>
-            <select className="field-select" style={{ maxWidth: 220 }} value={picked} onChange={(event) => applyTemplate(event.target.value)}>
+            <select className="field-select checklist-template-select" style={{ maxWidth: 220 }} value={picked} onChange={(event) => applyTemplate(event.target.value)}>
               <option value="">{t.chooseTemplate}</option>
               {templates.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
             </select>
