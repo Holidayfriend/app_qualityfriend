@@ -327,6 +327,7 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 .qf-dashboard .recruiting-ai-copy { flex:1 }
 .qf-dashboard .recruiting-jobs-mobile { display:none }
 .qf-dashboard .recruiting-campaigns-mobile { display:none }
+.qf-dashboard .recruiting-applications-mobile { display:none }
 .qf-dashboard .dash-stack { display:flex;flex-direction:column;gap:18px }
 #p-dashboard .dash-modules { display:none }
 
@@ -733,6 +734,35 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
   .qf-dashboard .recruiting-campaign-actions { display:flex;justify-content:flex-end;gap:7px;padding-top:11px }
   .qf-dashboard .recruiting-campaign-actions .icon-btn { display:inline-flex;width:40px;height:40px;align-items:center;justify-content:center;flex:0 0 40px }
   .qf-dashboard .recruiting-campaign-empty { padding:24px 16px;border:1px solid var(--border);border-radius:14px;background:var(--surface);color:var(--text3);font-size:12.5px;text-align:center }
+  .qf-dashboard.qf-recruiting-applications { width:100%;max-width:100%;overflow-x:hidden }
+  .qf-dashboard.qf-recruiting-applications > * { min-width:0;max-width:100% }
+  .qf-dashboard .recruiting-applications-toolbar { display:grid !important;grid-template-columns:minmax(0,1fr) auto;width:100%;min-width:0 }
+  .qf-dashboard .recruiting-application-filters {
+    grid-column:1 / -1;width:100%;min-width:0;flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px;
+    scrollbar-width:none;-webkit-overflow-scrolling:touch;
+  }
+  .qf-dashboard .recruiting-application-filters::-webkit-scrollbar { display:none }
+  .qf-dashboard .recruiting-application-filters .filter-btn { flex:0 0 auto;white-space:nowrap }
+  .qf-dashboard .recruiting-applications-toolbar .field-input { min-width:0;max-width:none !important }
+  .qf-dashboard .recruiting-applications-toolbar .btn { margin-left:0 !important;white-space:nowrap }
+  .qf-dashboard .recruiting-applications-desktop { display:none }
+  .qf-dashboard .recruiting-applications-mobile { display:grid;width:100%;min-width:0;gap:10px }
+  .qf-dashboard .recruiting-application-card {
+    width:100%;min-width:0;overflow:hidden;padding:14px;border:1px solid var(--border);border-radius:14px;background:var(--surface);box-shadow:var(--sh);
+  }
+  .qf-dashboard .recruiting-application-heading { display:flex;align-items:flex-start;justify-content:space-between;gap:10px }
+  .qf-dashboard .recruiting-application-heading > div { min-width:0;flex:1 }
+  .qf-dashboard .recruiting-application-heading a { display:block;color:var(--text);font-size:14px;font-weight:700;line-height:1.35;overflow-wrap:anywhere;text-decoration:none }
+  .qf-dashboard .recruiting-application-heading small { display:block;margin-top:3px;color:var(--text2);font-size:11.5px;overflow-wrap:anywhere }
+  .qf-dashboard .recruiting-application-heading > span { flex:0 0 auto }
+  .qf-dashboard .recruiting-application-ai { display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;padding:11px 0;border-block:1px solid var(--border) }
+  .qf-dashboard .recruiting-application-ai > div { min-width:0 }
+  .qf-dashboard .recruiting-application-ai > div > span,.qf-dashboard .recruiting-application-footer div > span { display:block;color:var(--text3);font-size:9.5px;font-weight:700;letter-spacing:.35px;text-transform:uppercase }
+  .qf-dashboard .recruiting-application-ai .chip { display:inline-flex;max-width:100%;margin-top:5px;overflow-wrap:anywhere;white-space:normal }
+  .qf-dashboard .recruiting-application-footer { display:flex;align-items:flex-end;justify-content:space-between;gap:10px;padding-top:11px }
+  .qf-dashboard .recruiting-application-footer > div { min-width:0;flex:1 }
+  .qf-dashboard .recruiting-application-footer div > strong { display:block;margin-top:4px;font-size:12px;overflow-wrap:anywhere }
+  .qf-dashboard .recruiting-application-footer .icon-btn { display:inline-flex;width:40px;height:40px;align-items:center;justify-content:center;flex:0 0 40px }
 }
 
 /* Schedule: client-approved phone layout. Desktop rules above remain unchanged. */

@@ -56,7 +56,7 @@ export function RecruitingUI({ view, id = "" }: { view: RecruitingView; id?: str
     employees: t.employeesTitle, "employee-create": t.employeeCreateTitle, "employee-detail": t.employeeDetailTitle, settings: t.settingsTitle, emails: t.emailsTitle,
   };
   return <AppShell activeItem="recruiting" pageTitle={titles[view]}>
-    <main className={`qf-dashboard ${view === "job-quiz" || view === "job-edit" ? "qf-dashboard-sticky" : ""} ${view === "jobs" ? "qf-recruiting-jobs" : ""} ${view === "job-create" ? "qf-recruiting-job-create" : ""}`}>
+    <main className={`qf-dashboard ${view === "job-quiz" || view === "job-edit" ? "qf-dashboard-sticky" : ""} ${view === "jobs" ? "qf-recruiting-jobs" : ""} ${view === "job-create" ? "qf-recruiting-job-create" : ""} ${view === "applications" ? "qf-recruiting-applications" : ""}`}>
       {view === "hub" ? <Hub t={t} locale={locale} /> : null}
       {view === "jobs" ? <Jobs t={t} locale={locale} /> : null}
       {view === "job-create" ? <JobCreate t={t} locale={locale} /> : null}
@@ -947,13 +947,32 @@ function Applications({ t, locale }: { t: T; locale: Locale }) {
   const filters: Array<["all" | AppStage, string]> = [["all", t.all], ["new", t.stageNew], ["invited", t.stageInvited], ["offer", t.stageOffer], ["hired", t.stageHired], ["rejected", t.stageRejected], ["archived", t.stageArchived]];
   return <>
     <Back href="/recruiting" label={t.backRecruiting} />
-    <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
-      <div className="filter-row" style={{ marginBottom: 0 }}>{filters.map(([key, label]) =>
+    <div className="recruiting-applications-toolbar" style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
+      <div className="filter-row recruiting-application-filters" style={{ marginBottom: 0 }}>{filters.map(([key, label]) =>
         <button key={key} type="button" className={`filter-btn ${filter === key ? "active" : ""}`} onClick={() => setFilter(key)}>{label}</button>)}</div>
       <input className="field-input" style={{ maxWidth: 220 }} placeholder={t.search} value={search} onChange={(event) => setSearch(event.target.value)} />
       <Link href="/recruiting/applications/new" className="btn btn-primary" style={{ marginLeft: "auto" }}>{t.addApplication}</Link>
     </div>
-    <div className="card" style={{ overflowX: "auto" }}>
+    <div className="recruiting-applications-mobile" aria-label={t.applicationsTitle}>
+      {rows.map((item) => <article className="recruiting-application-card" key={item.id}>
+        <div className="recruiting-application-heading">
+          <div>
+            <Link href={`/recruiting/applications/${item.id}`}>{item.name}</Link>
+            <small>{item.role} {item.role && t.depts[item.dept] ? "\u00B7" : ""} {t.depts[item.dept]}</small>
+          </div>
+          {stageBadge(t, item.stage)}
+        </div>
+        <div className="recruiting-application-ai">
+          <div><span>{t.colAiScore}</span><strong className={`chip ${suggestClass(item.suggestion)}`}>{item.aiStatus === "PENDING" ? t.scoringAi : item.score}</strong></div>
+          <div><span>{t.colAiRec}</span><strong className={`chip ${suggestClass(item.suggestion)}`}>{suggestLabel(t, item.suggestion)}</strong></div>
+        </div>
+        <div className="recruiting-application-footer">
+          <div><span>{t.colDate}</span><strong>{item.dateDisplay || item.date}</strong></div>
+          <Link href={`/recruiting/applications/${item.id}`} className="icon-btn" aria-label={`${t.colActions}: ${item.name}`} title={t.colActions}>{"\uD83D\uDC41\uFE0F"}</Link>
+        </div>
+      </article>)}
+    </div>
+    <div className="card recruiting-applications-desktop" style={{ overflowX: "auto" }}>
       <table className="bud-table"><thead><tr><th>{t.colName}</th><th>{t.colDepartment}</th><th>{t.colAiScore}</th><th>{t.colAiRec}</th><th>{t.colStage}</th><th>{t.colDate}</th><th style={{ textAlign: "right" }}>{t.colActions}</th></tr></thead>
         <tbody>{rows.map((item) => <tr key={item.id} style={{ cursor: "pointer" }}>
           <td><Link href={`/recruiting/applications/${item.id}`}>{item.name}</Link></td>
