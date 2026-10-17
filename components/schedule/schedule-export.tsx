@@ -63,21 +63,21 @@ export function ScheduleExportPage() {
 
   if (!ready) {
     return <AppShell activeItem="schedule" pageTitle={t.exportTitle}>
-      <main className="qf-dashboard pb-24 lg:pb-[24px]"><BrandLoader label={t.loading} /></main>
+      <main className="qf-dashboard schedule-shell pb-24 lg:pb-[24px]"><BrandLoader label={t.loading} /></main>
     </AppShell>;
   }
 
   return <AppShell activeItem="schedule" pageTitle={t.exportTitle}>
-    <main className="qf-dashboard pb-24 lg:pb-[24px]">
+    <main className="qf-dashboard schedule-shell pb-24 lg:pb-[24px]">
       {busy ? <BrandLoader overlay label={t.exporting} /> : null}
-      <div className="card" style={{ maxWidth: 560 }}>
+      <div className="card schedule-form-card schedule-export-card" style={{ maxWidth: 560 }}>
         <div className="ch" style={{ flexWrap: "wrap", gap: 8 }}>
           <div className="ct">{t.exportTitle}</div>
           <Link href="/schedule" className="btn btn-ghost" style={{ fontSize: 12 }}>{t.back}</Link>
         </div>
         <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <p style={{ margin: 0, fontSize: 13, color: "var(--text2)" }}>{t.exportHint}</p>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div className="schedule-export-dates" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
               <label className="field-lbl">{t.exportFrom}</label>
               <input className="field-input" type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
@@ -102,7 +102,7 @@ export function ScheduleExportPage() {
               {people.map((emp) => <option key={emp.key} value={emp.key}>{emp.name}</option>)}
             </select>
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div className="schedule-export-actions" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void download("xls")}>{t.exportExcel}</button>
             <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void download("csv")}>{t.exportCsv}</button>
           </div>

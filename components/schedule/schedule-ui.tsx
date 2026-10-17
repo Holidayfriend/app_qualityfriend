@@ -9,7 +9,7 @@ import { useToast } from "../ui/toast-provider";
 import { useI18n } from "../i18n/i18n-provider";
 import { getScheduleMessages, type ScheduleMessages } from "../../lib/i18n/schedule-messages";
 import { type AbsenceStatus, type Employee, type LeaveCategory, type LeaveDuration, type ShiftCell } from "../../lib/schedule/demo-data";
-import { addDaysIso, formatDayHeader, formatWeekRange, mondayOfIso } from "../../lib/schedule/week";
+import { addDaysIso, formatDayHeader, formatWeekRange, localTodayIso, mondayOfIso } from "../../lib/schedule/week";
 import { formatWorkHours, weekWorkHours } from "../../lib/schedule/hours";
 import { useSchedule } from "./schedule-provider";
 
@@ -89,8 +89,8 @@ function Shell({ title, children, tabs }: { title: string; children?: ReactNode;
     ["/schedule/swaps", t.tabSwap, "swap"] as const,
   ];
   return <AppShell activeItem="schedule" pageTitle={title}>
-    <main className="qf-dashboard pb-24 lg:pb-[24px]">
-      {tabs ? <nav className="hk-tabs">{items.map(([href, label, id]) => <Link key={id} href={href} className={`hk-tab${tab === id ? " active" : ""}`}>{label}</Link>)}</nav> : null}
+    <main className="qf-dashboard schedule-shell pb-24 lg:pb-[24px]">
+      {tabs ? <nav className="hk-tabs schedule-tabs" aria-label={title}>{items.map(([href, label, id]) => <Link key={id} href={href} className={`hk-tab${tab === id ? " active" : ""}`} aria-current={tab === id ? "page" : undefined}>{label}</Link>)}</nav> : null}
       {children}
     </main>
   </AppShell>;
@@ -99,6 +99,18 @@ function Shell({ title, children, tabs }: { title: string; children?: ReactNode;
 function deptLines(emp: Employee, t: T) {
   const names = emp.departmentName.split("/").map((name) => name.trim()).filter(Boolean);
   return names.length ? names : [t.noDepartment];
+}
+
+function employeeInitials(name: string) {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "–";
+}
+
+function mobileDayParts(iso: string, locale: string) {
+  const date = new Date(`${iso}T12:00:00`);
+  return {
+    weekday: new Intl.DateTimeFormat(locale, { weekday: "short" }).format(date).replace(".", "").toUpperCase(),
+    day: new Intl.DateTimeFormat(locale, { day: "2-digit" }).format(date),
+  };
 }
 
 export function SchedulePlanPage() {
@@ -112,9 +124,15 @@ export function SchedulePlanPage() {
   const [copyOpen, setCopyOpen] = useState(false);
   const [copyTarget, setCopyTarget] = useState(() => addDaysIso(weekStartIso, 7));
   const [copying, setCopying] = useState(false);
+  const [selectedDay, setSelectedDay] = useState(0);
   const visible = employees.filter((emp) => deptFilter === "all" || (deptFilter === "none" ? emp.departmentIds.length === 0 : emp.departmentIds.includes(deptFilter)));
   const scheduledHours = weekWorkHours(visible);
   const dayLabels = weekDates.map((iso) => formatDayHeader(iso, locale));
+
+  useEffect(() => {
+    const todayIndex = weekDates.indexOf(localTodayIso());
+    setSelectedDay((current) => todayIndex >= 0 ? todayIndex : Math.min(current, Math.max(weekDates.length - 1, 0)));
+  }, [weekDates]);
 
   function openCopy() {
     setCopyTarget(addDaysIso(weekStartIso, 7));
@@ -194,13 +212,13 @@ export function SchedulePlanPage() {
         </div>
       </div>
     </div> : null}
-    <div className="schedule-print-root">
+    <div className="schedule-print-root schedule-plan">
     <div className="kpi-row no-print" style={{ gridTemplateColumns: "repeat(3,1fr)", marginBottom: 18 }}>
       <div className="kpi"><div className="kpi-lbl">{t.kpiStaffWeek}</div><div className="kpi-val">{employees.length}</div><div className="kpi-sub">{t.kpiStaffSub}</div></div>
       <div className="kpi"><div className="kpi-lbl">{t.kpiHours}</div><div className="kpi-val">{formatWorkHours(scheduledHours)}<span>{t.hoursUnit}</span></div><div className="kpi-sub">{formatWeekRange(weekStartIso, locale)}</div></div>
       <div className="kpi"><div className="kpi-lbl">{t.kpiOpenShifts}</div><div className="kpi-val" style={{ color: "var(--amber)" }}>1</div><div className="kpi-sub"><span className="chip chip-a">{t.kpiOpenChip}</span></div></div>
     </div>
-    <div className="card" style={{ marginBottom: 18 }}>
+    <div className="card schedule-week-card schedule-desktop-only" style={{ marginBottom: 18 }}>
       <div className="ch no-print" style={{ flexWrap: "wrap", gap: 8 }}>
         <div className="ct">{fill(t.weekPlan, { range: formatWeekRange(weekStartIso, locale) })}</div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -226,7 +244,61 @@ export function SchedulePlanPage() {
         </div>
       </div>
     </div>
-    <div className="no-print" style={{ padding: "12px 16px", background: "var(--amber-bg)", border: "1px solid #FDE68A", borderRadius: 8, fontSize: 13.5, color: "var(--amber)", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+    <div className="schedule-mobile-plan no-print">
+      <section className="schedule-mobile-week">
+        <div className="schedule-mobile-week-heading">
+          <strong>{fill(t.weekPlan, { range: formatWeekRange(weekStartIso, locale) })}</strong>
+        </div>
+        <select className="field-select schedule-department-select" value={deptFilter} onChange={(event) => setDeptFilter(event.target.value)}>
+          <option value="all">{t.allDepartments}</option>
+          {departments.map((dept) => <option key={dept.id} value={dept.id}>{dept.name}</option>)}
+          {employees.some((emp) => emp.departmentIds.length === 0) ? <option value="none">{t.noDepartment}</option> : null}
+        </select>
+        <div className="schedule-mobile-actions">
+          <Link href="/schedule/templates" className="btn btn-ghost">{t.templatesBtn}</Link>
+          <button type="button" className="btn btn-ghost" onClick={openCopy}>{t.copyWeek}</button>
+          <button type="button" className="btn btn-ghost" onClick={() => window.print()}>{t.print}</button>
+          <Link href={`/schedule/export?from=${weekStartIso}&to=${addDaysIso(weekStartIso, 6)}&department=${deptFilter}`} className="btn btn-ghost">{t.export}</Link>
+        </div>
+        <button type="button" className="btn btn-primary schedule-publish-button" disabled={!draftCount || publishing} onClick={() => void publish()}>{draftCount ? fill(t.publishChanges, { n: String(draftCount) }) : t.publish}</button>
+      </section>
+
+      <div className="schedule-week-jump">
+        <button type="button" className="btn btn-ghost" onClick={goToPrevWeek}>{t.prevWeek}</button>
+        <button type="button" className="btn btn-ghost" onClick={goToNextWeek}>{t.nextWeek}</button>
+      </div>
+
+      <div className="schedule-day-tabs" role="tablist" aria-label={fill(t.weekPlan, { range: formatWeekRange(weekStartIso, locale) })}>
+        {weekDates.map((iso, index) => {
+          const parts = mobileDayParts(iso, locale);
+          return <button key={iso} type="button" role="tab" aria-selected={selectedDay === index} className={`schedule-day-tab${selectedDay === index ? " active" : ""}`} onClick={() => setSelectedDay(index)}>
+            <span>{parts.weekday}</span><strong>{parts.day}</strong>
+          </button>;
+        })}
+      </div>
+
+      <div className="schedule-mobile-alert">
+        <span aria-hidden>⚠️</span>
+        <div><strong>{t.alertOpenStrong}</strong><span>{t.alertOpenBody}</span></div>
+        <button type="button" className="btn" onClick={() => toast({ message: t.alertAi, tone: "info" })}>{t.aiSuggest}</button>
+      </div>
+
+      <section className="card schedule-day-card">
+        <div className="ch"><div className="ct">📅 {dayLabels[selectedDay]}</div><span className="schedule-day-count">{visible.length}</span></div>
+        <div className="cb schedule-shift-list">
+          {visible.length ? visible.map((emp) => {
+            const shift = emp.shifts[selectedDay];
+            const meta = shiftMeta(shift, t);
+            return <Link key={emp.key} href={`/schedule/shift?employee=${emp.key}&day=${selectedDay}`} className="schedule-shift-card">
+              <span className="schedule-shift-avatar">{employeeInitials(emp.name)}</span>
+              <span className="schedule-shift-person"><strong>{emp.name}</strong><small>{deptLines(emp, t).join(" · ")}</small></span>
+              <span className={`schedule-shift-time ${meta.cls}${shift?.draft ? " dp-draft" : ""}`}>{meta.label}{meta.sub ? <small>{meta.sub}</small> : null}</span>
+            </Link>;
+          }) : <p className="schedule-empty">{t.emptyEmployees}</p>}
+        </div>
+      </section>
+    </div>
+    <div className="no-print schedule-desktop-alert" style={{ padding: "12px 16px", background: "var(--amber-bg)", border: "1px solid #FDE68A", borderRadius: 8, fontSize: 13.5, color: "var(--amber)", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
       ⚠️ <strong>{t.alertOpenStrong}</strong>{t.alertOpenBody}
       <button type="button" className="btn" style={{ marginLeft: "auto", background: "var(--amber)", color: "#fff", fontSize: 12, padding: "5px 12px" }} onClick={() => toast({ message: t.alertAi, tone: "info" })}>{t.aiSuggest}</button>
     </div>
@@ -252,16 +324,16 @@ export function ScheduleOwnPage() {
   const dayLabels = weekDates.map((iso) => formatDayHeader(iso, locale));
   if (!ready) return <Shell title={t.pageTitle} tabs><BrandLoader label={t.loading} /></Shell>;
   return <Shell title={t.pageTitle} tabs>
-    <section className="card" style={{ marginBottom: 16 }}>
-      <div className="ch" style={{ flexWrap: "wrap", gap: 8 }}>
+    <section className="card schedule-own-card" style={{ marginBottom: 16 }}>
+      <div className="ch schedule-own-header" style={{ flexWrap: "wrap", gap: 8 }}>
         <div className="ct">{fill(t.ownWeek, { name: fullName || own?.name || "" })}</div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div className="schedule-own-actions" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <Link href="/schedule/request?type=leave" className="btn btn-primary" style={{ fontSize: 12 }}>{t.requestLeaveBtn}</Link>
           <Link href="/schedule/request?type=swap" className="btn btn-ghost" style={{ fontSize: 12 }}>{t.requestSwapBtn}</Link>
         </div>
       </div>
       <div className="cb">
-        {own ? <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 8 }}>
+        {own ? <div className="schedule-own-grid schedule-desktop-only" style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 8 }}>
           {dayLabels.map((day, index) => {
             const meta = shiftMeta(own.shifts[index], t);
             return <div key={day} style={{ textAlign: "center" }}>
@@ -270,6 +342,14 @@ export function ScheduleOwnPage() {
             </div>;
           })}
         </div> : <p style={{ fontSize: 13, color: "var(--text3)" }}>{t.emptyEmployees}</p>}
+        {own ? <div className="schedule-mobile-only schedule-own-list">
+          {dayLabels.map((day, index) => {
+            const meta = shiftMeta(own.shifts[index], t);
+            return <div key={weekDates[index]} className="schedule-own-row">
+              <span>{day}</span><span className={`schedule-own-shift ${meta.cls}`}>{meta.label}{meta.sub ? <small>{meta.sub}</small> : null}</span>
+            </div>;
+          })}
+        </div> : null}
       </div>
     </section>
   </Shell>;
@@ -304,12 +384,12 @@ export function ScheduleAbsencesPage({ board }: { board?: "swap" }) {
   if (!ready) return <Shell title={heading} tabs><BrandLoader label={t.loading} /></Shell>;
   return <Shell title={heading} tabs>
     {busyId ? <BrandLoader label={t.loading} overlay /> : null}
-    <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
+    <div className="schedule-list-toolbar" style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
       <div className="filter-row" style={{ marginBottom: 0 }}>
         {([["all", t.filterAll], ["open", t.filterOpen], ["approved", t.filterApproved], ["rejected", t.filterRejected]] as const).map(([id, label]) =>
           <button key={id} type="button" className={`filter-btn${filter === id ? " active" : ""}`} onClick={() => setFilter(id)}>{label}</button>)}
       </div>
-      <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
+      <div className="schedule-list-action" style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
         {isPlanner
           ? swapBoard
             ? <Link href={`/schedule/request?type=swap${own ? `&employee=${own.key}` : ""}`} className="btn btn-primary">{t.addSwap}</Link>
@@ -319,7 +399,7 @@ export function ScheduleAbsencesPage({ board }: { board?: "swap" }) {
             : <Link href="/schedule/request?type=leave" className="btn btn-primary">{t.addAbsence}</Link>}
       </div>
     </div>
-    <div className="card">
+    <div className="card schedule-desktop-only">
       <table className="bud-table" style={{ width: "100%" }}>
         <thead><tr><th>{t.colEmployee}</th>{swapBoard ? <th>{t.colSwapWith}</th> : <th>{t.colCategory}</th>}<th>{t.colDuration}</th><th>{t.colPeriod}</th><th>{t.colNote}</th><th>{t.colStatus}</th><th>{t.colDecidedBy}</th><th style={{ textAlign: "right" }}>{t.colActions}</th></tr></thead>
         <tbody>
@@ -340,6 +420,27 @@ export function ScheduleAbsencesPage({ board }: { board?: "swap" }) {
           }) : <tr><td colSpan={8} style={{ textAlign: "center", color: "var(--text3)", padding: 20 }}>{t.empty}</td></tr>}
         </tbody>
       </table>
+    </div>
+    <div className="schedule-mobile-only schedule-request-list">
+      {rows.length ? rows.map((item) => {
+        const status = statusMeta(item.status, t);
+        return <article key={item.id} className="hov-card schedule-request-card">
+          <div className="schedule-request-heading">
+            <div><strong>{item.employee}</strong><small>{swapBoard ? `${t.colSwapWith}: ${item.swapWith || t.dash}` : categoryLabel(item.category, t)}</small></div>
+            <span className={`chip ${status.cls}`}>{status.label}</span>
+          </div>
+          <dl className="schedule-request-details">
+            <div><dt>{t.colPeriod}</dt><dd>{item.start}{item.end !== item.start ? ` ${t.dash} ${item.end}` : ""}</dd></div>
+            {item.category !== "swap" ? <div><dt>{t.colDuration}</dt><dd>{durationLabel(item.category, item.duration, t)}{item.duration === "partial" && item.startTime && item.endTime ? ` (${item.startTime}–${item.endTime})` : ""}</dd></div> : null}
+            {item.note ? <div><dt>{t.colNote}</dt><dd>{item.note}</dd></div> : null}
+            {item.decidedBy ? <div><dt>{t.colDecidedBy}</dt><dd>{item.status === "approved" ? fill(t.approvedBy, { name: item.decidedBy }) : fill(t.rejectedBy, { name: item.decidedBy })}</dd></div> : null}
+          </dl>
+          {isPlanner && item.status === "open" ? <div className="schedule-request-actions">
+            <button type="button" className="btn btn-primary" disabled={Boolean(busyId)} onClick={() => void decide(item.id, "approved")}>✅ {t.statusApproved}</button>
+            <button type="button" className="btn btn-ghost" disabled={Boolean(busyId)} onClick={() => void decide(item.id, "rejected")}>✕ {t.statusRejected}</button>
+          </div> : null}
+        </article>;
+      }) : <div className="schedule-empty-card">{t.empty}</div>}
     </div>
   </Shell>;
 }
@@ -363,7 +464,7 @@ export function ScheduleStatsPage() {
     return <Shell title={t.pageTitle} tabs />;
   }
   return <Shell title={t.pageTitle} tabs>
-    <div className="kpi-row" style={{ marginBottom: 18 }}>
+    <div className="kpi-row schedule-stats-kpis" style={{ marginBottom: 18 }}>
       <div className="kpi"><div className="kpi-lbl">{t.kpiTotalHours}</div><div className="kpi-val">{formatWorkHours(scheduledHours)}<span>{t.hoursUnit}</span></div></div>
       <div className="kpi"><div className="kpi-lbl">{t.kpiAvgHours}</div><div className="kpi-val">{formatWorkHours(avgHours)}<span>{t.hoursUnit}</span></div></div>
       <div className="kpi"><div className="kpi-lbl">{t.kpiOvertime}</div><div className="kpi-val">0<span>{t.hoursUnit}</span></div></div>
@@ -492,7 +593,7 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
   return <Shell title={t.shiftTitle}>
     {busy ? <BrandLoader label={t.translating} overlay /> : null}
     <Link href="/schedule" className="back-link">{t.back}</Link>
-    <section className="card" style={{ maxWidth: 460 }}>
+    <section className="card schedule-form-card" style={{ maxWidth: 460 }}>
       <div className="ch"><div className="ct">{emp.name} · {dayLabel}</div></div>
       <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {emp.shifts[day]?.updatedBy ? <p style={{ fontSize: 12, color: "var(--text3)", margin: 0 }}>{fill(t.lastUpdatedBy, { name: emp.shifts[day].updatedBy })}</p> : null}
@@ -543,7 +644,7 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
             {REPEAT_WEEKS.map((weeks) => <option key={weeks} value={String(weeks)}>{repeatLabels[weeks]}</option>)}
           </select>
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
+        <div className="schedule-form-actions" style={{ display: "flex", gap: 10 }}>
           <button type="button" className="btn btn-primary" style={{ flex: 1 }} disabled={busy} onClick={() => void save()}>{t.save}</button>
           <Link href="/schedule" className="btn btn-ghost">{t.cancel}</Link>
         </div>
@@ -564,8 +665,9 @@ export function ScheduleTemplatesPage() {
   }
 
   return <Shell title={t.templatesTitle}>
+    <div className="schedule-templates">
     <Link href="/schedule" className="back-link">{t.back}</Link>
-    <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}><Link href="/schedule/templates/new" className="btn btn-primary">{t.addTemplate}</Link></div>
+    <div className="schedule-template-add" style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}><Link href="/schedule/templates/new" className="btn btn-primary">{t.addTemplate}</Link></div>
     {templates.length ? templates.map((item) => <div key={item.id} className="doc-row">
       <div className="doc-ic">🕐</div>
       <Link href={`/schedule/templates/${item.id}`} style={{ flex: 1, minWidth: 0, textDecoration: "none", color: "inherit" }}>
@@ -577,6 +679,7 @@ export function ScheduleTemplatesPage() {
       <Link href={`/schedule/templates/${item.id}`} className="icon-btn">✏️</Link>
       <button type="button" className="icon-btn danger" onClick={() => void deleteTemplate(item.id)}>🗑️</button>
     </div>) : <div style={{ fontSize: 12.5, color: "var(--text3)" }}>{t.noTemplates}</div>}
+    </div>
   </Shell>;
 }
 
@@ -642,7 +745,7 @@ export function ScheduleTemplateFormPage({ id }: { id?: string }) {
   return <Shell title={id ? t.editTemplate : t.newTemplate}>
     {busy ? <BrandLoader label={t.translating} overlay /> : null}
     <Link href="/schedule/templates" className="back-link">{t.back}</Link>
-    <section className="card" style={{ maxWidth: 460 }}>
+    <section className="card schedule-form-card" style={{ maxWidth: 460 }}>
       <div className="ch"><div className="ct">{id ? t.editTemplate : t.newTemplate}</div></div>
       <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div><label className="field-lbl">{t.templateName}</label><input className="field-input" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} /></div>
@@ -653,7 +756,7 @@ export function ScheduleTemplateFormPage({ id }: { id?: string }) {
         <div><label className="field-lbl">{t.breakMins}</label><input className="field-input" type="number" placeholder="30" value={form.pause} onChange={(event) => setForm((current) => ({ ...current, pause: event.target.value }))} /></div>
         <div><label className="field-lbl">{t.note}</label><input className="field-input" placeholder={t.optional} value={form.note} onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))} /></div>
         <p style={{ fontSize: 12, color: "var(--text3)", margin: 0 }}>{t.autoTranslate}</p>
-        <div style={{ display: "flex", gap: 10 }}>
+        <div className="schedule-form-actions" style={{ display: "flex", gap: 10 }}>
           <button type="button" className="btn btn-primary" style={{ flex: 1 }} disabled={busy} onClick={() => void save()}>{t.save}</button>
           <Link href="/schedule/templates" className="btn btn-ghost">{t.cancel}</Link>
         </div>
@@ -745,7 +848,7 @@ export function ScheduleRequestPage({ employee, requestType }: { employee?: stri
   return <Shell title={title}>
     {busy ? <BrandLoader label={t.translating} overlay /> : null}
     <Link href={isPlanner && lockedSwap ? "/schedule/swaps" : "/schedule/absences"} className="back-link">{t.back}</Link>
-    <form className="card" style={{ maxWidth: 460 }} onSubmit={(event) => void save(event)}>
+    <form className="card schedule-form-card" style={{ maxWidth: 460 }} onSubmit={(event) => void save(event)}>
       <div className="ch"><div className="ct">{title}</div></div>
       <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div><label className="field-lbl">{t.employee}</label>
