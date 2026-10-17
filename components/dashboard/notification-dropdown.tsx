@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -23,6 +23,7 @@ export function NotificationDropdown({ fullPage = false }: { fullPage?: boolean 
   const [page,setPage]=useState(1);
   const [totalPages,setTotalPages]=useState(1);
   const [open, setOpen] = useState(false);
+  const [mobilePanelTop, setMobilePanelTop] = useState(64);
   const container = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const panelId = useId();
@@ -72,9 +73,24 @@ export function NotificationDropdown({ fullPage = false }: { fullPage?: boolean 
     };
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+    function positionMobilePanel() {
+      const triggerBottom = trigger.current?.getBoundingClientRect().bottom;
+      if (triggerBottom !== undefined) setMobilePanelTop(Math.round(triggerBottom + 8));
+    }
+    positionMobilePanel();
+    window.addEventListener("resize", positionMobilePanel);
+    window.visualViewport?.addEventListener("resize", positionMobilePanel);
+    return () => {
+      window.removeEventListener("resize", positionMobilePanel);
+      window.visualViewport?.removeEventListener("resize", positionMobilePanel);
+    };
+  }, [open]);
+
   if (fullPage && loading) return <BrandLoader label={requestMessages[locale].loading} />;
 
-  const list = <div className={fullPage?"py-1.5":"max-h-[400px] overflow-y-auto py-1.5"}>
+  const list = <div className={fullPage?"py-1.5":"min-h-0 flex-1 overflow-y-auto overscroll-contain py-1.5 sm:max-h-[400px]"}>
     {loading||failed||!notifications.length?<p role={failed?"alert":"status"} className="px-4 py-3 text-sm text-[var(--qf-text-muted)]">{loading?t.loading:failed?t.failed:t.empty}</p>:null}
     {!loading&&!failed&&notifications.map(notification=><button key={notification.id} type="button" onClick={()=>void visit(notification)} className="flex w-full cursor-pointer items-start gap-3 border-b border-[var(--qf-border)] px-4 py-3 text-left transition last:border-b-0 hover:bg-[var(--qf-accent-soft)]">
       <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg" style={{background:icons[notification.icon]?.background??"#DBEAFE",fontSize:15}}>{icons[notification.icon]?.icon??"i"}</span>
@@ -98,13 +114,19 @@ export function NotificationDropdown({ fullPage = false }: { fullPage?: boolean 
   return <div ref={container} className="relative" onBlur={(event) => {
     if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
   }}>
-    <button ref={trigger} type="button" aria-label={t.title} aria-expanded={open} aria-controls={panelId} onClick={() => setOpen(!open)} className="relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--qf-border)] bg-white" style={{ fontSize: 16 }}>
+    <button ref={trigger} type="button" aria-label={t.title} aria-expanded={open} aria-controls={panelId} onClick={() => {
+      if (!open) {
+        const triggerBottom = trigger.current?.getBoundingClientRect().bottom;
+        if (triggerBottom !== undefined) setMobilePanelTop(Math.round(triggerBottom + 8));
+      }
+      setOpen(!open);
+    }} className="relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--qf-border)] bg-white" style={{ fontSize: 16 }}>
       🔔{unreadCount>0?<span className="absolute right-[5px] top-[5px] h-2 w-2 rounded-full border-2 border-white bg-[var(--qf-danger)]" />:null}
     </button>
-    {open && <section id={panelId} aria-label={t.title} className="absolute right-0 top-[44px] z-[100] w-[320px] max-w-[calc(100vw-32px)] overflow-hidden rounded-[10px] border border-[var(--qf-border)] bg-white text-[var(--qf-text)] shadow-[0_12px_32px_rgba(0,0,0,.15)]" style={{ lineHeight: "normal" }}>
-      <div className="border-b border-[var(--qf-border)] px-4 py-3 text-[13px] font-bold">{t.title}</div>
+    {open && <section id={panelId} aria-label={t.title} className="fixed left-3 right-3 top-[var(--notification-panel-top)] z-[100] flex max-h-[var(--notification-panel-max-height)] flex-col overflow-hidden rounded-[10px] border border-[var(--qf-border)] bg-white text-[var(--qf-text)] shadow-[0_12px_32px_rgba(0,0,0,.15)] sm:absolute sm:left-auto sm:right-0 sm:top-[44px] sm:block sm:max-h-none sm:w-[320px] sm:max-w-[calc(100vw-32px)]" style={{ lineHeight: "normal", "--notification-panel-top": `${mobilePanelTop}px`, "--notification-panel-max-height": `calc(100dvh - ${mobilePanelTop}px - 76px - env(safe-area-inset-bottom))` } as CSSProperties}>
+      <div className="shrink-0 border-b border-[var(--qf-border)] px-4 py-3 text-[13px] font-bold">{t.title}</div>
       {list}
-      <Link href="/notifications" onClick={()=>setOpen(false)} className="block border-t border-[var(--qf-border)] px-4 py-3 text-center text-sm font-semibold text-[var(--qf-accent)] hover:bg-[var(--qf-accent-soft)]">{t.seeAll}</Link>
+      <Link href="/notifications" onClick={()=>setOpen(false)} className="block shrink-0 border-t border-[var(--qf-border)] px-4 py-3 text-center text-sm font-semibold text-[var(--qf-accent)] hover:bg-[var(--qf-accent-soft)]">{t.seeAll}</Link>
     </section>}
   </div>;
 }
