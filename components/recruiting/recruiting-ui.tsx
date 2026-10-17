@@ -56,7 +56,7 @@ export function RecruitingUI({ view, id = "" }: { view: RecruitingView; id?: str
     employees: t.employeesTitle, "employee-create": t.employeeCreateTitle, "employee-detail": t.employeeDetailTitle, settings: t.settingsTitle, emails: t.emailsTitle,
   };
   return <AppShell activeItem="recruiting" pageTitle={titles[view]}>
-    <main className={`qf-dashboard ${view === "job-quiz" || view === "job-edit" ? "qf-dashboard-sticky" : ""} ${view === "jobs" ? "qf-recruiting-jobs" : ""}`}>
+    <main className={`qf-dashboard ${view === "job-quiz" || view === "job-edit" ? "qf-dashboard-sticky" : ""} ${view === "jobs" ? "qf-recruiting-jobs" : ""} ${view === "job-create" ? "qf-recruiting-job-create" : ""}`}>
       {view === "hub" ? <Hub t={t} locale={locale} /> : null}
       {view === "jobs" ? <Jobs t={t} locale={locale} /> : null}
       {view === "job-create" ? <JobCreate t={t} locale={locale} /> : null}
@@ -754,7 +754,7 @@ function JobCreate({ t, locale, job }: { t: T; locale: Locale; job?: PublicJob }
           </div>
         </div>
       </div>
-      <div className="card">
+      <div className="card recruiting-job-preview">
         <div className="ch" style={{ flexDirection: "column", alignItems: "flex-start", gap: 8 }}>
           <div className="ct">{t.livePreview}</div>
           {generated ? <div style={{ display: "flex", gap: 6 }}>{(["de", "en", "it"] as Locale[]).filter((lang) => langs[lang]).map((lang) =>

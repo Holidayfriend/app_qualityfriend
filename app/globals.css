@@ -708,6 +708,7 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
   .qf-dashboard .recruiting-job-stats dd { margin-top:4px;font-size:14px;font-weight:700 }
   .qf-dashboard .recruiting-job-actions { display:flex;align-items:center;justify-content:flex-end;gap:7px;padding-top:11px }
   .qf-dashboard .recruiting-job-actions .icon-btn { display:inline-flex;width:40px;height:40px;align-items:center;justify-content:center;flex:0 0 40px }
+  .qf-dashboard.qf-recruiting-job-create .recruiting-job-preview { display:none }
 }
 
 /* Schedule: client-approved phone layout. Desktop rules above remain unchanged. */
