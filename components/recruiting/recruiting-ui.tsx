@@ -291,7 +291,32 @@ function Campaigns({ t, locale }: { t: T; locale: Locale }) {
         </div>
       </form>
     ) : null}
-    <div className="card" style={{ overflowX: "auto" }}>
+    <div className="recruiting-campaigns-mobile" aria-label={t.campaignsTitle}>
+      {rows.map((row) => <article className="recruiting-campaign-card" key={row.id}>
+        <div className="recruiting-campaign-heading">
+          <div>
+            <strong>{row.jobTitle}</strong>
+            <small>{row.name}</small>
+          </div>
+          <span className="chip chip-n">{row.code}</span>
+        </div>
+        <div className="recruiting-campaign-meta">
+          <div><span>{t.campaignSource}</span><strong>{row.source}</strong></div>
+          <div><span>{t.campaignTeam}</span><strong>{row.team}</strong></div>
+        </div>
+        <dl className="recruiting-campaign-stats">
+          <div><dt>{t.campaignClicks}</dt><dd>{row.clickCount}</dd></div>
+          <div><dt>{t.campaignApps}</dt><dd>{row.applicationCount}</dd></div>
+        </dl>
+        <a className="recruiting-campaign-url" href={row.urlPath} target="_blank" rel="noreferrer">{row.urlPath}</a>
+        <div className="recruiting-campaign-actions">
+          <button type="button" className="icon-btn" aria-label={t.campaignCopy} title={t.campaignCopy} onClick={() => void copyUrl(row.urlPath)}>{"\uD83D\uDCCB"}</button>
+          <button type="button" className="icon-btn danger" aria-label={t.deleteFile} title={t.deleteFile} disabled={busy} onClick={() => void remove(row.id)}>{"\uD83D\uDDD1\uFE0F"}</button>
+        </div>
+      </article>)}
+      {!loading && !rows.length ? <div className="recruiting-campaign-empty">{t.campaignEmpty}</div> : null}
+    </div>
+    <div className="card recruiting-campaigns-desktop" style={{ overflowX: "auto" }}>
       <table className="bud-table">
         <thead>
           <tr>
