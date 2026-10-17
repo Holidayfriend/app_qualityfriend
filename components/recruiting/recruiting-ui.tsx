@@ -130,12 +130,12 @@ function Hub({ t, locale }: { t: T; locale: Locale }) {
     ? Math.round(hiredDays.reduce((sum, days) => sum + days, 0) / hiredDays.length)
     : null;
   return <>
-    <div className="ai-banner">
+    <div className="ai-banner recruiting-ai-banner">
       <div style={{ fontSize: 20 }}>✨</div>
-      <div style={{ flex: 1 }}><div className="ai-title">{t.aiTitle}</div><div className="ai-body">{briefing || t.aiBody}</div></div>
+      <div className="recruiting-ai-copy"><div className="ai-title">{t.aiTitle}</div><div className="ai-body">{briefing || t.aiBody}</div></div>
       <Link href="/recruiting/jobs/new" className="ai-btn">{t.createJob}</Link>
     </div>
-    <div className="kpi-row">
+    <div className="kpi-row recruiting-kpis">
       <div className="kpi"><div className="kpi-lbl">{t.openJobs}</div><div className="kpi-val">{openJobs}</div></div>
       <div className="kpi"><div className="kpi-lbl">{t.newApps7d}</div><div className="kpi-val" style={{ color: "var(--accent)" }}>{newApps}</div></div>
       <div className="kpi"><div className="kpi-lbl">{t.timeToHire}</div><div className="kpi-val">{avgTimeToHire !== null ? <>{avgTimeToHire}<span>{t.days}</span></> : "–"}</div></div>
