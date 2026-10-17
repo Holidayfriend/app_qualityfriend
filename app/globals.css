@@ -377,7 +377,7 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 .qf-dashboard .bud-table td { padding:9px 12px;border-bottom:1px solid var(--border) }
 .qf-dashboard .bud-table tr:last-child td { border-bottom:none }
 .qf-dashboard .bud-table tbody tr:hover td { background:#FAFAF8 }
-.qf-dashboard .tasks-list-mobile,.qf-dashboard .checklists-list-mobile,.qf-dashboard .handovers-list-mobile { display:none }
+.qf-dashboard .tasks-list-mobile,.qf-dashboard .checklists-list-mobile,.qf-dashboard .handovers-list-mobile,.qf-dashboard .repairs-list-mobile { display:none }
 .qf-dashboard .bud-tab-row { display:flex;gap:0;border-bottom:none;flex-wrap:wrap }
 .qf-dashboard .bud-tab { padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer;color:var(--text2);border:none;border-bottom:2px solid transparent;background:none;font-family:inherit }
 .qf-dashboard .bud-tab.active { color:var(--accent);border-bottom-color:var(--accent) }
@@ -844,6 +844,25 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
   .qf-dashboard .handovers-list-card-actions { display:flex;justify-content:flex-end;padding:0 14px 12px }
   .qf-dashboard .handovers-list-card-actions .icon-btn { width:40px;height:40px;flex:0 0 40px }
   .qf-dashboard .handovers-list-empty { padding:24px 16px;border:1px solid var(--border);border-radius:14px;background:var(--surface);color:var(--text3);font-size:12.5px;text-align:center }
+  .qf-dashboard .repairs-list-desktop { display:none }
+  .qf-dashboard .repairs-list-mobile { display:grid;width:100%;min-width:0;gap:10px }
+  .qf-dashboard .repairs-list-card {
+    width:100%;min-width:0;overflow:hidden;border:1px solid var(--border);border-radius:14px;background:var(--surface);box-shadow:var(--sh);
+  }
+  .qf-dashboard .repairs-list-card-main { display:block;padding:14px;color:inherit;text-decoration:none }
+  .qf-dashboard .repairs-list-card-heading { display:flex;min-width:0;align-items:flex-start;justify-content:space-between;gap:10px }
+  .qf-dashboard .repairs-list-card-heading strong { display:flex;min-width:0;flex:1;align-items:flex-start;gap:7px;font-size:14px;line-height:1.4 }
+  .qf-dashboard .repairs-list-card-heading strong > span:last-child { min-width:0;overflow-wrap:anywhere }
+  .qf-dashboard .repairs-list-card-heading > .chip { flex:0 0 auto }
+  .qf-dashboard .repairs-list-card-meta { display:grid;grid-template-columns:1fr 1fr;gap:12px 10px;margin-top:12px;padding-top:11px;border-top:1px solid var(--border) }
+  .qf-dashboard .repairs-list-card-meta > div { min-width:0 }
+  .qf-dashboard .repairs-list-card-meta dt { color:var(--text3);font-size:9.5px;font-weight:700;letter-spacing:.35px;text-transform:uppercase }
+  .qf-dashboard .repairs-list-card-meta dd { margin-top:4px;font-size:12px;overflow-wrap:anywhere }
+  .qf-dashboard .repairs-list-card-depts { grid-column:1 / -1 }
+  .qf-dashboard .repairs-list-card-depts dd { display:flex;flex-wrap:wrap;gap:4px }
+  .qf-dashboard .repairs-list-card-actions { display:flex;justify-content:flex-end;padding:0 14px 12px }
+  .qf-dashboard .repairs-list-card-actions .icon-btn { width:40px;height:40px;flex:0 0 40px }
+  .qf-dashboard .repairs-list-empty { padding:24px 16px;border:1px solid var(--border);border-radius:14px;background:var(--surface);color:var(--text3);font-size:12.5px;text-align:center }
 }
 
 /* Schedule: client-approved phone layout. Desktop rules above remain unchanged. */

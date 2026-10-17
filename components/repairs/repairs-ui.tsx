@@ -169,7 +169,27 @@ export function RepairsListPage() {
       <input className="field-input" style={{ maxWidth: 220 }} placeholder={t.search} value={query} onChange={(event) => setQuery(event.target.value)} />
       {canManage ? <Link href="/repairs/new" className="btn btn-primary" style={{ marginLeft: "auto" }}>{t.createPlus}</Link> : null}
     </div>
-    <div className="card" style={{ overflowX: "auto" }}>
+    <div className="repairs-list-mobile">
+      {rows.length ? rows.map((item) => (
+        <article key={item.id} className="repairs-list-card">
+          <Link href={`/repairs/${item.id}`} className="repairs-list-card-main">
+            <div className="repairs-list-card-heading">
+              <strong><AttachmentIndicator attachments={item.attachments} /><span>{item.title}</span></strong>
+              <span className={`chip ${STATUS_CHIP[asStatus(item.status)]}`}>{statusLabel(item.status, t)}</span>
+            </div>
+            <dl className="repairs-list-card-meta">
+              <div><dt>{t.colLocation}</dt><dd>{item.location}</dd></div>
+              <div><dt>{t.colDate}</dt><dd>{item.date}</dd></div>
+              <div><dt>{t.colAuthor}</dt><dd>{item.creator}</dd></div>
+              <div><dt>{t.colAssignee}</dt><dd>{item.assignee || t.unassigned}</dd></div>
+              <div className="repairs-list-card-depts"><dt>{t.colDepts}</dt><dd>{item.depts.length ? item.depts.map((d) => <span key={d} className="chip chip-n">{deptName(d, departments, t)}</span>) : <span className="chip chip-n">{t.allChip}</span>}</dd></div>
+            </dl>
+          </Link>
+          {canManage ? <div className="repairs-list-card-actions"><Link href={`/repairs/${item.id}/edit`} className="icon-btn" aria-label={`${t.colActions}: ${item.title}`} title={t.colActions}>✏️</Link></div> : null}
+        </article>
+      )) : <div className="repairs-list-empty">{t.empty}</div>}
+    </div>
+    <div className="card repairs-list-desktop" style={{ overflowX: "auto" }}>
       <table className="bud-table" style={{ width: "100%" }}>
         <thead><tr><th>{t.colTitle}</th><th>{t.colLocation}</th><th>{t.colAuthor}</th><th>{t.colAssignee}</th><th>{t.colDepts}</th><th>{t.colStatus}</th><th>{t.colDate}</th>{canManage ? <th style={{ textAlign: "right" }}>{t.colActions}</th> : null}</tr></thead>
         <tbody>
