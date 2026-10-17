@@ -130,7 +130,26 @@ export function HandoversListPage() {
       <input className="field-input" style={{ maxWidth: 220 }} placeholder={t.search} value={query} onChange={(event) => setQuery(event.target.value)} />
       {canManage ? <Link href="/handovers/new" className="btn btn-primary" style={{ marginLeft: "auto" }}>{t.createPlus}</Link> : null}
     </div>
-    <div className="card" style={{ overflowX: "auto" }}>
+    <div className="handovers-list-mobile">
+      {rows.length ? rows.map((item) => (
+        <article key={item.id} className="handovers-list-card">
+          <Link href={`/handovers/${item.id}`} className="handovers-list-card-main">
+            <div className="handovers-list-card-heading">
+              <strong>{item.pinned ? <span aria-label={t.pin}>📌</span> : null}<AttachmentIndicator attachments={item.attachments} /><span>{item.title}</span></strong>
+              <span className={`chip ${item.status === "erledigt" ? "chip-g" : item.status === "draft" ? "chip-a" : "chip-b"}`}>{statusLabel(item.status, t)}</span>
+            </div>
+            <dl className="handovers-list-card-meta">
+              <div><dt>{t.colAuthor}</dt><dd>{item.creator}</dd></div>
+              <div><dt>{t.colDate}</dt><dd>{item.date}</dd></div>
+              <div><dt>{t.colDepts}</dt><dd className="handovers-list-card-chips">{item.depts.length ? item.depts.map((d) => <span key={d} className="chip chip-n">{deptName(d, departments)}</span>) : <span className="chip chip-n">{item.visibility === "privat" ? t.visMe : t.allChip}</span>}</dd></div>
+              <div><dt>{t.colVis}</dt><dd>{visLabel(item.visibility, t)}</dd></div>
+            </dl>
+          </Link>
+          {canManage ? <div className="handovers-list-card-actions"><Link href={`/handovers/${item.id}/edit`} className="icon-btn" aria-label={t.edit} title={t.edit}>✏️</Link></div> : null}
+        </article>
+      )) : <div className="handovers-list-empty">{t.empty}</div>}
+    </div>
+    <div className="card handovers-list-desktop" style={{ overflowX: "auto" }}>
       <table className="bud-table" style={{ width: "100%" }}>
         <thead><tr><th></th><th>{t.colTitle}</th><th>{t.colAuthor}</th><th>{t.colDepts}</th><th>{t.colVis}</th><th>{t.colStatus}</th><th>{t.colDate}</th>{canManage ? <th style={{ textAlign: "right" }}>{t.colActions}</th> : null}</tr></thead>
         <tbody>
