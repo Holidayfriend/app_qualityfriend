@@ -211,7 +211,24 @@ export function TasksListPage() {
       </div>
       {canManage ? <Link href="/tasks/new" className="btn btn-primary" style={{ marginLeft: "auto" }}>{t.createPlus}</Link> : null}
     </div>
-    <div className="card" style={{ overflowX: "auto" }}>
+    <div className="tasks-list-mobile">
+      {rows.length ? rows.map((item) => (
+        <article key={item.id} className="tasks-list-card">
+          <Link href={`/tasks/${item.id}`} className="tasks-list-card-main">
+            <div className="tasks-list-card-heading">
+              <strong>{item.title}</strong>
+              <span className={`chip ${item.status === "done" ? "chip-g" : "chip-a"}`}>{item.status === "done" ? t.statusDone : t.statusOpen}</span>
+            </div>
+            <dl className="tasks-list-card-meta">
+              <div><dt>{t.colAssignee}</dt><dd>{item.assignee}</dd></div>
+              <div><dt>{t.colDue}</dt><dd>{item.due || "–"}</dd></div>
+            </dl>
+          </Link>
+          {canManage ? <div className="tasks-list-card-actions"><Link href={`/tasks/${item.id}/edit`} className="icon-btn" aria-label={`${t.editTask}: ${item.title}`} title={t.editTask}>✏️</Link></div> : null}
+        </article>
+      )) : <div className="tasks-list-empty">{t.emptyTasks}</div>}
+    </div>
+    <div className="card tasks-list-desktop" style={{ overflowX: "auto" }}>
       <table className="bud-table" style={{ width: "100%" }}>
         <thead><tr><th>{t.colTitle}</th><th>{t.colAssignee}</th><th>{t.colDue}</th><th>{t.colStatus}</th>{canManage ? <th style={{ textAlign: "right" }}>{t.colActions}</th> : null}</tr></thead>
         <tbody>
@@ -355,7 +372,34 @@ export function ChecklistsListPage() {
       <input className="field-input" style={{ maxWidth: 220 }} placeholder={t.search} value={query} onChange={(event) => setQuery(event.target.value)} />
       {canManage ? <Link href="/tasks/checklists/new" className="btn btn-primary" style={{ marginLeft: "auto" }}>{t.createChecklist}</Link> : null}
     </div>
-    <div className="card" style={{ overflowX: "auto" }}>
+    <div className="checklists-list-mobile">
+      {rows.length ? rows.map((item) => (
+        <article key={item.id} className="checklists-list-card">
+          <Link href={`/tasks/checklists/${item.id}`} className="checklists-list-card-main">
+            <div className="checklists-list-card-heading">
+              <strong><AttachmentIndicator attachments={item.attachments} />{item.title}</strong>
+              <span className={`chip ${item.completedAt ? "chip-g" : statusChip(item.status)}`}>{item.completedAt ? t.statusDone : statusLabel(item.status, t)}</span>
+            </div>
+            <dl className="checklists-list-card-meta">
+              <div><dt>{t.colAssignee}</dt><dd>{item.assignType === "all" ? t.everyone : item.assignee || "–"}</dd></div>
+              <div><dt>{t.colRepeat}</dt><dd>{recurrenceLabel(item, t)}</dd></div>
+              <div><dt>{t.colNext}</dt><dd>{item.nextDue || "–"}</dd></div>
+            </dl>
+          </Link>
+          {canManage && item.origin === "original" ? <div className="checklists-list-card-actions">
+            <button
+              type="button"
+              className="icon-btn"
+              aria-label={item.status === "active" ? t.setArchived : t.setActive}
+              title={item.status === "active" ? t.setArchived : t.setActive}
+              onClick={() => void setChecklistStatus(item.id, item.status === "active" ? "archived" : "active")}
+            >{item.status === "active" ? "🗄️" : "↩️"}</button>
+            <Link href={`/tasks/checklists/${item.id}/edit`} className="icon-btn" aria-label={t.edit} title={t.edit}>✏️</Link>
+          </div> : null}
+        </article>
+      )) : <div className="checklists-list-empty">{t.emptyChecklists}</div>}
+    </div>
+    <div className="card checklists-list-desktop" style={{ overflowX: "auto" }}>
       <table className="bud-table" style={{ width: "100%" }}>
         <thead><tr><th>{t.colTitle}</th><th>{t.colAssignee}</th><th>{t.colRepeat}</th><th>{t.colNext}</th><th>{t.colStatus}</th>{canManage ? <th style={{ textAlign: "right" }}>{t.colActions}</th> : null}</tr></thead>
         <tbody>
