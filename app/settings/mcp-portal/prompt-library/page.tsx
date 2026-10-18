@@ -1,5 +1,5 @@
-import { McpPortalPlaceholder } from "../../../../components/settings/mcp-portal-shell";
+import { McpPromptLibrary } from "../../../../components/settings/mcp-prompt-library";
 
 export default function Page() {
-  return <McpPortalPlaceholder page="promptLibrary" />;
+  return <McpPromptLibrary />;
 }

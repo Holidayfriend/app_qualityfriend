@@ -9,7 +9,7 @@ export class McpApiError extends Error {
 
 function baseUrl() { return (process.env.MCP_API_BASE_URL || defaultBaseUrl).replace(/\/$/, ""); }
 
-async function request(path: string, body: JsonObject | null, method = "POST", token?: string) {
+async function request(path: string, body: JsonObject | null, method = "POST", token?: string, allowEmpty = false) {
   let response: Response;
   try {
     response = await fetch(`${baseUrl()}${path}`, { method, headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}), cache: "no-store", signal: AbortSignal.timeout(15_000) });
@@ -19,7 +19,10 @@ async function request(path: string, body: JsonObject | null, method = "POST", t
     const detail = typeof data?.error === "string" ? data.error : typeof data?.message === "string" ? data.message : "MCP request failed.";
     throw new McpApiError(detail, 502);
   }
-  if (!data) throw new McpApiError("The MCP service returned an invalid response.", 502);
+  if (!data) {
+    if (allowEmpty) return {};
+    throw new McpApiError("The MCP service returned an invalid response.", 502);
+  }
   return data;
 }
 
@@ -66,6 +69,30 @@ export async function getMcpUserPreferences(token: string) { return request("/se
 export async function setMcpUserPreferences(token: string, preferences: { enabledProviders: string[]; defaultProvider: string | null; models: Record<string, string> }) { return request("/settings/preferences", preferences, "PUT", token); }
 export async function getMcpPromptCategories(token: string) { return request("/prompt-categories", null, "GET", token) as unknown; }
 export async function createMcpPromptCategory(token: string, name: string) { return request("/prompt-categories", { name }, "POST", token) as unknown; }
+
+export type McpPromptInput = {
+  title: string;
+  body: string;
+  version: string;
+  tags: string[];
+  categoryId: string;
+  departmentId: string;
+  assignedUserId: string[];
+};
+
+export async function getMcpPrompts(token: string, path = "/prompts", search = "") {
+  const query = search ? `${path.includes("?") ? "&" : "?"}search=${encodeURIComponent(search)}` : "";
+  return request(`${path}${query}`, null, "GET", token) as unknown;
+}
+export async function getMcpPrompt(token: string, promptId: string) { return request(`/prompts/${encodeURIComponent(promptId)}`, null, "GET", token) as unknown; }
+export async function getMcpPromptFeedback(token: string, promptId: string) { return request(`/prompts/${encodeURIComponent(promptId)}/feedback/me`, null, "GET", token) as unknown; }
+export async function getMcpPromptsByCategory(token: string, categoryId: string) { return request(`/prompts/category/${encodeURIComponent(categoryId)}`, null, "GET", token) as unknown; }
+export async function getMcpConversationsByPrompt(token: string, promptId: string) { return request(`/conversations/by-prompt/${encodeURIComponent(promptId)}`, null, "GET", token) as unknown; }
+export async function setMcpPromptFeedback(token: string, promptId: string, feedbackScore: number, reaction: "like" | "dislike" | "none") { return request(`/prompts/${encodeURIComponent(promptId)}/feedback`, { feedbackScore, reaction }, "POST", token, true) as unknown; }
+export async function createMcpPrompt(token: string, input: McpPromptInput) { return request("/prompts", input, "POST", token) as unknown; }
+export async function updateMcpPrompt(token: string, promptId: string, input: McpPromptInput) { return request(`/prompts/${encodeURIComponent(promptId)}`, input, "PATCH", token) as unknown; }
+export async function getMcpHotelDepartments(token: string, hotelId: string) { return request(`/departments?hotelId=${encodeURIComponent(hotelId)}`, null, "GET", token) as unknown; }
+export async function getMcpHotelUsers(token: string, hotelId: string) { return request(`/users?hotelId=${encodeURIComponent(hotelId)}&activeOnly=false`, null, "GET", token) as unknown; }
 
 export async function createDefaultMcpServers(hotelId: string) {
   const servers = [{ name: "energy-mcp", args: ["src/mcp/servers/energy.ts"] }, { name: "brevo-mcp", args: ["src/mcp/servers/brevo.ts"] }, { name: "xml-mcp", args: ["src/mcp/servers/xml.ts"] }];

@@ -35,7 +35,7 @@ export function McpPortalShell({ children }: { children: ReactNode }) {
 
         <nav className="mb-[18px] flex gap-2 overflow-x-auto pb-1" aria-label={text.title}>
           {tabDefinitions.map((tab) => {
-            const active = pathname === tab.href;
+            const active = pathname === tab.href || (tab.key !== "dashboard" && pathname.startsWith(`${tab.href}/`));
             return (
               <Link
                 key={tab.key}
