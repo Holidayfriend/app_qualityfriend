@@ -4,6 +4,7 @@ import {
   getMcpPrompt,
   getMcpPromptFeedback,
   getMcpPromptsByCategory,
+  deleteMcpPrompt,
   McpApiError,
   updateMcpPrompt,
   type McpPromptInput,
@@ -77,5 +78,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ pr
     return NextResponse.json({ success: true, result });
   } catch (error) {
     return failure(error, "MCP prompt could not be updated.");
+  }
+}
+
+export async function DELETE(_request: Request, { params }: { params: Promise<{ promptId: string }> }) {
+  const { promptId } = await params;
+  if (!promptId || promptId.length > 160) return NextResponse.json({ error: "INVALID_PROMPT_ID" }, { status: 400 });
+  try {
+    const context = await getMcpPortalContext();
+    if ("error" in context) return NextResponse.json({ error: context.error }, { status: context.status });
+    if (context.profile.role !== "author") return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+    const result = await deleteMcpPrompt(context.token, promptId);
+    return NextResponse.json({ success: true, result });
+  } catch (error) {
+    return failure(error, "MCP prompt could not be deleted.");
   }
 }

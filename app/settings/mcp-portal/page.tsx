@@ -1,5 +1,5 @@
-import { McpPortalPlaceholder } from "../../../components/settings/mcp-portal-shell";
+import { McpAuthorDashboard } from "../../../components/settings/mcp-author-dashboard";
 
 export default function Page() {
-  return <McpPortalPlaceholder page="dashboard" />;
+  return <McpAuthorDashboard />;
 }

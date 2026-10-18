@@ -78,7 +78,7 @@ function formFromPrompt(prompt: Prompt): PromptForm {
   };
 }
 
-export function McpPromptLibrary() {
+export function McpPromptLibrary({ initialEditId = "" }: { initialEditId?: string }) {
   const { locale } = useI18n();
   const text = mcpPortalMessages[locale];
   const toast = useToast();
@@ -104,6 +104,23 @@ export function McpPromptLibrary() {
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, []);
+
+  useEffect(() => {
+    if (!initialEditId) return;
+    const controller = new AbortController();
+    fetch(`/api/settings/mcp-portal/prompts/${encodeURIComponent(initialEditId)}`, { cache: "no-store", signal: controller.signal })
+      .then(async (response) => {
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result.prompt) throw new Error();
+        const prompt = result.prompt as Prompt;
+        setEditingId(prompt.id);
+        setForm(formFromPrompt(prompt));
+        setFormError("");
+        setEditor("edit");
+      })
+      .catch(() => { if (!controller.signal.aborted) toast({ message: text.promptLoadFailed, tone: "error" }); });
+    return () => controller.abort();
+  }, [initialEditId, text.promptLoadFailed, toast]);
 
   const visiblePrompts = useMemo(() => data.prompts.filter((prompt) => !selectedCategories.length || selectedCategories.includes(prompt.categoryId)), [data.prompts, selectedCategories]);
 

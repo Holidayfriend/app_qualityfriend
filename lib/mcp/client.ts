@@ -26,6 +26,23 @@ async function request(path: string, body: JsonObject | null, method = "POST", t
   return data;
 }
 
+async function requestText(path: string, token: string) {
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl()}${path}`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store", signal: AbortSignal.timeout(30_000) });
+  } catch { throw new McpApiError("The MCP service could not be reached.", 502); }
+  const data = await response.text();
+  if (!response.ok) {
+    let detail = "MCP request failed.";
+    try {
+      const error = JSON.parse(data) as JsonObject;
+      detail = typeof error.error === "string" ? error.error : typeof error.message === "string" ? error.message : detail;
+    } catch { if (data.trim()) detail = data.slice(0, 500); }
+    throw new McpApiError(detail, 502);
+  }
+  return data;
+}
+
 function requiredId(data: JsonObject, resource: string) {
   const nested = data.record && typeof data.record === "object" ? data.record as JsonObject : null;
   const user = data.user && typeof data.user === "object" ? data.user as JsonObject : null;
@@ -84,6 +101,12 @@ export async function getMcpPrompts(token: string, path = "/prompts", search = "
   const query = search ? `${path.includes("?") ? "&" : "?"}search=${encodeURIComponent(search)}` : "";
   return request(`${path}${query}`, null, "GET", token) as unknown;
 }
+export async function getMcpPromptFeedbacks(token: string) { return request("/prompts/feedbacks", null, "GET", token) as unknown; }
+export async function getMcpAuthorStats(token: string) { return request("/prompts/authors/stats", null, "GET", token) as unknown; }
+export async function getMcpTrainingStatus(token: string) { return request("/training/status", null, "GET", token) as unknown; }
+export async function syncMcpTraining(token: string) { return request("/training/sync", {}, "POST", token) as unknown; }
+export async function resetMcpTraining(token: string) { return request("/training/reset", { scope: "all" }, "POST", token) as unknown; }
+export async function exportMcpPrompts(token: string) { return requestText("/prompts/export?format=jsonl", token); }
 export async function getMcpPrompt(token: string, promptId: string) { return request(`/prompts/${encodeURIComponent(promptId)}`, null, "GET", token) as unknown; }
 export async function getMcpPromptFeedback(token: string, promptId: string) { return request(`/prompts/${encodeURIComponent(promptId)}/feedback/me`, null, "GET", token) as unknown; }
 export async function getMcpPromptsByCategory(token: string, categoryId: string) { return request(`/prompts/category/${encodeURIComponent(categoryId)}`, null, "GET", token) as unknown; }
@@ -91,6 +114,7 @@ export async function getMcpConversationsByPrompt(token: string, promptId: strin
 export async function setMcpPromptFeedback(token: string, promptId: string, feedbackScore: number, reaction: "like" | "dislike" | "none") { return request(`/prompts/${encodeURIComponent(promptId)}/feedback`, { feedbackScore, reaction }, "POST", token, true) as unknown; }
 export async function createMcpPrompt(token: string, input: McpPromptInput) { return request("/prompts", input, "POST", token) as unknown; }
 export async function updateMcpPrompt(token: string, promptId: string, input: McpPromptInput) { return request(`/prompts/${encodeURIComponent(promptId)}`, input, "PATCH", token) as unknown; }
+export async function deleteMcpPrompt(token: string, promptId: string) { return request(`/prompts/${encodeURIComponent(promptId)}`, null, "DELETE", token, true) as unknown; }
 export async function getMcpHotelDepartments(token: string, hotelId: string) { return request(`/departments?hotelId=${encodeURIComponent(hotelId)}`, null, "GET", token) as unknown; }
 export async function getMcpHotelUsers(token: string, hotelId: string) { return request(`/users?hotelId=${encodeURIComponent(hotelId)}&activeOnly=false`, null, "GET", token) as unknown; }
 
