@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
-import { getSessionUserId, setMcpSessionToken } from "../../../../lib/auth/session";
+import { getSessionUserId, setPersonalMcpSessionToken } from "../../../../lib/auth/session";
 import { createDefaultMcpServers, createMcpDepartment, createMcpHotel, createMcpUser, getMcpProviderCredentials, getMcpProviders, loginMcpUser, McpApiError, setMcpProvider, setMcpProviderCredentials, type McpProvider } from "../../../../lib/mcp/client";
 import { syncMissingMcpDepartments } from "../../../../lib/mcp/department-sync";
 import { syncMissingMcpUsers } from "../../../../lib/mcp/user-sync";
@@ -42,7 +42,7 @@ export async function POST() {
       const token = await loginMcpUser(hotel.mcpUserEmail, hotel.mcpUserPassword);
       await syncMissingMcpDepartments(hotel.id, hotel.mcpHotelId, token);
       if (hotel.mcpUserDepartment) await syncMissingMcpUsers(hotel.id, { hotelId: hotel.mcpHotelId, defaultDepartmentId: hotel.mcpUserDepartment, token });
-      await setMcpSessionToken(token);
+      await setPersonalMcpSessionToken(current.id);
       return NextResponse.json({ active: true, hotelId: hotel.mcpHotelId, userEmail: hotel.mcpUserEmail, departmentId: hotel.mcpUserDepartment });
     }
     const mcpHotelId = hotel.mcpHotelId || await createMcpHotel(hotel.hotelNameEn || hotel.hotelNameDe || hotel.hotelNameIt);
@@ -60,7 +60,7 @@ export async function POST() {
     await syncMissingMcpDepartments(hotel.id, mcpHotelId, token);
     await syncMissingMcpUsers(hotel.id, { hotelId: mcpHotelId, defaultDepartmentId: departmentId, token });
     await prisma.hotelTenant.update({ where: { id: hotel.id }, data: { activeMcp: true } });
-    await setMcpSessionToken(token);
+    await setPersonalMcpSessionToken(current.id);
     return NextResponse.json({ active: true, hotelId: mcpHotelId, userEmail: email, departmentId });
   } catch (error) {
     const message = error instanceof McpApiError ? error.message : "MCP activation failed.";

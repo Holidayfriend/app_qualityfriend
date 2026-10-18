@@ -21,25 +21,89 @@ function signature(payload: string) {
 export async function createSession(userId: string) {
   const payload = Buffer.from(JSON.stringify({ userId, expiresAt: Date.now() + maxAge * 1000 })).toString("base64url");
   const token = `${payload}.${signature(payload)}`;
-  (await cookies()).set(cookieName, token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge });
-  try {
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { hotelTenantId: true, hotelTenant: { select: { activeMcp: true, mcpHotelId: true, mcpUserEmail: true, mcpUserPassword: true, mcpUserDepartment: true } } } });
-    const hotel = user?.hotelTenant;
-    if (user && hotel?.activeMcp && hotel.mcpUserEmail && hotel.mcpUserPassword) {
-      const { loginMcpUser } = await import("../mcp/client");
-      const mcpToken = await loginMcpUser(hotel.mcpUserEmail, hotel.mcpUserPassword);
-      if (hotel.mcpHotelId) {
-        const { syncMissingMcpDepartments } = await import("../mcp/department-sync");
-        await syncMissingMcpDepartments(user.hotelTenantId, hotel.mcpHotelId, mcpToken);
-        const { syncMissingMcpUsers } = await import("../mcp/user-sync");
-        if (hotel.mcpUserDepartment) await syncMissingMcpUsers(user.hotelTenantId, { hotelId: hotel.mcpHotelId, defaultDepartmentId: hotel.mcpUserDepartment, token: mcpToken });
-      }
-      await setMcpSessionToken(mcpToken);
-    }
-  } catch (error) { console.error("MCP sign-in failed during QualityFriend login", error); }
+  const store = await cookies();
+  store.set(cookieName, token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge });
+  store.delete(mcpCookieName);
+  try { await refreshMcpSession(userId); }
+  catch (error) { console.error("MCP sign-in failed during QualityFriend login", error); }
 }
 
 export async function setMcpSessionToken(token: string) { (await cookies()).set(mcpCookieName, token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge }); }
+
+export async function getMcpSessionToken() {
+  return (await cookies()).get(mcpCookieName)?.value ?? null;
+}
+
+export async function setPersonalMcpSessionToken(userId: string) {
+  const user = await prisma.user.findFirst({
+    where: { id: userId, isActive: true, isDeleted: false },
+    select: { id: true, email: true, mcpUserId: true, mcpUserPassword: true },
+  });
+  if (!user?.mcpUserId || !user.mcpUserPassword) return null;
+  const { loginSyncedMcpUser } = await import("../mcp/user-sync");
+  const token = await loginSyncedMcpUser(user.id, user.email, user.mcpUserPassword);
+  await setMcpSessionToken(token);
+  return token;
+}
+
+export async function getPersonalMcpSession(userId: string) {
+  const user = await prisma.user.findFirst({
+    where: { id: userId, isActive: true, isDeleted: false },
+    select: { id: true, email: true, mcpUserId: true, mcpUserPassword: true },
+  });
+  if (!user?.mcpUserId || !user.mcpUserPassword) return null;
+
+  const { getMcpProfile } = await import("../mcp/client");
+  let token = await getMcpSessionToken();
+  if (token) {
+    try {
+      const profile = await getMcpProfile(token);
+      if (profile.id === user.mcpUserId) return { token, profile };
+    } catch {
+      // A missing or expired MCP token is renewed below using the stored user credentials.
+    }
+  }
+
+  token = await setPersonalMcpSessionToken(userId);
+  if (!token) return null;
+  const profile = await getMcpProfile(token);
+  if (profile.id !== user.mcpUserId) throw new Error("The MCP session does not belong to the signed-in QualityFriend user.");
+  return { token, profile };
+}
+
+export async function refreshMcpSession(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      hotelTenantId: true,
+      hotelTenant: {
+        select: {
+          activeMcp: true,
+          mcpHotelId: true,
+          mcpUserEmail: true,
+          mcpUserPassword: true,
+          mcpUserDepartment: true,
+        },
+      },
+    },
+  });
+  const hotel = user?.hotelTenant;
+  if (!user || !hotel?.activeMcp || !hotel.mcpHotelId || !hotel.mcpUserEmail || !hotel.mcpUserPassword || !hotel.mcpUserDepartment) return false;
+
+  const { loginMcpUser } = await import("../mcp/client");
+  const serviceToken = await loginMcpUser(hotel.mcpUserEmail, hotel.mcpUserPassword);
+  const { syncMissingMcpDepartments } = await import("../mcp/department-sync");
+  await syncMissingMcpDepartments(user.hotelTenantId, hotel.mcpHotelId, serviceToken);
+  const { ensureMcpUser, syncMissingMcpUsers } = await import("../mcp/user-sync");
+  const context = { hotelId: hotel.mcpHotelId, defaultDepartmentId: hotel.mcpUserDepartment, token: serviceToken };
+
+  // Prioritize the person who is signing in so another user's sync failure cannot
+  // prevent the current user from receiving a personal MCP session.
+  await ensureMcpUser(userId, context);
+  try { await syncMissingMcpUsers(user.hotelTenantId, context); }
+  catch (error) { console.error("Some MCP users could not be synchronized during login", error); }
+  return setPersonalMcpSessionToken(userId);
+}
 
 export async function clearSession() {
   const store = await cookies(); store.delete(cookieName); store.delete(challengeCookieName); store.delete(emailRecoveryCookieName); store.delete(mcpCookieName);

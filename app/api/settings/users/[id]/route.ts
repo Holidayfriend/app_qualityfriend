@@ -36,9 +36,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (mcp) {
       const mcpDepartmentId = await oneMcpDepartmentId(departmentIds, mcp.defaultDepartmentId);
       if (!previous.mcpUserId) {
-        const remote = await createRemoteUser(mcp, { email, role: role, isActive, departmentId, mcpDepartmentId, password: password || undefined });
+        const remote = await createRemoteUser(mcp, { id, email, role: role, isActive, departmentId, mcpDepartmentId, password: password || undefined });
         await prisma.user.update({ where: { id }, data: { mcpUserId: remote.id, mcpUserPassword: remote.password } });
-      } else await updateRemoteUser(mcp, { hotelTenantId: current.hotelTenantId, mcpUserId: previous.mcpUserId, email, role: role, isActive, departmentId, mcpDepartmentId });
+      } else await updateRemoteUser(mcp, { id, hotelTenantId: current.hotelTenantId, mcpUserId: previous.mcpUserId, email, role: role, isActive, departmentId, mcpDepartmentId });
     }
   } catch (error) { console.error("User MCP sync failed", error); warning = "MCP_SYNC_FAILED"; }
   return NextResponse.json({ success: true, warning });

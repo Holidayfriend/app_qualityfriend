@@ -42,7 +42,7 @@ export async function restoreDeletedItem(type: RecyclableType, id: string) {
         if (row) { names = { en: row.nameEn, de: row.nameDe, it: row.nameIt }; await tx.team.update({ where: { id }, data: { isDeleted: false, isActive: true, deletedAt: null, updatedById: current.id } }); }
       } else {
         const row = await tx.user.findFirst({ where: { id, hotelTenantId: current.hotelTenantId, isDeleted: true } });
-        if (row) { const name = `${row.firstName} ${row.lastName}`; names = { en: name, de: name, it: name }; let remote: { id: string; password: string } | null = null; if (userMcp) remote = await createRemoteUser(userMcp, { email: row.email, role: row.role, isActive: true, departmentId: row.departmentId }); await tx.user.update({ where: { id }, data: { isDeleted: false, isActive: true, deletedAt: null, mcpUserId: remote?.id ?? row.mcpUserId, mcpUserPassword: remote?.password ?? row.mcpUserPassword } }); }
+        if (row) { const name = `${row.firstName} ${row.lastName}`; names = { en: name, de: name, it: name }; let remote: { id: string; password: string } | null = null; if (userMcp) remote = await createRemoteUser(userMcp, { id: row.id, email: row.email, role: row.role, isActive: true, departmentId: row.departmentId }); await tx.user.update({ where: { id }, data: { isDeleted: false, isActive: true, deletedAt: null, mcpUserId: remote?.id ?? row.mcpUserId, mcpUserPassword: remote?.password ?? row.mcpUserPassword } }); }
       }
       if (!names) return null;
       await recordAuditLog(tx, { module: "settings", hotelTenantId: current.hotelTenantId, actorId: current.id, action: "RESTORE", entityType: type.toUpperCase(), entityId: id, changes: { after: names } });

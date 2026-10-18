@@ -61,6 +61,10 @@ export async function updateMcpUser(token: string, userId: string, data: { hotel
 export async function deleteMcpUser(token: string, userId: string, hotelId: string) { await request(`/users/${encodeURIComponent(userId)}`, { hotelId }, "DELETE", token); }
 export async function loginMcpUser(email: string, password: string) { const data = await request("/auth/login", { email, password }); if (typeof data.token !== "string" || !data.token) throw new McpApiError("The MCP login response did not contain a token.", 502); return data.token; }
 
+export async function getMcpProfile(token: string) { return request("/me", null, "GET", token); }
+export async function getMcpUserPreferences(token: string) { return request("/settings/preferences", null, "GET", token); }
+export async function setMcpUserPreferences(token: string, preferences: { enabledProviders: string[]; defaultProvider: string | null; models: Record<string, string> }) { return request("/settings/preferences", preferences, "PUT", token); }
+
 export async function createDefaultMcpServers(hotelId: string) {
   const servers = [{ name: "energy-mcp", args: ["src/mcp/servers/energy.ts"] }, { name: "brevo-mcp", args: ["src/mcp/servers/brevo.ts"] }, { name: "xml-mcp", args: ["src/mcp/servers/xml.ts"] }];
   await Promise.all(servers.map((server) => request("/mcp/servers", { ...server, transport: "stdio", command: "tsx", isActive: true, hotelId })));

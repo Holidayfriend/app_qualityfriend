@@ -1,5 +1,5 @@
-import { McpPortalPlaceholder } from "../../../../components/settings/mcp-portal-shell";
+import { McpPersonalSettings } from "../../../../components/settings/mcp-personal-settings";
 
 export default function Page() {
-  return <McpPortalPlaceholder page="personalSettings" />;
+  return <McpPersonalSettings />;
 }
