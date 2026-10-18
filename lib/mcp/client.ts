@@ -64,6 +64,8 @@ export async function loginMcpUser(email: string, password: string) { const data
 export async function getMcpProfile(token: string) { return request("/me", null, "GET", token); }
 export async function getMcpUserPreferences(token: string) { return request("/settings/preferences", null, "GET", token); }
 export async function setMcpUserPreferences(token: string, preferences: { enabledProviders: string[]; defaultProvider: string | null; models: Record<string, string> }) { return request("/settings/preferences", preferences, "PUT", token); }
+export async function getMcpPromptCategories(token: string) { return request("/prompt-categories", null, "GET", token) as unknown; }
+export async function createMcpPromptCategory(token: string, name: string) { return request("/prompt-categories", { name }, "POST", token) as unknown; }
 
 export async function createDefaultMcpServers(hotelId: string) {
   const servers = [{ name: "energy-mcp", args: ["src/mcp/servers/energy.ts"] }, { name: "brevo-mcp", args: ["src/mcp/servers/brevo.ts"] }, { name: "xml-mcp", args: ["src/mcp/servers/xml.ts"] }];

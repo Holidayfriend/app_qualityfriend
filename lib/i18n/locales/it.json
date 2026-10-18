@@ -588,7 +588,19 @@
     "providerRequired": "Abilita almeno un fornitore.",
     "defaultProviderNotEnabled": "Il fornitore predefinito deve essere abilitato.",
     "mcpNotReady": "Il tuo utente MCP non è ancora attivo o sincronizzato.",
-    "retry": "Riprova"
+    "retry": "Riprova",
+    "promptCategories": "Categorie prompt",
+    "createCategory": "Crea categoria",
+    "categoryName": "Nome categoria",
+    "enterCategoryName": "Inserisci il nome della categoria",
+    "categoryNameHint": "Questo nome verrà usato per organizzare i prompt.",
+    "noCategories": "Non sono ancora disponibili categorie.",
+    "loadingCategories": "Caricamento delle categorie prompt...",
+    "categoriesLoadFailed": "Impossibile caricare le categorie prompt.",
+    "categoryCreated": "Categoria creata correttamente.",
+    "categoryNameRequired": "Il nome della categoria è obbligatorio.",
+    "categoryCreateFailed": "Impossibile creare la categoria.",
+    "creatingCategory": "Creazione..."
   },
   "integrationSettingsMessages": {
     "title": "Integrazioni / API",

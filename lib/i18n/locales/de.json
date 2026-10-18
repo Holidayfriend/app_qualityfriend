@@ -588,7 +588,19 @@
     "providerRequired": "Aktiviere mindestens einen Anbieter.",
     "defaultProviderNotEnabled": "Der Standardanbieter muss ebenfalls aktiviert sein.",
     "mcpNotReady": "Dein MCP-Benutzer ist noch nicht aktiv oder synchronisiert.",
-    "retry": "Erneut versuchen"
+    "retry": "Erneut versuchen",
+    "promptCategories": "Prompt-Kategorien",
+    "createCategory": "Kategorie erstellen",
+    "categoryName": "Kategoriename",
+    "enterCategoryName": "Kategoriename eingeben",
+    "categoryNameHint": "Dieser Name wird zur Organisation von Prompts verwendet.",
+    "noCategories": "Noch keine Kategorien verfügbar.",
+    "loadingCategories": "Prompt-Kategorien werden geladen...",
+    "categoriesLoadFailed": "Die Prompt-Kategorien konnten nicht geladen werden.",
+    "categoryCreated": "Kategorie erfolgreich erstellt.",
+    "categoryNameRequired": "Der Kategoriename ist erforderlich.",
+    "categoryCreateFailed": "Die Kategorie konnte nicht erstellt werden.",
+    "creatingCategory": "Wird erstellt..."
   },
   "integrationSettingsMessages": {
     "title": "Integrationen / API",

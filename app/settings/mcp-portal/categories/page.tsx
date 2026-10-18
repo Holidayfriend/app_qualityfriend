@@ -1,5 +1,5 @@
-import { McpPortalPlaceholder } from "../../../../components/settings/mcp-portal-shell";
+import { McpCategories } from "../../../../components/settings/mcp-categories";
 
 export default function Page() {
-  return <McpPortalPlaceholder page="categories" />;
+  return <McpCategories />;
 }
