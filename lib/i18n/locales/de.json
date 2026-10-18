@@ -555,6 +555,18 @@
     "title": "MCP-Integrationen",
     "description": "MCP-Dienste verbinden und verwalten"
   },
+  "mcpPortalMessages": {
+    "title": "MCP-Portal",
+    "settingsDescription": "Dashboard, Prompt-Bibliothek, Kategorien und Chats öffnen.",
+    "description": "MCP-Arbeitsbereich, Prompts, Kategorien und Unterhaltungen verwalten.",
+    "dashboard": "Dashboard",
+    "promptLibrary": "Prompt-Bibliothek",
+    "categories": "Kategorien",
+    "chatHistory": "Chatverlauf",
+    "newChat": "Neuer Chat",
+    "personalSettings": "Persönliche Einstellungen",
+    "placeholder": "Diese Seite ist bereit für ihre MCP-API-Inhalte."
+  },
   "integrationSettingsMessages": {
     "title": "Integrationen / API",
     "settings": "Einstellungen",

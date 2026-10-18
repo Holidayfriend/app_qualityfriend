@@ -557,6 +557,18 @@
     "title": "MCP integrations",
     "description": "Connect and manage MCP services"
   },
+  "mcpPortalMessages": {
+    "title": "MCP Portal",
+    "settingsDescription": "Open the dashboard, prompt library, categories, and chats.",
+    "description": "Manage your MCP workspace, prompts, categories, and conversations.",
+    "dashboard": "Dashboard",
+    "promptLibrary": "Prompt Library",
+    "categories": "Categories",
+    "chatHistory": "Chat History",
+    "newChat": "New Chat",
+    "personalSettings": "Personal Settings",
+    "placeholder": "This page is ready for its MCP API content."
+  },
   "integrationSettingsMessages": {
     "title": "Integrations / API",
     "settings": "Settings",

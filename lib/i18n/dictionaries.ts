@@ -32,6 +32,7 @@ export const userManagementMessages = byLocale("userManagementMessages");
 export const moduleNavigationMessages = byLocale("moduleNavigationMessages");
 export const accessDeniedMessages = byLocale("accessDeniedMessages");
 export const mcpSettingsMessages = byLocale("mcpSettingsMessages");
+export const mcpPortalMessages = byLocale("mcpPortalMessages");
 export const integrationSettingsMessages = byLocale("integrationSettingsMessages");
 export const aiApiSettingsMessages = byLocale("aiApiSettingsMessages");
 
