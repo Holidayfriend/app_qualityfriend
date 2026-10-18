@@ -12,10 +12,12 @@
     "housekeeping:daily": "tsx scripts/housekeeping-daily.ts",
     "housekeeping:import": "tsx scripts/housekeeping-import.ts",
     "housekeeping:breakfast-clear": "tsx scripts/housekeeping-breakfast-clear.ts",
+    "competitors:weekly": "tsx scripts/competitors-weekly.ts",
     "weather:daily": "tsx scripts/weather-daily.ts",
     "checklists:daily": "tsx scripts/checklists-daily.ts",
     "ai_recomendation:daily": "tsx scripts/ai-recommendation-daily.ts",
     "test:housekeeping": "tsx --test tests/housekeeping-asa-file.test.ts tests/housekeeping-import.test.ts tests/housekeeping-daily-plan.test.ts",
+    "test:competitors": "tsx --test tests/competitors-sync.test.ts",
     "test:weather": "tsx --test tests/weather-daily.test.ts"
   },
   "dependencies": {

@@ -632,6 +632,7 @@ model Competitor {
   mentions            Json        @default("[]")
   merchandisingLabels Json        @default("[]") @map("merchandising_labels")
   rawPayload          Json        @map("raw_payload")
+  bestValueRank       Int?        @map("best_value_rank")
   lastFetchedAt       DateTime    @map("last_fetched_at") @db.Timestamptz(3)
   createdAt           DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt           DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -639,6 +640,7 @@ model Competitor {
 
   @@unique([hotelTenantId, locationKey, externalKey])
   @@index([hotelTenantId, locationKey, name])
+  @@index([hotelTenantId, locationKey, bestValueRank])
   @@map("competitors")
 }
 
