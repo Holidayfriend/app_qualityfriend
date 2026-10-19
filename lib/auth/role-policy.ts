@@ -10,6 +10,10 @@ export const moduleKeys = ["dashboard", "aiAssistant", "chat", "mcp", "handovers
 export type ModuleKey = typeof moduleKeys[number] | "settings";
 export const editableModuleKeys = moduleKeys.filter((key) => key !== "activityLog" && key !== "recycleBin");
 
+export function canManageAiSettings(role: string | null | undefined) {
+  return role === "ADMIN";
+}
+
 const defaults: Record<string, readonly string[]> = {
   EMPLOYEE: ["dashboard", "aiAssistant", "chat", "handovers", "tasks", "housekeeper", "repairs", "notes", "manuals", "activityLog", "recycleBin", "settings"],
   TEAM_LEAD: ["dashboard", "aiAssistant", "chat", "handovers", "tasks", "housekeeping", "repairs", "notes", "schedule", "manuals", "activityLog", "recycleBin", "settings"],

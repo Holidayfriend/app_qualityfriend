@@ -44,6 +44,7 @@ export default function AiKeysPage() {
     fetch("/api/settings/ai-keys")
       .then(async (response) => {
         if (response.status === 401) return router.replace("/login");
+        if (response.status === 403) return router.replace("/access-denied");
         if (!response.ok) throw new Error();
         apply(await response.json());
       })
@@ -105,6 +106,7 @@ export default function AiKeysPage() {
       });
       const data = await response.json().catch(() => null) as { ok?: boolean; error?: string } | null;
       if (response.status === 401) return router.replace("/login");
+      if (response.status === 403) return router.replace("/access-denied");
       if (data?.ok) {
         setTestResult((current) => ({ ...current, [provider.id]: { ok: true, text: t.testOk.replace("{model}", provider.model) } }));
         return;

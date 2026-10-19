@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import { currentAccessUser } from "../../../../lib/auth/module-access";
 import { prisma } from "../../../../lib/prisma";
 import { isAiUsageRange, listHotelAiUsage } from "../../../../lib/ai/usage";
+import { canManageAiSettings } from "../../../../lib/auth/role-policy";
 
 export async function GET(request: Request) {
   const user = await currentAccessUser();
   if (!user) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
+  if (!canManageAiSettings(user.role)) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   const url = new URL(request.url);
   const rangeParam = url.searchParams.get("range");
   const range = isAiUsageRange(rangeParam) ? rangeParam : "today";

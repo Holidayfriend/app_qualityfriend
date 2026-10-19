@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { editableModuleKeys, hotelRoleName, moduleKeys, resolveRoleModules, systemRoles } from "../lib/auth/role-policy";
+import { canManageAiSettings, editableModuleKeys, hotelRoleName, moduleKeys, resolveRoleModules, systemRoles } from "../lib/auth/role-policy";
+
+test("only administrators can manage AI credentials", () => {
+  assert.equal(canManageAiSettings("ADMIN"), true);
+  for (const role of ["MANAGEMENT", "TEAM_LEAD", "EMPLOYEE", "custom", "", null, undefined]) {
+    assert.equal(canManageAiSettings(role), false);
+  }
+});
 
 test("existing four roles retain their module defaults", () => {
   const expected = {

@@ -4,20 +4,18 @@ import { prisma } from "../../../../lib/prisma";
 import { isAiProviderId } from "../../../../lib/ai/providers";
 import { listHotelAiProviders, saveHotelAiProvider, testHotelAiProvider } from "../../../../lib/ai/complete";
 import { recordAuditLog } from "../../../../lib/audit/audit-service";
+import { canManageAiSettings } from "../../../../lib/auth/role-policy";
 
 async function sessionUser() {
   return currentAccessUser();
 }
 
-function canManageAi(role: string) {
-  return role === "ADMIN" || role === "MANAGEMENT";
-}
-
 export async function GET() {
   const user = await sessionUser();
   if (!user) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
+  if (!canManageAiSettings(user.role)) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   return NextResponse.json(
-    { ...(await listHotelAiProviders(prisma, user.hotel_tenant_id)), canEdit: canManageAi(user.role) },
+    { ...(await listHotelAiProviders(prisma, user.hotel_tenant_id)), canEdit: true },
     { headers: { "Cache-Control": "no-store" } },
   );
 }
@@ -25,7 +23,7 @@ export async function GET() {
 export async function PUT(request: Request) {
   const user = await sessionUser();
   if (!user) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
-  if (!canManageAi(user.role)) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+  if (!canManageAiSettings(user.role)) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   const body = await request.json().catch(() => null) as { provider?: unknown; model?: unknown; apiKey?: unknown; clearKey?: unknown; activeProvider?: unknown } | null;
   if (!isAiProviderId(body?.provider)) return NextResponse.json({ error: "INVALID_PROVIDER" }, { status: 400 });
   const activeProvider = isAiProviderId(body?.activeProvider) ? body.activeProvider : undefined;
@@ -50,7 +48,7 @@ export async function PUT(request: Request) {
 export async function POST(request: Request) {
   const user = await sessionUser();
   if (!user) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
-  if (!canManageAi(user.role)) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+  if (!canManageAiSettings(user.role)) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   const body = await request.json().catch(() => null) as { provider?: unknown; model?: unknown; apiKey?: unknown } | null;
   if (!isAiProviderId(body?.provider)) return NextResponse.json({ error: "INVALID_PROVIDER" }, { status: 400 });
   const result = await testHotelAiProvider(prisma, user.hotel_tenant_id, {
