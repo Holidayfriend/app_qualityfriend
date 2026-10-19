@@ -12,9 +12,9 @@ function isEmailConflict(error: unknown) {
 }
 
 export async function loginSyncedMcpUser(userId: string, email: string, password: string) {
-  try { return await loginMcpUser(email, password); }
+  try { return await loginMcpUser(fallbackMcpUserEmail(userId), password); }
   catch (error) {
-    try { return await loginMcpUser(fallbackMcpUserEmail(userId), password); }
+    try { return await loginMcpUser(email, password); }
     catch { throw error; }
   }
 }

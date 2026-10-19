@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { mcpPortalMessages } from "../../lib/i18n/dictionaries";
 import { useI18n } from "../i18n/i18n-provider";
 import { BrandLoader } from "../ui/brand-loader";
-import { Button } from "../ui/button";
 import { useToast } from "../ui/toast-provider";
 
 type Prompt = {
@@ -142,7 +141,7 @@ export function McpPromptDetail({ promptId }: { promptId: string }) {
             </div>
           </div>
 
-          <Button className="mt-5 w-full" disabled title={text.usePromptLater}>{text.usePrompt}</Button>
+          <Link href={`/settings/mcp-portal/new-chat?promptId=${encodeURIComponent(prompt.id)}`} className="mt-5 inline-flex h-11 w-full items-center justify-center rounded-[7px] border border-[var(--qf-accent)] bg-[var(--qf-accent)] px-5 text-[13px] font-semibold text-white transition hover:border-[var(--qf-accent-hover)] hover:bg-[var(--qf-accent-hover)]">{text.usePrompt}</Link>
         </article>
 
         <aside className="h-fit rounded-[var(--qf-radius)] border border-[var(--qf-border)] bg-white p-6 shadow-[var(--qf-shadow)]">

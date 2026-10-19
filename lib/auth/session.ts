@@ -92,6 +92,8 @@ export async function refreshMcpSession(userId: string) {
 
   const { loginMcpUser } = await import("../mcp/client");
   const serviceToken = await loginMcpUser(hotel.mcpUserEmail, hotel.mcpUserPassword);
+  const { ensureDefaultMcpServers } = await import("../mcp/server-sync");
+  await ensureDefaultMcpServers(serviceToken, hotel.mcpHotelId);
   const { syncMissingMcpDepartments } = await import("../mcp/department-sync");
   await syncMissingMcpDepartments(user.hotelTenantId, hotel.mcpHotelId, serviceToken);
   const { ensureMcpUser, syncMissingMcpUsers } = await import("../mcp/user-sync");

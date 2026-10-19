@@ -1,5 +1,5 @@
-import { McpPortalPlaceholder } from "../../../../components/settings/mcp-portal-shell";
+import { McpChatHistory } from "../../../../components/settings/mcp-chat";
 
 export default function Page() {
-  return <McpPortalPlaceholder page="chatHistory" />;
+  return <McpChatHistory />;
 }

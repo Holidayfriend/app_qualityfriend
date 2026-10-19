@@ -9,11 +9,38 @@ export class McpApiError extends Error {
 
 function baseUrl() { return (process.env.MCP_API_BASE_URL || defaultBaseUrl).replace(/\/$/, ""); }
 
-async function request(path: string, body: JsonObject | null, method = "POST", token?: string, allowEmpty = false) {
-  let response: Response;
-  try {
-    response = await fetch(`${baseUrl()}${path}`, { method, headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}), cache: "no-store", signal: AbortSignal.timeout(15_000) });
-  } catch { throw new McpApiError("The MCP service could not be reached.", 502); }
+const retryableConnectionCodes = new Set(["EAI_AGAIN", "ECONNREFUSED", "ENETUNREACH", "EHOSTUNREACH", "ETIMEDOUT", "UND_ERR_CONNECT_TIMEOUT"]);
+
+function connectionErrorCode(error: unknown): string {
+  if (!error || typeof error !== "object") return "";
+  const value = error as { code?: unknown; cause?: unknown; errors?: unknown };
+  if (typeof value.code === "string" && retryableConnectionCodes.has(value.code)) return value.code;
+  const causeCode = connectionErrorCode(value.cause);
+  if (causeCode) return causeCode;
+  if (Array.isArray(value.errors)) {
+    for (const nested of value.errors) {
+      const nestedCode = connectionErrorCode(nested);
+      if (nestedCode) return nestedCode;
+    }
+  }
+  return "";
+}
+
+function wait(milliseconds: number) { return new Promise((resolve) => setTimeout(resolve, milliseconds)); }
+
+async function request(path: string, body: JsonObject | null, method = "POST", token?: string, allowEmpty = false, timeout = 15_000, connectionAttempts = method === "GET" ? 3 : 1) {
+  let response: Response | null = null;
+  for (let attempt = 0; attempt < connectionAttempts; attempt++) {
+    try {
+      response = await fetch(`${baseUrl()}${path}`, { method, headers: { ...(body ? { "Content-Type": "application/json" } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}), cache: "no-store", signal: AbortSignal.timeout(timeout) });
+      break;
+    } catch (error) {
+      const code = connectionErrorCode(error);
+      if (!code || attempt === connectionAttempts - 1) throw new McpApiError("The MCP service could not be reached.", 502);
+      await wait(250 * (attempt + 1));
+    }
+  }
+  if (!response) throw new McpApiError("The MCP service could not be reached.", 502);
   const data = (await response.json().catch(() => null)) as JsonObject | null;
   if (!response.ok) {
     const detail = typeof data?.error === "string" ? data.error : typeof data?.message === "string" ? data.message : "MCP request failed.";
@@ -24,6 +51,19 @@ async function request(path: string, body: JsonObject | null, method = "POST", t
     throw new McpApiError("The MCP service returned an invalid response.", 502);
   }
   return data;
+}
+
+async function requestForm(path: string, form: FormData, token: string) {
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl()}${path}`, { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form, cache: "no-store", signal: AbortSignal.timeout(120_000) });
+  } catch { throw new McpApiError("The MCP service could not be reached.", 502); }
+  const data = await response.json().catch(() => null) as JsonObject | null;
+  if (!response.ok) {
+    const detail = typeof data?.error === "string" ? data.error : typeof data?.message === "string" ? data.message : "MCP request failed.";
+    throw new McpApiError(detail, 502);
+  }
+  return data ?? {};
 }
 
 async function requestText(path: string, token: string) {
@@ -79,7 +119,17 @@ export async function createSyncedMcpUser(token: string, email: string, password
 }
 export async function updateMcpUser(token: string, userId: string, data: { hotelId: string; email: string; role: string; isActive: boolean; departmentId: string }) { await request(`/users/${encodeURIComponent(userId)}`, data, "PATCH", token); }
 export async function deleteMcpUser(token: string, userId: string, hotelId: string) { await request(`/users/${encodeURIComponent(userId)}`, { hotelId }, "DELETE", token); }
-export async function loginMcpUser(email: string, password: string) { const data = await request("/auth/login", { email, password }); if (typeof data.token !== "string" || !data.token) throw new McpApiError("The MCP login response did not contain a token.", 502); return data.token; }
+export async function loginMcpUser(email: string, password: string) {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const data = await request("/auth/login", { email, password });
+      if (typeof data.token !== "string" || !data.token) throw new McpApiError("The MCP login response did not contain a token.", 502);
+      return data.token;
+    } catch (error) { lastError = error; }
+  }
+  throw lastError;
+}
 
 export async function getMcpProfile(token: string) { return request("/me", null, "GET", token); }
 export async function getMcpUserPreferences(token: string) { return request("/settings/preferences", null, "GET", token); }
@@ -115,13 +165,27 @@ export async function setMcpPromptFeedback(token: string, promptId: string, feed
 export async function createMcpPrompt(token: string, input: McpPromptInput) { return request("/prompts", input, "POST", token) as unknown; }
 export async function updateMcpPrompt(token: string, promptId: string, input: McpPromptInput) { return request(`/prompts/${encodeURIComponent(promptId)}`, input, "PATCH", token) as unknown; }
 export async function deleteMcpPrompt(token: string, promptId: string) { return request(`/prompts/${encodeURIComponent(promptId)}`, null, "DELETE", token, true) as unknown; }
+export async function getMcpSuggestions(token: string, limit = 8) { return request(`/suggestions?mode=composer&limit=${Math.min(20, Math.max(1, limit))}`, null, "GET", token) as unknown; }
+export async function getMcpMostUsedPrompts(token: string, limit = 4) { return request(`/prompts/most-used?limit=${Math.min(12, Math.max(1, limit))}`, null, "GET", token) as unknown; }
+export async function getMcpConversations(token: string) { return request("/conversations", null, "GET", token) as unknown; }
+export async function createMcpConversation(token: string, title: string, promptId?: string) { return request("/conversations", { title, ...(promptId ? { promptId } : {}) }, "POST", token, false, 15_000, 3) as unknown; }
+export async function updateMcpConversationTitle(token: string, conversationId: string, title: string) { return request(`/conversations/${encodeURIComponent(conversationId)}/title`, { title }, "PATCH", token, true) as unknown; }
+export async function deleteMcpConversation(token: string, conversationId: string) { return request(`/conversations/${encodeURIComponent(conversationId)}`, null, "DELETE", token, true) as unknown; }
+export async function getMcpConversationMessages(token: string, conversationId: string) { return request(`/conversations/${encodeURIComponent(conversationId)}/messages`, null, "GET", token) as unknown; }
+export async function getMcpConversationFiles(token: string, conversationId: string) { return request(`/conversations/${encodeURIComponent(conversationId)}/files`, null, "GET", token) as unknown; }
+export async function uploadMcpConversationFiles(token: string, conversationId: string, form: FormData) { return requestForm(`/conversations/${encodeURIComponent(conversationId)}/files`, form, token) as unknown; }
+export async function sendMcpChat(token: string, payload: JsonObject) { return request("/chat", payload, "POST", token, false, 120_000, 3) as unknown; }
+export async function logMcpPromptUsage(token: string, promptId: string, conversationId: string, usedById: string) { return request(`/prompts/${encodeURIComponent(promptId)}/usage`, { count: 1, source: "chat-panel", notes: "Manual usage log", usedById, metadata: { conversationId, channel: "web" } }, "POST", token, true) as unknown; }
+export async function setMcpMessageFeedback(token: string, messageId: string, reaction: "like" | "dislike" | "none") { return request(`/messages/${encodeURIComponent(messageId)}/feedback`, { reaction, ...(reaction === "like" ? { reason: "helpful", comment: "Concise and accurate." } : reaction === "dislike" ? { reason: "incorrect", comment: "The answer was not helpful." } : {}) }, "POST", token, true) as unknown; }
+export async function getMcpServers(token: string) { return request("/mcp/servers", null, "GET", token) as unknown; }
+export async function getMcpServerTools(token: string, serverId: string) { return request(`/mcp/servers/${encodeURIComponent(serverId)}/tools`, null, "GET", token) as unknown; }
+export async function createMcpServer(token: string, hotelId: string, server: { name: string; command: string; args: readonly string[] }) { return request("/mcp/servers", { hotelId, name: server.name, transport: "stdio", command: server.command, args: [...server.args], isActive: true }, "POST", token) as unknown; }
+export async function enableMcpServer(token: string, serverId: string) { return request(`/mcp/servers/${encodeURIComponent(serverId)}/enable`, {}, "PATCH", token) as unknown; }
+export async function disableMcpServer(token: string, serverId: string) { return request(`/mcp/servers/${encodeURIComponent(serverId)}/disable`, {}, "PATCH", token) as unknown; }
+export async function executeMcpTool(token: string, conversationId: string, serverId: string, tool: string, args: JsonObject) { return request("/tools/execute", { conversationId, serverId, tool, arguments: args }, "POST", token, false, 120_000, 3) as unknown; }
+export async function getMcpVectorStores(token: string, hotelId: string) { return request(`/rag/vector-stores?hotelId=${encodeURIComponent(hotelId)}`, null, "GET", token) as unknown; }
 export async function getMcpHotelDepartments(token: string, hotelId: string) { return request(`/departments?hotelId=${encodeURIComponent(hotelId)}`, null, "GET", token) as unknown; }
 export async function getMcpHotelUsers(token: string, hotelId: string) { return request(`/users?hotelId=${encodeURIComponent(hotelId)}&activeOnly=false`, null, "GET", token) as unknown; }
-
-export async function createDefaultMcpServers(hotelId: string) {
-  const servers = [{ name: "energy-mcp", args: ["src/mcp/servers/energy.ts"] }, { name: "brevo-mcp", args: ["src/mcp/servers/brevo.ts"] }, { name: "xml-mcp", args: ["src/mcp/servers/xml.ts"] }];
-  await Promise.all(servers.map((server) => request("/mcp/servers", { ...server, transport: "stdio", command: "tsx", isActive: true, hotelId })));
-}
 
 export type McpProvider = "openai" | "deepseek" | "perplexity" | "brevo" | "claude";
 export async function getMcpProviderCredentials(token: string, hotelId: string, provider: McpProvider) { return request(`/hotels/${encodeURIComponent(hotelId)}/providers/${provider}/credentials`, null, "GET", token); }

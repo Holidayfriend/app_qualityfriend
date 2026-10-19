@@ -1,8 +1,9 @@
 import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getSessionUserId, setPersonalMcpSessionToken } from "../../../../lib/auth/session";
-import { createDefaultMcpServers, createMcpDepartment, createMcpHotel, createMcpUser, getMcpProviderCredentials, getMcpProviders, loginMcpUser, McpApiError, setMcpProvider, setMcpProviderCredentials, type McpProvider } from "../../../../lib/mcp/client";
+import { createMcpDepartment, createMcpHotel, createMcpUser, getMcpProviderCredentials, getMcpProviders, loginMcpUser, McpApiError, setMcpProvider, setMcpProviderCredentials, type McpProvider } from "../../../../lib/mcp/client";
 import { syncMissingMcpDepartments } from "../../../../lib/mcp/department-sync";
+import { ensureDefaultMcpServers } from "../../../../lib/mcp/server-sync";
 import { syncMissingMcpUsers } from "../../../../lib/mcp/user-sync";
 import { prisma } from "../../../../lib/prisma";
 
@@ -40,6 +41,7 @@ export async function POST() {
   try {
     if (hotel.activeMcp && hotel.mcpHotelId && hotel.mcpUserEmail && hotel.mcpUserPassword) {
       const token = await loginMcpUser(hotel.mcpUserEmail, hotel.mcpUserPassword);
+      await ensureDefaultMcpServers(token, hotel.mcpHotelId);
       await syncMissingMcpDepartments(hotel.id, hotel.mcpHotelId, token);
       if (hotel.mcpUserDepartment) await syncMissingMcpUsers(hotel.id, { hotelId: hotel.mcpHotelId, defaultDepartmentId: hotel.mcpUserDepartment, token });
       await setPersonalMcpSessionToken(current.id);
@@ -56,7 +58,7 @@ export async function POST() {
       await prisma.hotelTenant.update({ where: { id: hotel.id }, data: { mcpUserEmail: email, mcpUserPassword: password } });
     }
     const token = await loginMcpUser(email, password);
-    await createDefaultMcpServers(mcpHotelId);
+    await ensureDefaultMcpServers(token, mcpHotelId);
     await syncMissingMcpDepartments(hotel.id, mcpHotelId, token);
     await syncMissingMcpUsers(hotel.id, { hotelId: mcpHotelId, defaultDepartmentId: departmentId, token });
     await prisma.hotelTenant.update({ where: { id: hotel.id }, data: { activeMcp: true } });
