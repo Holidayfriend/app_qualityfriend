@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { tasksEditor, tasksViewer } from "../../../../lib/tasks/access";
-import { completeChecklist, getChecklist, toggleChecklistItem, updateChecklist, updateChecklistStatus } from "../../../../lib/checklists/service";
+import { completeChecklist, getChecklist, updateChecklist, updateChecklistItem, updateChecklistStatus } from "../../../../lib/checklists/service";
 import { supportedLocales } from "../../../../lib/i18n/dictionaries";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -42,7 +42,13 @@ export async function PATCH(request: Request, ctx: Ctx) {
   if (!body) return NextResponse.json({ error: "INVALID" }, { status: 400 });
   try {
     if (typeof body.itemId === "string") {
-      const result = await toggleChecklistItem(viewer, id, body.itemId, locale);
+      const actor = await tasksEditor();
+      if (!actor) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+      const result = await updateChecklistItem(actor, id, body.itemId, {
+        state: body.state,
+        comment: body.comment,
+        assigneeId: body.assigneeId,
+      }, locale);
       if ("error" in result) return NextResponse.json(result, { status: result.error === "NOT_FOUND" ? 404 : 400 });
       return NextResponse.json(result);
     }
@@ -54,8 +60,10 @@ export async function PATCH(request: Request, ctx: Ctx) {
       return NextResponse.json(result);
     }
     if (body.complete) {
-      const result = await completeChecklist(viewer, id, String(body.comment ?? ""), locale);
-      if ("error" in result) return NextResponse.json(result, { status: result.error === "NOT_FOUND" ? 404 : 400 });
+      const actor = await tasksEditor();
+      if (!actor) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+      const result = await completeChecklist(actor, id, String(body.comment ?? ""), locale);
+      if ("error" in result) return NextResponse.json(result, { status: result.error === "NOT_FOUND" ? 404 : 409 });
       return NextResponse.json(result);
     }
     return NextResponse.json({ error: "INVALID" }, { status: 400 });

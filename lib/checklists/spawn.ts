@@ -120,6 +120,7 @@ export async function spawnRun(db: Db, original: Prisma.HotelChecklistGetPayload
           text: item.text,
           textDe: item.textDe,
           textIt: item.textIt,
+          assigneeId: item.assigneeId,
           state: "OPEN",
         })),
       },

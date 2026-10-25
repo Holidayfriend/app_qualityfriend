@@ -13,6 +13,7 @@ import { copyAttachmentFile, deleteAttachmentFile, isAttachmentUpload, saveAttac
 import { hotelTodayIso, isoDate, nextDueIso, parseIsoDate } from "./recurrence";
 import { notifyChecklist, recipientIds } from "./spawn";
 import { translateChecklistFields } from "./translate";
+import { checklistCompletionError, checklistItemError, isChecklistItemState } from "./item-policy";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const include = {
@@ -28,7 +29,10 @@ const include = {
   },
   attachments: { orderBy: { createdAt: "asc" as const } },
   original: { select: { id: true, attachments: { orderBy: { createdAt: "asc" as const } } } },
-  items: { orderBy: { sortOrder: "asc" as const } },
+  items: {
+    orderBy: { sortOrder: "asc" as const },
+    include: { assignee: { select: { id: true, firstName: true, lastName: true } } },
+  },
   completions: {
     orderBy: { createdAt: "desc" as const },
     take: 8,
@@ -95,7 +99,7 @@ export function toPublicChecklist(row: Row, locale: string, today: string, timeZ
       : row.assignType === "DEPT" && row.department
         ? pickLocalized(row.department.nameEn, row.department.nameDe, row.department.nameIt, locale)
         : "";
-  const done = row.items.filter((item) => item.state === "DONE").length;
+  const resolved = row.items.filter((item) => item.state !== "OPEN").length;
   const nextIso = row.origin === "RUN" ? isoDate(row.dueAt) : nextDueIso(row, today);
   const attachments = row.origin === "RUN" && row.original ? row.original.attachments : row.attachments;
   return {
@@ -133,8 +137,10 @@ export function toPublicChecklist(row: Row, locale: string, today: string, timeZ
       text: pickLocalized(item.text, item.textDe, item.textIt, locale),
       state: item.state === "DONE" ? "done" : item.state === "EXCEPTION" ? "exception" : "open",
       comment: item.comment,
+      assigneeId: item.assigneeId || "",
+      assignee: nameOf(item.assignee),
     })),
-    progress: `${done}/${row.items.length}`,
+    progress: `${resolved}/${row.items.length}`,
     completions: row.completions.map((item) => ({
       id: item.id,
       result: "done",
@@ -422,14 +428,50 @@ export async function updateChecklistStatus(actor: TasksActor, id: string, statu
   return { checklist: toPublicChecklist(row, locale, today, timeZone) };
 }
 
-export async function toggleChecklistItem(actor: TasksActor, id: string, itemId: string, locale: string) {
+export async function updateChecklistItem(actor: TasksActor, id: string, itemId: string, input: {
+  state?: unknown;
+  comment?: unknown;
+  assigneeId?: unknown;
+}, locale: string) {
   if (!isUuid(id) || !isUuid(itemId)) return { error: "NOT_FOUND" as const };
   const existing = await prisma.hotelChecklist.findFirst({ where: { id, ...visibleChecklistWhere(actor) }, include });
-  if (!existing || existing.completedAt) return { error: "NOT_FOUND" as const };
+  if (!existing || existing.kind !== "CHECKLIST" || existing.completedAt) return { error: "NOT_FOUND" as const };
   const item = existing.items.find((row) => row.id === itemId);
   if (!item) return { error: "NOT_FOUND" as const };
-  const next: HotelChecklistItemState = item.state === "DONE" ? "OPEN" : "DONE";
-  await prisma.hotelChecklistItem.update({ where: { id: itemId }, data: { state: next } });
+
+  const currentState = item.state === "DONE" ? "done" : item.state === "EXCEPTION" ? "exception" : "open";
+  const state = input.state === undefined ? currentState : input.state;
+  if (!isChecklistItemState(state)) return { error: "INVALID_STATE" as const };
+  const comment = input.comment === undefined ? item.comment : String(input.comment).trim().slice(0, 2000);
+  const validationError = checklistItemError({ state, comment });
+  if (validationError) return { error: validationError };
+
+  let assigneeId = item.assigneeId;
+  if (input.assigneeId !== undefined) {
+    const requestedAssigneeId = String(input.assigneeId ?? "");
+    assigneeId = requestedAssigneeId ? await validUserId(actor.hotel_tenant_id, requestedAssigneeId) : null;
+    if (requestedAssigneeId && !assigneeId) return { error: "INVALID_ASSIGNEE" as const };
+  }
+
+  const next: HotelChecklistItemState = state === "done" ? "DONE" : state === "exception" ? "EXCEPTION" : "OPEN";
+  await prisma.$transaction(async (tx) => {
+    await tx.hotelChecklistItem.update({
+      where: { id: itemId },
+      data: { state: next, comment: state === "exception" ? comment : "", assigneeId },
+    });
+    await recordAuditLog(tx, { module: "tasks",
+      hotelTenantId: actor.hotel_tenant_id,
+      actorId: actor.id,
+      action: "UPDATE",
+      entityType: "CHECKLIST",
+      entityId: id,
+      changes: {
+        itemId,
+        before: { state: item.state, comment: item.comment, assigneeId: item.assigneeId },
+        after: { state: next, comment: state === "exception" ? comment : "", assigneeId },
+      },
+    });
+  });
   return getChecklist(actor, id, locale).then((checklist) => checklist ? { checklist } : { error: "NOT_FOUND" as const });
 }
 
@@ -441,6 +483,11 @@ export async function completeChecklist(actor: TasksActor, id: string, comment: 
     const clock = await hotelToday(actor);
     return { checklist: toPublicChecklist(existing, locale, clock.today, clock.timeZone) };
   }
+  const completionError = checklistCompletionError(existing.items.map((item) => ({
+    state: item.state === "DONE" ? "done" : item.state === "EXCEPTION" ? "exception" : "open",
+    comment: item.comment,
+  })));
+  if (completionError) return { error: completionError };
   const { today, timeZone } = await hotelToday(actor);
   const row = await prisma.$transaction(async (tx) => {
     const updated = await tx.hotelChecklist.update({

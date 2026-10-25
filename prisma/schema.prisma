@@ -57,92 +57,90 @@ enum HousekeepingChecklistType {
 }
 
 model ExtraJob {
-  id String @id @default(uuid()) @db.Uuid
-  hotelTenantId String @map("hotel_tenant_id") @db.Uuid
-  descriptionEn String @default("") @map("description_en") @db.Text
-  descriptionDe String @default("") @map("description_de") @db.Text
-  descriptionIt String @default("") @map("description_it") @db.Text
-  minutes Int
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
-  hotelTenant HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  scheduleAssignmentRecords HousekeepingExtraJobAssignment[]
+  id                                 String                                    @id @default(uuid()) @db.Uuid
+  hotelTenantId                      String                                    @map("hotel_tenant_id") @db.Uuid
+  descriptionEn                      String                                    @default("") @map("description_en") @db.Text
+  descriptionDe                      String                                    @default("") @map("description_de") @db.Text
+  descriptionIt                      String                                    @default("") @map("description_it") @db.Text
+  minutes                            Int
+  createdAt                          DateTime                                  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                          DateTime                                  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant                        HotelTenant                               @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  scheduleAssignmentRecords          HousekeepingExtraJobAssignment[]
   permanentScheduleAssignmentRecords HousekeepingPermanentExtraJobAssignment[]
 
-  @@index([hotelTenantId])
   @@unique([hotelTenantId, id])
+  @@index([hotelTenantId])
   @@map("extra_jobs")
 }
 
 model Floor {
-  id String @id @default(uuid()) @db.Uuid
-  hotelTenantId String @map("hotel_tenant_id") @db.Uuid
-  code String @db.VarChar(40)
-  nameEn String @map("name_en") @db.VarChar(180)
-  nameDe String? @map("name_de") @db.VarChar(180)
-  nameIt String? @map("name_it") @db.VarChar(180)
-  sortOrder Int @default(0) @map("sort_order")
-  isActive Boolean @default(true) @map("is_active")
-  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
-  hotelTenant HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  roomRecords Room[]
+  id            String      @id @default(uuid()) @db.Uuid
+  hotelTenantId String      @map("hotel_tenant_id") @db.Uuid
+  code          String      @db.VarChar(40)
+  nameEn        String      @map("name_en") @db.VarChar(180)
+  nameDe        String?     @map("name_de") @db.VarChar(180)
+  nameIt        String?     @map("name_it") @db.VarChar(180)
+  sortOrder     Int         @default(0) @map("sort_order")
+  isActive      Boolean     @default(true) @map("is_active")
+  archivedAt    DateTime?   @map("archived_at") @db.Timestamptz(3)
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant   HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  roomRecords   Room[]
 
   @@unique([hotelTenantId, id])
   @@unique([hotelTenantId, code])
-
   @@map("floors")
 }
 
 model RoomCategory {
-  id String @id @default(uuid()) @db.Uuid
-  hotelTenantId String @map("hotel_tenant_id") @db.Uuid
-  nameEn String @map("name_en") @db.VarChar(180)
-  nameDe String? @map("name_de") @db.VarChar(180)
-  nameIt String? @map("name_it") @db.VarChar(180)
-  expressMinutes Int? @map("express_minutes")
-  normalMinutes Int? @map("normal_minutes")
-  departureMinutes Int? @map("departure_minutes")
-  finalMinutes Int? @map("final_minutes")
-  cleaningFrequency String? @map("cleaning_frequency") @db.VarChar(30)
-  cleaningWeekdays Int[] @default([]) @map("cleaning_weekdays")
-  linenFrequency String? @map("linen_frequency") @db.VarChar(30)
-  linenWeekdays Int[] @default([]) @map("linen_weekdays")
-  isActive Boolean @default(true) @map("is_active")
-  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
-  hotelTenant HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  roomRecords Room[]
+  id                String      @id @default(uuid()) @db.Uuid
+  hotelTenantId     String      @map("hotel_tenant_id") @db.Uuid
+  nameEn            String      @map("name_en") @db.VarChar(180)
+  nameDe            String?     @map("name_de") @db.VarChar(180)
+  nameIt            String?     @map("name_it") @db.VarChar(180)
+  expressMinutes    Int?        @map("express_minutes")
+  normalMinutes     Int?        @map("normal_minutes")
+  departureMinutes  Int?        @map("departure_minutes")
+  finalMinutes      Int?        @map("final_minutes")
+  cleaningFrequency String?     @map("cleaning_frequency") @db.VarChar(30)
+  cleaningWeekdays  Int[]       @default([]) @map("cleaning_weekdays")
+  linenFrequency    String?     @map("linen_frequency") @db.VarChar(30)
+  linenWeekdays     Int[]       @default([]) @map("linen_weekdays")
+  isActive          Boolean     @default(true) @map("is_active")
+  archivedAt        DateTime?   @map("archived_at") @db.Timestamptz(3)
+  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant       HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  roomRecords       Room[]
 
   @@unique([hotelTenantId, id])
   @@unique([hotelTenantId, nameEn])
-
   @@map("room_categories")
 }
 
 model Room {
-  id String @id @default(uuid()) @db.Uuid
-  hotelTenantId String @map("hotel_tenant_id") @db.Uuid
-  number String @db.VarChar(40)
-  nameEn String? @map("name_en") @db.VarChar(180)
-  nameDe String? @map("name_de") @db.VarChar(180)
-  nameIt String? @map("name_it") @db.VarChar(180)
-  floorId String? @map("floor_id") @db.Uuid
-  categoryId String? @map("category_id") @db.Uuid
-  isActive Boolean @default(true) @map("is_active")
-  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
-  hotelTenant HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  floor Floor? @relation(fields: [hotelTenantId, floorId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
-  category RoomCategory? @relation(fields: [hotelTenantId, categoryId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
-  reservationRoomStayRecords ReservationRoomStay[]
-  roomOperationalStateRecords RoomOperationalState[]
-  checklistTemplate RoomChecklistTemplate?
+  id                                     String                                @id @default(uuid()) @db.Uuid
+  hotelTenantId                          String                                @map("hotel_tenant_id") @db.Uuid
+  number                                 String                                @db.VarChar(40)
+  nameEn                                 String?                               @map("name_en") @db.VarChar(180)
+  nameDe                                 String?                               @map("name_de") @db.VarChar(180)
+  nameIt                                 String?                               @map("name_it") @db.VarChar(180)
+  floorId                                String?                               @map("floor_id") @db.Uuid
+  categoryId                             String?                               @map("category_id") @db.Uuid
+  isActive                               Boolean                               @default(true) @map("is_active")
+  archivedAt                             DateTime?                             @map("archived_at") @db.Timestamptz(3)
+  createdAt                              DateTime                              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                              DateTime                              @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant                            HotelTenant                           @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  floor                                  Floor?                                @relation(fields: [hotelTenantId, floorId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  category                               RoomCategory?                         @relation(fields: [hotelTenantId, categoryId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  reservationRoomStayRecords             ReservationRoomStay[]
+  roomOperationalStateRecords            RoomOperationalState[]
+  checklistTemplate                      RoomChecklistTemplate?
   housekeepingChecklistCompletionRecords HousekeepingChecklistCompletion[]
-  housekeepingScheduleAssignmentRecords HousekeepingRoomAssignment[]
+  housekeepingScheduleAssignmentRecords  HousekeepingRoomAssignment[]
   housekeepingPermanentAssignmentRecords HousekeepingPermanentRoomAssignment[]
 
   @@unique([hotelTenantId, id])
@@ -153,39 +151,39 @@ model Room {
 }
 
 model RoomChecklistTemplate {
-  id String @id @default(uuid()) @db.Uuid
-  hotelTenantId String @map("hotel_tenant_id") @db.Uuid
-  roomId String @unique @map("room_id") @db.Uuid
-  roomChecksEn Json @map("room_checks_en") @db.JsonB
-  roomChecksDe Json @map("room_checks_de") @db.JsonB
-  roomChecksIt Json @map("room_checks_it") @db.JsonB
-  arrivalChecksEn Json @map("arrival_checks_en") @db.JsonB
-  arrivalChecksDe Json @map("arrival_checks_de") @db.JsonB
-  arrivalChecksIt Json @map("arrival_checks_it") @db.JsonB
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
-  hotelTenant HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  id              String      @id @default(uuid()) @db.Uuid
+  hotelTenantId   String      @map("hotel_tenant_id") @db.Uuid
+  roomId          String      @unique @map("room_id") @db.Uuid
+  roomChecksEn    Json        @map("room_checks_en") @db.JsonB
+  roomChecksDe    Json        @map("room_checks_de") @db.JsonB
+  roomChecksIt    Json        @map("room_checks_it") @db.JsonB
+  arrivalChecksEn Json        @map("arrival_checks_en") @db.JsonB
+  arrivalChecksDe Json        @map("arrival_checks_de") @db.JsonB
+  arrivalChecksIt Json        @map("arrival_checks_it") @db.JsonB
+  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant     HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  room            Room        @relation(fields: [roomId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   @@unique([hotelTenantId, id])
   @@map("room_checklist_templates")
 }
 
 model HousekeepingChecklistCompletion {
-  id String @id @default(uuid()) @db.Uuid
-  hotelTenantId String @map("hotel_tenant_id") @db.Uuid
-  roomId String @map("room_id") @db.Uuid
-  workDate DateTime @map("work_date") @db.Date
+  id            String                    @id @default(uuid()) @db.Uuid
+  hotelTenantId String                    @map("hotel_tenant_id") @db.Uuid
+  roomId        String                    @map("room_id") @db.Uuid
+  workDate      DateTime                  @map("work_date") @db.Date
   checklistType HousekeepingChecklistType @map("checklist_type")
-  checkIndex Int @map("check_index")
-  checkTextEn String @map("check_text_en") @db.Text
-  checkTextDe String @map("check_text_de") @db.Text
-  checkTextIt String @map("check_text_it") @db.Text
-  checkedById String @map("checked_by_id") @db.Uuid
-  checkedAt DateTime @default(now()) @map("checked_at") @db.Timestamptz(3)
-  hotelTenant HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  room Room @relation(fields: [hotelTenantId, roomId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
-  checkedBy User @relation("HousekeepingChecklistChecker", fields: [hotelTenantId, checkedById], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  checkIndex    Int                       @map("check_index")
+  checkTextEn   String                    @map("check_text_en") @db.Text
+  checkTextDe   String                    @map("check_text_de") @db.Text
+  checkTextIt   String                    @map("check_text_it") @db.Text
+  checkedById   String                    @map("checked_by_id") @db.Uuid
+  checkedAt     DateTime                  @default(now()) @map("checked_at") @db.Timestamptz(3)
+  hotelTenant   HotelTenant               @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  room          Room                      @relation(fields: [hotelTenantId, roomId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  checkedBy     User                      @relation("HousekeepingChecklistChecker", fields: [hotelTenantId, checkedById], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
 
   @@unique([hotelTenantId, workDate, roomId, checklistType, checkIndex])
   @@index([hotelTenantId, roomId, workDate])
@@ -193,42 +191,41 @@ model HousekeepingChecklistCompletion {
 }
 
 model HotelImportSource {
-  id String @id @default(uuid()) @db.Uuid
-  hotelTenantId String @map("hotel_tenant_id") @db.Uuid
-  provider String @default("ASA_XML") @db.VarChar(80)
-  sourceKey String @map("source_key") @db.VarChar(180)
-  lastSuccessfulAt DateTime? @map("last_successful_at") @db.Timestamptz(3)
-  isActive Boolean @default(true) @map("is_active")
-  archivedAt DateTime? @map("archived_at") @db.Timestamptz(3)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
-  hotelTenant HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  importRunRecords ImportRun[]
+  id                 String        @id @default(uuid()) @db.Uuid
+  hotelTenantId      String        @map("hotel_tenant_id") @db.Uuid
+  provider           String        @default("ASA_XML") @db.VarChar(80)
+  sourceKey          String        @map("source_key") @db.VarChar(180)
+  lastSuccessfulAt   DateTime?     @map("last_successful_at") @db.Timestamptz(3)
+  isActive           Boolean       @default(true) @map("is_active")
+  archivedAt         DateTime?     @map("archived_at") @db.Timestamptz(3)
+  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant        HotelTenant   @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  importRunRecords   ImportRun[]
   reservationRecords Reservation[]
 
   @@unique([hotelTenantId, id])
   @@unique([hotelTenantId, provider, sourceKey])
-
   @@map("hotel_import_sources")
 }
 
 model ImportRun {
-  id String @id @default(uuid()) @db.Uuid
-  hotelTenantId String @map("hotel_tenant_id") @db.Uuid
-  sourceId String @map("source_id") @db.Uuid
-  status ImportRunStatus @default(RUNNING)
-  startedAt DateTime @default(now()) @map("started_at") @db.Timestamptz(3)
-  finishedAt DateTime? @map("finished_at") @db.Timestamptz(3)
-  checksum String? @db.VarChar(64)
-  recordsRead Int @default(0) @map("records_read")
-  recordsCreated Int @default(0) @map("records_created")
-  recordsUpdated Int @default(0) @map("records_updated")
-  recordsRejected Int @default(0) @map("records_rejected")
-  errorSummary String? @map("error_summary") @db.Text
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
-  hotelTenant HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  source HotelImportSource @relation(fields: [hotelTenantId, sourceId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  id              String            @id @default(uuid()) @db.Uuid
+  hotelTenantId   String            @map("hotel_tenant_id") @db.Uuid
+  sourceId        String            @map("source_id") @db.Uuid
+  status          ImportRunStatus   @default(RUNNING)
+  startedAt       DateTime          @default(now()) @map("started_at") @db.Timestamptz(3)
+  finishedAt      DateTime?         @map("finished_at") @db.Timestamptz(3)
+  checksum        String?           @db.VarChar(64)
+  recordsRead     Int               @default(0) @map("records_read")
+  recordsCreated  Int               @default(0) @map("records_created")
+  recordsUpdated  Int               @default(0) @map("records_updated")
+  recordsRejected Int               @default(0) @map("records_rejected")
+  errorSummary    String?           @map("error_summary") @db.Text
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant     HotelTenant       @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  source          HotelImportSource @relation(fields: [hotelTenantId, sourceId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
 
   @@unique([hotelTenantId, id])
   @@index([hotelTenantId, sourceId, startedAt])
@@ -236,21 +233,21 @@ model ImportRun {
 }
 
 model Reservation {
-  sourcePresent Boolean @default(true) @map("source_present")
-  id String @id @default(uuid()) @db.Uuid
-  hotelTenantId String @map("hotel_tenant_id") @db.Uuid
-  sourceId String? @map("source_id") @db.Uuid
-  externalId String? @map("external_id") @db.VarChar(255)
-  sourceStatus String? @map("source_status") @db.VarChar(80)
-  status ReservationStatus @default(UNKNOWN)
-  bookingGroup String? @map("booking_group") @db.VarChar(255)
-  offer String? @db.Text
-  board String? @db.VarChar(120)
-  lastSeenAt DateTime? @map("last_seen_at") @db.Timestamptz(3)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
-  hotelTenant HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  source HotelImportSource? @relation(fields: [hotelTenantId, sourceId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  sourcePresent              Boolean               @default(true) @map("source_present")
+  id                         String                @id @default(uuid()) @db.Uuid
+  hotelTenantId              String                @map("hotel_tenant_id") @db.Uuid
+  sourceId                   String?               @map("source_id") @db.Uuid
+  externalId                 String?               @map("external_id") @db.VarChar(255)
+  sourceStatus               String?               @map("source_status") @db.VarChar(80)
+  status                     ReservationStatus     @default(UNKNOWN)
+  bookingGroup               String?               @map("booking_group") @db.VarChar(255)
+  offer                      String?               @db.Text
+  board                      String?               @db.VarChar(120)
+  lastSeenAt                 DateTime?             @map("last_seen_at") @db.Timestamptz(3)
+  createdAt                  DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                  DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant                HotelTenant           @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  source                     HotelImportSource?    @relation(fields: [hotelTenantId, sourceId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
   reservationRoomStayRecords ReservationRoomStay[]
 
   @@unique([hotelTenantId, id])
@@ -260,30 +257,30 @@ model Reservation {
 }
 
 model ReservationRoomStay {
-  id String @id @default(uuid()) @db.Uuid
-  hotelTenantId String @map("hotel_tenant_id") @db.Uuid
-  reservationId String @map("reservation_id") @db.Uuid
-  roomId String @map("room_id") @db.Uuid
-  sourceSegmentId String? @map("source_segment_id") @db.VarChar(255)
-  arrivalDate DateTime @map("arrival_date") @db.Date
-  departureDate DateTime @map("departure_date") @db.Date
-  checkedInAt DateTime? @map("checked_in_at") @db.Timestamptz(3)
-  checkedOutAt DateTime? @map("checked_out_at") @db.Timestamptz(3)
-  sourceStatus String? @map("source_status") @db.VarChar(80)
-  adultCount Int? @map("adult_count")
-  childCount Int? @map("child_count")
-  childK1Count Int? @map("child_k1_count")
-  childK2Count Int? @map("child_k2_count")
-  childK3Count Int? @map("child_k3_count")
-  serviceRemarks String? @map("service_remarks") @db.Text
-  sourceFromRoomNumber String? @map("source_from_room_number") @db.VarChar(40)
-  sourceToRoomNumber String? @map("source_to_room_number") @db.VarChar(40)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
-  hotelTenant HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  reservation Reservation @relation(fields: [hotelTenantId, reservationId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
-  room Room @relation(fields: [hotelTenantId, roomId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
-  reservationGuestRecords ReservationGuest[]
+  id                                String                       @id @default(uuid()) @db.Uuid
+  hotelTenantId                     String                       @map("hotel_tenant_id") @db.Uuid
+  reservationId                     String                       @map("reservation_id") @db.Uuid
+  roomId                            String                       @map("room_id") @db.Uuid
+  sourceSegmentId                   String?                      @map("source_segment_id") @db.VarChar(255)
+  arrivalDate                       DateTime                     @map("arrival_date") @db.Date
+  departureDate                     DateTime                     @map("departure_date") @db.Date
+  checkedInAt                       DateTime?                    @map("checked_in_at") @db.Timestamptz(3)
+  checkedOutAt                      DateTime?                    @map("checked_out_at") @db.Timestamptz(3)
+  sourceStatus                      String?                      @map("source_status") @db.VarChar(80)
+  adultCount                        Int?                         @map("adult_count")
+  childCount                        Int?                         @map("child_count")
+  childK1Count                      Int?                         @map("child_k1_count")
+  childK2Count                      Int?                         @map("child_k2_count")
+  childK3Count                      Int?                         @map("child_k3_count")
+  serviceRemarks                    String?                      @map("service_remarks") @db.Text
+  sourceFromRoomNumber              String?                      @map("source_from_room_number") @db.VarChar(40)
+  sourceToRoomNumber                String?                      @map("source_to_room_number") @db.VarChar(40)
+  createdAt                         DateTime                     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                         DateTime                     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant                       HotelTenant                  @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  reservation                       Reservation                  @relation(fields: [hotelTenantId, reservationId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  room                              Room                         @relation(fields: [hotelTenantId, roomId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  reservationGuestRecords           ReservationGuest[]
   housekeepingRoomAssignmentRecords HousekeepingRoomAssignment[]
 
   @@unique([hotelTenantId, id])
@@ -295,48 +292,47 @@ model ReservationRoomStay {
 }
 
 model ReservationGuest {
-  id String @id @default(uuid()) @db.Uuid
-  hotelTenantId String @map("hotel_tenant_id") @db.Uuid
-  roomStayId String @map("room_stay_id") @db.Uuid
-  sourceGuestId String? @map("source_guest_id") @db.VarChar(255)
-  name String @db.VarChar(255)
-  dateOfBirth DateTime? @map("date_of_birth") @db.Date
-  language String? @db.VarChar(40)
-  vip Boolean?
-  previousStayCount Int? @map("previous_stay_count")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
-  hotelTenant HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  roomStay ReservationRoomStay @relation(fields: [hotelTenantId, roomStayId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  id                String              @id @default(uuid()) @db.Uuid
+  hotelTenantId     String              @map("hotel_tenant_id") @db.Uuid
+  roomStayId        String              @map("room_stay_id") @db.Uuid
+  sourceGuestId     String?             @map("source_guest_id") @db.VarChar(255)
+  name              String              @db.VarChar(255)
+  dateOfBirth       DateTime?           @map("date_of_birth") @db.Date
+  language          String?             @db.VarChar(40)
+  vip               Boolean?
+  previousStayCount Int?                @map("previous_stay_count")
+  createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant       HotelTenant         @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  roomStay          ReservationRoomStay @relation(fields: [hotelTenantId, roomStayId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
 
   @@unique([hotelTenantId, id])
   @@unique([hotelTenantId, roomStayId, sourceGuestId])
-
   @@map("reservation_guests")
 }
 
 model RoomOperationalState {
-  id String @id @default(uuid()) @db.Uuid
-  hotelTenantId String @map("hotel_tenant_id") @db.Uuid
-  roomId String @map("room_id") @db.Uuid
-  cleanliness RoomCleanliness @default(UNKNOWN)
-  breakfastInRoom Boolean @default(false) @map("breakfast_in_room")
-  doNotDisturb Boolean @default(false) @map("do_not_disturb")
-  noService Boolean @default(false) @map("no_service")
-  doNotDisturbUntil DateTime? @map("do_not_disturb_until") @db.Timestamptz(3)
-  noServiceUntil DateTime? @map("no_service_until") @db.Timestamptz(3)
-  guestCleaningPreference String @default("DAILY") @map("guest_cleaning_preference")
-  isUrgent Boolean @default(false) @map("is_urgent")
-  isExpress Boolean @default(false) @map("is_express")
-  linenChange Boolean @default(false) @map("linen_change")
-  expressDeadline DateTime? @map("express_deadline") @db.Timestamptz(3)
-  lastCleanedAt DateTime? @map("last_cleaned_at") @db.Timestamptz(3)
-  lastInspectedAt DateTime? @map("last_inspected_at") @db.Timestamptz(3)
-  version Int @default(1)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
-  hotelTenant HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  room Room @relation(fields: [hotelTenantId, roomId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  id                      String          @id @default(uuid()) @db.Uuid
+  hotelTenantId           String          @map("hotel_tenant_id") @db.Uuid
+  roomId                  String          @map("room_id") @db.Uuid
+  cleanliness             RoomCleanliness @default(UNKNOWN)
+  breakfastInRoom         Boolean         @default(false) @map("breakfast_in_room")
+  doNotDisturb            Boolean         @default(false) @map("do_not_disturb")
+  noService               Boolean         @default(false) @map("no_service")
+  doNotDisturbUntil       DateTime?       @map("do_not_disturb_until") @db.Timestamptz(3)
+  noServiceUntil          DateTime?       @map("no_service_until") @db.Timestamptz(3)
+  guestCleaningPreference String          @default("DAILY") @map("guest_cleaning_preference")
+  isUrgent                Boolean         @default(false) @map("is_urgent")
+  isExpress               Boolean         @default(false) @map("is_express")
+  linenChange             Boolean         @default(false) @map("linen_change")
+  expressDeadline         DateTime?       @map("express_deadline") @db.Timestamptz(3)
+  lastCleanedAt           DateTime?       @map("last_cleaned_at") @db.Timestamptz(3)
+  lastInspectedAt         DateTime?       @map("last_inspected_at") @db.Timestamptz(3)
+  version                 Int             @default(1)
+  createdAt               DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant             HotelTenant     @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  room                    Room            @relation(fields: [hotelTenantId, roomId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
 
   @@unique([hotelTenantId, id])
   @@unique([hotelTenantId, roomId])
@@ -345,22 +341,22 @@ model RoomOperationalState {
 }
 
 model HousekeepingRoomAssignment {
-  id String @id @default(uuid()) @db.Uuid
-  hotelTenantId String @map("hotel_tenant_id") @db.Uuid
-  workDate DateTime @map("work_date") @db.Date
-  roomId String @map("room_id") @db.Uuid
-  assignedToId String? @map("assigned_to_id") @db.Uuid
-  reservationStayId String? @map("reservation_stay_id") @db.Uuid
-  cleaningType HousekeepingCleaningType @default(REGULAR) @map("cleaning_type")
-  assignmentOrigin HousekeepingAssignmentOrigin @default(TODAY_ONLY) @map("assignment_origin")
-  plannedMinutes Int @map("planned_minutes")
-  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
-  hotelTenant HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  room Room @relation(fields: [hotelTenantId, roomId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
-  assignedTo User? @relation("HousekeepingRoomAssignee", fields: [hotelTenantId, assignedToId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
-  reservationStay ReservationRoomStay? @relation(fields: [hotelTenantId, reservationStayId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  id                String                       @id @default(uuid()) @db.Uuid
+  hotelTenantId     String                       @map("hotel_tenant_id") @db.Uuid
+  workDate          DateTime                     @map("work_date") @db.Date
+  roomId            String                       @map("room_id") @db.Uuid
+  assignedToId      String?                      @map("assigned_to_id") @db.Uuid
+  reservationStayId String?                      @map("reservation_stay_id") @db.Uuid
+  cleaningType      HousekeepingCleaningType     @default(REGULAR) @map("cleaning_type")
+  assignmentOrigin  HousekeepingAssignmentOrigin @default(TODAY_ONLY) @map("assignment_origin")
+  plannedMinutes    Int                          @map("planned_minutes")
+  completedAt       DateTime?                    @map("completed_at") @db.Timestamptz(3)
+  createdAt         DateTime                     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime                     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant       HotelTenant                  @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  room              Room                         @relation(fields: [hotelTenantId, roomId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  assignedTo        User?                        @relation("HousekeepingRoomAssignee", fields: [hotelTenantId, assignedToId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  reservationStay   ReservationRoomStay?         @relation(fields: [hotelTenantId, reservationStayId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
 
   @@unique([hotelTenantId, workDate, roomId])
   @@index([hotelTenantId, workDate, assignedToId])
@@ -368,20 +364,20 @@ model HousekeepingRoomAssignment {
 }
 
 model HousekeepingExtraJobAssignment {
-  id String @id @default(uuid()) @db.Uuid
-  hotelTenantId String @map("hotel_tenant_id") @db.Uuid
-  workDate DateTime @map("work_date") @db.Date
-  extraJobId String @map("extra_job_id") @db.Uuid
-  assignedToId String @map("assigned_to_id") @db.Uuid
-  plannedMinutes Int @map("planned_minutes")
-  assignmentOrigin HousekeepingAssignmentOrigin @default(TODAY_ONLY) @map("assignment_origin")
-  descriptionSnapshot String @default("") @map("description_snapshot") @db.Text
-  completedAt DateTime? @map("completed_at") @db.Timestamptz(3)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
-  hotelTenant HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  extraJob ExtraJob @relation(fields: [hotelTenantId, extraJobId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
-  assignedTo User @relation("HousekeepingExtraJobAssignee", fields: [hotelTenantId, assignedToId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  id                  String                       @id @default(uuid()) @db.Uuid
+  hotelTenantId       String                       @map("hotel_tenant_id") @db.Uuid
+  workDate            DateTime                     @map("work_date") @db.Date
+  extraJobId          String                       @map("extra_job_id") @db.Uuid
+  assignedToId        String                       @map("assigned_to_id") @db.Uuid
+  plannedMinutes      Int                          @map("planned_minutes")
+  assignmentOrigin    HousekeepingAssignmentOrigin @default(TODAY_ONLY) @map("assignment_origin")
+  descriptionSnapshot String                       @default("") @map("description_snapshot") @db.Text
+  completedAt         DateTime?                    @map("completed_at") @db.Timestamptz(3)
+  createdAt           DateTime                     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime                     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant         HotelTenant                  @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  extraJob            ExtraJob                     @relation(fields: [hotelTenantId, extraJobId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  assignedTo          User                         @relation("HousekeepingExtraJobAssignee", fields: [hotelTenantId, assignedToId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
 
   @@unique([hotelTenantId, workDate, extraJobId, assignedToId])
   @@index([hotelTenantId, workDate, assignedToId])
@@ -389,50 +385,52 @@ model HousekeepingExtraJobAssignment {
 }
 
 model HousekeepingPermanentRoomAssignment {
-  id String @id @default(uuid()) @db.Uuid
-  hotelTenantId String @map("hotel_tenant_id") @db.Uuid
-  roomId String @map("room_id") @db.Uuid
-  assignedToId String @map("assigned_to_id") @db.Uuid
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
-  hotelTenant HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "hk_perm_room_tenant_fkey")
-  room Room @relation(fields: [hotelTenantId, roomId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade, map: "hk_perm_room_room_fkey")
-  assignedTo User @relation("HousekeepingPermanentRoomAssignee", fields: [hotelTenantId, assignedToId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade, map: "hk_perm_room_user_fkey")
+  id            String      @id @default(uuid()) @db.Uuid
+  hotelTenantId String      @map("hotel_tenant_id") @db.Uuid
+  roomId        String      @map("room_id") @db.Uuid
+  assignedToId  String      @map("assigned_to_id") @db.Uuid
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant   HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "hk_perm_room_tenant_fkey")
+  room          Room        @relation(fields: [hotelTenantId, roomId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade, map: "hk_perm_room_room_fkey")
+  assignedTo    User        @relation("HousekeepingPermanentRoomAssignee", fields: [hotelTenantId, assignedToId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade, map: "hk_perm_room_user_fkey")
+
   @@unique([hotelTenantId, roomId])
   @@index([hotelTenantId, assignedToId])
   @@map("housekeeping_permanent_room_assignments")
 }
 
 model HousekeepingPermanentExtraJobAssignment {
-  id String @id @default(uuid()) @db.Uuid
-  hotelTenantId String @map("hotel_tenant_id") @db.Uuid
-  extraJobId String @map("extra_job_id") @db.Uuid
-  assignedToId String @map("assigned_to_id") @db.Uuid
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
-  hotelTenant HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "hk_perm_extra_tenant_fkey")
-  extraJob ExtraJob @relation(fields: [hotelTenantId, extraJobId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade, map: "hk_perm_extra_job_fkey")
-  assignedTo User @relation("HousekeepingPermanentExtraJobAssignee", fields: [hotelTenantId, assignedToId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade, map: "hk_perm_extra_user_fkey")
+  id            String      @id @default(uuid()) @db.Uuid
+  hotelTenantId String      @map("hotel_tenant_id") @db.Uuid
+  extraJobId    String      @map("extra_job_id") @db.Uuid
+  assignedToId  String      @map("assigned_to_id") @db.Uuid
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant   HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "hk_perm_extra_tenant_fkey")
+  extraJob      ExtraJob    @relation(fields: [hotelTenantId, extraJobId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade, map: "hk_perm_extra_job_fkey")
+  assignedTo    User        @relation("HousekeepingPermanentExtraJobAssignee", fields: [hotelTenantId, assignedToId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade, map: "hk_perm_extra_user_fkey")
+
   @@unique([hotelTenantId, extraJobId, assignedToId])
   @@index([hotelTenantId, assignedToId])
   @@map("housekeeping_permanent_extra_job_assignments")
 }
 
 model HousekeepingDailyRun {
-  id String @id @default(uuid()) @db.Uuid
-  hotelTenantId String @map("hotel_tenant_id") @db.Uuid
-  workDate DateTime @map("work_date") @db.Date
-  status ImportRunStatus @default(RUNNING)
-  roomsGenerated Int @default(0) @map("rooms_generated")
-  extrasGenerated Int @default(0) @map("extras_generated")
-  errorSummary String? @map("error_summary") @db.Text
-  startedAt DateTime @default(now()) @map("started_at") @db.Timestamptz(3)
-  finishedAt DateTime? @map("finished_at") @db.Timestamptz(3)
-  hotelTenant HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  id              String          @id @default(uuid()) @db.Uuid
+  hotelTenantId   String          @map("hotel_tenant_id") @db.Uuid
+  workDate        DateTime        @map("work_date") @db.Date
+  status          ImportRunStatus @default(RUNNING)
+  roomsGenerated  Int             @default(0) @map("rooms_generated")
+  extrasGenerated Int             @default(0) @map("extras_generated")
+  errorSummary    String?         @map("error_summary") @db.Text
+  startedAt       DateTime        @default(now()) @map("started_at") @db.Timestamptz(3)
+  finishedAt      DateTime?       @map("finished_at") @db.Timestamptz(3)
+  hotelTenant     HotelTenant     @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
   @@unique([hotelTenantId, workDate])
   @@map("housekeeping_daily_runs")
 }
-
 
 model SuperAdmin {
   id           String    @id @default(uuid()) @db.Uuid
@@ -481,114 +479,113 @@ enum PaymentProvider {
 }
 
 model HotelTenant {
-  notifications Notification[]
-  asaXmlName String? @map("asa_xml_name") @db.VarChar(255)
+  notifications                                  Notification[]
+  asaXmlName                                     String?                                   @map("asa_xml_name") @db.VarChar(255)
   // Configure before resolving hotel-local operational dates; no guessed default.
-  timeZone String? @map("time_zone") @db.VarChar(80)
-  floorRecords Floor[]
-  roomCategoryRecords RoomCategory[]
-  roomRecords Room[]
-  hotelImportSourceRecords HotelImportSource[]
-  importRunRecords ImportRun[]
-  reservationRecords Reservation[]
-  reservationRoomStayRecords ReservationRoomStay[]
-  reservationGuestRecords ReservationGuest[]
-  roomOperationalStateRecords RoomOperationalState[]
-  roomChecklistTemplateRecords RoomChecklistTemplate[]
-  housekeepingRoomAssignmentRecords HousekeepingRoomAssignment[]
-  housekeepingExtraJobAssignmentRecords HousekeepingExtraJobAssignment[]
-  housekeepingChecklistCompletionRecords HousekeepingChecklistCompletion[]
-  housekeepingPermanentRoomAssignmentRecords HousekeepingPermanentRoomAssignment[]
+  timeZone                                       String?                                   @map("time_zone") @db.VarChar(80)
+  floorRecords                                   Floor[]
+  roomCategoryRecords                            RoomCategory[]
+  roomRecords                                    Room[]
+  hotelImportSourceRecords                       HotelImportSource[]
+  importRunRecords                               ImportRun[]
+  reservationRecords                             Reservation[]
+  reservationRoomStayRecords                     ReservationRoomStay[]
+  reservationGuestRecords                        ReservationGuest[]
+  roomOperationalStateRecords                    RoomOperationalState[]
+  roomChecklistTemplateRecords                   RoomChecklistTemplate[]
+  housekeepingRoomAssignmentRecords              HousekeepingRoomAssignment[]
+  housekeepingExtraJobAssignmentRecords          HousekeepingExtraJobAssignment[]
+  housekeepingChecklistCompletionRecords         HousekeepingChecklistCompletion[]
+  housekeepingPermanentRoomAssignmentRecords     HousekeepingPermanentRoomAssignment[]
   housekeepingPermanentExtraJobAssignmentRecords HousekeepingPermanentExtraJobAssignment[]
-  housekeepingDailyRunRecords HousekeepingDailyRun[]
-  id                           String                 @id @default(uuid()) @db.Uuid
-  hotelNameEn                  String                 @map("hotel_name_en") @db.VarChar(180)
-  hotelNameDe                  String                 @map("hotel_name_de") @db.VarChar(180)
-  hotelNameIt                  String                 @map("hotel_name_it") @db.VarChar(180)
-  email                        String                 @db.VarChar(320)
-  logoUrl                      String?                @map("logo_url") @db.VarChar(2048)
-  hotelLanguage                HotelLanguage          @default(EN) @map("hotel_language")
-  isActive                     Boolean                @default(true) @map("is_active")
-  dataProtectionEn             String?                @map("data_protection_en") @db.Text
-  dataProtectionDe             String?                @map("data_protection_de") @db.Text
-  dataProtectionIt             String?                @map("data_protection_it") @db.Text
-  privacyPolicyEn              String?                @map("privacy_policy_en") @db.Text
-  privacyPolicyDe              String?                @map("privacy_policy_de") @db.Text
-  privacyPolicyIt              String?                @map("privacy_policy_it") @db.Text
-  companyName                  String                 @map("company_name") @db.VarChar(180)
-  streetAddress                String                 @map("street_address") @db.VarChar(255)
-  postalCode                   String                 @map("postal_code") @db.VarChar(32)
-  city                         String                 @db.VarChar(120)
-  country                      String                 @db.VarChar(120)
-  province                     String?                @db.VarChar(120)
-  contactPerson                String                 @map("contact_person") @db.VarChar(180)
-  phoneNumber                  String?                @map("phone_number") @db.VarChar(40)
-  vatId                        String?                @map("vat_id") @db.VarChar(64)
-  pecAddress                   String?                @map("pec_address") @db.VarChar(320)
-  invoiceEmail                 String?                @map("invoice_email") @db.VarChar(320)
-  sdiCode                      String?                @map("sdi_code") @db.VarChar(7)
-  legalForm                    String?                @map("legal_form") @db.VarChar(40)
-  roomCount                    Int?                   @map("room_count")
-  starRating                   String?                @map("star_rating") @db.VarChar(8)
-  seasonal                     Boolean                @default(false) @map("seasonal")
-  openingPeriod                String?                @map("opening_period") @db.VarChar(255)
-  closurePeriod                String?                @map("closure_period") @db.VarChar(255)
-  checkInTime                  String?                @map("check_in_time") @db.VarChar(5)
-  checkOutTime                 String?                @map("check_out_time") @db.VarChar(5)
-  pmsName                      String?                @map("pms_name") @db.VarChar(80)
-  tripadvisorId                String?                @map("tripadvisor_id") @db.VarChar(120)
-  activeMcp                    Boolean                @default(false) @map("active_mcp")
-  mcpHotelId                   String?                @map("mcp_hotel_id") @db.VarChar(128)
-  mcpUserEmail                 String?                @map("mcp_user_email") @db.VarChar(320)
-  mcpUserPassword              String?                @map("mcp_user_password") @db.VarChar(255)
-  mcpUserDepartment            String?                @map("mcp_user_department") @db.VarChar(128)
-  subscriptionStatus           SubscriptionStatus     @default(PENDING) @map("subscription_status")
-  paypalSubscriptionId         String?                @unique @map("paypal_subscription_id") @db.VarChar(128)
-  paypalPlanId                 String?                @map("paypal_plan_id") @db.VarChar(128)
-  subscriptionStartedAt        DateTime?              @map("subscription_started_at") @db.Timestamptz(3)
-  subscriptionCurrentPeriodEnd DateTime?              @map("subscription_current_period_end") @db.Timestamptz(3)
-  subscriptionCancelledAt      DateTime?              @map("subscription_cancelled_at") @db.Timestamptz(3)
-  welcomeEmailSentAt           DateTime?              @map("welcome_email_sent_at") @db.Timestamptz(3)
-  createdAt                    DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt                    DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
-  users                        User[]
-  departments                  Department[]
-  extraJobs                    ExtraJob[]
-  recruitingJobs               RecruitingJob[]
-  recruitingApplications       RecruitingApplication[]
-  recruitingSettings           RecruitingSettings?
-  hotelAiRecommendations       HotelAiRecommendation[]
-  hotelAiSettings              HotelAiSettings?
-  hotelAiProviderCredentials   HotelAiProviderCredential[]
-  hotelAiUsage                 HotelAiUsage[]
-  recruitingEmailTemplates     RecruitingEmailTemplate[]
-  recruitingEmployees          RecruitingEmployee[]
-  recruitingApplicationFiles   RecruitingApplicationFile[]
-  hotelNotes                   HotelNote[]
-  repairs                      Repair[]
-  handovers                    Handover[]
-  hotelTasks                   HotelTask[]
-  hotelChecklists              HotelChecklist[]
-  hotelShiftTemplates          HotelShiftTemplate[]
-  hotelShifts                  HotelShift[]
-  hotelShiftDrafts             HotelShiftDraft[]
-  hotelLeaveRequests           HotelLeaveRequest[]
-  manualDocuments              ManualDocument[]
-  manualChunks                 ManualChunk[]
-  aiConversations              AiConversation[]
-  teams                        Team[]
-  auditLogs                    AuditLog[]
-  rolePermissions              RoleModulePermission[]
-  roles                        HotelRole[]
-  subscriptions                Subscription[]
-  paymentEvents                PaymentEvent[]
-  couponRedemptions            CouponRedemption[]
+  housekeepingDailyRunRecords                    HousekeepingDailyRun[]
+  id                                             String                                    @id @default(uuid()) @db.Uuid
+  hotelNameEn                                    String                                    @map("hotel_name_en") @db.VarChar(180)
+  hotelNameDe                                    String                                    @map("hotel_name_de") @db.VarChar(180)
+  hotelNameIt                                    String                                    @map("hotel_name_it") @db.VarChar(180)
+  email                                          String                                    @db.VarChar(320)
+  logoUrl                                        String?                                   @map("logo_url") @db.VarChar(2048)
+  hotelLanguage                                  HotelLanguage                             @default(EN) @map("hotel_language")
+  isActive                                       Boolean                                   @default(true) @map("is_active")
+  dataProtectionEn                               String?                                   @map("data_protection_en") @db.Text
+  dataProtectionDe                               String?                                   @map("data_protection_de") @db.Text
+  dataProtectionIt                               String?                                   @map("data_protection_it") @db.Text
+  privacyPolicyEn                                String?                                   @map("privacy_policy_en") @db.Text
+  privacyPolicyDe                                String?                                   @map("privacy_policy_de") @db.Text
+  privacyPolicyIt                                String?                                   @map("privacy_policy_it") @db.Text
+  companyName                                    String                                    @map("company_name") @db.VarChar(180)
+  streetAddress                                  String                                    @map("street_address") @db.VarChar(255)
+  postalCode                                     String                                    @map("postal_code") @db.VarChar(32)
+  city                                           String                                    @db.VarChar(120)
+  country                                        String                                    @db.VarChar(120)
+  province                                       String?                                   @db.VarChar(120)
+  contactPerson                                  String                                    @map("contact_person") @db.VarChar(180)
+  phoneNumber                                    String?                                   @map("phone_number") @db.VarChar(40)
+  vatId                                          String?                                   @map("vat_id") @db.VarChar(64)
+  pecAddress                                     String?                                   @map("pec_address") @db.VarChar(320)
+  invoiceEmail                                   String?                                   @map("invoice_email") @db.VarChar(320)
+  sdiCode                                        String?                                   @map("sdi_code") @db.VarChar(7)
+  legalForm                                      String?                                   @map("legal_form") @db.VarChar(40)
+  roomCount                                      Int?                                      @map("room_count")
+  starRating                                     String?                                   @map("star_rating") @db.VarChar(8)
+  seasonal                                       Boolean                                   @default(false) @map("seasonal")
+  openingPeriod                                  String?                                   @map("opening_period") @db.VarChar(255)
+  closurePeriod                                  String?                                   @map("closure_period") @db.VarChar(255)
+  checkInTime                                    String?                                   @map("check_in_time") @db.VarChar(5)
+  checkOutTime                                   String?                                   @map("check_out_time") @db.VarChar(5)
+  pmsName                                        String?                                   @map("pms_name") @db.VarChar(80)
+  tripadvisorId                                  String?                                   @map("tripadvisor_id") @db.VarChar(120)
+  activeMcp                                      Boolean                                   @default(false) @map("active_mcp")
+  mcpHotelId                                     String?                                   @map("mcp_hotel_id") @db.VarChar(128)
+  mcpUserEmail                                   String?                                   @map("mcp_user_email") @db.VarChar(320)
+  mcpUserPassword                                String?                                   @map("mcp_user_password") @db.VarChar(255)
+  mcpUserDepartment                              String?                                   @map("mcp_user_department") @db.VarChar(128)
+  subscriptionStatus                             SubscriptionStatus                        @default(PENDING) @map("subscription_status")
+  paypalSubscriptionId                           String?                                   @unique @map("paypal_subscription_id") @db.VarChar(128)
+  paypalPlanId                                   String?                                   @map("paypal_plan_id") @db.VarChar(128)
+  subscriptionStartedAt                          DateTime?                                 @map("subscription_started_at") @db.Timestamptz(3)
+  subscriptionCurrentPeriodEnd                   DateTime?                                 @map("subscription_current_period_end") @db.Timestamptz(3)
+  subscriptionCancelledAt                        DateTime?                                 @map("subscription_cancelled_at") @db.Timestamptz(3)
+  welcomeEmailSentAt                             DateTime?                                 @map("welcome_email_sent_at") @db.Timestamptz(3)
+  createdAt                                      DateTime                                  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                                      DateTime                                  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  users                                          User[]
+  departments                                    Department[]
+  extraJobs                                      ExtraJob[]
+  recruitingJobs                                 RecruitingJob[]
+  recruitingApplications                         RecruitingApplication[]
+  recruitingSettings                             RecruitingSettings?
+  hotelAiRecommendations                         HotelAiRecommendation[]
+  hotelAiSettings                                HotelAiSettings?
+  hotelAiProviderCredentials                     HotelAiProviderCredential[]
+  hotelAiUsage                                   HotelAiUsage[]
+  recruitingEmailTemplates                       RecruitingEmailTemplate[]
+  recruitingEmployees                            RecruitingEmployee[]
+  recruitingApplicationFiles                     RecruitingApplicationFile[]
+  hotelNotes                                     HotelNote[]
+  repairs                                        Repair[]
+  handovers                                      Handover[]
+  hotelTasks                                     HotelTask[]
+  hotelChecklists                                HotelChecklist[]
+  hotelShiftTemplates                            HotelShiftTemplate[]
+  hotelShifts                                    HotelShift[]
+  hotelShiftDrafts                               HotelShiftDraft[]
+  hotelLeaveRequests                             HotelLeaveRequest[]
+  manualDocuments                                ManualDocument[]
+  manualChunks                                   ManualChunk[]
+  aiConversations                                AiConversation[]
+  teams                                          Team[]
+  auditLogs                                      AuditLog[]
+  rolePermissions                                RoleModulePermission[]
+  roles                                          HotelRole[]
+  subscriptions                                  Subscription[]
+  paymentEvents                                  PaymentEvent[]
+  couponRedemptions                              CouponRedemption[]
+  competitors                                    Competitor[]
+  weather                                        HotelWeather?
 
   @@index([isActive])
   @@index([activeMcp])
-  competitors Competitor[]
-  weather HotelWeather?
-
   @@map("hotel_tenants")
 }
 
@@ -643,7 +640,6 @@ model Competitor {
   @@index([hotelTenantId, locationKey, bestValueRank])
   @@map("competitors")
 }
-
 
 model Coupon {
   id              String             @id @default(uuid()) @db.Uuid
@@ -736,83 +732,85 @@ model BillingConfiguration {
 }
 
 model User {
-  notifications Notification[]
-  id                     String        @id @default(uuid()) @db.Uuid
-  hotelTenantId          String        @map("hotel_tenant_id") @db.Uuid
-  mcpUserId              String?       @map("mcp_user_id") @db.VarChar(128)
-  mcpUserPassword        String?       @map("mcp_user_password") @db.VarChar(255)
-  firstName              String        @map("first_name") @db.VarChar(120)
-  lastName               String        @map("last_name") @db.VarChar(120)
-  email                  String        @unique @db.VarChar(320)
-  passwordHash           String        @map("password_hash") @db.VarChar(255)
-  passwordResetTokenHash String?       @map("password_reset_token_hash") @db.VarChar(64)
-  passwordResetExpiresAt DateTime?     @map("password_reset_expires_at") @db.Timestamptz(3)
-  phoneNumber            String?       @map("phone_number") @db.VarChar(40)
-  language               HotelLanguage @default(EN) @map("language")
-  role                   String        @default("EMPLOYEE") @db.VarChar(80)
-  hotelRole              HotelRole     @relation(fields: [hotelTenantId, role], references: [hotelTenantId, key], onDelete: Restrict, onUpdate: Cascade)
-  departmentId           String?       @map("department_id") @db.Uuid
-  teamId                 String?       @map("team_id") @db.Uuid
-  isActive               Boolean       @default(true) @map("is_active")
-  isDeleted              Boolean       @default(false) @map("is_deleted")
-  deletedAt              DateTime?     @map("deleted_at") @db.Timestamptz(3)
-  lastLoginAt            DateTime?     @map("last_login_at") @db.Timestamptz(3)
-  lastSeenAt             DateTime?     @map("last_seen_at") @db.Timestamptz(3)
-  twoFactorEnabled       Boolean       @default(false) @map("two_factor_enabled")
-  twoFactorSecret        String?       @map("two_factor_secret") @db.Text
-  twoFactorRecoveryCodes Json?         @map("two_factor_recovery_codes")
-  twoFactorEnabledAt     DateTime?     @map("two_factor_enabled_at") @db.Timestamptz(3)
-  createdAt              DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt              DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
-  hotelTenant            HotelTenant   @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
-  departmentsCreated     Department[]  @relation("DepartmentCreatedBy")
-  departmentsUpdated     Department[]  @relation("DepartmentUpdatedBy")
-  teamsCreated           Team[]        @relation("TeamCreatedBy")
-  teamsUpdated           Team[]        @relation("TeamUpdatedBy")
-  auditLogs              AuditLog[]
-  department             Department?   @relation("DepartmentMembers", fields: [departmentId], references: [id], onDelete: SetNull)
-  team                   Team?         @relation("TeamMembers", fields: [teamId], references: [id], onDelete: SetNull)
-  departmentMemberships  UserDepartment[]
-  teamMemberships        UserTeam[]
-  chatMessagesSent       ChatMessage[] @relation("ChatMessageSender")
-  chatMessagesReceived   ChatMessage[] @relation("ChatMessageRecipient")
-  teamChatReads          TeamChatRead[]
-  departmentChatReads    DepartmentChatRead[]
-  housekeepingRoomAssignmentRecords HousekeepingRoomAssignment[] @relation("HousekeepingRoomAssignee")
-  housekeepingExtraJobAssignmentRecords HousekeepingExtraJobAssignment[] @relation("HousekeepingExtraJobAssignee")
-  housekeepingChecklistCompletionRecords HousekeepingChecklistCompletion[] @relation("HousekeepingChecklistChecker")
-  housekeepingPermanentRoomAssignmentRecords HousekeepingPermanentRoomAssignment[] @relation("HousekeepingPermanentRoomAssignee")
+  notifications                                  Notification[]
+  id                                             String                                    @id @default(uuid()) @db.Uuid
+  hotelTenantId                                  String                                    @map("hotel_tenant_id") @db.Uuid
+  mcpUserId                                      String?                                   @map("mcp_user_id") @db.VarChar(128)
+  mcpUserPassword                                String?                                   @map("mcp_user_password") @db.VarChar(255)
+  firstName                                      String                                    @map("first_name") @db.VarChar(120)
+  lastName                                       String                                    @map("last_name") @db.VarChar(120)
+  email                                          String                                    @unique @db.VarChar(320)
+  passwordHash                                   String                                    @map("password_hash") @db.VarChar(255)
+  passwordResetTokenHash                         String?                                   @map("password_reset_token_hash") @db.VarChar(64)
+  passwordResetExpiresAt                         DateTime?                                 @map("password_reset_expires_at") @db.Timestamptz(3)
+  phoneNumber                                    String?                                   @map("phone_number") @db.VarChar(40)
+  language                                       HotelLanguage                             @default(EN) @map("language")
+  role                                           String                                    @default("EMPLOYEE") @db.VarChar(80)
+  hotelRole                                      HotelRole                                 @relation(fields: [hotelTenantId, role], references: [hotelTenantId, key], onDelete: Restrict, onUpdate: Cascade)
+  departmentId                                   String?                                   @map("department_id") @db.Uuid
+  teamId                                         String?                                   @map("team_id") @db.Uuid
+  isActive                                       Boolean                                   @default(true) @map("is_active")
+  isDeleted                                      Boolean                                   @default(false) @map("is_deleted")
+  deletedAt                                      DateTime?                                 @map("deleted_at") @db.Timestamptz(3)
+  lastLoginAt                                    DateTime?                                 @map("last_login_at") @db.Timestamptz(3)
+  lastSeenAt                                     DateTime?                                 @map("last_seen_at") @db.Timestamptz(3)
+  twoFactorEnabled                               Boolean                                   @default(false) @map("two_factor_enabled")
+  twoFactorSecret                                String?                                   @map("two_factor_secret") @db.Text
+  twoFactorRecoveryCodes                         Json?                                     @map("two_factor_recovery_codes")
+  twoFactorEnabledAt                             DateTime?                                 @map("two_factor_enabled_at") @db.Timestamptz(3)
+  createdAt                                      DateTime                                  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                                      DateTime                                  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant                                    HotelTenant                               @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+  departmentsCreated                             Department[]                              @relation("DepartmentCreatedBy")
+  departmentsUpdated                             Department[]                              @relation("DepartmentUpdatedBy")
+  teamsCreated                                   Team[]                                    @relation("TeamCreatedBy")
+  teamsUpdated                                   Team[]                                    @relation("TeamUpdatedBy")
+  auditLogs                                      AuditLog[]
+  department                                     Department?                               @relation("DepartmentMembers", fields: [departmentId], references: [id], onDelete: SetNull)
+  team                                           Team?                                     @relation("TeamMembers", fields: [teamId], references: [id], onDelete: SetNull)
+  departmentMemberships                          UserDepartment[]
+  teamMemberships                                UserTeam[]
+  chatMessagesSent                               ChatMessage[]                             @relation("ChatMessageSender")
+  chatMessagesReceived                           ChatMessage[]                             @relation("ChatMessageRecipient")
+  teamChatReads                                  TeamChatRead[]
+  departmentChatReads                            DepartmentChatRead[]
+  housekeepingRoomAssignmentRecords              HousekeepingRoomAssignment[]              @relation("HousekeepingRoomAssignee")
+  housekeepingExtraJobAssignmentRecords          HousekeepingExtraJobAssignment[]          @relation("HousekeepingExtraJobAssignee")
+  housekeepingChecklistCompletionRecords         HousekeepingChecklistCompletion[]         @relation("HousekeepingChecklistChecker")
+  housekeepingPermanentRoomAssignmentRecords     HousekeepingPermanentRoomAssignment[]     @relation("HousekeepingPermanentRoomAssignee")
   housekeepingPermanentExtraJobAssignmentRecords HousekeepingPermanentExtraJobAssignment[] @relation("HousekeepingPermanentExtraJobAssignee")
-  hotelNotesCreated HotelNote[] @relation("HotelNoteAuthor")
-  hotelNoteComments HotelNoteComment[]
-  hotelNoteShares   HotelNoteShareUser[]
-  repairsCreated    Repair[] @relation("RepairAuthor")
-  repairsAssigned   Repair[] @relation("RepairAssignee")
-  repairsCompleted  Repair[] @relation("RepairCompletedBy")
-  repairComments    RepairComment[]
-  handoversCreated  Handover[] @relation("HandoverAuthor")
-  handoversCompleted Handover[] @relation("HandoverCompletedBy")
-  hotelTasksCreated   HotelTask[] @relation("HotelTaskAuthor")
-  hotelTasksAssigned  HotelTask[] @relation("HotelTaskAssignee")
-  hotelTasksCompleted HotelTask[] @relation("HotelTaskCompletedBy")
-  hotelChecklistsCreated   HotelChecklist[] @relation("HotelChecklistAuthor")
-  hotelChecklistsAssigned  HotelChecklist[] @relation("HotelChecklistAssignee")
-  hotelChecklistsCompleted HotelChecklist[] @relation("HotelChecklistCompletedBy")
-  hotelChecklistCompletions HotelChecklistCompletion[]
-  manualsCreated    ManualDocument[]     @relation("ManualDocumentAuthor")
-  aiConversations   AiConversation[]
-  hotelShiftTemplatesCreated HotelShiftTemplate[] @relation("HotelShiftTemplateAuthor")
-  hotelShiftsAssigned HotelShift[] @relation("HotelShiftEmployee")
-  hotelShiftsCreated HotelShift[] @relation("HotelShiftAuthor")
-  hotelShiftsUpdated HotelShift[] @relation("HotelShiftUpdatedBy")
-  hotelShiftDraftsAssigned HotelShiftDraft[] @relation("HotelShiftDraftEmployee")
-  hotelShiftDraftsCreated HotelShiftDraft[] @relation("HotelShiftDraftAuthor")
-  hotelShiftDraftsUpdated HotelShiftDraft[] @relation("HotelShiftDraftUpdatedBy")
-  hotelLeaveRequests HotelLeaveRequest[] @relation("HotelLeaveEmployee")
-  hotelLeaveRequestsCreated HotelLeaveRequest[] @relation("HotelLeaveAuthor")
-  hotelLeaveRequestsDecided HotelLeaveRequest[] @relation("HotelLeaveDecidedBy")
-  hotelLeaveRequestsSwapWith HotelLeaveRequest[] @relation("HotelLeaveSwapWith")
+  hotelNotesCreated                              HotelNote[]                               @relation("HotelNoteAuthor")
+  hotelNoteComments                              HotelNoteComment[]
+  hotelNoteShares                                HotelNoteShareUser[]
+  repairsCreated                                 Repair[]                                  @relation("RepairAuthor")
+  repairsAssigned                                Repair[]                                  @relation("RepairAssignee")
+  repairsCompleted                               Repair[]                                  @relation("RepairCompletedBy")
+  repairComments                                 RepairComment[]
+  handoversCreated                               Handover[]                                @relation("HandoverAuthor")
+  handoversCompleted                             Handover[]                                @relation("HandoverCompletedBy")
+  hotelTasksCreated                              HotelTask[]                               @relation("HotelTaskAuthor")
+  hotelTasksAssigned                             HotelTask[]                               @relation("HotelTaskAssignee")
+  hotelTasksCompleted                            HotelTask[]                               @relation("HotelTaskCompletedBy")
+  hotelChecklistsCreated                         HotelChecklist[]                          @relation("HotelChecklistAuthor")
+  hotelChecklistsAssigned                        HotelChecklist[]                          @relation("HotelChecklistAssignee")
+  hotelChecklistsCompleted                       HotelChecklist[]                          @relation("HotelChecklistCompletedBy")
+  hotelChecklistItemsAssigned                    HotelChecklistItem[]                      @relation("HotelChecklistItemAssignee")
+  hotelChecklistCompletions                      HotelChecklistCompletion[]
+  manualsCreated                                 ManualDocument[]                          @relation("ManualDocumentAuthor")
+  aiConversations                                AiConversation[]
+  hotelShiftTemplatesCreated                     HotelShiftTemplate[]                      @relation("HotelShiftTemplateAuthor")
+  hotelShiftsAssigned                            HotelShift[]                              @relation("HotelShiftEmployee")
+  hotelShiftsCreated                             HotelShift[]                              @relation("HotelShiftAuthor")
+  hotelShiftsUpdated                             HotelShift[]                              @relation("HotelShiftUpdatedBy")
+  hotelShiftDraftsAssigned                       HotelShiftDraft[]                         @relation("HotelShiftDraftEmployee")
+  hotelShiftDraftsCreated                        HotelShiftDraft[]                         @relation("HotelShiftDraftAuthor")
+  hotelShiftDraftsUpdated                        HotelShiftDraft[]                         @relation("HotelShiftDraftUpdatedBy")
+  hotelLeaveRequests                             HotelLeaveRequest[]                       @relation("HotelLeaveEmployee")
+  hotelLeaveRequestsCreated                      HotelLeaveRequest[]                       @relation("HotelLeaveAuthor")
+  hotelLeaveRequestsDecided                      HotelLeaveRequest[]                       @relation("HotelLeaveDecidedBy")
+  hotelLeaveRequestsSwapWith                     HotelLeaveRequest[]                       @relation("HotelLeaveSwapWith")
 
+  @@unique([hotelTenantId, id])
   @@index([hotelTenantId])
   @@index([hotelTenantId, isActive])
   @@index([hotelTenantId, isDeleted])
@@ -822,28 +820,28 @@ model User {
   @@index([mcpUserId])
   @@index([passwordResetTokenHash])
   @@map("users")
-  @@unique([hotelTenantId, id])
 }
 
 model Notification {
   requiredScope PermissionScope @default(OWN) @map("required_scope")
-  id String @id @default(uuid()) @db.Uuid
-  hotelTenantId String @map("hotel_tenant_id") @db.Uuid
-  recipientId String @map("recipient_id") @db.Uuid
-  moduleKey String @map("module_key") @db.VarChar(80)
-  eventKey String @map("event_key") @db.VarChar(180)
-  icon String @db.VarChar(40)
-  destination String @db.VarChar(255)
-  titleEn String @map("title_en") @db.Text
-  titleDe String @map("title_de") @db.Text
-  titleIt String @map("title_it") @db.Text
-  bodyEn String @map("body_en") @db.Text
-  bodyDe String @map("body_de") @db.Text
-  bodyIt String @map("body_it") @db.Text
-  readAt DateTime? @map("read_at") @db.Timestamptz(3)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
-  hotelTenant HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict)
-  recipient User @relation(fields: [hotelTenantId, recipientId], references: [hotelTenantId, id], onDelete: Restrict)
+  id            String          @id @default(uuid()) @db.Uuid
+  hotelTenantId String          @map("hotel_tenant_id") @db.Uuid
+  recipientId   String          @map("recipient_id") @db.Uuid
+  moduleKey     String          @map("module_key") @db.VarChar(80)
+  eventKey      String          @map("event_key") @db.VarChar(180)
+  icon          String          @db.VarChar(40)
+  destination   String          @db.VarChar(255)
+  titleEn       String          @map("title_en") @db.Text
+  titleDe       String          @map("title_de") @db.Text
+  titleIt       String          @map("title_it") @db.Text
+  bodyEn        String          @map("body_en") @db.Text
+  bodyDe        String          @map("body_de") @db.Text
+  bodyIt        String          @map("body_it") @db.Text
+  readAt        DateTime?       @map("read_at") @db.Timestamptz(3)
+  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  hotelTenant   HotelTenant     @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict)
+  recipient     User            @relation(fields: [hotelTenantId, recipientId], references: [hotelTenantId, id], onDelete: Restrict)
+
   @@unique([hotelTenantId, recipientId, eventKey])
   @@index([hotelTenantId, recipientId, readAt, createdAt])
   @@map("notifications")
@@ -934,10 +932,10 @@ model TeamChatRead {
 }
 
 model DepartmentChatRead {
-  userId       String   @map("user_id") @db.Uuid
-  departmentId String   @map("department_id") @db.Uuid
-  lastReadAt   DateTime @map("last_read_at") @db.Timestamptz(3)
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String     @map("user_id") @db.Uuid
+  departmentId String     @map("department_id") @db.Uuid
+  lastReadAt   DateTime   @map("last_read_at") @db.Timestamptz(3)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
 
   @@id([userId, departmentId])
@@ -988,21 +986,21 @@ model Department {
 }
 
 model ManualDocument {
-  id            String      @id @default(uuid()) @db.Uuid
-  hotelTenantId String      @map("hotel_tenant_id") @db.Uuid
-  departmentId  String?     @map("department_id") @db.Uuid
-  createdById   String      @map("created_by_id") @db.Uuid
-  title         String      @db.VarChar(180)
-  originalName  String      @map("original_name") @db.VarChar(180)
-  storageKey    String      @map("storage_key") @db.VarChar(80)
-  mimeType      String      @map("mime_type") @db.VarChar(160)
-  byteSize      Int         @map("byte_size")
-  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
-  indexStatus   String      @default("PENDING") @map("index_status") @db.VarChar(20)
-  indexError    String?     @map("index_error") @db.Text
-  hotelTenant   HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
-  department    Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  createdBy     User        @relation("ManualDocumentAuthor", fields: [createdById], references: [id], onDelete: Restrict)
+  id            String        @id @default(uuid()) @db.Uuid
+  hotelTenantId String        @map("hotel_tenant_id") @db.Uuid
+  departmentId  String?       @map("department_id") @db.Uuid
+  createdById   String        @map("created_by_id") @db.Uuid
+  title         String        @db.VarChar(180)
+  originalName  String        @map("original_name") @db.VarChar(180)
+  storageKey    String        @map("storage_key") @db.VarChar(80)
+  mimeType      String        @map("mime_type") @db.VarChar(160)
+  byteSize      Int           @map("byte_size")
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  indexStatus   String        @default("PENDING") @map("index_status") @db.VarChar(20)
+  indexError    String?       @map("index_error") @db.Text
+  hotelTenant   HotelTenant   @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+  department    Department?   @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  createdBy     User          @relation("ManualDocumentAuthor", fields: [createdById], references: [id], onDelete: Restrict)
   chunks        ManualChunk[]
 
   @@index([hotelTenantId, createdAt])
@@ -1028,14 +1026,14 @@ model ManualChunk {
 }
 
 model AiConversation {
-  id            String                   @id @default(uuid()) @db.Uuid
-  hotelTenantId String                   @map("hotel_tenant_id") @db.Uuid
-  userId        String                   @map("user_id") @db.Uuid
-  assistantKey  String                   @map("assistant_key") @db.VarChar(40)
-  createdAt     DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
-  hotelTenant   HotelTenant              @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
-  user          User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String                  @id @default(uuid()) @db.Uuid
+  hotelTenantId String                  @map("hotel_tenant_id") @db.Uuid
+  userId        String                  @map("user_id") @db.Uuid
+  assistantKey  String                  @map("assistant_key") @db.VarChar(40)
+  createdAt     DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant   HotelTenant             @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+  user          User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
   messages      AiConversationMessage[]
 
   @@unique([hotelTenantId, userId, assistantKey])
@@ -1056,30 +1054,30 @@ model AiConversationMessage {
 }
 
 model HotelNote {
-  id              String              @id @default(uuid()) @db.Uuid
-  hotelTenantId   String              @map("hotel_tenant_id") @db.Uuid
-  createdById     String              @map("created_by_id") @db.Uuid
-  kind            HotelNoteKind       @default(NOTE)
-  status          HotelNoteStatus     @default(ACTIVE)
-  visibility      HotelNoteVisibility @default(ALL)
-  title           String              @db.VarChar(180)
-  titleDe         String              @map("title_de") @db.VarChar(180)
-  titleIt         String              @map("title_it") @db.VarChar(180)
-  description     String              @db.Text
-  descriptionDe   String              @map("description_de") @db.Text
-  descriptionIt   String              @map("description_it") @db.Text
-  tags            String[]            @default([])
-  tagsDe          String[]            @default([]) @map("tags_de")
-  tagsIt          String[]            @default([]) @map("tags_it")
-  originalLocale  String              @default("en") @map("original_locale") @db.VarChar(8)
-  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt       DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
-  hotelTenant     HotelTenant         @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
-  createdBy       User                @relation("HotelNoteAuthor", fields: [createdById], references: [id], onDelete: Restrict)
-  departments     HotelNoteShareDepartment[]
-  users           HotelNoteShareUser[]
-  attachments     HotelNoteAttachment[]
-  comments        HotelNoteComment[]
+  id             String                     @id @default(uuid()) @db.Uuid
+  hotelTenantId  String                     @map("hotel_tenant_id") @db.Uuid
+  createdById    String                     @map("created_by_id") @db.Uuid
+  kind           HotelNoteKind              @default(NOTE)
+  status         HotelNoteStatus            @default(ACTIVE)
+  visibility     HotelNoteVisibility        @default(ALL)
+  title          String                     @db.VarChar(180)
+  titleDe        String                     @map("title_de") @db.VarChar(180)
+  titleIt        String                     @map("title_it") @db.VarChar(180)
+  description    String                     @db.Text
+  descriptionDe  String                     @map("description_de") @db.Text
+  descriptionIt  String                     @map("description_it") @db.Text
+  tags           String[]                   @default([])
+  tagsDe         String[]                   @default([]) @map("tags_de")
+  tagsIt         String[]                   @default([]) @map("tags_it")
+  originalLocale String                     @default("en") @map("original_locale") @db.VarChar(8)
+  createdAt      DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant    HotelTenant                @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+  createdBy      User                       @relation("HotelNoteAuthor", fields: [createdById], references: [id], onDelete: Restrict)
+  departments    HotelNoteShareDepartment[]
+  users          HotelNoteShareUser[]
+  attachments    HotelNoteAttachment[]
+  comments       HotelNoteComment[]
 
   @@index([hotelTenantId, kind, status, createdAt])
   @@index([createdById])
@@ -1156,38 +1154,38 @@ enum HandoverVisibility {
 }
 
 model Repair {
-  id              String              @id @default(uuid()) @db.Uuid
-  hotelTenantId   String              @map("hotel_tenant_id") @db.Uuid
-  createdById     String              @map("created_by_id") @db.Uuid
-  assigneeId      String?             @map("assignee_id") @db.Uuid
-  kind            RepairKind          @default(REPAIR)
-  status          RepairTicketStatus  @default(NEU)
-  visibility      RepairVisibility    @default(ALL)
-  locationKey     String              @map("location_key") @db.VarChar(180)
-  location        String              @db.VarChar(180)
-  locationDe      String              @map("location_de") @db.VarChar(180)
-  locationIt      String              @map("location_it") @db.VarChar(180)
-  title           String              @db.VarChar(180)
-  titleDe         String              @map("title_de") @db.VarChar(180)
-  titleIt         String              @map("title_it") @db.VarChar(180)
-  description     String              @db.Text
-  descriptionDe   String              @map("description_de") @db.Text
-  descriptionIt   String              @map("description_it") @db.Text
-  tags            String[]            @default([])
-  tagsDe          String[]            @default([]) @map("tags_de")
-  tagsIt          String[]            @default([]) @map("tags_it")
-  originalLocale  String              @default("en") @map("original_locale") @db.VarChar(8)
-  completedAt     DateTime?           @map("completed_at") @db.Timestamptz(3)
-  completedById   String?             @map("completed_by_id") @db.Uuid
-  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt       DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
-  hotelTenant     HotelTenant         @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
-  createdBy       User                @relation("RepairAuthor", fields: [createdById], references: [id], onDelete: Restrict)
-  assignee        User?               @relation("RepairAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
-  completedBy     User?               @relation("RepairCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
-  departments     RepairShareDepartment[]
-  comments        RepairComment[]
-  attachments     RepairAttachment[]
+  id             String                  @id @default(uuid()) @db.Uuid
+  hotelTenantId  String                  @map("hotel_tenant_id") @db.Uuid
+  createdById    String                  @map("created_by_id") @db.Uuid
+  assigneeId     String?                 @map("assignee_id") @db.Uuid
+  kind           RepairKind              @default(REPAIR)
+  status         RepairTicketStatus      @default(NEU)
+  visibility     RepairVisibility        @default(ALL)
+  locationKey    String                  @map("location_key") @db.VarChar(180)
+  location       String                  @db.VarChar(180)
+  locationDe     String                  @map("location_de") @db.VarChar(180)
+  locationIt     String                  @map("location_it") @db.VarChar(180)
+  title          String                  @db.VarChar(180)
+  titleDe        String                  @map("title_de") @db.VarChar(180)
+  titleIt        String                  @map("title_it") @db.VarChar(180)
+  description    String                  @db.Text
+  descriptionDe  String                  @map("description_de") @db.Text
+  descriptionIt  String                  @map("description_it") @db.Text
+  tags           String[]                @default([])
+  tagsDe         String[]                @default([]) @map("tags_de")
+  tagsIt         String[]                @default([]) @map("tags_it")
+  originalLocale String                  @default("en") @map("original_locale") @db.VarChar(8)
+  completedAt    DateTime?               @map("completed_at") @db.Timestamptz(3)
+  completedById  String?                 @map("completed_by_id") @db.Uuid
+  createdAt      DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant    HotelTenant             @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+  createdBy      User                    @relation("RepairAuthor", fields: [createdById], references: [id], onDelete: Restrict)
+  assignee       User?                   @relation("RepairAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  completedBy    User?                   @relation("RepairCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+  departments    RepairShareDepartment[]
+  comments       RepairComment[]
+  attachments    RepairAttachment[]
 
   @@index([hotelTenantId, kind, status, createdAt])
   @@index([createdById])
@@ -1208,15 +1206,15 @@ model RepairShareDepartment {
 }
 
 model RepairComment {
-  id        String    @id @default(uuid()) @db.Uuid
-  repairId  String    @map("repair_id") @db.Uuid
-  authorId  String    @map("author_id") @db.Uuid
-  text      String    @db.Text
-  textDe    String    @map("text_de") @db.Text
-  textIt    String    @map("text_it") @db.Text
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  repair    Repair    @relation(fields: [repairId], references: [id], onDelete: Cascade)
-  author    User      @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  id        String   @id @default(uuid()) @db.Uuid
+  repairId  String   @map("repair_id") @db.Uuid
+  authorId  String   @map("author_id") @db.Uuid
+  text      String   @db.Text
+  textDe    String   @map("text_de") @db.Text
+  textIt    String   @map("text_it") @db.Text
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  repair    Repair   @relation(fields: [repairId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Restrict)
 
   @@index([repairId, createdAt])
   @@index([authorId])
@@ -1238,32 +1236,32 @@ model RepairAttachment {
 }
 
 model Handover {
-  id              String              @id @default(uuid()) @db.Uuid
-  hotelTenantId   String              @map("hotel_tenant_id") @db.Uuid
-  createdById     String              @map("created_by_id") @db.Uuid
-  kind            HandoverKind        @default(HANDOVER)
-  status          HandoverStatus      @default(OPEN)
-  visibility      HandoverVisibility  @default(ALL)
-  pinned          Boolean             @default(false)
-  title           String              @db.VarChar(180)
-  titleDe         String              @map("title_de") @db.VarChar(180)
-  titleIt         String              @map("title_it") @db.VarChar(180)
-  description     String              @db.Text
-  descriptionDe   String              @map("description_de") @db.Text
-  descriptionIt   String              @map("description_it") @db.Text
-  tags            String[]            @default([])
-  tagsDe          String[]            @default([]) @map("tags_de")
-  tagsIt          String[]            @default([]) @map("tags_it")
-  originalLocale  String              @default("en") @map("original_locale") @db.VarChar(8)
-  completedAt     DateTime?           @map("completed_at") @db.Timestamptz(3)
-  completedById   String?             @map("completed_by_id") @db.Uuid
-  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt       DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
-  hotelTenant     HotelTenant         @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
-  createdBy       User                @relation("HandoverAuthor", fields: [createdById], references: [id], onDelete: Restrict)
-  completedBy     User?               @relation("HandoverCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
-  departments     HandoverShareDepartment[]
-  attachments     HandoverAttachment[]
+  id             String                    @id @default(uuid()) @db.Uuid
+  hotelTenantId  String                    @map("hotel_tenant_id") @db.Uuid
+  createdById    String                    @map("created_by_id") @db.Uuid
+  kind           HandoverKind              @default(HANDOVER)
+  status         HandoverStatus            @default(OPEN)
+  visibility     HandoverVisibility        @default(ALL)
+  pinned         Boolean                   @default(false)
+  title          String                    @db.VarChar(180)
+  titleDe        String                    @map("title_de") @db.VarChar(180)
+  titleIt        String                    @map("title_it") @db.VarChar(180)
+  description    String                    @db.Text
+  descriptionDe  String                    @map("description_de") @db.Text
+  descriptionIt  String                    @map("description_it") @db.Text
+  tags           String[]                  @default([])
+  tagsDe         String[]                  @default([]) @map("tags_de")
+  tagsIt         String[]                  @default([]) @map("tags_it")
+  originalLocale String                    @default("en") @map("original_locale") @db.VarChar(8)
+  completedAt    DateTime?                 @map("completed_at") @db.Timestamptz(3)
+  completedById  String?                   @map("completed_by_id") @db.Uuid
+  createdAt      DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant    HotelTenant               @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+  createdBy      User                      @relation("HandoverAuthor", fields: [createdById], references: [id], onDelete: Restrict)
+  completedBy    User?                     @relation("HandoverCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+  departments    HandoverShareDepartment[]
+  attachments    HandoverAttachment[]
 
   @@index([hotelTenantId, kind, status, pinned, createdAt])
   @@index([createdById])
@@ -1297,22 +1295,22 @@ model HandoverShareDepartment {
 }
 
 model Team {
-  id            String      @id @default(uuid()) @db.Uuid
-  hotelTenantId String      @map("hotel_tenant_id") @db.Uuid
-  nameEn        String      @map("name_en") @db.VarChar(180)
-  nameDe        String      @map("name_de") @db.VarChar(180)
-  nameIt        String      @map("name_it") @db.VarChar(180)
-  isActive      Boolean     @default(true) @map("is_active")
-  isDeleted     Boolean     @default(false) @map("is_deleted")
-  deletedAt     DateTime?   @map("deleted_at") @db.Timestamptz(3)
-  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
-  hotelTenant   HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
-  createdById   String?     @map("created_by_id") @db.Uuid
-  updatedById   String?     @map("updated_by_id") @db.Uuid
-  createdBy     User?       @relation("TeamCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedBy     User?       @relation("TeamUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  members       User[]      @relation("TeamMembers")
+  id            String         @id @default(uuid()) @db.Uuid
+  hotelTenantId String         @map("hotel_tenant_id") @db.Uuid
+  nameEn        String         @map("name_en") @db.VarChar(180)
+  nameDe        String         @map("name_de") @db.VarChar(180)
+  nameIt        String         @map("name_it") @db.VarChar(180)
+  isActive      Boolean        @default(true) @map("is_active")
+  isDeleted     Boolean        @default(false) @map("is_deleted")
+  deletedAt     DateTime?      @map("deleted_at") @db.Timestamptz(3)
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant   HotelTenant    @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+  createdById   String?        @map("created_by_id") @db.Uuid
+  updatedById   String?        @map("updated_by_id") @db.Uuid
+  createdBy     User?          @relation("TeamCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy     User?          @relation("TeamUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  members       User[]         @relation("TeamMembers")
   memberships   UserTeam[]
   chatMessages  ChatMessage[]
   chatReads     TeamChatRead[]
@@ -1453,42 +1451,42 @@ enum RecruitingApplicationStage {
 }
 
 model RecruitingJob {
-  id            String              @id @default(uuid()) @db.Uuid
-  hotelTenantId String              @map("hotel_tenant_id") @db.Uuid
-  slug          String              @unique @db.VarChar(80)
-  title         String              @db.VarChar(180)
-  titleDe       String              @default("") @map("title_de") @db.VarChar(180)
-  titleIt       String              @default("") @map("title_it") @db.VarChar(180)
-  format        RecruitingJobFormat
-  status        RecruitingJobStatus @default(DRAFT)
-  departmentId  String              @map("department_id") @db.Uuid
-  workType      String              @map("work_type") @db.VarChar(40)
-  startFrom     String              @default("") @map("start_from") @db.VarChar(120)
-  notes         String              @default("") @db.Text
-  notesDe       String              @default("") @map("notes_de") @db.Text
-  notesIt       String              @default("") @map("notes_it") @db.Text
-  description   String              @default("") @db.Text
-  descriptionDe String              @default("") @map("description_de") @db.Text
-  descriptionIt String              @default("") @map("description_it") @db.Text
-  autoMessage   String              @default("") @map("auto_message") @db.Text
-  autoMessageDe String              @default("") @map("auto_message_de") @db.Text
-  autoMessageIt String              @default("") @map("auto_message_it") @db.Text
-  location      String              @default("") @db.VarChar(180)
-  locationDe    String              @default("") @map("location_de") @db.VarChar(180)
-  locationIt    String              @default("") @map("location_it") @db.VarChar(180)
-  cvRequired    Boolean             @default(false) @map("cv_required")
-  whatsappEnabled Boolean           @default(false) @map("whatsapp_enabled")
-  whatsappNumber  String            @default("") @map("whatsapp_number") @db.VarChar(32)
-  languages     Json
-  listingImage  String              @default("") @map("listing_image") @db.VarChar(255)
-  logoImage     String              @default("") @map("logo_image") @db.VarChar(255)
-  quiz          Json?
-  clickCount    Int                 @default(0) @map("click_count")
-  createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
-  hotelTenant   HotelTenant         @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  department    Department          @relation(fields: [departmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  applications  RecruitingApplication[]
+  id              String                  @id @default(uuid()) @db.Uuid
+  hotelTenantId   String                  @map("hotel_tenant_id") @db.Uuid
+  slug            String                  @unique @db.VarChar(80)
+  title           String                  @db.VarChar(180)
+  titleDe         String                  @default("") @map("title_de") @db.VarChar(180)
+  titleIt         String                  @default("") @map("title_it") @db.VarChar(180)
+  format          RecruitingJobFormat
+  status          RecruitingJobStatus     @default(DRAFT)
+  departmentId    String                  @map("department_id") @db.Uuid
+  workType        String                  @map("work_type") @db.VarChar(40)
+  startFrom       String                  @default("") @map("start_from") @db.VarChar(120)
+  notes           String                  @default("") @db.Text
+  notesDe         String                  @default("") @map("notes_de") @db.Text
+  notesIt         String                  @default("") @map("notes_it") @db.Text
+  description     String                  @default("") @db.Text
+  descriptionDe   String                  @default("") @map("description_de") @db.Text
+  descriptionIt   String                  @default("") @map("description_it") @db.Text
+  autoMessage     String                  @default("") @map("auto_message") @db.Text
+  autoMessageDe   String                  @default("") @map("auto_message_de") @db.Text
+  autoMessageIt   String                  @default("") @map("auto_message_it") @db.Text
+  location        String                  @default("") @db.VarChar(180)
+  locationDe      String                  @default("") @map("location_de") @db.VarChar(180)
+  locationIt      String                  @default("") @map("location_it") @db.VarChar(180)
+  cvRequired      Boolean                 @default(false) @map("cv_required")
+  whatsappEnabled Boolean                 @default(false) @map("whatsapp_enabled")
+  whatsappNumber  String                  @default("") @map("whatsapp_number") @db.VarChar(32)
+  languages       Json
+  listingImage    String                  @default("") @map("listing_image") @db.VarChar(255)
+  logoImage       String                  @default("") @map("logo_image") @db.VarChar(255)
+  quiz            Json?
+  clickCount      Int                     @default(0) @map("click_count")
+  createdAt       DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant     HotelTenant             @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  department      Department              @relation(fields: [departmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  applications    RecruitingApplication[]
 
   @@unique([hotelTenantId, id])
   @@index([hotelTenantId, status])
@@ -1584,14 +1582,14 @@ model HotelAiSettings {
 }
 
 model HotelAiProviderCredential {
-  id               String      @id @default(uuid()) @db.Uuid
-  hotelTenantId    String      @map("hotel_tenant_id") @db.Uuid
-  provider         String      @db.VarChar(40)
-  model            String      @db.VarChar(80)
-  apiKeyEncrypted  String      @default("") @map("api_key_encrypted") @db.Text
-  apiKeyLast4      String      @default("") @map("api_key_last4") @db.VarChar(8)
-  updatedAt        DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
-  hotelTenant      HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  id              String      @id @default(uuid()) @db.Uuid
+  hotelTenantId   String      @map("hotel_tenant_id") @db.Uuid
+  provider        String      @db.VarChar(40)
+  model           String      @db.VarChar(80)
+  apiKeyEncrypted String      @default("") @map("api_key_encrypted") @db.Text
+  apiKeyLast4     String      @default("") @map("api_key_last4") @db.VarChar(8)
+  updatedAt       DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant     HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@unique([hotelTenantId, provider])
   @@index([hotelTenantId])
@@ -1614,14 +1612,14 @@ model HotelAiUsage {
 }
 
 model HotelAiRecommendation {
-  id            String                 @id @default(uuid()) @db.Uuid
-  hotelTenantId String                 @map("hotel_tenant_id") @db.Uuid
+  id            String                @id @default(uuid()) @db.Uuid
+  hotelTenantId String                @map("hotel_tenant_id") @db.Uuid
   place         AiRecommendationPlace
-  bodyEn        String                 @default("") @map("body_en") @db.Text
-  bodyDe        String                 @default("") @map("body_de") @db.Text
-  bodyIt        String                 @default("") @map("body_it") @db.Text
-  generatedAt   DateTime               @map("generated_at") @db.Timestamptz(3)
-  hotelTenant   HotelTenant            @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  bodyEn        String                @default("") @map("body_en") @db.Text
+  bodyDe        String                @default("") @map("body_de") @db.Text
+  bodyIt        String                @default("") @map("body_it") @db.Text
+  generatedAt   DateTime              @map("generated_at") @db.Timestamptz(3)
+  hotelTenant   HotelTenant           @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@unique([hotelTenantId, place])
   @@index([hotelTenantId])
@@ -1635,16 +1633,16 @@ enum RecruitingEmailCategory {
 }
 
 model RecruitingEmailTemplate {
-  id            String                   @id @default(uuid()) @db.Uuid
-  hotelTenantId String                   @map("hotel_tenant_id") @db.Uuid
+  id            String                  @id @default(uuid()) @db.Uuid
+  hotelTenantId String                  @map("hotel_tenant_id") @db.Uuid
   category      RecruitingEmailCategory
-  locale        String                   @db.VarChar(8)
-  subject       String                   @db.VarChar(255)
-  body          String                   @db.Text
-  autoSend      Boolean                  @default(true) @map("auto_send")
-  createdAt     DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt     DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
-  hotelTenant   HotelTenant              @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  locale        String                  @db.VarChar(8)
+  subject       String                  @db.VarChar(255)
+  body          String                  @db.Text
+  autoSend      Boolean                 @default(true) @map("auto_send")
+  createdAt     DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant   HotelTenant             @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@unique([hotelTenantId, category, locale])
   @@index([hotelTenantId])
@@ -1662,29 +1660,29 @@ enum RecruitingInactiveReason {
 }
 
 model RecruitingEmployee {
-  id              String                     @id @default(uuid()) @db.Uuid
-  hotelTenantId   String                     @map("hotel_tenant_id") @db.Uuid
-  applicationId   String?                    @unique @map("application_id") @db.Uuid
-  departmentId    String                     @map("department_id") @db.Uuid
-  firstName       String                     @map("first_name") @db.VarChar(120)
-  lastName        String                     @map("last_name") @db.VarChar(120)
-  email           String                     @default("") @db.VarChar(320)
-  phone           String                     @default("") @db.VarChar(40)
-  taxId           String                     @default("") @map("tax_id") @db.VarChar(64)
-  birthdate       DateTime?                  @db.Date
-  birthplace      String                     @default("") @db.VarChar(180)
-  employedFrom    DateTime?                  @map("employed_from") @db.Date
-  employedTo      DateTime?                  @map("employed_to") @db.Date
-  status          RecruitingEmployeeStatus   @default(ACTIVE)
-  inactiveReason  RecruitingInactiveReason?  @map("inactive_reason")
-  comments        String                     @default("") @db.Text
-  tags            Json                       @default("[]")
-  certificates    Json                       @default("[]")
-  createdAt       DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt       DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
-  hotelTenant     HotelTenant                @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  application     RecruitingApplication?     @relation(fields: [applicationId], references: [id], onDelete: SetNull, onUpdate: Cascade)
-  department      Department                 @relation(fields: [departmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  id             String                    @id @default(uuid()) @db.Uuid
+  hotelTenantId  String                    @map("hotel_tenant_id") @db.Uuid
+  applicationId  String?                   @unique @map("application_id") @db.Uuid
+  departmentId   String                    @map("department_id") @db.Uuid
+  firstName      String                    @map("first_name") @db.VarChar(120)
+  lastName       String                    @map("last_name") @db.VarChar(120)
+  email          String                    @default("") @db.VarChar(320)
+  phone          String                    @default("") @db.VarChar(40)
+  taxId          String                    @default("") @map("tax_id") @db.VarChar(64)
+  birthdate      DateTime?                 @db.Date
+  birthplace     String                    @default("") @db.VarChar(180)
+  employedFrom   DateTime?                 @map("employed_from") @db.Date
+  employedTo     DateTime?                 @map("employed_to") @db.Date
+  status         RecruitingEmployeeStatus  @default(ACTIVE)
+  inactiveReason RecruitingInactiveReason? @map("inactive_reason")
+  comments       String                    @default("") @db.Text
+  tags           Json                      @default("[]")
+  certificates   Json                      @default("[]")
+  createdAt      DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant    HotelTenant               @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  application    RecruitingApplication?    @relation(fields: [applicationId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  department     Department                @relation(fields: [departmentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   @@unique([hotelTenantId, id])
   @@index([hotelTenantId, status])
@@ -1703,31 +1701,31 @@ enum HotelTaskAssignType {
 }
 
 model HotelTask {
-  id             String              @id @default(uuid()) @db.Uuid
-  hotelTenantId  String              @map("hotel_tenant_id") @db.Uuid
-  createdById    String              @map("created_by_id") @db.Uuid
-  assigneeId     String?             @map("assignee_id") @db.Uuid
-  departmentId   String?             @map("department_id") @db.Uuid
-  assignType     HotelTaskAssignType @default(DEPT) @map("assign_type")
-  status         HotelTaskStatus     @default(OPEN)
-  title          String              @db.VarChar(180)
-  titleDe        String              @map("title_de") @db.VarChar(180)
-  titleIt        String              @map("title_it") @db.VarChar(180)
-  note           String              @default("") @db.Text
-  noteDe         String              @default("") @map("note_de") @db.Text
-  noteIt         String              @default("") @map("note_it") @db.Text
-  dueAt          DateTime?           @map("due_at") @db.Date
-  origin         String?             @db.VarChar(255)
-  originalLocale String              @default("en") @map("original_locale") @db.VarChar(8)
-  completedAt    DateTime?           @map("completed_at") @db.Timestamptz(3)
-  completedById  String?             @map("completed_by_id") @db.Uuid
-  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
-  hotelTenant    HotelTenant         @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
-  createdBy      User                @relation("HotelTaskAuthor", fields: [createdById], references: [id], onDelete: Restrict)
-  assignee       User?               @relation("HotelTaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
-  completedBy    User?               @relation("HotelTaskCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
-  department     Department?         @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  id             String                @id @default(uuid()) @db.Uuid
+  hotelTenantId  String                @map("hotel_tenant_id") @db.Uuid
+  createdById    String                @map("created_by_id") @db.Uuid
+  assigneeId     String?               @map("assignee_id") @db.Uuid
+  departmentId   String?               @map("department_id") @db.Uuid
+  assignType     HotelTaskAssignType   @default(DEPT) @map("assign_type")
+  status         HotelTaskStatus       @default(OPEN)
+  title          String                @db.VarChar(180)
+  titleDe        String                @map("title_de") @db.VarChar(180)
+  titleIt        String                @map("title_it") @db.VarChar(180)
+  note           String                @default("") @db.Text
+  noteDe         String                @default("") @map("note_de") @db.Text
+  noteIt         String                @default("") @map("note_it") @db.Text
+  dueAt          DateTime?             @map("due_at") @db.Date
+  origin         String?               @db.VarChar(255)
+  originalLocale String                @default("en") @map("original_locale") @db.VarChar(8)
+  completedAt    DateTime?             @map("completed_at") @db.Timestamptz(3)
+  completedById  String?               @map("completed_by_id") @db.Uuid
+  createdAt      DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant    HotelTenant           @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+  createdBy      User                  @relation("HotelTaskAuthor", fields: [createdById], references: [id], onDelete: Restrict)
+  assignee       User?                 @relation("HotelTaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  completedBy    User?                 @relation("HotelTaskCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+  department     Department?           @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   departments    HotelTaskDepartment[]
 
   @@index([hotelTenantId, status, dueAt])
@@ -1792,44 +1790,44 @@ enum HotelChecklistItemState {
 }
 
 model HotelChecklist {
-  id              String                    @id @default(uuid()) @db.Uuid
-  hotelTenantId   String                    @map("hotel_tenant_id") @db.Uuid
-  createdById     String                    @map("created_by_id") @db.Uuid
-  originalId      String?                   @map("original_id") @db.Uuid
-  assigneeId      String?                   @map("assignee_id") @db.Uuid
-  departmentId    String?                   @map("department_id") @db.Uuid
-  completedById   String?                   @map("completed_by_id") @db.Uuid
-  origin          HotelChecklistOrigin      @default(ORIGINAL)
-  kind            HotelChecklistKind        @default(CHECKLIST)
-  status          HotelChecklistStatus      @default(ACTIVE)
-  assignType      HotelChecklistAssignType  @default(ALL) @map("assign_type")
-  dueType         HotelChecklistDueType     @default(ONCE) @map("due_type")
-  recurrence      HotelChecklistRecurrence  @default(ONCE)
-  title           String                    @db.VarChar(180)
-  titleDe         String                    @map("title_de") @db.VarChar(180)
-  titleIt         String                    @map("title_it") @db.VarChar(180)
-  description     String                    @default("") @db.Text
-  descriptionDe   String                    @default("") @map("description_de") @db.Text
-  descriptionIt   String                    @default("") @map("description_it") @db.Text
-  weekdays        String[]                  @default([])
-  startAt         DateTime?                 @map("start_at") @db.Date
-  endAt           DateTime?                 @map("end_at") @db.Date
-  dueAt           DateTime?                 @map("due_at") @db.Date
-  originalLocale  String                    @default("en") @map("original_locale") @db.VarChar(8)
-  completedAt     DateTime?                 @map("completed_at") @db.Timestamptz(3)
-  createdAt       DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt       DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(3)
-  hotelTenant     HotelTenant               @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
-  createdBy       User                      @relation("HotelChecklistAuthor", fields: [createdById], references: [id], onDelete: Restrict)
-  assignee        User?                     @relation("HotelChecklistAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
-  completedBy     User?                     @relation("HotelChecklistCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
-  department      Department?               @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  departments     HotelChecklistDepartment[]
-  original        HotelChecklist?           @relation("ChecklistRuns", fields: [originalId], references: [id], onDelete: Cascade)
-  runs            HotelChecklist[]          @relation("ChecklistRuns")
-  items           HotelChecklistItem[]
-  completions     HotelChecklistCompletion[]
-  attachments     HotelChecklistAttachment[]
+  id             String                     @id @default(uuid()) @db.Uuid
+  hotelTenantId  String                     @map("hotel_tenant_id") @db.Uuid
+  createdById    String                     @map("created_by_id") @db.Uuid
+  originalId     String?                    @map("original_id") @db.Uuid
+  assigneeId     String?                    @map("assignee_id") @db.Uuid
+  departmentId   String?                    @map("department_id") @db.Uuid
+  completedById  String?                    @map("completed_by_id") @db.Uuid
+  origin         HotelChecklistOrigin       @default(ORIGINAL)
+  kind           HotelChecklistKind         @default(CHECKLIST)
+  status         HotelChecklistStatus       @default(ACTIVE)
+  assignType     HotelChecklistAssignType   @default(ALL) @map("assign_type")
+  dueType        HotelChecklistDueType      @default(ONCE) @map("due_type")
+  recurrence     HotelChecklistRecurrence   @default(ONCE)
+  title          String                     @db.VarChar(180)
+  titleDe        String                     @map("title_de") @db.VarChar(180)
+  titleIt        String                     @map("title_it") @db.VarChar(180)
+  description    String                     @default("") @db.Text
+  descriptionDe  String                     @default("") @map("description_de") @db.Text
+  descriptionIt  String                     @default("") @map("description_it") @db.Text
+  weekdays       String[]                   @default([])
+  startAt        DateTime?                  @map("start_at") @db.Date
+  endAt          DateTime?                  @map("end_at") @db.Date
+  dueAt          DateTime?                  @map("due_at") @db.Date
+  originalLocale String                     @default("en") @map("original_locale") @db.VarChar(8)
+  completedAt    DateTime?                  @map("completed_at") @db.Timestamptz(3)
+  createdAt      DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant    HotelTenant                @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+  createdBy      User                       @relation("HotelChecklistAuthor", fields: [createdById], references: [id], onDelete: Restrict)
+  assignee       User?                      @relation("HotelChecklistAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  completedBy    User?                      @relation("HotelChecklistCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
+  department     Department?                @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  departments    HotelChecklistDepartment[]
+  original       HotelChecklist?            @relation("ChecklistRuns", fields: [originalId], references: [id], onDelete: Cascade)
+  runs           HotelChecklist[]           @relation("ChecklistRuns")
+  items          HotelChecklistItem[]
+  completions    HotelChecklistCompletion[]
+  attachments    HotelChecklistAttachment[]
 
   @@unique([originalId, dueAt])
   @@index([hotelTenantId, kind, status])
@@ -1867,30 +1865,33 @@ model HotelChecklistAttachment {
 }
 
 model HotelChecklistItem {
-  id           String                   @id @default(uuid()) @db.Uuid
-  checklistId  String                   @map("checklist_id") @db.Uuid
-  sortOrder    Int                      @default(0) @map("sort_order")
-  text         String                   @db.VarChar(300)
-  textDe       String                   @map("text_de") @db.VarChar(300)
-  textIt       String                   @map("text_it") @db.VarChar(300)
-  state        HotelChecklistItemState  @default(OPEN)
-  comment      String                   @default("") @db.Text
-  createdAt    DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt    DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
-  checklist    HotelChecklist           @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  id          String                  @id @default(uuid()) @db.Uuid
+  checklistId String                  @map("checklist_id") @db.Uuid
+  assigneeId  String?                 @map("assignee_id") @db.Uuid
+  sortOrder   Int                     @default(0) @map("sort_order")
+  text        String                  @db.VarChar(300)
+  textDe      String                  @map("text_de") @db.VarChar(300)
+  textIt      String                  @map("text_it") @db.VarChar(300)
+  state       HotelChecklistItemState @default(OPEN)
+  comment     String                  @default("") @db.Text
+  createdAt   DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  checklist   HotelChecklist          @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  assignee    User?                   @relation("HotelChecklistItemAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
 
   @@index([checklistId, sortOrder])
+  @@index([assigneeId])
   @@map("hotel_checklist_items")
 }
 
 model HotelChecklistCompletion {
-  id           String         @id @default(uuid()) @db.Uuid
-  checklistId  String         @map("checklist_id") @db.Uuid
-  authorId     String         @map("author_id") @db.Uuid
-  comment      String         @default("") @db.Text
-  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
-  checklist    HotelChecklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
-  author       User           @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  id          String         @id @default(uuid()) @db.Uuid
+  checklistId String         @map("checklist_id") @db.Uuid
+  authorId    String         @map("author_id") @db.Uuid
+  comment     String         @default("") @db.Text
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  checklist   HotelChecklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  author      User           @relation(fields: [authorId], references: [id], onDelete: Restrict)
 
   @@index([checklistId, createdAt])
   @@index([authorId])
@@ -1898,24 +1899,24 @@ model HotelChecklistCompletion {
 }
 
 model HotelShiftTemplate {
-  id             String      @id @default(uuid()) @db.Uuid
-  hotelTenantId  String      @map("hotel_tenant_id") @db.Uuid
-  createdById    String      @map("created_by_id") @db.Uuid
-  name           String      @db.VarChar(180)
-  nameDe         String      @map("name_de") @db.VarChar(180)
-  nameIt         String      @map("name_it") @db.VarChar(180)
-  startTime      String      @map("start_time") @db.VarChar(5)
-  endTime        String      @map("end_time") @db.VarChar(5)
-  breakMinutes   Int         @default(0) @map("break_minutes")
-  note           String      @default("") @db.Text
-  noteDe         String      @default("") @map("note_de") @db.Text
-  noteIt         String      @default("") @map("note_it") @db.Text
-  originalLocale String      @default("en") @map("original_locale") @db.VarChar(8)
-  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
-  hotelTenant    HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
-  createdBy      User        @relation("HotelShiftTemplateAuthor", fields: [createdById], references: [id], onDelete: Restrict)
-  assignments    HotelShift[]
+  id               String            @id @default(uuid()) @db.Uuid
+  hotelTenantId    String            @map("hotel_tenant_id") @db.Uuid
+  createdById      String            @map("created_by_id") @db.Uuid
+  name             String            @db.VarChar(180)
+  nameDe           String            @map("name_de") @db.VarChar(180)
+  nameIt           String            @map("name_it") @db.VarChar(180)
+  startTime        String            @map("start_time") @db.VarChar(5)
+  endTime          String            @map("end_time") @db.VarChar(5)
+  breakMinutes     Int               @default(0) @map("break_minutes")
+  note             String            @default("") @db.Text
+  noteDe           String            @default("") @map("note_de") @db.Text
+  noteIt           String            @default("") @map("note_it") @db.Text
+  originalLocale   String            @default("en") @map("original_locale") @db.VarChar(8)
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant      HotelTenant       @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+  createdBy        User              @relation("HotelShiftTemplateAuthor", fields: [createdById], references: [id], onDelete: Restrict)
+  assignments      HotelShift[]
   draftAssignments HotelShiftDraft[]
 
   @@index([hotelTenantId, name])
@@ -2026,4 +2027,3 @@ model HotelLeaveRequest {
   @@index([swapWithUserId])
   @@map("hotel_leave_requests")
 }
-

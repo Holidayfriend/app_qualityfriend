@@ -11,7 +11,7 @@ import { useToast } from "../ui/toast-provider";
 import { getTasksMessages, type TasksMessages } from "../../lib/i18n/tasks-messages";
 import { RichTextEditor, richTextHtml, sanitizeJobHtml, type RichTextEditorHandle } from "../recruiting/rich-text-editor";
 import { hotelLocalIso, readHotelTimeZone } from "../../lib/hotel/clock";
-import { useTasks, type PublicChecklist, type PublicTask } from "./tasks-provider";
+import { useTasks, type PublicChecklist, type PublicChecklistItem, type PublicTask } from "./tasks-provider";
 
 type T = TasksMessages;
 const WEEKDAYS = ["mo", "tu", "we", "th", "fr", "sa", "su"] as const;
@@ -629,27 +629,103 @@ export function ChecklistFormPage({ id }: { id?: string }) {
   </Shell>;
 }
 
+function ChecklistItemEditor({
+  row,
+  users,
+  editable,
+  save,
+}: {
+  row: PublicChecklistItem;
+  users: { id: string; name: string }[];
+  editable: boolean;
+  save: (input: { state: PublicChecklistItem["state"]; comment: string; assigneeId: string }) => Promise<string | null>;
+}) {
+  const t = useT();
+  const toast = useToast();
+  const [state, setState] = useState(row.state);
+  const [comment, setComment] = useState(row.comment);
+  const [assigneeId, setAssigneeId] = useState(row.assigneeId);
+  const [saving, setSaving] = useState(false);
+
+  async function submit() {
+    if (state === "exception" && !comment.trim()) {
+      toast({ message: t.exceptionRequired, tone: "error" });
+      return;
+    }
+    setSaving(true);
+    const error = await save({ state, comment, assigneeId });
+    setSaving(false);
+    if (error) {
+      toast({ message: error === "EXCEPTION_COMMENT_REQUIRED" ? t.exceptionRequired : t.checklistSaveFailed, tone: "error" });
+      return;
+    }
+    toast({ message: t.itemSaved, tone: "success" });
+  }
+
+  const stateLabel = row.state === "done" ? t.itemDone : row.state === "exception" ? t.itemException : t.itemOpen;
+  if (!editable) {
+    return <div className="todo" style={{ alignItems: "flex-start" }}>
+      <div className={`todo-cb${row.state === "done" ? " done" : row.state === "exception" ? " exception" : ""}`}>{row.state === "done" ? "✓" : row.state === "exception" ? "!" : ""}</div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className={`todo-t${row.state === "done" ? " done" : ""}`}>{row.text}</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 5, fontSize: 11.5, color: "var(--text2)" }}>
+          <span>{t.itemStatus}: {stateLabel}</span>
+          {row.assignee ? <span>{t.itemAssignee}: {row.assignee}</span> : null}
+        </div>
+        {row.state === "exception" && row.comment ? <div style={{ marginTop: 7, fontSize: 12, color: "var(--text2)" }}>{t.exceptionReason}: {row.comment}</div> : null}
+      </div>
+    </div>;
+  }
+
+  return <div className="todo" style={{ alignItems: "flex-start", paddingBlock: 12 }}>
+    <div className={`todo-cb${state === "done" ? " done" : state === "exception" ? " exception" : ""}`}>{state === "done" ? "✓" : state === "exception" ? "!" : ""}</div>
+    <div style={{ flex: 1, minWidth: 0 }}>
+      <div className={`todo-t${state === "done" ? " done" : ""}`} style={{ marginBottom: 10 }}>{row.text}</div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+        <label>
+          <span className="field-lbl">{t.itemStatus}</span>
+          <select className="field-select" value={state} disabled={saving} onChange={(event) => setState(event.target.value as PublicChecklistItem["state"])}>
+            <option value="open">{t.itemOpen}</option>
+            <option value="done">{t.itemDone}</option>
+            <option value="exception">{t.itemException}</option>
+          </select>
+        </label>
+        <label>
+          <span className="field-lbl">{t.itemAssignee}</span>
+          <select className="field-select" value={assigneeId} disabled={saving} onChange={(event) => setAssigneeId(event.target.value)}>
+            <option value="">{t.unassigned}</option>
+            {users.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}
+          </select>
+        </label>
+      </div>
+      {state === "exception" ? <label style={{ display: "block", marginTop: 10 }}>
+        <span className="field-lbl">{t.exceptionReason}</span>
+        <textarea className="field-input" style={{ minHeight: 64, resize: "vertical" }} value={comment} disabled={saving} placeholder={t.exceptionReasonPlaceholder} onChange={(event) => setComment(event.target.value)} />
+      </label> : null}
+      <button type="button" className="btn btn-ghost" style={{ marginTop: 10 }} disabled={saving} onClick={() => void submit()}>{saving ? t.loading : t.saveItem}</button>
+    </div>
+  </div>;
+}
+
 export function ChecklistDetailPage({ id }: { id: string }) {
   const t = useT();
   const toast = useToast();
-  const { checklists, templates, canManage, ready, toggleItem, completeChecklist } = useTasks();
+  const { checklists, templates, users, canManage, ready, updateItem, completeChecklist } = useTasks();
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
   const item = checklists.find((row) => row.id === id) || templates.find((row) => row.id === id);
   if (!ready) return <Shell title={t.listTitle}><BrandLoader label={t.loading} /></Shell>;
   if (!item) return <Shell title={t.listTitle}><Link href="/tasks/checklists" className="back-link">{t.backChecklists}</Link><div className="card"><div className="cb">{t.emptyChecklists}</div></div></Shell>;
-  const canComplete = item.kind === "checklist" && !item.completedAt;
-
-  async function toggle(itemId: string) {
-    if (!canComplete) return;
-    await toggleItem(id, itemId);
-  }
+  const canWorkItems = canManage && item.kind === "checklist" && item.status === "active" && !item.completedAt;
+  const allItemsResolved = item.items.every((row) => row.state !== "open" && (row.state !== "exception" || Boolean(row.comment.trim())));
 
   async function complete() {
     setBusy(true);
-    const ok = await completeChecklist(id, comment);
+    const error = await completeChecklist(id, comment);
     setBusy(false);
-    if (!ok) toast({ message: t.checklistSaveFailed, tone: "error" });
+    if (!error) return;
+    const message = error === "OPEN_ITEMS" ? t.resolveAllItems : error === "EXCEPTION_COMMENT_REQUIRED" ? t.exceptionRequired : t.checklistSaveFailed;
+    toast({ message, tone: "error" });
   }
 
   return <Shell title={item.title}>
@@ -672,21 +748,25 @@ export function ChecklistDetailPage({ id }: { id: string }) {
             <AttachmentGallery attachments={item.attachments} />
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               {item.items.map((row) => (
-                <button key={row.id} type="button" className="todo" style={{ width: "100%", background: "none", border: 0, textAlign: "left", font: "inherit", color: "inherit", cursor: canComplete ? "pointer" : "default" }} onClick={() => void toggle(row.id)}>
-                  <div className={`todo-cb${row.state === "done" ? " done" : row.state === "exception" ? " exception" : ""}`}>{row.state === "done" ? "✓" : row.state === "exception" ? "!" : ""}</div>
-                  <div className={`todo-t${row.state === "done" ? " done" : ""}`}>{row.text}</div>
-                </button>
+                <ChecklistItemEditor
+                  key={`${row.id}:${row.state}:${row.comment}:${row.assigneeId}`}
+                  row={row}
+                  users={users}
+                  editable={canWorkItems}
+                  save={(input) => updateItem(id, row.id, input)}
+                />
               ))}
             </div>
             {item.completedAt ? <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 12 }}>{t.completedMeta.replace("{when}", item.completedAt).replace("{name}", item.completedBy || "–")}</div> : null}
           </div>
-          {canComplete ? <>
+          {canWorkItems ? <>
             <div className="cb" style={{ borderTop: "1px solid var(--border)" }}>
               <label className="field-lbl" style={{ marginBottom: 6 }}>{t.comment}</label>
               <textarea className="field-input" style={{ minHeight: 60, resize: "vertical" }} value={comment} onChange={(event) => setComment(event.target.value)} />
+              {!allItemsResolved ? <div style={{ marginTop: 8, fontSize: 12, color: "var(--danger, #b42318)" }}>{t.resolveAllItems}</div> : null}
             </div>
             <div className="cb" style={{ borderTop: "1px solid var(--border)", display: "flex", gap: 10 }}>
-              <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void complete()}>{t.complete}</button>
+              <button type="button" className="btn btn-primary" disabled={busy || !allItemsResolved} onClick={() => void complete()}>{t.complete}</button>
               {canManage && item.origin === "original" ? <Link href={`/tasks/checklists/${id}/edit`} className="btn btn-ghost">{t.edit}</Link> : null}
             </div>
           </> : canManage && item.origin === "original" ? <div className="cb" style={{ borderTop: "1px solid var(--border)" }}><Link href={`/tasks/checklists/${id}/edit`} className="btn btn-ghost">{t.edit}</Link></div> : null}

@@ -41,6 +41,12 @@ type ChecklistInput = {
   files: File[];
 };
 
+type ChecklistItemInput = {
+  state: "open" | "done" | "exception";
+  comment: string;
+  assigneeId: string;
+};
+
 type Ctx = {
   tasks: PublicTask[];
   checklists: PublicChecklist[];
@@ -60,8 +66,8 @@ type Ctx = {
   toggleTask: (id: string) => Promise<boolean>;
   saveChecklist: (id: string | undefined, input: ChecklistInput) => Promise<string | null>;
   setChecklistStatus: (id: string, status: "active" | "archived") => Promise<boolean>;
-  toggleItem: (checklistId: string, itemId: string) => Promise<boolean>;
-  completeChecklist: (id: string, comment: string) => Promise<boolean>;
+  updateItem: (checklistId: string, itemId: string, input: ChecklistItemInput) => Promise<string | null>;
+  completeChecklist: (id: string, comment: string) => Promise<string | null>;
 };
 
 const TasksContext = createContext<Ctx | null>(null);
@@ -188,14 +194,16 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     return res.ok;
   }, [locale, reload]);
 
-  const toggleItem = useCallback(async (checklistId: string, itemId: string) => {
+  const updateItem = useCallback(async (checklistId: string, itemId: string, input: ChecklistItemInput) => {
     const res = await fetch(`/api/checklists/${checklistId}?locale=${locale}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ itemId }),
+      body: JSON.stringify({ itemId, ...input }),
     });
+    const data = await res.json().catch(() => null) as { error?: string } | null;
+    if (!res.ok) return data?.error ?? "SAVE_FAILED";
     await reload();
-    return res.ok;
+    return null;
   }, [locale, reload]);
 
   const completeChecklist = useCallback(async (id: string, comment: string) => {
@@ -204,8 +212,10 @@ export function TasksProvider({ children }: { children: ReactNode }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ complete: true, comment }),
     });
+    const data = await res.json().catch(() => null) as { error?: string } | null;
+    if (!res.ok) return data?.error ?? "SAVE_FAILED";
     await reload();
-    return res.ok;
+    return null;
   }, [locale, reload]);
 
   const today = todayIso();
@@ -226,8 +236,8 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     doneWeek,
     totalWeek: doneWeek + open.length,
     periodic,
-    saveTask, toggleTask, saveChecklist, setChecklistStatus, toggleItem, completeChecklist,
-  }), [canManage, checklists, completeChecklist, departments, doneWeek, dueToday.length, dueWeek.length, open.length, overdue.length, periodic, ready, saveChecklist, saveTask, setChecklistStatus, tasks, templates, toggleItem, toggleTask, users]);
+    saveTask, toggleTask, saveChecklist, setChecklistStatus, updateItem, completeChecklist,
+  }), [canManage, checklists, completeChecklist, departments, doneWeek, dueToday.length, dueWeek.length, open.length, overdue.length, periodic, ready, saveChecklist, saveTask, setChecklistStatus, tasks, templates, toggleTask, updateItem, users]);
 
   return <TasksContext.Provider value={value}>{children}</TasksContext.Provider>;
 }
