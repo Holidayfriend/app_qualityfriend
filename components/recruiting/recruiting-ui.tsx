@@ -22,6 +22,7 @@ import { jobSaveErrorKey } from "../../lib/recruiting/job-save-error";
 import type { PublicJob } from "../../lib/recruiting/job-fields";
 import { classicJobFieldRequired, hasMissingClassicJobFields } from "../../lib/recruiting/job-validation";
 import { internationalPhoneNumber, isValidInternationalPhoneNumber, phoneNumberParts } from "../../lib/recruiting/phone-number";
+import { recruitingMailUrl, recruitingWhatsAppUrl } from "../../lib/recruiting/contact-links";
 import { CountryPhoneInput } from "./country-phone-input";
 
 export type RecruitingView =
@@ -1143,7 +1144,7 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
   const [compBusy, setCompBusy] = useState(false);
   const [compMsg, setCompMsg] = useState("");
   const [actionBusy, setActionBusy] = useState(false);
-  const [confirmation, setConfirmation] = useState<{ stage: "offer" | "rejected"; token: string; preview: { to: string; subject: string; html: string; willSend: boolean } } | null>(null);
+  const [confirmation, setConfirmation] = useState<{ stage: "offer" | "rejected"; token: string; preview: { to: string; subject: string; text: string; html: string; willSend: boolean } } | null>(null);
   const confirmationRef = useRef<HTMLDialogElement>(null);
   const recheckConfirmRef = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -1656,7 +1657,21 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
         <div className="field-lbl">{t.actionRecipient}: {confirmation.preview.to || "\u2013"}</div>
         <div className="field-lbl">{t.subject}: {confirmation.preview.subject}</div>
         <iframe title={t.actionEmailPreview} sandbox="" referrerPolicy="no-referrer" srcDoc={confirmation.preview.html} style={{ width: "100%", height: 280, border: "1px solid #ddd", background: "white", margin: "12px 0" }} />
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+        {confirmation.stage === "offer" ? <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+          <a
+            className="btn btn-ghost"
+            href={recruitingMailUrl({ ...confirmation.preview, phone: item.phone })}
+            target="_blank"
+            rel="noreferrer"
+          >{t.openMail}</a>
+          {recruitingWhatsAppUrl({ ...confirmation.preview, phone: item.phone }) ? <a
+            className="btn btn-ghost"
+            href={recruitingWhatsAppUrl({ ...confirmation.preview, phone: item.phone })}
+            target="_blank"
+            rel="noreferrer"
+          >{t.openWhatsApp}</a> : <button type="button" className="btn btn-ghost" disabled title={t.whatsAppPhoneMissing}>{t.openWhatsApp}</button>}
+        </div> : null}
+        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: 8 }}>
           <button type="button" className="btn btn-ghost" disabled={actionBusy} onClick={() => setConfirmation(null)}>{t.cancel}</button>
           <button type="button" className="btn btn-primary" disabled={actionBusy} onClick={() => void setStage(confirmation.stage, confirmation.token)}>{confirmation.preview.willSend ? t.actionConfirmSend : t.actionConfirmOnly}</button>
         </div>
