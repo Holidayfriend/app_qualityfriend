@@ -4,7 +4,8 @@ import { pickLocalized } from "../recruiting/job-fields";
 import { getScheduleMessages } from "../i18n/schedule-messages";
 import { prisma } from "../prisma";
 import { scheduleEditor } from "./access";
-import { buildScheduleCsv, buildScheduleExcelHtml, entriesFromShifts, totalsByEmployee, type CsvLabels } from "./export";
+import { buildScheduleCsv, buildScheduleExcelHtml, payrollExportEntries, totalsByEmployee, type CsvLabels } from "./export";
+import { fromDbCategory, fromDbDuration } from "./leave-fields";
 import { listShiftsInRange } from "./shifts";
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -36,7 +37,9 @@ export async function buildScheduleExport(input: {
   const span = Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000) + 1;
   if (span > 93) return { error: "RANGE" as const };
   const locale = input.locale === "de" || input.locale === "it" ? input.locale : "en";
-  const [users, shifts] = await Promise.all([
+  const fromDate = new Date(`${from}T00:00:00.000Z`);
+  const toDate = new Date(`${to}T00:00:00.000Z`);
+  const [users, shifts, approvedAbsences] = await Promise.all([
     prisma.user.findMany({
       where: { hotelTenantId: actor.hotel_tenant_id, isDeleted: false, isActive: true },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
@@ -53,6 +56,28 @@ export async function buildScheduleExport(input: {
       },
     }),
     listShiftsInRange(actor, from, to, locale),
+    prisma.hotelLeaveRequest.findMany({
+      where: {
+        hotelTenantId: actor.hotel_tenant_id,
+        status: "APPROVED",
+        category: { not: "SWAP" },
+        startDate: { lte: toDate },
+        endDate: { gte: fromDate },
+      },
+      select: {
+        userId: true,
+        startDate: true,
+        endDate: true,
+        category: true,
+        duration: true,
+        startTime: true,
+        endTime: true,
+        note: true,
+        noteDe: true,
+        noteIt: true,
+        status: true,
+      },
+    }),
   ]);
   const people = users.map((row) => {
     const memberships = row.departmentMemberships.length
@@ -75,7 +100,23 @@ export async function buildScheduleExport(input: {
     return true;
   });
   const allowed = new Set(people.map((person) => person.id));
-  const entries = entriesFromShifts(people, shifts.filter((row) => allowed.has(row.userId)));
+  const entries = payrollExportEntries(
+    people,
+    shifts.filter((row) => allowed.has(row.userId)),
+    approvedAbsences.filter((row) => allowed.has(row.userId)).map((row) => ({
+      userId: row.userId,
+      start: row.startDate.toISOString().slice(0, 10),
+      end: row.endDate.toISOString().slice(0, 10),
+      category: fromDbCategory(row.category),
+      duration: fromDbDuration(row.duration),
+      startTime: row.startTime,
+      endTime: row.endTime,
+      note: pickLocalized(row.note, row.noteDe, row.noteIt, locale),
+      status: "approved" as const,
+    })),
+    from,
+    to,
+  );
   const labels = csvLabels(locale);
   const totals = totalsByEmployee(entries);
   return {

@@ -7,6 +7,7 @@ import { pickLocalized } from "../recruiting/job-fields";
 import { addDaysIso, datesFromThroughWeeks, mondayOfIso, weekIsoDates } from "./week";
 import { translateShiftNote } from "./translate";
 import { notifySchedulePublished } from "./notify";
+import { shouldCopyWeekShift } from "./copy-policy";
 import { Prisma } from "../../app/generated/prisma/client";
 import type { ScheduleActor } from "./access";
 import {
@@ -402,6 +403,7 @@ export async function copyWeekShifts(actor: ScheduleActor, fromWeekStart: string
     for (const row of drafts) merged.set(shiftKey(row.userId, row.workDate), row);
     let copied = 0;
     for (const row of merged.values()) {
+      if (!shouldCopyWeekShift(row.kind)) continue;
       const date = typeof row.workDate === "string" ? String(row.workDate).slice(0, 10) : row.workDate.toISOString().slice(0, 10);
       const index = sourceDates.indexOf(date);
       if (index < 0) continue;

@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { EMPTY_CELL, type ShiftCell } from "../lib/schedule/demo-data";
-import { buildScheduleCsv, buildScheduleExcelHtml, cellExportType, formatExportDate, pdfCellLabel, totalsByEmployee, weekExportEntries } from "../lib/schedule/export";
+import { buildScheduleCsv, buildScheduleExcelHtml, cellExportType, formatExportDate, payrollExportEntries, pdfCellLabel, totalsByEmployee, weekExportEntries } from "../lib/schedule/export";
+import { shouldCopyWeekShift } from "../lib/schedule/copy-policy";
 
 function cell(patch: Partial<ShiftCell>): ShiftCell {
   return { ...EMPTY_CELL, ...patch };
@@ -14,6 +15,30 @@ test("export maps work, vacation, off and sick without printing sick on pdf labe
   assert.equal(cellExportType(cell({ kind: "off", leaveCategory: "paidSick" })), "sick");
   assert.equal(pdfCellLabel(cell({ kind: "off", leaveCategory: "paidSick", leaveDuration: "full" }), "Absent", "–"), "Absent");
   assert.equal(pdfCellLabel(cell({ kind: "work", start: "07:00", end: "15:00" }), "Absent", "–"), "07:00–15:00");
+});
+
+test("copy week copies work shifts only", () => {
+  assert.equal(shouldCopyWeekShift("WORK"), true);
+  assert.equal(shouldCopyWeekShift("OFF"), false);
+  assert.equal(shouldCopyWeekShift("VACATION"), false);
+});
+
+test("payroll export ignores schedule absences and includes only approved absence requests", () => {
+  const people = [{ id: "user-1", name: "Anna Rossi", departmentId: "kitchen", departmentName: "Kitchen" }];
+  const entries = payrollExportEntries(people, [
+    { userId: "user-1", date: "2026-09-21", kind: "work", start: "07:00", end: "15:00", breakMins: 30, note: "", leaveCategory: "", leaveDuration: "" },
+    { userId: "user-1", date: "2026-09-22", kind: "off", start: "", end: "", breakMins: 0, note: "copied sick day", leaveCategory: "paidSick", leaveDuration: "full" },
+    { userId: "user-1", date: "2026-09-23", kind: "vac", start: "", end: "", breakMins: 0, note: "copied vacation", leaveCategory: "vacation", leaveDuration: "full" },
+  ], [
+    { userId: "user-1", start: "2026-09-22", end: "2026-09-22", category: "paidSick", duration: "full", startTime: "", endTime: "", note: "approved sick leave", status: "approved" },
+    { userId: "user-1", start: "2026-09-23", end: "2026-09-23", category: "vacation", duration: "full", startTime: "", endTime: "", note: "pending vacation", status: "open" },
+    { userId: "user-1", start: "2026-09-24", end: "2026-09-24", category: "paid", duration: "full", startTime: "", endTime: "", note: "rejected leave", status: "rejected" },
+  ], "2026-09-21", "2026-09-27");
+
+  assert.deepEqual(entries.map((entry) => [entry.date, entry.type, entry.note]), [
+    ["2026-09-21", "shift", ""],
+    ["2026-09-22", "sick", "approved sick leave"],
+  ]);
 });
 
 test("csv lists one row per entry and totals planned hours per employee at the end", () => {

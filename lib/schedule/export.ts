@@ -1,5 +1,6 @@
 import { shiftWorkHours, formatWorkHours } from "./hours";
 import type { ShiftCell } from "./demo-data";
+import { datesInclusive, type AbsenceStatus, type LeaveCategory, type LeaveDuration } from "./leave-fields";
 
 export type ExportType = "shift" | "off" | "holiday" | "sick";
 export type ExportDuration = "full" | "partial" | "";
@@ -29,6 +30,18 @@ export type ShiftExportRow = {
   note: string;
   leaveCategory?: string;
   leaveDuration?: string;
+};
+
+export type AbsenceExportRow = {
+  userId: string;
+  start: string;
+  end: string;
+  category: LeaveCategory;
+  duration: LeaveDuration;
+  startTime: string;
+  endTime: string;
+  note: string;
+  status: AbsenceStatus;
 };
 
 export function entriesFromShifts(people: ExportPerson[], shifts: ShiftExportRow[]): ExportEntry[] {
@@ -66,6 +79,40 @@ export function entriesFromShifts(people: ExportPerson[], shifts: ShiftExportRow
     });
   }
   return rows.sort((a, b) => a.date.localeCompare(b.date) || a.employee.localeCompare(b.employee));
+}
+
+export function entriesFromApprovedAbsences(people: ExportPerson[], absences: AbsenceExportRow[], from: string, to: string): ExportEntry[] {
+  const byId = new Map(people.map((person) => [person.id, person]));
+  const rows: ExportEntry[] = [];
+  for (const absence of absences) {
+    if (absence.status !== "approved" || absence.category === "swap") continue;
+    const person = byId.get(absence.userId);
+    if (!person) continue;
+    const start = absence.start < from ? from : absence.start;
+    const end = absence.end > to ? to : absence.end;
+    const type: ExportType = absence.category === "vacation" ? "holiday" : absence.category === "paidSick" ? "sick" : "off";
+    for (const date of datesInclusive(start, end)) {
+      rows.push({
+        date,
+        employee: person.name,
+        department: person.departmentName,
+        type,
+        start: absence.duration === "partial" ? absence.startTime.slice(0, 5) : "",
+        end: absence.duration === "partial" ? absence.endTime.slice(0, 5) : "",
+        breakMins: 0,
+        hours: 0,
+        duration: absence.duration,
+        note: absence.note,
+      });
+    }
+  }
+  return rows.sort((a, b) => a.date.localeCompare(b.date) || a.employee.localeCompare(b.employee));
+}
+
+export function payrollExportEntries(people: ExportPerson[], shifts: ShiftExportRow[], absences: AbsenceExportRow[], from: string, to: string) {
+  const work = entriesFromShifts(people, shifts.filter((shift) => shift.kind === "work"));
+  const approvedAbsences = entriesFromApprovedAbsences(people, absences, from, to);
+  return [...work, ...approvedAbsences].sort((a, b) => a.date.localeCompare(b.date) || a.employee.localeCompare(b.employee));
 }
 
 export type ExportTotal = { employee: string; department: string; hours: number };
