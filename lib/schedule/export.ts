@@ -125,6 +125,12 @@ export type CsvLabels = {
   total: string;
 };
 
+export type SchedulePrintLabels = {
+  title: string;
+  week: string;
+  absent: string;
+};
+
 export function cellExportType(cell: ShiftCell | undefined): ExportType | null {
   if (!cell || cell.kind === "empty") return null;
   if (cell.kind === "work") return "shift";
@@ -199,6 +205,48 @@ function csvEscape(value: string, separator: string) {
 
 function htmlEscape(value: string) {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
+}
+
+function exportDates(from: string, to: string) {
+  const rows: string[] = [];
+  let current = from;
+  while (current <= to && rows.length < 93) {
+    rows.push(current);
+    const next = new Date(`${current}T00:00:00.000Z`);
+    next.setUTCDate(next.getUTCDate() + 1);
+    current = next.toISOString().slice(0, 10);
+  }
+  return rows;
+}
+
+export function buildSchedulePrintHtml(entries: ExportEntry[], labels: SchedulePrintLabels, locale: string, from: string, to: string) {
+  const dates = exportDates(from, to);
+  const weeks = Array.from({ length: Math.ceil(dates.length / 7) }, (_, index) => dates.slice(index * 7, index * 7 + 7));
+  const people = [...new Map(entries.map((entry) => [`${entry.employee}\u0000${entry.department}`, { employee: entry.employee, department: entry.department }])).values()]
+    .sort((a, b) => a.employee.localeCompare(b.employee));
+  const byCell = new Map<string, ExportEntry[]>();
+  for (const entry of entries) {
+    const key = `${entry.employee}\u0000${entry.department}\u0000${entry.date}`;
+    byCell.set(key, [...(byCell.get(key) ?? []), entry]);
+  }
+  const dateLabel = (iso: string) => new Intl.DateTimeFormat(locale, { weekday: "short", day: "2-digit", month: "2-digit", timeZone: "UTC" }).format(new Date(`${iso}T00:00:00.000Z`));
+  const sections = weeks.map((week) => {
+    const heading = `${labels.week} ${formatExportDate(week[0] ?? from, locale)}–${formatExportDate(week.at(-1) ?? to, locale)}`;
+    const header = week.map((date) => `<th>${htmlEscape(dateLabel(date))}</th>`).join("");
+    const rows = people.map((person) => {
+      const cells = week.map((date) => {
+        const values = byCell.get(`${person.employee}\u0000${person.department}\u0000${date}`) ?? [];
+        const text = values.map((entry) => entry.type === "shift" ? `${entry.start || "–"}–${entry.end || "–"}` : labels.absent).join(" / ");
+        const absent = values.some((entry) => entry.type !== "shift");
+        return `<td class="${absent ? "absent" : ""}">${htmlEscape(text || "–")}</td>`;
+      }).join("");
+      return `<tr><th class="person">${htmlEscape(person.employee)}<small>${htmlEscape(person.department)}</small></th>${cells}</tr>`;
+    }).join("");
+    return `<section><h2>${htmlEscape(heading)}</h2><table><thead><tr><th class="person"></th>${header}</tr></thead><tbody>${rows}</tbody></table></section>`;
+  }).join("");
+  return `<!doctype html><html lang="${htmlEscape(locale)}"><head><meta charset="utf-8"><title>${htmlEscape(labels.title)}</title><style>
+    @page{size:A4 landscape;margin:10mm}*{box-sizing:border-box}body{font:11px Arial,sans-serif;color:#172033;margin:0}h1{font-size:20px;margin:0 0 4px}p{color:#667085;margin:0 0 18px}section{break-after:page;margin-top:18px}section:last-child{break-after:auto}h2{font-size:13px;margin:0 0 8px}table{border-collapse:collapse;width:100%;table-layout:fixed}th,td{border:1px solid #cfd4dc;padding:7px 5px;text-align:center;vertical-align:middle}thead th{background:#1c2233;color:white}.person{width:150px;text-align:left}.person small{display:block;color:#667085;font-weight:400;margin-top:2px}thead .person small{color:white}.absent{background:#f3f4f6;font-weight:600}@media screen{body{padding:24px;max-width:1200px;margin:auto}}
+  </style></head><body onload="setTimeout(function(){window.print()},150)"><h1>${htmlEscape(labels.title)}</h1><p>${htmlEscape(formatExportDate(from, locale))}–${htmlEscape(formatExportDate(to, locale))}</p>${sections}</body></html>`;
 }
 
 export function buildScheduleCsv(entries: ExportEntry[], totals: ExportTotal[], labels: CsvLabels, locale: string) {

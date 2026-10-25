@@ -4,7 +4,7 @@ import { pickLocalized } from "../recruiting/job-fields";
 import { getScheduleMessages } from "../i18n/schedule-messages";
 import { prisma } from "../prisma";
 import { scheduleEditor } from "./access";
-import { buildScheduleCsv, buildScheduleExcelHtml, payrollExportEntries, totalsByEmployee, type CsvLabels } from "./export";
+import { buildScheduleCsv, buildScheduleExcelHtml, buildSchedulePrintHtml, payrollExportEntries, totalsByEmployee, type CsvLabels } from "./export";
 import { fromDbCategory, fromDbDuration } from "./leave-fields";
 import { listShiftsInRange } from "./shifts";
 
@@ -125,5 +125,6 @@ export async function buildScheduleExport(input: {
     totals,
     csv: buildScheduleCsv(entries, totals, labels, locale),
     xls: buildScheduleExcelHtml(entries, totals, labels, locale),
+    printHtml: buildSchedulePrintHtml(entries, { title: getScheduleMessages(locale).exportTitle, week: getScheduleMessages(locale).exportWeek, absent: getScheduleMessages(locale).exportAbsent }, locale, from, to),
   };
 }

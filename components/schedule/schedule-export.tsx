@@ -61,6 +61,15 @@ export function ScheduleExportPage() {
     }
   }
 
+  function openPdf() {
+    if (!DATE.test(from) || !DATE.test(to) || to < from) {
+      toast({ message: t.exportNeedDates, tone: "error" });
+      return;
+    }
+    const query = new URLSearchParams({ from, to, department, userId, locale, format: "pdf" });
+    window.open(`/api/schedule/export?${query}`, "_blank", "noopener,noreferrer");
+  }
+
   if (!ready) {
     return <AppShell activeItem="schedule" pageTitle={t.exportTitle}>
       <main className="qf-dashboard schedule-shell pb-24 lg:pb-[24px]"><BrandLoader label={t.loading} /></main>
@@ -105,6 +114,7 @@ export function ScheduleExportPage() {
           <div className="schedule-export-actions" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void download("xls")}>{t.exportExcel}</button>
             <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void download("csv")}>{t.exportCsv}</button>
+            <button type="button" className="btn btn-ghost" disabled={busy} onClick={openPdf}>{t.exportPdf}</button>
           </div>
         </div>
       </div>

@@ -28,6 +28,15 @@ export async function GET(request: Request) {
       },
     });
   }
+  if (params.get("format") === "pdf") {
+    return new NextResponse(result.printHtml, {
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Content-Disposition": `inline; filename="schedule-${params.get("from") ?? "export"}-print.html"`,
+        "Cache-Control": "no-store",
+      },
+    });
+  }
   return new NextResponse(result.xls, {
     headers: {
       "Content-Type": "application/vnd.ms-excel; charset=utf-8",

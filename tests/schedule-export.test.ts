@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { EMPTY_CELL, type ShiftCell } from "../lib/schedule/demo-data";
-import { buildScheduleCsv, buildScheduleExcelHtml, cellExportType, formatExportDate, payrollExportEntries, pdfCellLabel, totalsByEmployee, weekExportEntries } from "../lib/schedule/export";
+import { buildScheduleCsv, buildScheduleExcelHtml, buildSchedulePrintHtml, cellExportType, formatExportDate, payrollExportEntries, pdfCellLabel, totalsByEmployee, weekExportEntries } from "../lib/schedule/export";
 import { shouldCopyWeekShift } from "../lib/schedule/copy-policy";
 
 function cell(patch: Partial<ShiftCell>): ShiftCell {
@@ -39,6 +39,18 @@ test("payroll export ignores schedule absences and includes only approved absenc
     ["2026-09-21", "shift", ""],
     ["2026-09-22", "sick", "approved sick leave"],
   ]);
+});
+
+test("printable PDF week view hides absence reasons", () => {
+  const html = buildSchedulePrintHtml([
+    { date: "2026-10-19", employee: "Anna Rossi", department: "Kitchen", type: "shift", start: "07:00", end: "15:00", breakMins: 30, hours: 7.5, duration: "", note: "front desk note" },
+    { date: "2026-10-20", employee: "Anna Rossi", department: "Kitchen", type: "sick", start: "", end: "", breakMins: 0, hours: 0, duration: "full", note: "private medical reason" },
+  ], { title: "Export schedule", week: "Week", absent: "Absent" }, "en", "2026-10-19", "2026-10-25");
+
+  assert.match(html, /07:00–15:00/);
+  assert.match(html, />Absent</);
+  assert.doesNotMatch(html, /front desk note|private medical reason/);
+  assert.match(html, /window\.print/);
 });
 
 test("csv lists one row per entry and totals planned hours per employee at the end", () => {
