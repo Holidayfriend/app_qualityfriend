@@ -3,6 +3,7 @@ import { Prisma } from "../../../../../../app/generated/prisma/client";
 import { recordAuditLog } from "../../../../../../lib/audit/audit-service";
 import { hotelTimeZone } from "../../../../../../lib/hotel/clock";
 import { housekeepingAccess } from "../../../../../../lib/housekeeping/access";
+import { canMutateRoomState } from "../../../../../../lib/housekeeping/room-access-policy";
 import { getSessionUserId } from "../../../../../../lib/auth/session";
 import { prisma } from "../../../../../../lib/prisma";
 
@@ -20,23 +21,32 @@ async function actor() {
   const id = await getSessionUserId();
   if (!id) return null;
   const user = await prisma.user.findFirst({ where: { id, isActive: true, isDeleted: false }, select: { id: true, hotelTenantId: true, role: true, hotelTenant: { select: { timeZone: true } } } });
-  return user && (await housekeepingAccess({ id: user.id, hotel_tenant_id: user.hotelTenantId, role: user.role })).board ? user : null;
+  if (!user) return null;
+  const access = await housekeepingAccess({ id: user.id, hotel_tenant_id: user.hotelTenantId, role: user.role });
+  return access.board ? { user, access } : null;
 }
 
 export async function PATCH(request: Request, context: Context) {
-  const user = await actor();
+  const current = await actor();
   const { id: roomId } = await context.params;
-  if (!user) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
+  if (!current) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
+  const { user, access } = current;
   if (!uuid.test(roomId)) return Response.json({ error: "INVALID_ROOM_ID" }, { status: 400 });
   const body = await request.json().catch(() => null) as { status?: unknown; breakfastInRoom?: unknown; doNotDisturb?: unknown; noService?: unknown; isUrgent?: unknown; guestCleaningPreference?: unknown } | null;
+  const hasStatus = body?.status !== undefined;
   const status = typeof body?.status === "string" && body.status in cleanliness ? body.status as keyof typeof cleanliness : null;
-  if (!status || typeof body?.breakfastInRoom !== "boolean" || typeof body?.doNotDisturb !== "boolean" || typeof body?.noService !== "boolean" || (body?.isUrgent !== undefined && typeof body.isUrgent !== "boolean")) return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
-  if (body.guestCleaningPreference !== undefined && (typeof body.guestCleaningPreference !== "string" || !["DAILY", "AS_NEEDED", "NONE"].includes(body.guestCleaningPreference))) return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
+  const changesGuestCleaningPreference = body !== null && Object.hasOwn(body, "guestCleaningPreference");
+  if ((hasStatus && !status) || typeof body?.breakfastInRoom !== "boolean" || typeof body?.doNotDisturb !== "boolean" || typeof body?.noService !== "boolean" || (body?.isUrgent !== undefined && typeof body.isUrgent !== "boolean")) return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
+  if (!canMutateRoomState({ isAdmin: access.admin, status, changesGuestCleaningPreference })) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
+  if (changesGuestCleaningPreference && (typeof body?.guestCleaningPreference !== "string" || !["DAILY", "AS_NEEDED", "NONE"].includes(body.guestCleaningPreference))) return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
   let workDate: string;
   try { workDate = hotelDate(hotelTimeZone(user.hotelTenant.timeZone)); } catch { return Response.json({ error: "INVALID_HOTEL_TIME_ZONE" }, { status: 500 }); }
-  const room = await prisma.room.findFirst({ where: { id: roomId, hotelTenantId: user.hotelTenantId, isActive: true, archivedAt: null }, select: { id: true, number: true } });
+  const room = await prisma.room.findFirst({
+    where: { id: roomId, hotelTenantId: user.hotelTenantId, isActive: true, archivedAt: null },
+    select: { id: true, number: true, roomOperationalStateRecords: { take: 1, select: { cleanliness: true } } },
+  });
   if (!room) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
-  const target = cleanliness[status];
+  const target = status ? cleanliness[status] : room.roomOperationalStateRecords[0]?.cleanliness ?? "UNKNOWN";
   const noService = status === "noCleaningDesired" || body.noService;
   await prisma.$transaction(async (tx) => {
     const before = await tx.roomOperationalState.findFirst({ where: { hotelTenantId: user.hotelTenantId, roomId: room.id }, select: { cleanliness: true, breakfastInRoom: true, doNotDisturb: true, noService: true, isUrgent: true, guestCleaningPreference: true } });

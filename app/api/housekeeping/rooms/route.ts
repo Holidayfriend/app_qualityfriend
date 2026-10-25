@@ -99,10 +99,10 @@ export async function GET(request: Request) {
     const state = room.roomOperationalStateRecords[0];
     const status = ({ UNKNOWN: "unassigned", DIRTY: "dirty", CLEANING: "cleaning", CLEAN: "clean", INSPECTED: "inspected" } as const)[state?.cleanliness ?? "UNKNOWN"];
     const [cleaners, assignment, completedChecks] = await Promise.all([
-      housekeepingUsers(user.hotelTenantId),
+      access.admin ? housekeepingUsers(user.hotelTenantId) : Promise.resolve([]),
       prisma.housekeepingRoomAssignment.findFirst({
         where: { hotelTenantId: user.hotelTenantId, roomId: room.id, workDate: day },
-        select: { assignedToId: true },
+        select: { assignedToId: true, assignedTo: { select: { firstName: true, lastName: true } } },
       }),
       prisma.$queryRaw<Array<{ checklist_type: "ROOM" | "ARRIVAL"; check_index: number }>>`SELECT checklist_type,check_index FROM housekeeping_checklist_completions WHERE hotel_tenant_id=${user.hotelTenantId}::uuid AND room_id=${room.id}::uuid AND work_date=${date}::date`,
     ]);
@@ -114,9 +114,11 @@ export async function GET(request: Request) {
       status, breakfastInRoom: state?.breakfastInRoom ?? false, doNotDisturb: state?.doNotDisturb ?? false, noService: state?.noService ?? false, isExpress: state?.isExpress ?? false, isUrgent: state?.isUrgent ?? false, guestCleaningPreference: state?.guestCleaningPreference ?? "DAILY",
       lastCleanedAt: state?.lastCleanedAt ?? null, lastInspectedAt: state?.lastInspectedAt ?? null,
       isArrivalToday: stay?.arrivalDate.getTime() === day.getTime(),
+      canAdmin: access.admin,
       roomChecks: roomChecks.map((label, index) => ({ index, label, checked: completed.has(`ROOM:${index}`) })),
       arrivalChecks: arrivalChecks.map((label, index) => ({ index, label, checked: completed.has(`ARRIVAL:${index}`) })), cleaners,
       assignedCleanerId: assignment?.assignedToId ?? null,
+      assignedCleanerName: assignment?.assignedTo ? `${assignment.assignedTo.firstName} ${assignment.assignedTo.lastName}`.trim() : null,
       reservation: stay ? serializeStay(stay) : null,
       departureReservation: departureStay ? serializeStay(departureStay) : null,
 
