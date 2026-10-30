@@ -5,7 +5,9 @@ const KEY = /^[0-9a-f-]{36}\.(pdf|doc|docx|txt)$/i;
 type BlobDb = Pick<PrismaClient, "manualFileBlob">;
 
 export async function saveManualBlob(prisma: BlobDb, storageKey: string, bytes: Buffer) {
-  await prisma.manualFileBlob.create({ data: { storageKey, bytes } });
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  await prisma.manualFileBlob.create({ data: { storageKey, bytes: copy } });
 }
 
 export async function readManualBlob(prisma: BlobDb, storageKey: string) {
