@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { cleaningPlan, linenDueToday } from "../lib/housekeeping/daily-plan";
+import { cleaningPlan, linenDueToday, preferenceOnWorkDate } from "../lib/housekeeping/daily-plan";
 
 const base = { arrival_date: "2026-09-14", departure_date: "2026-10-14", normal_minutes: 40, express_minutes: 20, departure_minutes: 50, cleaning_weekdays: [] as number[], linen_weekdays: [] as number[], cleaning_frequency: "EVERY_SECOND_DAY", linen_frequency: "WEEKLY" };
 const date = (nights: number) => new Date(Date.UTC(2026, 8, 14 + nights)).toISOString().slice(0, 10);
@@ -56,6 +56,14 @@ test("selected weekdays still apply after arrival", () => {
   assert.equal(linenDueToday(stay, "2026-09-15"), false);
   assert.equal(cleaningPlan(stay, "2026-09-17").type, "REGULAR");
   assert.equal(linenDueToday(stay, "2026-09-17"), true);
+});
+
+test("departure day resets the stay preference to Daily", () => {
+  assert.equal(preferenceOnWorkDate("NONE", "2026-10-26", "2026-10-26"), "DAILY");
+  assert.equal(preferenceOnWorkDate("AS_NEEDED", "2026-10-26", "2026-10-26"), "DAILY");
+  assert.equal(preferenceOnWorkDate("DAILY", "2026-10-26", "2026-10-26"), "DAILY");
+  assert.equal(preferenceOnWorkDate("NONE", "2026-10-28", "2026-10-26"), "NONE");
+  assert.equal(preferenceOnWorkDate("AS_NEEDED", "2026-10-28", "2026-10-26"), "AS_NEEDED");
 });
 
 test("departure overrides no-cleaning preference and weekly linen due date", () => {

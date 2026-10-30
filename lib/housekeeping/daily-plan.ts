@@ -56,6 +56,13 @@ export function linenDueToday(stay: Pick<StayRow, "arrival_date" | "departure_da
     || stay.linen_frequency === "ON_REQUEST" && (stay.linen_weekdays ?? []).includes(isoWeekday(date));
 }
 
+// The dropdown belongs to the current stay. Departure day puts it back to Daily for the next guest.
+// A same-day arrival does not keep the leaving guest's value; the stay query already picks the departure.
+export function preferenceOnWorkDate(preference: string | null | undefined, departureDate: string, workDate: string) {
+  if (workDate === departureDate) return "DAILY";
+  return preference ?? "DAILY";
+}
+
 // Build/refresh one hotel's housekeeping plan for one local calendar day (idempotent)
 export async function generateHotelDailyPlan(prisma: PrismaClient, hotelTenantId: string, workDate: string) {
   const runId = randomUUID(); // id for the housekeeping_daily_runs row we are about to write
@@ -121,6 +128,13 @@ export async function generateHotelDailyPlan(prisma: PrismaClient, hotelTenantId
       for (const stay of stays) {
         const plan = cleaningPlan(stay, workDate); // REGULAR / EXPRESS / DEPARTURE / NONE + planned minutes
         const linenChange = linenDueToday(stay, workDate);
+        const preference = preferenceOnWorkDate(stay.guest_cleaning_preference, stay.departure_date, workDate);
+        if (preference !== (stay.guest_cleaning_preference ?? "DAILY")) {
+          await tx.roomOperationalState.updateMany({
+            where: { hotelTenantId, roomId: stay.room_id },
+            data: { guestCleaningPreference: preference },
+          });
+        }
         // Insert today's room assignment, or update stay/type/minutes if it already exists.
         // If origin is PERMANENT, also refresh the cleaner; if TODAY_ONLY, keep the person already assigned.
         await tx.$executeRaw`
