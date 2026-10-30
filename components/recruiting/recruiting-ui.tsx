@@ -964,7 +964,7 @@ function Applications({ t, locale }: { t: T; locale: Locale }) {
           {stageBadge(t, item.stage)}
         </div>
         <div className="recruiting-application-ai">
-          <div><span>{t.colAiScore}</span><strong className={`chip ${suggestClass(item.suggestion)}`}>{item.aiStatus === "PENDING" ? t.scoringAi : item.score}</strong></div>
+          <div><span>{t.colAiScore}</span><strong className={`chip ${suggestClass(item.suggestion)}`}>{aiScoreText(t, item)}</strong></div>
           <div><span>{t.colAiRec}</span><strong className={`chip ${suggestClass(item.suggestion)}`}>{suggestLabel(t, item.suggestion)}</strong></div>
         </div>
         <div className="recruiting-application-footer">
@@ -978,7 +978,7 @@ function Applications({ t, locale }: { t: T; locale: Locale }) {
         <tbody>{rows.map((item) => <tr key={item.id} style={{ cursor: "pointer" }}>
           <td><Link href={`/recruiting/applications/${item.id}`}>{item.name}</Link></td>
           <td>{t.depts[item.dept]}</td>
-          <td><span className={`chip ${suggestClass(item.suggestion)}`}>{item.aiStatus === "PENDING" ? t.scoringAi : item.score}</span></td>
+          <td><span className={`chip ${suggestClass(item.suggestion)}`}>{aiScoreText(t, item)}</span></td>
           <td><span className={`chip ${suggestClass(item.suggestion)}`}>{suggestLabel(t, item.suggestion)}</span></td>
           <td>{stageBadge(t, item.stage)}</td>
           <td>{item.dateDisplay || item.date}</td>
@@ -1508,7 +1508,7 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 4 }}>
                 <div style={{ fontSize: 17, fontWeight: 700 }}>{item.name}</div>
-                <span className={`chip ${suggestClass(item.suggestion)}`}>{item.score} · {suggestLabel(t, item.suggestion)}</span>
+                <span className={`chip ${suggestClass(item.suggestion)}`}>{item.suggestion === "notAssessable" ? t.notAssessable : `${item.score} · ${suggestLabel(t, item.suggestion)}`}</span>
               </div>
               <div style={{ fontSize: 12.5, color: "var(--text2)" }}>{item.role} · {t.depts[item.dept]}</div>
             </div>
@@ -1561,8 +1561,8 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
           </div>
         ) : null}
         <div className="card" style={{ marginBottom: 16 }}>
-          <div className="ch"><div className="ct">{t.competencies}</div><div style={{ fontSize: 11.5, color: "var(--text2)", fontWeight: 400 }}>{item.aiStatus === "FAILED" ? t.scoreFailed : item.aiStatus === "PENDING" ? t.scoringAi : t.competenciesHint}</div></div>
-          <div className="cb" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div className="ch"><div className="ct">{t.competencies}</div><div style={{ fontSize: 11.5, color: "var(--text2)", fontWeight: 400 }}>{item.suggestion === "notAssessable" ? t.notAssessableHint : item.aiStatus === "FAILED" ? t.scoreFailed : item.aiStatus === "PENDING" ? t.scoringAi : t.competenciesHint}</div></div>
+          {item.suggestion === "notAssessable" ? null : <div className="cb" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             {barKeys.map(([key, label]) => {
               const value = comps[key];
               const fillClass = value >= 75 ? "bar-g" : value >= 50 ? "bar-a" : "bar-r";
@@ -1601,11 +1601,11 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
                 </div>
               );
             })}
-          </div>
-          <div className="cb" style={{ display: "flex", alignItems: "center", gap: 12, paddingTop: 0 }}>
+          </div>}
+          {item.suggestion === "notAssessable" ? null : <div className="cb" style={{ display: "flex", alignItems: "center", gap: 12, paddingTop: 0 }}>
             <button type="button" className="btn btn-primary" disabled={compBusy || item.aiStatus === "PENDING"} onClick={() => void saveCompetencies()}>{t.save}</button>
             {compMsg ? <p style={{ margin: 0, fontSize: 12.5, color: "var(--green)" }}>{compMsg}</p> : null}
-          </div>
+          </div>}
         </div>
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="ch"><div className="ct">{t.aiSummary}</div></div>
@@ -2446,10 +2446,16 @@ function Field({ label, value }: { label: string; value: string }) {
   return <div><div className="field-lbl" style={{ marginBottom: 2 }}>{label}</div><div style={{ fontSize: 13 }}>{value}</div></div>;
 }
 
+function aiScoreText(t: T, item: Pick<Applicant, "aiStatus" | "suggestion" | "score">) {
+  if (item.aiStatus === "PENDING") return t.scoringAi;
+  if (item.suggestion === "notAssessable") return t.notAssessable;
+  return item.score;
+}
+
 function suggestClass(suggestion: Applicant["suggestion"]) {
   if (suggestion === "recommended") return "chip-g";
   if (suggestion === "notAFit") return "chip-r";
-  if (suggestion === "manualAdded" || suggestion === "archived" || suggestion === "pending") return "chip-n";
+  if (suggestion === "notAssessable" || suggestion === "manualAdded" || suggestion === "archived" || suggestion === "pending") return "chip-n";
   return "chip-a";
 }
 
@@ -2458,6 +2464,7 @@ function suggestLabel(t: T, suggestion: Applicant["suggestion"]) {
   if (suggestion === "possible") return t.possible;
   if (suggestion === "needsReview") return t.needsReview;
   if (suggestion === "notAFit") return t.notAFit;
+  if (suggestion === "notAssessable") return t.notAssessable;
   if (suggestion === "archived") return t.stageArchived;
   if (suggestion === "pending") return t.scoringAi;
   return t.manualAdded;

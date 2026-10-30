@@ -2,6 +2,7 @@ import { isValidApplicationEmail } from "./email-validation";
 import type { RecruitingApplication, RecruitingApplicationStage } from "../../app/generated/prisma/client";
 import type { AppStage, Applicant } from "./preview-data";
 import { formatHotelDate } from "../hotel/clock";
+import { NOT_ASSESSABLE } from "./cv-read";
 import { unpackCvRef } from "./cv-storage";
 import { mapDeptId } from "./dept-map";
 
@@ -29,6 +30,14 @@ function mapAi(row: RecruitingApplication, stage: AppStage) {
     methodical: row.aiMethodical ?? 0,
     personal: row.aiPersonal ?? 0,
   };
+  if (row.aiStatus === "READY" && row.aiRecommendation === NOT_ASSESSABLE) {
+    return {
+      score: "–" as const,
+      suggestion: stage === "archived" ? "archived" as const : "notAssessable" as const,
+      competencies,
+      aiStatus: "READY" as const,
+    };
+  }
   if (row.aiStatus === "READY" && row.aiScore != null && row.aiRecommendation) {
     const allowed = ["recommended", "possible", "needsReview", "notAFit"] as const;
     const suggestion = (allowed as readonly string[]).includes(row.aiRecommendation)

@@ -13,7 +13,7 @@ export type Job = { id: string; slug?: string; format?: "classic" | "quiz"; titl
 export type Applicant = {
   id: string; initials: string; name: string; role: string; dept: DeptId; stage: AppStage; dateDisplay: string | null;
   score: string;
-  suggestion: "recommended" | "possible" | "needsReview" | "notAFit" | "manualAdded" | "archived" | "pending";
+  suggestion: "recommended" | "possible" | "needsReview" | "notAFit" | "notAssessable" | "manualAdded" | "archived" | "pending";
   aiStatus?: "PENDING" | "READY" | "FAILED";
   email: string; phone: string; bestTime: string; date: string; source: string; cv: string | null; message: string;
   competencies: { social: number; professional: number; methodical: number; personal: number };

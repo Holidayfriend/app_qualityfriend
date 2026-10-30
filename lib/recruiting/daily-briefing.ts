@@ -132,6 +132,7 @@ function fallbackBodies(facts: Facts) {
   const possible = facts.byRecommendation.possible || 0;
   const review = facts.byRecommendation.needsReview || 0;
   const notFit = facts.byRecommendation.notAFit || 0;
+  const skipped = facts.byRecommendation.notAssessable || 0;
   const names = namesLine(facts.recommended);
   const maybe = namesLine(facts.possible);
   const live = facts.activeJobs.slice(0, 3).map((job) => `${job.title} ${job.daysLive}d, ${job.applications} app(s)`).join("; ");
@@ -146,17 +147,17 @@ function fallbackBodies(facts: Facts) {
   return {
     bodyEn: clampBanner([
       `${facts.applicationsToday} new application(s) today, ${facts.applications7d} in 7 days. Live: ${live || "none"}.`,
-      `AI scores: ${rec} recommended, ${possible} acceptable, ${review} needs review, ${notFit} not a fit${facts.pendingAi ? `, ${facts.pendingAi} pending` : ""}. ${whoEn}`,
+      `AI scores: ${rec} recommended, ${possible} acceptable, ${review} needs review, ${notFit} not a fit${skipped ? `, ${skipped} not assessable` : ""}${facts.pendingAi ? `, ${facts.pendingAi} pending` : ""}. ${whoEn}`,
       tailEn,
     ].filter(Boolean).join(" ")),
     bodyDe: clampBanner([
       `${facts.applicationsToday} neue Bewerbung(en) heute, ${facts.applications7d} in 7 Tagen. Aktiv: ${live || "keine"}.`,
-      `KI: ${rec} empfohlen, ${possible} akzeptabel, ${review} prüfen, ${notFit} nicht passend${facts.pendingAi ? `, ${facts.pendingAi} offen` : ""}. ${whoDe}`,
+      `KI: ${rec} empfohlen, ${possible} akzeptabel, ${review} prüfen, ${notFit} nicht passend${skipped ? `, ${skipped} nicht bewertbar` : ""}${facts.pendingAi ? `, ${facts.pendingAi} offen` : ""}. ${whoDe}`,
       tailDe,
     ].filter(Boolean).join(" ")),
     bodyIt: clampBanner([
       `${facts.applicationsToday} candidatura/e oggi, ${facts.applications7d} in 7 giorni. Attivi: ${live || "nessuno"}.`,
-      `Punteggi IA: ${rec} consigliati, ${possible} accettabili, ${review} da rivedere, ${notFit} non adatti${facts.pendingAi ? `, ${facts.pendingAi} in attesa` : ""}. ${whoIt}`,
+      `Punteggi IA: ${rec} consigliati, ${possible} accettabili, ${review} da rivedere, ${notFit} non adatti${skipped ? `, ${skipped} non valutabili` : ""}${facts.pendingAi ? `, ${facts.pendingAi} in attesa` : ""}. ${whoIt}`,
       tailIt,
     ].filter(Boolean).join(" ")),
   };
