@@ -19,6 +19,13 @@ type TaskInput = {
   assigneeId: string;
   dueIso: string;
   note: string;
+  keepAttachmentIds: string[];
+  files: File[];
+};
+
+type TaskAttachmentInput = {
+  keepAttachmentIds: string[];
+  files: File[];
 };
 
 type ChecklistInput = {
@@ -63,7 +70,7 @@ type Ctx = {
   totalWeek: number;
   periodic: PublicChecklist[];
   saveTask: (id: string | undefined, input: TaskInput) => Promise<string | null>;
-  toggleTask: (id: string) => Promise<boolean>;
+  toggleTask: (id: string, attachments?: TaskAttachmentInput) => Promise<boolean>;
   saveChecklist: (id: string | undefined, input: ChecklistInput) => Promise<string | null>;
   setChecklistStatus: (id: string, status: "active" | "archived") => Promise<boolean>;
   updateItem: (checklistId: string, itemId: string, input: ChecklistItemInput) => Promise<string | null>;
@@ -123,10 +130,18 @@ export function TasksProvider({ children }: { children: ReactNode }) {
   useEffect(() => { void reload(); }, [reload]);
 
   const saveTask = useCallback(async (id: string | undefined, input: TaskInput) => {
+    const form = new FormData();
+    form.set("title", input.title);
+    form.set("assignType", input.assignType);
+    form.set("departmentIds", JSON.stringify(input.departmentIds));
+    form.set("assigneeId", input.assigneeId);
+    form.set("dueIso", input.dueIso);
+    form.set("note", input.note);
+    form.set("keepAttachmentIds", JSON.stringify(input.keepAttachmentIds));
+    for (const file of input.files) form.append("files", file);
     const res = await fetch(id ? `/api/tasks/${id}?locale=${locale}` : `/api/tasks?locale=${locale}`, {
       method: id ? "PATCH" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
+      body: form,
     });
     if (!res.ok) return null;
     const data = await res.json() as { task?: { id: string } };
@@ -134,17 +149,23 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     return data.task?.id ?? id ?? null;
   }, [locale, reload]);
 
-  const toggleTask = useCallback(async (id: string) => {
+  const toggleTask = useCallback(async (id: string, attachments?: TaskAttachmentInput) => {
     let next: "open" | "done" = "done";
     setTasks((prev) => {
       const current = prev.find((item) => item.id === id);
       next = current?.status === "done" ? "open" : "done";
       return prev.map((item) => item.id === id ? { ...item, status: next } : item);
     });
+    const form = new FormData();
+    form.set("status", next);
+    if (attachments) {
+      form.set("keepAttachmentIds", JSON.stringify(attachments.keepAttachmentIds));
+      for (const file of attachments.files) form.append("files", file);
+    }
     const res = await fetch(`/api/tasks/${id}?locale=${locale}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: next }),
+      body: attachments ? form : JSON.stringify({ status: next }),
+      headers: attachments ? undefined : { "Content-Type": "application/json" },
     });
     if (!res.ok) {
       await reload();

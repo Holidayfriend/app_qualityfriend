@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { tasksEditor, tasksViewer } from "../../../lib/tasks/access";
-import { createTask, listTasks } from "../../../lib/tasks/service";
+import { createTask, listTasks, readTaskRequest } from "../../../lib/tasks/service";
 import { supportedLocales } from "../../../lib/i18n/dictionaries";
 
 function localeOf(request: Request) {
@@ -23,10 +23,10 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const actor = await tasksEditor();
   if (!actor) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  const { body, form } = await readTaskRequest(request);
   if (!body) return NextResponse.json({ error: "INVALID" }, { status: 400 });
   try {
-    const result = await createTask(actor, body, localeOf(request));
+    const result = await createTask(actor, body, localeOf(request), form);
     if ("error" in result) return NextResponse.json(result, { status: 400 });
     return NextResponse.json(result, { status: 201 });
   } catch (error) {

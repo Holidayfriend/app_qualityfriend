@@ -7,6 +7,7 @@ import { pickLocalized } from "../recruiting/job-fields";
 import { formatHotelDate, formatHotelDateTime } from "../hotel/clock";
 import { hotelTimeZoneFor } from "../hotel/context";
 import { prisma } from "../prisma";
+import { deleteAttachmentFile, isAttachmentUpload, saveAttachmentFile } from "../attachments/storage";
 import { departmentIdsOf, usersInDepartments } from "../users/memberships";
 import type { TasksActor } from "./access";
 import { translateTaskFields } from "./translate";
@@ -23,6 +24,7 @@ const include = {
       department: { select: { nameEn: true, nameDe: true, nameIt: true } },
     },
   },
+  attachments: { orderBy: { createdAt: "asc" as const } },
 };
 
 type Row = Prisma.HotelTaskGetPayload<{ include: typeof include }>;
@@ -85,6 +87,12 @@ export function toPublicTask(row: Row, locale: string, timeZone?: string | null)
     creator: nameOf(row.createdBy),
     completedAt: dateTimeOf(row.completedAt, locale, timeZone),
     completedBy: nameOf(row.completedBy),
+    attachments: row.attachments.map((file) => ({
+      id: file.id,
+      name: file.fileName,
+      type: "photo" as const,
+      url: `/api/tasks/${row.id}/attachments/${file.id}`,
+    })),
   };
 }
 
@@ -267,11 +275,80 @@ async function parsedBody(actor: TasksActor, body: Record<string, unknown>, loca
   };
 }
 
-export async function createTask(actor: TasksActor, body: Record<string, unknown>, locale: string) {
+const MAX_TASK_FILES = 10;
+
+function parseJsonList(value: FormDataEntryValue | null) {
+  if (typeof value !== "string" || !value.trim()) return [] as string[];
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) ? [...new Set(parsed.map((item) => String(item).trim()).filter(Boolean))] : [];
+  } catch {
+    return [];
+  }
+}
+
+async function saveUploads(files: File[]) {
+  const saved: { fileName: string; storageKey: string; mimeType: string; byteSize: number }[] = [];
+  for (const file of files) {
+    const stored = await saveAttachmentFile("tasks", file);
+    if (stored) saved.push({ fileName: stored.originalName, storageKey: stored.storageKey, mimeType: stored.mimeType, byteSize: stored.byteSize });
+  }
+  return saved;
+}
+
+async function collectTaskAttachments(form: FormData, existing?: { id: string; storageKey: string }[]) {
+  const keepIds = parseJsonList(form.get("keepAttachmentIds")).filter(isUuid);
+  const kept = existing?.filter((file) => keepIds.includes(file.id)) ?? [];
+  const saved = await saveUploads(form.getAll("files").filter(isAttachmentUpload).slice(0, Math.max(0, MAX_TASK_FILES - kept.length)));
+  const removed = existing?.filter((file) => !keepIds.includes(file.id)) ?? [];
+  return { saved, removed };
+}
+
+async function writeTaskAttachments(tx: Prisma.TransactionClient, taskId: string, files: { saved: { fileName: string; storageKey: string; mimeType: string; byteSize: number }[]; removed: { id: string }[] }) {
+  if (files.removed.length) await tx.hotelTaskAttachment.deleteMany({ where: { taskId, id: { in: files.removed.map((file) => file.id) } } });
+  if (files.saved.length) await tx.hotelTaskAttachment.createMany({ data: files.saved.map((file) => ({ id: randomUUID(), taskId, ...file })) });
+}
+
+async function discardUploads(files: { storageKey: string }[]) {
+  for (const file of files) await deleteAttachmentFile("tasks", file.storageKey);
+}
+
+export async function readTaskRequest(request: Request) {
+  const type = request.headers.get("content-type") ?? "";
+  if (type.includes("multipart/form-data")) {
+    const form = await request.formData();
+    let departmentIds: string[] = [];
+    const rawDepartments = form.get("departmentIds");
+    if (typeof rawDepartments === "string" && rawDepartments.trim()) {
+      try {
+        const parsed = JSON.parse(rawDepartments) as unknown;
+        departmentIds = Array.isArray(parsed) ? parsed.map((id) => String(id)) : [];
+      } catch {
+        departmentIds = [];
+      }
+    }
+    const body: Record<string, unknown> = {
+      title: String(form.get("title") ?? ""),
+      assignType: String(form.get("assignType") ?? ""),
+      departmentIds,
+      assigneeId: String(form.get("assigneeId") ?? ""),
+      dueIso: String(form.get("dueIso") ?? ""),
+      note: String(form.get("note") ?? ""),
+      status: String(form.get("status") ?? ""),
+    };
+    return { body, form };
+  }
+  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  return { body, form: null as FormData | null };
+}
+
+export async function createTask(actor: TasksActor, body: Record<string, unknown>, locale: string, form?: FormData | null) {
   const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   const parsed = await parsedBody(actor, body, locale);
   if ("error" in parsed) return parsed;
   const { departmentIds, ...data } = parsed;
+  const files = form ? await collectTaskAttachments(form) : null;
+  try {
   const row = await prisma.$transaction(async (tx) => {
     const created = await tx.hotelTask.create({
       data: {
@@ -297,19 +374,26 @@ export async function createTask(actor: TasksActor, body: Record<string, unknown
       title: { en: created.title, de: created.titleDe, it: created.titleIt },
       ids: await recipientIds(tx, actor, created),
     });
-    return created;
+    if (files) await writeTaskAttachments(tx, created.id, files);
+    return tx.hotelTask.findFirstOrThrow({ where: { id: created.id }, include });
   });
   return { task: toPublicTask(row, locale, timeZone) };
+  } catch (error) {
+    if (files) await discardUploads(files.saved);
+    throw error;
+  }
 }
 
-export async function updateTask(actor: TasksActor, id: string, body: Record<string, unknown>, locale: string) {
+export async function updateTask(actor: TasksActor, id: string, body: Record<string, unknown>, locale: string, form?: FormData | null) {
   const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   if (!isUuid(id)) return { error: "NOT_FOUND" as const };
-  const existing = await prisma.hotelTask.findFirst({ where: { id, hotelTenantId: actor.hotel_tenant_id } });
+  const existing = await prisma.hotelTask.findFirst({ where: { id, hotelTenantId: actor.hotel_tenant_id }, include: { attachments: true } });
   if (!existing) return { error: "NOT_FOUND" as const };
   const parsed = await parsedBody(actor, body, locale);
   if ("error" in parsed) return parsed;
   const { departmentIds, ...data } = parsed;
+  const files = form ? await collectTaskAttachments(form, existing.attachments) : null;
+  try {
   const row = await prisma.$transaction(async (tx) => {
     const updated = await tx.hotelTask.update({
       where: { id },
@@ -340,53 +424,68 @@ export async function updateTask(actor: TasksActor, id: string, body: Record<str
       title: { en: updated.title, de: updated.titleDe, it: updated.titleIt },
       ids: await recipientIds(tx, actor, updated),
     });
-    return updated;
+    if (files) await writeTaskAttachments(tx, id, files);
+    return tx.hotelTask.findFirstOrThrow({ where: { id }, include });
   });
+  if (files) for (const file of files.removed) await deleteAttachmentFile("tasks", file.storageKey);
   return { task: toPublicTask(row, locale, timeZone) };
+  } catch (error) {
+    if (files) await discardUploads(files.saved);
+    throw error;
+  }
 }
 
-export async function updateTaskStatus(actor: TasksActor, id: string, status: string, locale: string) {
+export async function updateTaskStatus(actor: TasksActor, id: string, status: string, locale: string, form?: FormData | null) {
   const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   if (!isUuid(id)) return { error: "NOT_FOUND" as const };
   const next = status === "done" || status === "DONE" ? "DONE" : status === "open" || status === "OPEN" ? "OPEN" : null;
   if (!next) return { error: "INVALID" as const };
-  const existing = await prisma.hotelTask.findFirst({ where: { id, ...visibleTaskWhere(actor) } });
+  const existing = await prisma.hotelTask.findFirst({ where: { id, ...visibleTaskWhere(actor) }, include: { attachments: true } });
   if (!existing) return { error: "NOT_FOUND" as const };
-  if (existing.status === next) {
+  const files = form ? await collectTaskAttachments(form, existing.attachments) : null;
+  if (existing.status === next && !files) {
     const row = await prisma.hotelTask.findFirst({ where: { id }, include });
     return row ? { task: toPublicTask(row, locale, timeZone) } : { error: "NOT_FOUND" as const };
   }
+  try {
   const row = await prisma.$transaction(async (tx) => {
-    const updated = await tx.hotelTask.update({
-      where: { id },
-      data: {
-        status: next,
-        completedAt: next === "DONE" ? new Date() : null,
-        completedById: next === "DONE" ? actor.id : null,
-      },
-      include,
-    });
-    await recordAuditLog(tx, { module: "tasks",
-      hotelTenantId: actor.hotel_tenant_id,
-      actorId: actor.id,
-      action: "STATUS_CHANGE",
-      entityType: "TASK",
-      entityId: id,
-      changes: {
-        before: { en: existing.title, de: existing.titleDe, it: existing.titleIt, status: existing.status },
-        after: { en: existing.title, de: existing.titleDe, it: existing.titleIt, status: next },
-      },
-    });
-    if (next === "DONE") {
-      await notify(tx, {
-        actor,
-        taskId: id,
-        event: "done",
-        title: { en: updated.title, de: updated.titleDe, it: updated.titleIt },
-        ids: await taskRoleUserIds(tx, actor.hotel_tenant_id, actor.id),
+    if (existing.status !== next) {
+      const updated = await tx.hotelTask.update({
+        where: { id },
+        data: {
+          status: next,
+          completedAt: next === "DONE" ? new Date() : null,
+          completedById: next === "DONE" ? actor.id : null,
+        },
       });
+      await recordAuditLog(tx, { module: "tasks",
+        hotelTenantId: actor.hotel_tenant_id,
+        actorId: actor.id,
+        action: "STATUS_CHANGE",
+        entityType: "TASK",
+        entityId: id,
+        changes: {
+          before: { en: existing.title, de: existing.titleDe, it: existing.titleIt, status: existing.status },
+          after: { en: existing.title, de: existing.titleDe, it: existing.titleIt, status: next },
+        },
+      });
+      if (next === "DONE") {
+        await notify(tx, {
+          actor,
+          taskId: id,
+          event: "done",
+          title: { en: updated.title, de: updated.titleDe, it: updated.titleIt },
+          ids: await taskRoleUserIds(tx, actor.hotel_tenant_id, actor.id),
+        });
+      }
     }
-    return updated;
+    if (files) await writeTaskAttachments(tx, id, files);
+    return tx.hotelTask.findFirstOrThrow({ where: { id }, include });
   });
+  if (files) for (const file of files.removed) await deleteAttachmentFile("tasks", file.storageKey);
   return { task: toPublicTask(row, locale, timeZone) };
+  } catch (error) {
+    if (files) await discardUploads(files.saved);
+    throw error;
+  }
 }

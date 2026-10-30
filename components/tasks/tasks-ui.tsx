@@ -134,6 +134,7 @@ export function TasksDashboardPage() {
               const done = item.status === "done";
               return <div key={item.id} className="todo">
                 <button type="button" className={`todo-cb${done ? " done" : ""}`} aria-label={done ? t.reopen : t.markDone} onClick={() => void toggleTask(item.id)}>{done ? "✓" : ""}</button>
+                <AttachmentIndicator attachments={item.attachments} />
                 <Link href={`/tasks/${item.id}`} className={`todo-t${done ? " done" : ""}`}>{item.title}</Link>
                 <div className="todo-dept">{item.assignee}</div>
                 <span className={`chip ${tag.chip}`}>{tag.label}</span>
@@ -216,7 +217,7 @@ export function TasksListPage() {
         <article key={item.id} className="tasks-list-card">
           <Link href={`/tasks/${item.id}`} className="tasks-list-card-main">
             <div className="tasks-list-card-heading">
-              <strong>{item.title}</strong>
+              <strong><AttachmentIndicator attachments={item.attachments} />{item.title}</strong>
               <span className={`chip ${item.status === "done" ? "chip-g" : "chip-a"}`}>{item.status === "done" ? t.statusDone : t.statusOpen}</span>
             </div>
             <dl className="tasks-list-card-meta">
@@ -234,7 +235,7 @@ export function TasksListPage() {
         <tbody>
           {rows.length ? rows.map((item) => (
             <tr key={item.id} onClick={() => router.push(`/tasks/${item.id}`)} style={{ cursor: "pointer" }}>
-              <td>{item.title}</td>
+              <td><div style={{ display: "flex", alignItems: "center", gap: 8 }}><AttachmentIndicator attachments={item.attachments} /><span>{item.title}</span></div></td>
               <td>{item.assignee}</td>
               <td>{item.due || "–"}</td>
               <td><span className={`chip ${item.status === "done" ? "chip-g" : "chip-a"}`}>{item.status === "done" ? t.statusDone : t.statusOpen}</span></td>
@@ -259,6 +260,9 @@ export function TaskFormPage({ id }: { id?: string }) {
   const [assigneeId, setAssigneeId] = useState("");
   const [dueIso, setDueIso] = useState("");
   const [note, setNote] = useState("");
+  const [kept, setKept] = useState<AttachmentItem[]>([]);
+  const [uploads, setUploads] = useState<File[]>([]);
+  const [attachmentsBusy, setAttachmentsBusy] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -269,6 +273,8 @@ export function TaskFormPage({ id }: { id?: string }) {
       setAssigneeId(existing.assigneeId);
       setDueIso(existing.dueIso);
       setNote(existing.note);
+      setKept(existing.attachments ?? []);
+      setUploads([]);
       return;
     }
     setDepartmentIds((prev) => prev.length ? prev : departments[0] ? [departments[0].id] : []);
@@ -279,7 +285,7 @@ export function TaskFormPage({ id }: { id?: string }) {
     event.preventDefault();
     if (!title.trim()) { toast({ message: t.titleRequired, tone: "error" }); return; }
     setBusy(true);
-    const nextId = await saveTask(id, { title, assignType, departmentIds, assigneeId, dueIso, note });
+    const nextId = await saveTask(id, { title, assignType, departmentIds, assigneeId, dueIso, note, keepAttachmentIds: kept.map((file) => file.id).filter((fileId): fileId is string => Boolean(fileId)), files: uploads });
     setBusy(false);
     if (!nextId) { toast({ message: t.saveFailed, tone: "error" }); return; }
     toast({ message: id ? t.savedEdit : t.saved, tone: "success" });
@@ -290,7 +296,7 @@ export function TaskFormPage({ id }: { id?: string }) {
   return <Shell title={id ? t.editTask : t.createTask}>
     {busy ? <BrandLoader label={t.translating} overlay /> : null}
     <Link href="/tasks/list" className="back-link">{t.backTasks}</Link>
-    <form className="card" style={{ maxWidth: 460 }} onSubmit={onSubmit}>
+    <form className="card" style={{ maxWidth: 640 }} onSubmit={onSubmit}>
       <div className="ch"><div className="ct">{id ? t.editTask : t.createTask}</div></div>
       <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div><label className="field-lbl">{t.title}</label><input className="field-input" value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t.titlePlaceholder} /></div>
@@ -304,7 +310,8 @@ export function TaskFormPage({ id }: { id?: string }) {
         </div> : <select className="field-select" value={assigneeId} onChange={(event) => setAssigneeId(event.target.value)}>{users.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>}
         <div><label className="field-lbl">{t.due}</label><input className="field-input" type="date" value={dueIso} onChange={(event) => setDueIso(event.target.value)} /></div>
         <div><label className="field-lbl">{t.note}</label><input className="field-input" value={note} onChange={(event) => setNote(event.target.value)} placeholder={t.noteOptional} /></div>
-        <button className="btn btn-primary" type="submit" disabled={busy}>{t.save}</button>
+        <AttachmentField existing={kept} files={uploads} onExistingChange={setKept} onFilesChange={setUploads} onProcessingChange={setAttachmentsBusy} />
+        <button className="btn btn-primary" type="submit" disabled={busy || attachmentsBusy}>{t.save}</button>
       </div>
     </form>
   </Shell>;
@@ -315,20 +322,31 @@ export function TaskDetailPage({ id }: { id: string }) {
   const toast = useToast();
   const { tasks, canManage, ready, toggleTask } = useTasks();
   const [busy, setBusy] = useState(false);
+  const [kept, setKept] = useState<AttachmentItem[]>([]);
+  const [uploads, setUploads] = useState<File[]>([]);
+  const [attachmentsBusy, setAttachmentsBusy] = useState(false);
+  const [attachmentsReady, setAttachmentsReady] = useState(false);
   const item = tasks.find((row) => row.id === id);
+  const attachmentKey = (item?.attachments ?? []).map((file) => file.id).join(",");
+  useEffect(() => {
+    setKept(item?.attachments ?? []);
+    setUploads([]);
+    setAttachmentsReady(Boolean(item));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- item identity changes on reload and would drop a photo still being added
+  }, [item?.id, attachmentKey]);
   if (!ready) return <Shell title={t.pageTitle}><BrandLoader label={t.loading} /></Shell>;
-  if (!item) return <Shell title={t.pageTitle}><Link href="/tasks/list" className="back-link">{t.backTasks}</Link><div className="card" style={{ maxWidth: 460 }}><div className="cb">{t.emptyTasks}</div></div></Shell>;
+  if (!item) return <Shell title={t.pageTitle}><Link href="/tasks/list" className="back-link">{t.backTasks}</Link><div className="card" style={{ maxWidth: 640 }}><div className="cb">{t.emptyTasks}</div></div></Shell>;
 
   async function toggle() {
     setBusy(true);
-    const ok = await toggleTask(id);
+    const ok = await toggleTask(id, { keepAttachmentIds: kept.map((file) => file.id).filter((fileId): fileId is string => Boolean(fileId)), files: uploads });
     setBusy(false);
     if (!ok) toast({ message: t.saveFailed, tone: "error" });
   }
 
   return <Shell title={item.title}>
     <Link href="/tasks/list" className="back-link">{t.backTasks}</Link>
-    <div className="card" style={{ maxWidth: 460 }}>
+    <div className="card" style={{ maxWidth: 640 }}>
       <div className="ch"><div className="ct">{item.title}</div><span className={`status-pill ${item.status === "open" ? "active" : "inactive"}`}>{item.status === "open" ? t.statusOpen : t.statusDone}</span></div>
       <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 13 }}>
         <div><span style={{ color: "var(--text3)" }}>{t.responsible}</span> {item.assignee || "–"}</div>
@@ -336,9 +354,10 @@ export function TaskDetailPage({ id }: { id: string }) {
         <div><span style={{ color: "var(--text3)" }}>{t.noteLabel}</span> {item.note || "–"}</div>
         {item.origin ? <div style={{ fontSize: 11.5, color: "var(--accent)" }}>{item.origin}</div> : null}
         {item.status === "done" && item.completedAt ? <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 4 }}>{t.completedMeta.replace("{when}", item.completedAt).replace("{name}", item.completedBy || "–")}</div> : null}
+        <AttachmentField existing={kept} files={uploads} onExistingChange={setKept} onFilesChange={setUploads} onProcessingChange={setAttachmentsBusy} />
       </div>
       <div className="cb" style={{ borderTop: "1px solid var(--border)", display: "flex", gap: 10 }}>
-        <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void toggle()}>{item.status === "done" ? t.reopen : t.markDone}</button>
+        <button type="button" className="btn btn-primary" disabled={busy || attachmentsBusy || !attachmentsReady} onClick={() => void toggle()}>{item.status === "done" ? t.reopen : t.markDone}</button>
         {canManage ? <Link href={`/tasks/${id}/edit`} className="btn btn-ghost">{t.edit}</Link> : null}
       </div>
     </div>

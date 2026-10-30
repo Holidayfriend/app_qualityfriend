@@ -16,6 +16,7 @@ export type PublicTask = {
   creator: string;
   completedAt: string;
   completedBy: string;
+  attachments?: { id?: string; name: string; type: "photo"; url?: string }[];
 };
 export type PublicChecklistItem = {
   id: string;

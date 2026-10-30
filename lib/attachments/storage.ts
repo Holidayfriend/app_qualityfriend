@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { copyFile, mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
-export type AttachmentScope = "handovers" | "checklists";
+export type AttachmentScope = "handovers" | "checklists" | "tasks";
 
 const MAX_BYTES = 25 * 1024 * 1024;
 const TYPES = new Map([

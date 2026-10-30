@@ -1734,6 +1734,7 @@ model HotelTask {
   completedBy    User?                 @relation("HotelTaskCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
   department     Department?           @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   departments    HotelTaskDepartment[]
+  attachments    HotelTaskAttachment[]
 
   @@index([hotelTenantId, status, dueAt])
   @@index([createdById])
@@ -1752,6 +1753,20 @@ model HotelTaskDepartment {
   @@id([taskId, departmentId])
   @@index([departmentId])
   @@map("hotel_task_departments")
+}
+
+model HotelTaskAttachment {
+  id         String    @id @default(uuid()) @db.Uuid
+  taskId     String    @map("task_id") @db.Uuid
+  fileName   String    @map("file_name") @db.VarChar(180)
+  storageKey String    @map("storage_key") @db.VarChar(80)
+  mimeType   String    @map("mime_type") @db.VarChar(120)
+  byteSize   Int       @map("byte_size")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  task       HotelTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("hotel_task_attachments")
 }
 
 enum HotelChecklistKind {

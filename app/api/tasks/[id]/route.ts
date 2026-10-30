@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { tasksEditor, tasksViewer } from "../../../../lib/tasks/access";
-import { getTask, updateTask, updateTaskStatus } from "../../../../lib/tasks/service";
+import { getTask, readTaskRequest, updateTask, updateTaskStatus } from "../../../../lib/tasks/service";
 import { supportedLocales } from "../../../../lib/i18n/dictionaries";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -23,17 +23,18 @@ export async function PATCH(request: Request, ctx: Ctx) {
   const viewer = await tasksViewer();
   if (!viewer) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   const { id } = await ctx.params;
-  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  const { body, form } = await readTaskRequest(request);
   if (!body) return NextResponse.json({ error: "INVALID" }, { status: 400 });
   try {
-    if (typeof body.status === "string") {
-      const result = await updateTaskStatus(viewer, id, body.status, localeOf(request));
+    const status = typeof body.status === "string" ? body.status : "";
+    if (status === "open" || status === "done" || status === "OPEN" || status === "DONE") {
+      const result = await updateTaskStatus(viewer, id, status, localeOf(request), form);
       if ("error" in result) return NextResponse.json(result, { status: result.error === "NOT_FOUND" ? 404 : 400 });
       return NextResponse.json(result);
     }
     const actor = await tasksEditor();
     if (!actor) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-    const result = await updateTask(actor, id, body, localeOf(request));
+    const result = await updateTask(actor, id, body, localeOf(request), form);
     if ("error" in result) return NextResponse.json(result, { status: result.error === "NOT_FOUND" ? 404 : 400 });
     return NextResponse.json(result);
   } catch (error) {
