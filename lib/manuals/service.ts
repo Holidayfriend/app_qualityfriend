@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { recordAuditLog } from "../audit/audit-service";
 import { prisma } from "../prisma";
 import { dispatchManualIndex } from "./dispatch";
+import { deleteManualBlob, readManualBlob, saveManualBlob } from "./file-blob";
 import { deleteManualFile, isManualUpload, mimeFor, readManualFile, saveManualFile } from "./storage";
 import { departmentIdsOf } from "../users/memberships";
 import type { ManualsActor } from "./access";
@@ -185,6 +186,7 @@ export async function createManual(actor: ManualsActor, form: FormData) {
           byteSize: stored.byteSize,
         },
       });
+      await saveManualBlob(tx, stored.storageKey, stored.bytes);
       await recordAuditLog(tx, { module: "manuals",
         hotelTenantId: actor.hotel_tenant_id,
         actorId: actor.id,
@@ -215,6 +217,7 @@ export async function removeManual(actor: ManualsActor, id: string) {
   const document = await prisma.manualDocument.findFirst({ where: { id, hotelTenantId: actor.hotel_tenant_id } });
   if (!document) return { error: "NOT_FOUND" as const };
   await prisma.$transaction(async (tx) => {
+    await deleteManualBlob(tx, document.storageKey);
     await tx.manualDocument.delete({ where: { id } });
     await recordAuditLog(tx, { module: "manuals",
       hotelTenantId: actor.hotel_tenant_id,
@@ -232,7 +235,7 @@ export async function removeManual(actor: ManualsActor, id: string) {
 export async function openManual(actor: ManualsActor, id: string) {
   const document = await prisma.manualDocument.findFirst({ where: { AND: [{ id }, visibleWhere(actor)] } });
   if (!document) return null;
-  const data = await readManualFile(document.storageKey);
+  const data = await readManualFile(document.storageKey) ?? await readManualBlob(prisma, document.storageKey);
   if (!data) return null;
   const ext = document.originalName.match(/\.(pdf|docx?|txt)$/i)?.[0] || "";
   const downloadName = `${document.title.trim() || titleFromFile(document.originalName)}${ext}`;

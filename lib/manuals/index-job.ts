@@ -1,5 +1,7 @@
 import { splitManualText } from "./chunk";
-import { extractManualText } from "./extract";
+import { extractManualBuffer } from "./extract";
+import { readManualBlob } from "./file-blob";
+import { readManualFile } from "./storage";
 import { createJobPrisma } from "../jobs/prisma";
 
 export type ManualIndexJob = { hotelTenantId: string; documentId: string };
@@ -13,7 +15,9 @@ export async function indexManualDocument(data: ManualIndexJob) {
     });
     if (!document) throw new Error("Manual document not found");
     await prisma.manualDocument.update({ where: { id: document.id }, data: { indexStatus: "RUNNING", indexError: null } });
-    const text = await extractManualText(document.storageKey, document.mimeType);
+    const bytes = await readManualFile(document.storageKey) ?? await readManualBlob(prisma, document.storageKey);
+    if (!bytes) throw new Error(`Manual file ${document.storageKey} is not on the worker disk and has no database copy. Re-upload the document.`);
+    const text = await extractManualBuffer(bytes, document.mimeType, document.storageKey);
     const chunks = splitManualText(text);
     await prisma.$transaction(async (tx) => {
       await tx.manualChunk.deleteMany({ where: { documentId: document.id } });

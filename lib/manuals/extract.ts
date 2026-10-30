@@ -9,8 +9,11 @@ export async function extractManualText(storageKey: string, mimeType: string) {
   const target = path.resolve(root(), storageKey);
   const allowed = path.resolve(root()) + path.sep;
   if (!target.startsWith(allowed)) throw new Error("Invalid storage key");
-  const buffer = await readFile(target);
-  const ext = storageKey.split(".").pop()?.toLowerCase() || "";
+  return extractManualBuffer(await readFile(target), mimeType, storageKey);
+}
+
+export async function extractManualBuffer(buffer: Buffer, mimeType: string, fileName: string) {
+  const ext = fileName.split(".").pop()?.toLowerCase() || "";
   if (ext === "pdf" || mimeType.includes("pdf")) {
     const parser = new PDFParse({ data: new Uint8Array(buffer) });
     try {

@@ -32,12 +32,14 @@ export async function saveManualFile(file: UploadLike) {
   const storageKey = `${randomUUID()}.${ext}`;
   const root = storageRoot();
   await mkdir(root, { recursive: true });
-  await writeFile(path.join(root, storageKey), Buffer.from(await file.arrayBuffer()));
+  const bytes = Buffer.from(await file.arrayBuffer());
+  await writeFile(path.join(root, storageKey), bytes);
   return {
     storageKey,
     originalName: String(file.name || "").trim().slice(0, 180) || storageKey,
     mimeType: TYPES.has(file.type) ? file.type : mimeFor(storageKey),
-    byteSize: file.size,
+    byteSize: bytes.byteLength,
+    bytes,
   };
 }
 

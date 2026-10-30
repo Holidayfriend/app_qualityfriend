@@ -1009,6 +1009,13 @@ model ManualDocument {
   @@map("manual_documents")
 }
 
+model ManualFileBlob {
+  storageKey String @id @map("storage_key") @db.VarChar(80)
+  bytes      Bytes
+
+  @@map("manual_file_blobs")
+}
+
 model ManualChunk {
   id            String         @id @default(uuid()) @db.Uuid
   hotelTenantId String         @map("hotel_tenant_id") @db.Uuid
