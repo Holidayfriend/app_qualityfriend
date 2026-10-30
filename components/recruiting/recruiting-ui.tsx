@@ -2121,10 +2121,7 @@ function EmployeeDetail({ t, locale, id }: { t: T; locale: Locale; id: string })
       showToast({ message: t.trainingMissingFields, tone: "error" });
       return;
     }
-    if (certExpires < certCompleted) {
-      showToast({ message: t.trainingDateOrder, tone: "error" });
-      return;
-    }
+    if (certExpires < certCompleted) return;
     await saveCertificates(
       [...item.certificates, { name: certName, completed: certCompleted, expires: certExpires, status: "valid" }],
       t.trainingAdded,
@@ -2214,6 +2211,7 @@ function EmployeeDetail({ t, locale, id }: { t: T; locale: Locale; id: string })
                 <div style={{ flex: 1 }}>
                   <div className="doc-name">{t[cert.name]}</div>
                   <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2 }}>{fill(t.completedOn, { date: formatStoredDate(cert.completed, locale), until: formatStoredDate(cert.expires, locale) })}</div>
+                  {cert.expires < cert.completed ? <div style={{ fontSize: 11, color: "var(--red)", marginTop: 2 }}>{t.trainingDateOrder}</div> : null}
                 </div>
                 <span className={`chip ${cert.status === "valid" ? "chip-g" : cert.status === "expiring" ? "chip-a" : "chip-r"}`}>
                   {cert.status === "valid" ? t.valid : cert.status === "expiring" ? t.expiring : t.expired}
@@ -2254,10 +2252,11 @@ function EmployeeDetail({ t, locale, id }: { t: T; locale: Locale; id: string })
             </label>
             <label>
               <span className="field-lbl">{t.expiresDate}</span>
-              <input className={`field-input${trainingErrors && (!certExpires || certExpires < certCompleted) ? " is-invalid" : ""}`} type="date" value={certExpires} onChange={(event) => setCertExpires(event.target.value)} />
+              <input className={`field-input${trainingErrors && (!certExpires || certExpires < certCompleted) ? " is-invalid" : ""}`} type="date" min={certCompleted || undefined} value={certExpires} onChange={(event) => setCertExpires(event.target.value)} aria-invalid={trainingErrors && (!certExpires || certExpires < certCompleted)} />
+              {certCompleted && certExpires && certExpires < certCompleted ? <span className="job-apply-error" role="alert" style={{ display: "block", fontSize: 12, marginTop: 4 }}>{t.trainingDateOrder}</span> : null}
             </label>
             <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-              <button type="submit" className="btn btn-primary" disabled={busy}>{t.save}</button>
+              <button type="submit" className="btn btn-primary" disabled={busy || Boolean(certCompleted && certExpires && certExpires < certCompleted)}>{t.save}</button>
               <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => setTrainingOpen(false)}>{t.cancel}</button>
             </div>
           </form>
