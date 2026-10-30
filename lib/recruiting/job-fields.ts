@@ -6,6 +6,16 @@ export const locales = ["de", "en", "it"] as const;
 export type JobLocale = (typeof locales)[number];
 export const formats = ["classic", "quiz"] as const;
 export const listingStatuses = ["draft", "active", "archived"] as const;
+
+// The archive click stores the previous status on the audit row. Restore reads that
+// so a draft comes back as a draft and a published job comes back as active.
+export function statusBeforeArchive(changes: unknown): "draft" | "active" | null {
+  if (!changes || typeof changes !== "object") return null;
+  const record = changes as { before?: { status?: unknown }; after?: { status?: unknown } };
+  if (record.after?.status !== "archived") return null;
+  const before = record.before?.status;
+  return before === "draft" || before === "active" ? before : null;
+}
 const workTypes = ["fullOrPart", "full", "part", "apprentice"] as const;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

@@ -4,7 +4,7 @@ import { translateJobFields } from "../../../../../lib/recruiting/translate-job"
 import { prisma } from "../../../../../lib/prisma";
 import { recordAuditLog } from "../../../../../lib/audit/audit-service";
 import { recruitingActor } from "../../../../../lib/recruiting/access";
-import { jobAuditSnapshot, listingStatuses, localeFieldPatch, parseJobInput, publicApplicationCountSelect, toPublicJob } from "../../../../../lib/recruiting/job-fields";
+import { jobAuditSnapshot, listingStatuses, localeFieldPatch, parseJobInput, publicApplicationCountSelect, statusBeforeArchive, toPublicJob } from "../../../../../lib/recruiting/job-fields";
 import type { RecruitingJobStatus } from "../../../../../app/generated/prisma/client";
 
 type Context = { params: Promise<{ id: string }> };
@@ -110,7 +110,18 @@ export async function PATCH(request: Request, context: Context) {
     const where = { id, hotelTenantId: actor.hotel_tenant_id };
     const before = await tx.recruitingJob.findFirst({ where });
     if (!before) return null;
-    const after = await tx.recruitingJob.update({ where: { id }, data: { status }, include: { department: departmentSelect } });
+    let nextStatus = status;
+    if (before.status === "ARCHIVED" && status !== "ARCHIVED") {
+      const logs = await tx.auditLog.findMany({
+        where: { hotelTenantId: actor.hotel_tenant_id, entityType: "RECRUITING_JOB", entityId: id, action: "STATUS_CHANGE" },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+        select: { changes: true },
+      });
+      const previous = logs.map((log) => statusBeforeArchive(log.changes)).find((value) => value !== null) ?? "draft";
+      nextStatus = previous.toUpperCase() as RecruitingJobStatus;
+    }
+    const after = await tx.recruitingJob.update({ where: { id }, data: { status: nextStatus }, include: { department: departmentSelect } });
     await recordAuditLog(tx, { module: "recruiting",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,

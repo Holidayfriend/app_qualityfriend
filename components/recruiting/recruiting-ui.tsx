@@ -381,9 +381,11 @@ function Jobs({ t, locale }: { t: T; locale: Locale }) {
   async function toggleArchive(id: string) {
     const job = jobs.find((item) => item.id === id);
     if (!job) return;
-    const status = job.status === "archived" ? "active" : "archived";
-    const res = await fetch(`/api/recruiting/jobs/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+    const requested = job.status === "archived" ? "active" : "archived";
+    const res = await fetch(`/api/recruiting/jobs/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: requested }) });
     if (!res.ok) return;
+    const data = await res.json().catch(() => null) as { job?: { status?: JobStatus } } | null;
+    const status = data?.job?.status === "draft" || data?.job?.status === "active" || data?.job?.status === "archived" ? data.job.status : requested;
     setJobs(jobs.map((item) => item.id === id ? { ...item, status } : item));
   }
   return <>
