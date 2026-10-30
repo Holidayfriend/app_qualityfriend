@@ -4,6 +4,7 @@ import { recordAuditLog } from "../../../../../../lib/audit/audit-service";
 import { hotelTimeZone } from "../../../../../../lib/hotel/clock";
 import { housekeepingAccess } from "../../../../../../lib/housekeeping/access";
 import { canMutateRoomState } from "../../../../../../lib/housekeeping/room-access-policy";
+import { noServiceAfterSave } from "../../../../../../lib/housekeeping/room-flags";
 import { getSessionUserId } from "../../../../../../lib/auth/session";
 import { prisma } from "../../../../../../lib/prisma";
 
@@ -43,11 +44,17 @@ export async function PATCH(request: Request, context: Context) {
   try { workDate = hotelDate(hotelTimeZone(user.hotelTenant.timeZone)); } catch { return Response.json({ error: "INVALID_HOTEL_TIME_ZONE" }, { status: 500 }); }
   const room = await prisma.room.findFirst({
     where: { id: roomId, hotelTenantId: user.hotelTenantId, isActive: true, archivedAt: null },
-    select: { id: true, number: true, roomOperationalStateRecords: { take: 1, select: { cleanliness: true } } },
+    select: { id: true, number: true, roomOperationalStateRecords: { take: 1, select: { cleanliness: true, guestCleaningPreference: true } } },
   });
   if (!room) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
   const target = status ? cleanliness[status] : room.roomOperationalStateRecords[0]?.cleanliness ?? "UNKNOWN";
-  const noService = status === "noCleaningDesired" || body.noService;
+  const previousPreference = room.roomOperationalStateRecords[0]?.guestCleaningPreference;
+  const noService = noServiceAfterSave({
+    status,
+    checkbox: body.noService,
+    previousPreference,
+    nextPreference: typeof body.guestCleaningPreference === "string" ? body.guestCleaningPreference : null,
+  });
   await prisma.$transaction(async (tx) => {
     const before = await tx.roomOperationalState.findFirst({ where: { hotelTenantId: user.hotelTenantId, roomId: room.id }, select: { cleanliness: true, breakfastInRoom: true, doNotDisturb: true, noService: true, isUrgent: true, guestCleaningPreference: true } });
     await tx.$executeRaw`INSERT INTO room_operational_states (id,hotel_tenant_id,room_id,cleanliness,breakfast_in_room,do_not_disturb,no_service,is_urgent,guest_cleaning_preference,last_cleaned_at,updated_at)

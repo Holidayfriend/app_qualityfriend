@@ -10,6 +10,7 @@ import { BrandLoader } from "../ui/brand-loader";
 import { housekeepingMessages, housekeepingRefreshMessages, requestMessages } from "../../lib/i18n/dictionaries";
 import { categories, extraJobs, rooms, type RoomStatus } from "../../lib/housekeeping/preview-data";
 import { housekeeperRoomStatuses, isHousekeeperRoomStatus } from "../../lib/housekeeping/room-access-policy";
+import { noServiceAfterSave } from "../../lib/housekeeping/room-flags";
 
 export type HousekeepingView = "board"|"schedule"|"report"|"settings"|"category-form"|"room-form"|"extra-form"|"room-detail";
 const card="overflow-hidden rounded-[10px] border border-[var(--qf-border)] bg-white shadow-[var(--qf-shadow)]";
@@ -243,6 +244,8 @@ function RoomDetail({t,id}:{t:T;id:string}) {
   const [room,setRoom]=useState<RoomDetailData|null>(null);
   const [failed,setFailed]=useState(false);
   const [saving,setSaving]=useState(false);
+  const [noServiceChecked,setNoServiceChecked]=useState(false);
+  const [preference,setPreference]=useState("DAILY");
 
   useEffect(()=>{
     const controller=new AbortController();
@@ -250,7 +253,7 @@ function RoomDetail({t,id}:{t:T;id:string}) {
       .then(async response=>{
         if(!response.ok)throw new Error();
         const body=await response.json() as {room:RoomDetailData};
-        if(!controller.signal.aborted){setFailed(false);setRoom(body.room)}
+        if(!controller.signal.aborted){setFailed(false);setRoom(body.room);setNoServiceChecked(body.room.noService);setPreference(body.room.guestCleaningPreference||"DAILY")}
       })
       .catch(()=>{if(!controller.signal.aborted)setFailed(true)});
     return()=>controller.abort();
@@ -265,9 +268,9 @@ function RoomDetail({t,id}:{t:T;id:string}) {
       const status=String(form.get("cleanliness")||"");
       const breakfastInRoom=form.has("breakfastInRoom");
       const doNotDisturb=form.has("doNotDisturb");
-      const noService=form.has("noService");
+      const guestCleaningPreference=room.canAdmin?preference:room.guestCleaningPreference;
+      const noService=noServiceAfterSave({status:status||null,checkbox:noServiceChecked,previousPreference:room.guestCleaningPreference,nextPreference:guestCleaningPreference});
       const isUrgent=form.has("isUrgent");
-      const guestCleaningPreference=room.canAdmin?String(form.get("guestCleaningPreference")||room.guestCleaningPreference):room.guestCleaningPreference;
       const statePayload:{status?:string;breakfastInRoom:boolean;doNotDisturb:boolean;noService:boolean;isUrgent:boolean;guestCleaningPreference?:string}={breakfastInRoom,doNotDisturb,noService,isUrgent};
       if(status)statePayload.status=status;
       if(room.canAdmin)statePayload.guestCleaningPreference=guestCleaningPreference;
@@ -288,6 +291,7 @@ function RoomDetail({t,id}:{t:T;id:string}) {
           assignedCleanerName=room.cleaners.find(cleaner=>cleaner.id===selectedCleanerId)?.name??null;
         }
       }
+      setNoServiceChecked(noService);
       setRoom({...room,status:(status||room.status) as RoomStatus,breakfastInRoom,doNotDisturb,noService,isUrgent,guestCleaningPreference,assignedCleanerId,assignedCleanerName});
     } finally {
       setSaving(false);
@@ -311,7 +315,7 @@ function RoomDetail({t,id}:{t:T;id:string}) {
         <Field label={t.cleaner}>
           {room.canAdmin?<select name="assignedCleanerId" className="qf-field" defaultValue={room.assignedCleanerId??""}><option value="">{t.unassigned}</option>{room.cleaners.map(cleaner=><option key={cleaner.id} value={cleaner.id}>{cleaner.name}</option>)}</select>:<select className="qf-field" value={room.assignedCleanerId??""} disabled aria-readonly="true"><option value={room.assignedCleanerId??""}>{room.assignedCleanerName||t.unassigned}</option></select>}
         </Field>
-        <div className="grid gap-3 sm:grid-cols-2">{[["breakfastInRoom",t.breakfast,room.breakfastInRoom],["isUrgent",t.urgent,room.isUrgent],["doNotDisturb",t.dnd,room.doNotDisturb],["noService",t.noService,room.noService]].map(([key,label,checked])=><label key={String(key)} className="flex items-center gap-2 text-[12px]"><input name={String(key)} type="checkbox" defaultChecked={Boolean(checked)}/>{label}</label>)}</div>
+        <div className="grid gap-3 sm:grid-cols-2">{[["breakfastInRoom",t.breakfast,room.breakfastInRoom],["isUrgent",t.urgent,room.isUrgent],["doNotDisturb",t.dnd,room.doNotDisturb]].map(([key,label,checked])=><label key={String(key)} className="flex items-center gap-2 text-[12px]"><input name={String(key)} type="checkbox" defaultChecked={Boolean(checked)}/>{label}</label>)}<label className="flex items-center gap-2 text-[12px]"><input name="noService" type="checkbox" checked={noServiceChecked} onChange={(event)=>setNoServiceChecked(event.target.checked)}/>{t.noService}</label></div>
         <Field label={t.cleanliness}>
           <select name="cleanliness" className="qf-field" defaultValue={currentStatusAllowed?room.status:""}>
             {!currentStatusAllowed?<option value="">{t[room.status]}</option>:null}
@@ -319,7 +323,7 @@ function RoomDetail({t,id}:{t:T;id:string}) {
           </select>
         </Field>
         <Field label={t.guestWish}>
-          <select name={room.canAdmin?"guestCleaningPreference":undefined} aria-label={t.guestWish} className="qf-field" defaultValue={room.guestCleaningPreference} disabled={!room.canAdmin} aria-readonly={!room.canAdmin}>
+          <select name={room.canAdmin?"guestCleaningPreference":undefined} aria-label={t.guestWish} className="qf-field" value={preference} disabled={!room.canAdmin} aria-readonly={!room.canAdmin} onChange={(event)=>{const value=event.target.value;setPreference(value);setNoServiceChecked(value==="NONE");}}>
             <option value="DAILY">{t.guestCleaningDaily}</option><option value="AS_NEEDED">{t.guestCleaningAsNeeded}</option><option value="NONE">{"\u26d4"} {t.guestCleaningNone}</option>
           </select>
         </Field>
