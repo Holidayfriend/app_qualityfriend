@@ -1402,6 +1402,7 @@
     "cancel": "Cancel",
     "delete": "Delete",
     "deleteConfirm": "Delete this document?",
+    "deleteMessage": "{title} will be removed from Manuals and from the AI assistant.",
     "fileRequired": "Please choose a file.",
     "departmentRequired": "Please select a department.",
     "categories": {

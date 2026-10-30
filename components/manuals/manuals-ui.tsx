@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { AppShell } from "../dashboard/app-shell";
 import { useI18n } from "../i18n/i18n-provider";
 import { BrandLoader } from "../ui/brand-loader";
+import { ConfirmDialog } from "../ui/confirm-dialog";
 import { departmentIcon } from "../../lib/manuals/icons";
 import { formatHotelDate, readHotelTimeZone } from "../../lib/hotel/clock";
 import { getManualsMessages } from "../../lib/i18n/manuals-messages";
@@ -61,6 +62,8 @@ export function ManualsPage() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
   const [notice, setNotice] = useState("");
+  const [pendingDelete, setPendingDelete] = useState<Doc | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   function load() {
     setLoading(true);
@@ -92,11 +95,14 @@ export function ManualsPage() {
     });
   }, [category, documents, query, t.hotelWide]);
 
-  async function remove(doc: Doc) {
-    if (!window.confirm(t.deleteConfirm)) return;
-    const response = await fetch(`/api/manuals?id=${encodeURIComponent(doc.id)}`, { method: "DELETE" });
+  async function remove() {
+    if (!pendingDelete || deleting) return;
+    setDeleting(true);
+    const response = await fetch(`/api/manuals?id=${encodeURIComponent(pendingDelete.id)}`, { method: "DELETE" });
+    setDeleting(false);
     if (!response.ok) { setNotice(t.failed); return; }
-    setDocuments((items) => items.filter((item) => item.id !== doc.id));
+    setDocuments((items) => items.filter((item) => item.id !== pendingDelete.id));
+    setPendingDelete(null);
   }
 
   return <AppShell activeItem="manuals" pageTitle={t.pageTitle}>
@@ -124,12 +130,13 @@ export function ManualsPage() {
           </a>
           <div className="hb-actions">
             <a className="icon-btn" href={`/api/manuals/${doc.id}/file?download=1`} download={heading} aria-label={t.download} title={t.download}>⬇️</a>
-            {canManage ? <button type="button" className="icon-btn danger" aria-label={t.delete} onClick={() => { void remove(doc); }}>🗑️</button> : null}
+            {canManage ? <button type="button" className="icon-btn danger" aria-label={t.delete} onClick={() => setPendingDelete(doc)}>🗑️</button> : null}
           </div>
         </div>;
       }) : !loading ? <div style={{ fontSize: 12.5, color: "var(--text3)", padding: 12 }}>{t.empty}</div> : null}
       {loading ? <BrandLoader label={t.loading} overlay /> : null}
     </main>
+    {pendingDelete ? <ConfirmDialog open title={t.deleteConfirm} message={t.deleteMessage.replace("{title}", displayTitle(pendingDelete))} confirmLabel={t.delete} cancelLabel={t.cancel} pending={deleting} onConfirm={() => void remove()} onCancel={() => { if (!deleting) setPendingDelete(null); }} /> : null}
   </AppShell>;
 }
 

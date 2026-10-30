@@ -1400,6 +1400,7 @@
     "cancel": "Abbrechen",
     "delete": "Löschen",
     "deleteConfirm": "Dieses Dokument löschen?",
+    "deleteMessage": "{title} wird aus den Handbüchern und vom KI-Assistenten entfernt.",
     "fileRequired": "Bitte eine Datei wählen.",
     "departmentRequired": "Bitte eine Abteilung wählen.",
     "categories": {

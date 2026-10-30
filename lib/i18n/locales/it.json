@@ -1400,6 +1400,7 @@
     "cancel": "Annulla",
     "delete": "Elimina",
     "deleteConfirm": "Eliminare questo documento?",
+    "deleteMessage": "{title} verrà rimosso dai manuali e dall’assistente IA.",
     "fileRequired": "Scegli un file.",
     "departmentRequired": "Seleziona un reparto.",
     "categories": {
