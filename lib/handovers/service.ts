@@ -10,6 +10,7 @@ import { prisma } from "../prisma";
 import { departmentIdsOf, usersInDepartments } from "../users/memberships";
 import { copyAttachmentFile, deleteAttachmentFile, isAttachmentUpload, saveAttachmentFile } from "../attachments/storage";
 import type { HandoversActor } from "./access";
+import { ensureHandoverReads } from "./ensure-reads";
 import { translateHandoverFields } from "./translate";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -18,6 +19,10 @@ const include = {
   completedBy: { select: { firstName: true, lastName: true } },
   departments: { select: { departmentId: true } },
   attachments: { orderBy: { createdAt: "asc" as const } },
+  reads: {
+    orderBy: { readAt: "asc" as const },
+    select: { userId: true, readAt: true, user: { select: { firstName: true, lastName: true } } },
+  },
 };
 
 type Row = Prisma.HandoverGetPayload<{ include: typeof include }>;
@@ -68,7 +73,10 @@ export function visibleWhere(actor: HandoversActor, kind: HandoverKind): Prisma.
   };
 }
 
-export function toPublicHandover(row: Row, locale: string, timeZone?: string | null) {
+export function toPublicHandover(row: Row, locale: string, timeZone: string | null | undefined, actorId: string) {
+  const readers = row.kind === "HANDOVER"
+    ? row.reads.map((read) => ({ name: nameOf(read.user), readAt: dateTimeOf(read.readAt, locale, timeZone) }))
+    : [];
   return {
     id: row.id,
     kind: row.kind === "TEMPLATE" ? "template" : "handover",
@@ -85,6 +93,8 @@ export function toPublicHandover(row: Row, locale: string, timeZone?: string | n
     origLang: row.originalLocale,
     completedAt: row.completedAt ? dateTimeOf(row.completedAt, locale, timeZone) : "",
     completedBy: nameOf(row.completedBy),
+    read: row.kind === "HANDOVER" && row.reads.some((read) => read.userId === actorId),
+    readers,
     attachments: row.attachments.map((file) => ({
       id: file.id,
       name: file.fileName,
@@ -231,17 +241,19 @@ async function notifyHandoverDone(tx: Prisma.TransactionClient, input: { actor: 
 }
 
 export async function listHandovers(actor: HandoversActor, locale: string, kind: HandoverKind) {
+  await ensureHandoverReads();
   const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   const rows = await prisma.handover.findMany({
     where: visibleWhere(actor, kind),
     include,
     orderBy: { createdAt: "desc" },
   });
-  return rows.map((row) => toPublicHandover(row, locale, timeZone));
+  return rows.map((row) => toPublicHandover(row, locale, timeZone, actor.id));
 }
 
 export async function getHandover(actor: HandoversActor, id: string, locale: string) {
   if (!isUuid(id)) return null;
+  await ensureHandoverReads();
   const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   const row = await prisma.handover.findFirst({
     where: {
@@ -253,10 +265,11 @@ export async function getHandover(actor: HandoversActor, id: string, locale: str
     },
     include,
   });
-  return row ? toPublicHandover(row, locale, timeZone) : null;
+  return row ? toPublicHandover(row, locale, timeZone, actor.id) : null;
 }
 
 export async function createHandover(actor: HandoversActor, form: FormData, locale: string) {
+  await ensureHandoverReads();
   const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   if (!actor.canManage) return { error: "FORBIDDEN" as const };
   const title = formValue(form, "title").trim().slice(0, 180);
@@ -298,6 +311,7 @@ export async function createHandover(actor: HandoversActor, form: FormData, loca
     }
     const incoming = [...files.copied, ...files.saved];
     if (incoming.length) await tx.handoverAttachment.createMany({ data: incoming.map((file) => ({ id: randomUUID(), handoverId: id, ...file })) });
+    if (kind === "HANDOVER") await tx.handoverRead.create({ data: { handoverId: id, userId: actor.id } });
     await recordAuditLog(tx, { module: "handovers",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
@@ -311,10 +325,11 @@ export async function createHandover(actor: HandoversActor, form: FormData, loca
     }
     return tx.handover.findFirstOrThrow({ where: { id }, include });
   }, { timeout: 40000 });
-  return { handover: toPublicHandover(created, locale, timeZone) };
+  return { handover: toPublicHandover(created, locale, timeZone, actor.id) };
 }
 
 export async function updateHandover(actor: HandoversActor, id: string, form: FormData, locale: string) {
+  await ensureHandoverReads();
   const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   if (!actor.canManage) return { error: "FORBIDDEN" as const };
   if (!isUuid(id)) return { error: "NOT_FOUND" as const };
@@ -371,10 +386,11 @@ export async function updateHandover(actor: HandoversActor, id: string, form: Fo
     return tx.handover.findFirstOrThrow({ where: { id }, include });
   }, { timeout: 40000 });
   for (const file of files.removed) await deleteAttachmentFile("handovers", file.storageKey);
-  return { handover: toPublicHandover(updated, locale, timeZone) };
+  return { handover: toPublicHandover(updated, locale, timeZone, actor.id) };
 }
 
 export async function updateHandoverStatus(actor: HandoversActor, id: string, status: string, locale: string) {
+  await ensureHandoverReads();
   const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   const next = statusDb[status];
   if (!next || next === "DRAFT" || !isUuid(id)) return { error: "INVALID" as const };
@@ -407,10 +423,25 @@ export async function updateHandoverStatus(actor: HandoversActor, id: string, st
     }
     return updated;
   });
-  return { handover: toPublicHandover(row, locale, timeZone) };
+  return { handover: toPublicHandover(row, locale, timeZone, actor.id) };
+}
+
+export async function markHandoverRead(actor: HandoversActor, id: string, locale: string) {
+  await ensureHandoverReads();
+  if (!isUuid(id)) return { error: "NOT_FOUND" as const };
+  const existing = await prisma.handover.findFirst({ where: { id, ...visibleWhere(actor, "HANDOVER") }, select: { id: true } });
+  if (!existing) return { error: "NOT_FOUND" as const };
+  await prisma.handoverRead.upsert({
+    where: { handoverId_userId: { handoverId: id, userId: actor.id } },
+    create: { handoverId: id, userId: actor.id },
+    update: { readAt: new Date() },
+  });
+  const handover = await getHandover(actor, id, locale);
+  return handover ? { handover } : { error: "NOT_FOUND" as const };
 }
 
 export async function updateHandoverPin(actor: HandoversActor, id: string, pinned: boolean, locale: string) {
+  await ensureHandoverReads();
   const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   if (!isUuid(id)) return { error: "NOT_FOUND" as const };
   const existing = await prisma.handover.findFirst({ where: { id, ...visibleWhere(actor, "HANDOVER") } });
@@ -426,5 +457,5 @@ export async function updateHandoverPin(actor: HandoversActor, id: string, pinne
       changes: { before: { title: existing.title, pinned: existing.pinned }, after: { title: existing.title, pinned } },
     });
   });
-  return { handover: toPublicHandover(row, locale, timeZone) };
+  return { handover: toPublicHandover(row, locale, timeZone, actor.id) };
 }

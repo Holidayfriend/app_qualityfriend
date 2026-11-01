@@ -10,7 +10,7 @@ import { AttachmentField, AttachmentGallery, AttachmentIndicator, type Attachmen
 import { useToast } from "../ui/toast-provider";
 import { RichTextEditor, richTextHtml, sanitizeJobHtml, type RichTextEditorHandle } from "../recruiting/rich-text-editor";
 import { getHandoversMessages, type HandoversMessages } from "../../lib/i18n/handovers-messages";
-import { useHandovers, type HotelDept } from "./handovers-provider";
+import { useHandovers, type HotelDept, type PublicHandover } from "./handovers-provider";
 
 type T = HandoversMessages;
 type Visibility = "alle" | "dept" | "privat";
@@ -31,6 +31,14 @@ function visLabel(value: string, t: T) {
 
 function statusLabel(status: string, t: T) {
   return status === "erledigt" ? t.statusDone : status === "draft" ? t.statusDraft : t.statusOpen;
+}
+
+function ReadStatus({ item, t }: { item: PublicHandover; t: T }) {
+  const readers = item.readers ?? [];
+  return <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4, minWidth: 0 }}>
+    <span className={`chip ${item.read ? "chip-g" : "chip-a"}`}>{item.read ? t.read : t.unread}</span>
+    {readers.length ? readers.map((reader, index) => <div key={`${reader.name}-${index}`} style={{ fontSize: 11, color: "var(--text3)", lineHeight: 1.35 }}>{reader.name} · {reader.readAt}</div>) : <div style={{ fontSize: 11, color: "var(--text3)" }}>{t.readNone}</div>}
+  </div>;
 }
 
 function HandoverBody({ desc }: { desc: string }) {
@@ -143,6 +151,7 @@ export function HandoversListPage() {
               <div><dt>{t.colDate}</dt><dd>{item.date}</dd></div>
               <div><dt>{t.colDepts}</dt><dd className="handovers-list-card-chips">{item.depts.length ? item.depts.map((d) => <span key={d} className="chip chip-n">{deptName(d, departments)}</span>) : <span className="chip chip-n">{item.visibility === "privat" ? t.visMe : t.allChip}</span>}</dd></div>
               <div><dt>{t.colVis}</dt><dd>{visLabel(item.visibility, t)}</dd></div>
+              <div style={{ gridColumn: "1 / -1" }}><dt>{t.colRead}</dt><dd><ReadStatus item={item} t={t} /></dd></div>
             </dl>
           </Link>
           {canManage ? <div className="handovers-list-card-actions"><Link href={`/handovers/${item.id}/edit`} className="icon-btn" aria-label={t.edit} title={t.edit}>✏️</Link></div> : null}
@@ -151,7 +160,7 @@ export function HandoversListPage() {
     </div>
     <div className="card handovers-list-desktop" style={{ overflowX: "auto" }}>
       <table className="bud-table" style={{ width: "100%" }}>
-        <thead><tr><th></th><th>{t.colTitle}</th><th>{t.colAuthor}</th><th>{t.colDepts}</th><th>{t.colVis}</th><th>{t.colStatus}</th><th>{t.colDate}</th>{canManage ? <th style={{ textAlign: "right" }}>{t.colActions}</th> : null}</tr></thead>
+        <thead><tr><th></th><th>{t.colTitle}</th><th>{t.colAuthor}</th><th>{t.colDepts}</th><th>{t.colVis}</th><th>{t.colStatus}</th><th>{t.colRead}</th><th>{t.colDate}</th>{canManage ? <th style={{ textAlign: "right" }}>{t.colActions}</th> : null}</tr></thead>
         <tbody>
           {rows.length ? rows.map((item) => <tr key={item.id} onClick={() => router.push(`/handovers/${item.id}`)} style={{ cursor: "pointer" }}>
             <td>{item.pinned ? "📌" : ""}</td>
@@ -160,9 +169,10 @@ export function HandoversListPage() {
             <td>{item.depts.length ? item.depts.map((d) => <span key={d} className="chip chip-n" style={{ marginRight: 4 }}>{deptName(d, departments)}</span>) : <span className="chip chip-n">{item.visibility === "privat" ? t.visMe : t.allChip}</span>}</td>
             <td>{visLabel(item.visibility, t)}</td>
             <td><span className={`chip ${item.status === "erledigt" ? "chip-g" : item.status === "draft" ? "chip-a" : "chip-b"}`}>{statusLabel(item.status, t)}</span></td>
+            <td><ReadStatus item={item} t={t} /></td>
             <td>{item.date}</td>
             {canManage ? <td style={{ textAlign: "right" }}><Link href={`/handovers/${item.id}/edit`} className="icon-btn" onClick={(event) => event.stopPropagation()}>✏️</Link></td> : null}
-          </tr>) : <tr><td colSpan={canManage ? 8 : 7} style={{ fontSize: 12.5, color: "var(--text3)" }}>{t.empty}</td></tr>}
+          </tr>) : <tr><td colSpan={canManage ? 9 : 8} style={{ fontSize: 12.5, color: "var(--text3)" }}>{t.empty}</td></tr>}
         </tbody>
       </table>
     </div>
@@ -351,6 +361,16 @@ export function HandoversDetailPage({ id }: { id: string }) {
   const { handovers, departments, canManage, reload, ready } = useHandovers();
   const item = handovers.find((row) => row.id === id);
   const [busy, setBusy] = useState(false);
+  const opened = Boolean(item);
+
+  useEffect(() => {
+    if (!ready || !opened) return;
+    let cancel = false;
+    void patchHandover(id, locale, { action: "read" }).then((ok) => {
+      if (ok && !cancel) void reload();
+    });
+    return () => { cancel = true; };
+  }, [ready, opened, id, locale, reload]);
 
   if (!ready) return <Shell title={t.detailTitle}><BrandLoader label={t.loading} /></Shell>;
   if (!item) return <Shell title={t.detailTitle}><Link href="/handovers/list" className="back-link">{t.back}</Link><p style={{ fontSize: 12.5, color: "var(--text3)" }}>{t.empty}</p></Shell>;
@@ -376,6 +396,7 @@ export function HandoversDetailPage({ id }: { id: string }) {
           {item.depts.length ? item.depts.map((dept) => <span key={dept} className="chip chip-n">{deptName(dept, departments)}</span>) : <span className="chip chip-n">{visLabel(item.visibility, t)}</span>}
         </div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{item.tags.map((tag) => <span key={tag} className="chip chip-b">{tag}</span>)}</div>
+        <div style={{ marginTop: 14 }}><ReadStatus item={item} t={t} /></div>
         <AttachmentGallery attachments={item.attachments} />
         {item.status === "erledigt" && item.completedAt ? <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 12 }}>{t.completedMeta.replace("{when}", item.completedAt).replace("{name}", item.completedBy || "–")}</div> : null}
       </div>

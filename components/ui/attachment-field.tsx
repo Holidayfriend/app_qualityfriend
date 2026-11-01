@@ -96,15 +96,21 @@ export async function compressAttachmentImage(file: File): Promise<File> {
   }
 }
 
+function PhotoThumb({ url, width, height, radius }: { url: string; width: number | string; height: number | string; radius: number }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <span aria-hidden style={{ width, height, display: "inline-flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto", borderRadius: radius, background: "var(--surface-2, #f3f4f6)", fontSize: 16 }}>📎</span>;
+  return <img src={url} alt="" draggable={false} style={{ display: "block", width, height, maxWidth: "100%", objectFit: "cover", flex: "0 0 auto", borderRadius: radius, background: "var(--surface-2, #f3f4f6)", boxShadow: "inset 0 0 0 1px var(--border)" }} onError={() => setFailed(true)} />;
+}
+
 function LocalThumbnail({ file }: { file: File }) {
   const [url] = useState(() => URL.createObjectURL(file));
   useEffect(() => () => URL.revokeObjectURL(url), [url]);
   if (!file.type.startsWith("image/")) return <span aria-hidden style={{ fontSize: 22 }}>{file.type.startsWith("video/") ? "🎥" : "🎤"}</span>;
-  return <span aria-hidden style={{ width: 52, height: 52, borderRadius: 8, background: `center / cover no-repeat url("${url}")` }} />;
+  return <PhotoThumb url={url} width={52} height={52} radius={8} />;
 }
 
 function StoredThumbnail({ item }: { item: AttachmentItem }) {
-  if (item.type === "photo" && item.url) return <span aria-hidden style={{ width: 52, height: 52, borderRadius: 8, background: `center / cover no-repeat url("${item.url}")` }} />;
+  if (item.type === "photo" && item.url) return <PhotoThumb url={item.url} width={52} height={52} radius={8} />;
   return <span aria-hidden style={{ fontSize: 22 }}>{item.type === "video" ? "🎥" : item.type === "voice" ? "🎤" : "📎"}</span>;
 }
 
@@ -237,15 +243,16 @@ export function AttachmentField({
 export function AttachmentIndicator({ attachments }: { attachments?: AttachmentItem[] }) {
   if (!attachments?.length) return null;
   const photo = attachments.find((item) => item.type === "photo" && item.url);
-  if (photo?.url) return <span title={`${attachments.length} attachment(s)`} aria-label={`${attachments.length} attachment(s)`} style={{ display: "inline-block", width: 30, height: 30, flex: "0 0 auto", borderRadius: 7, background: `center / cover no-repeat url("${photo.url}")`, boxShadow: "inset 0 0 0 1px var(--border)" }} />;
-  return <span title={`${attachments.length} attachment(s)`} aria-label={`${attachments.length} attachment(s)`} style={{ whiteSpace: "nowrap" }}>📎 {attachments.length}</span>;
+  const label = `${attachments.length} attachment(s)`;
+  if (photo?.url) return <span title={label} aria-label={label} style={{ display: "inline-flex", flex: "0 0 auto" }}><PhotoThumb url={photo.url} width={30} height={30} radius={7} /></span>;
+  return <span title={label} aria-label={label} style={{ whiteSpace: "nowrap" }}>📎 {attachments.length}</span>;
 }
 
 export function AttachmentGallery({ attachments }: { attachments?: AttachmentItem[] }) {
   if (!attachments?.length) return null;
   return <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 10, marginTop: 14 }}>
     {attachments.map((item, index) => <a key={item.id ?? `${item.name}-${index}`} href={item.url || "#"} target="_blank" rel="noreferrer" className="doc-row" style={{ minHeight: 82, padding: 8, textDecoration: "none", flexDirection: "column", alignItems: "stretch" }}>
-      {item.type === "photo" && item.url ? <span aria-hidden style={{ height: 100, borderRadius: 7, background: `center / cover no-repeat url("${item.url}")` }} /> : <span aria-hidden style={{ fontSize: 28, textAlign: "center" }}>{item.type === "video" ? "🎥" : item.type === "voice" ? "🎤" : "📎"}</span>}
+      {item.type === "photo" && item.url ? <PhotoThumb url={item.url} width="100%" height={100} radius={7} /> : <span aria-hidden style={{ fontSize: 28, textAlign: "center" }}>{item.type === "video" ? "🎥" : item.type === "voice" ? "🎤" : "📎"}</span>}
       <span className="doc-name" style={{ fontSize: 11.5 }}>{item.name}</span>
     </a>)}
   </div>;

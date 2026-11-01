@@ -808,6 +808,7 @@ model User {
   repairComments                                 RepairComment[]
   handoversCreated                               Handover[]                                @relation("HandoverAuthor")
   handoversCompleted                             Handover[]                                @relation("HandoverCompletedBy")
+  handoverReads                                  HandoverRead[]                            @relation("HandoverReadUser")
   hotelTasksCreated                              HotelTask[]                               @relation("HotelTaskAuthor")
   hotelTasksAssigned                             HotelTask[]                               @relation("HotelTaskAssignee")
   hotelTasksCompleted                            HotelTask[]                               @relation("HotelTaskCompletedBy")
@@ -1292,6 +1293,7 @@ model Handover {
   completedBy    User?                     @relation("HandoverCompletedBy", fields: [completedById], references: [id], onDelete: SetNull)
   departments    HandoverShareDepartment[]
   attachments    HandoverAttachment[]
+  reads          HandoverRead[]
 
   @@index([hotelTenantId, kind, status, pinned, createdAt])
   @@index([createdById])
@@ -1311,6 +1313,18 @@ model HandoverAttachment {
 
   @@index([handoverId])
   @@map("handover_attachments")
+}
+
+model HandoverRead {
+  handoverId String   @map("handover_id") @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  readAt     DateTime @default(now()) @map("read_at") @db.Timestamptz(3)
+  handover   Handover @relation(fields: [handoverId], references: [id], onDelete: Cascade, map: "hk_handover_read_handover_fkey")
+  user       User     @relation("HandoverReadUser", fields: [userId], references: [id], onDelete: Cascade, map: "hk_handover_read_user_fkey")
+
+  @@id([handoverId, userId])
+  @@index([userId])
+  @@map("handover_reads")
 }
 
 model HandoverShareDepartment {

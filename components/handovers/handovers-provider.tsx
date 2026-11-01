@@ -19,6 +19,8 @@ export type PublicHandover = {
   completedBy?: string;
   visibility: "alle" | "dept" | "privat";
   depts: string[];
+  read?: boolean;
+  readers?: { name: string; readAt: string }[];
   attachments?: { id?: string; name: string; type: "photo"; url?: string }[];
 };
 

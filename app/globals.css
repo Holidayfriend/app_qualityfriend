@@ -850,6 +850,7 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
   .qf-dashboard .handovers-list-card-heading { display:flex;min-width:0;align-items:flex-start;justify-content:space-between;gap:10px }
   .qf-dashboard .handovers-list-card-heading strong { display:flex;min-width:0;flex:1;align-items:flex-start;gap:7px;font-size:14px;line-height:1.4 }
   .qf-dashboard .handovers-list-card-heading strong > span:last-child { min-width:0;overflow-wrap:anywhere }
+  .qf-dashboard .handovers-list-card-heading strong img { width:30px;height:30px;flex:0 0 30px;object-fit:cover;border-radius:7px }
   .qf-dashboard .handovers-list-card-heading > .chip { flex:0 0 auto }
   .qf-dashboard .handovers-list-card-meta { display:grid;grid-template-columns:1fr 1fr;gap:12px 10px;margin-top:12px;padding-top:11px;border-top:1px solid var(--border) }
   .qf-dashboard .handovers-list-card-meta > div { min-width:0 }

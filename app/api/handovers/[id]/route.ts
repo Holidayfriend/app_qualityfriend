@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { handoversEditor, handoversViewer } from "../../../../lib/handovers/access";
-import { getHandover, updateHandover, updateHandoverPin, updateHandoverStatus } from "../../../../lib/handovers/service";
+import { getHandover, markHandoverRead, updateHandover, updateHandoverPin, updateHandoverStatus } from "../../../../lib/handovers/service";
 import { supportedLocales } from "../../../../lib/i18n/dictionaries";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -41,7 +41,9 @@ export async function PATCH(request: Request, ctx: Ctx) {
     ? await updateHandoverStatus(actor, id, String(body.status ?? ""), locale)
     : action === "pin"
       ? await updateHandoverPin(actor, id, Boolean(body.pinned), locale)
-      : { error: "INVALID" as const };
+      : action === "read"
+        ? await markHandoverRead(actor, id, locale)
+        : { error: "INVALID" as const };
   if ("error" in result) return NextResponse.json(result, { status: result.error === "NOT_FOUND" ? 404 : 400 });
   return NextResponse.json(result);
 }
