@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { tasksEditor, tasksViewer } from "../../../../lib/tasks/access";
-import { completeChecklist, getChecklist, updateChecklist, updateChecklistItem, updateChecklistStatus } from "../../../../lib/checklists/service";
+import { completeChecklist, getChecklist, reorderChecklistItems, updateChecklist, updateChecklistItem, updateChecklistStatus } from "../../../../lib/checklists/service";
 import { supportedLocales } from "../../../../lib/i18n/dictionaries";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -41,6 +41,13 @@ export async function PATCH(request: Request, ctx: Ctx) {
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   if (!body) return NextResponse.json({ error: "INVALID" }, { status: 400 });
   try {
+    if (Array.isArray(body.itemOrder)) {
+      const actor = await tasksEditor();
+      if (!actor) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+      const result = await reorderChecklistItems(actor, id, body.itemOrder, locale);
+      if ("error" in result) return NextResponse.json(result, { status: result.error === "NOT_FOUND" ? 404 : 400 });
+      return NextResponse.json(result);
+    }
     if (typeof body.itemId === "string") {
       const actor = await tasksEditor();
       if (!actor) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });

@@ -1706,6 +1706,8 @@
     "descPlaceholder": "Short instructions or context...",
     "autoTranslate": "🌐 Just write in your language – other staff automatically see their own version.",
     "points": "Checklist items",
+    "dragItem": "Drag to change the order",
+    "dueTime": "Due time",
     "newPoint": "New item...",
     "add": "+ Add",
     "assignCard": "Assignee",

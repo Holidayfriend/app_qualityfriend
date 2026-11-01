@@ -1704,6 +1704,8 @@
     "descPlaceholder": "Brevi istruzioni o contesto...",
     "autoTranslate": "🌐 Scrivi nella tua lingua – gli altri vedono automaticamente la loro versione.",
     "points": "Voci della checklist",
+    "dragItem": "Trascina per cambiare l'ordine",
+    "dueTime": "Ora",
     "newPoint": "Nuova voce...",
     "add": "+ Aggiungi",
     "assignCard": "Responsabile",

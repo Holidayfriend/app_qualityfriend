@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type DragEvent, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { AppShell } from "../dashboard/app-shell";
 import { useI18n } from "../i18n/i18n-provider";
 import { BrandLoader } from "../ui/brand-loader";
@@ -10,6 +10,7 @@ import { AttachmentField, AttachmentGallery, AttachmentIndicator, type Attachmen
 import { useToast } from "../ui/toast-provider";
 import { getTasksMessages, type TasksMessages } from "../../lib/i18n/tasks-messages";
 import { RichTextEditor, richTextHtml, sanitizeJobHtml, type RichTextEditorHandle } from "../recruiting/rich-text-editor";
+import { dueWithTime, moveIndex } from "../../lib/checklists/due-time";
 import { hotelLocalIso, readHotelTimeZone } from "../../lib/hotel/clock";
 import { useTasks, type PublicChecklist, type PublicChecklistItem, type PublicTask } from "./tasks-provider";
 
@@ -151,7 +152,7 @@ export function TasksDashboardPage() {
                 <div className={`todo-cb${done ? " done" : ""}`}>{done ? "✓" : ""}</div>
                 <AttachmentIndicator attachments={item.attachments} />
                 <div className={`todo-t${done ? " done" : ""}`}>{item.title}</div>
-                <div className="todo-dept">{item.nextDue}</div>
+                <div className="todo-dept">{dueWithTime(item.nextDue, item.dueTime ?? "")}</div>
                 <span className={`chip ${done ? "chip-g" : "chip-a"}`}>{done ? "✓" : t.open}</span>
               </Link>;
             }) : <div style={{ fontSize: 12.5, color: "var(--text3)" }}>{t.emptyChecklists}</div>}
@@ -402,7 +403,7 @@ export function ChecklistsListPage() {
             <dl className="checklists-list-card-meta">
               <div><dt>{t.colAssignee}</dt><dd>{item.assignType === "all" ? t.everyone : item.assignee || "–"}</dd></div>
               <div><dt>{t.colRepeat}</dt><dd>{recurrenceLabel(item, t)}</dd></div>
-              <div><dt>{t.colNext}</dt><dd>{item.nextDue || "–"}</dd></div>
+              <div><dt>{t.colNext}</dt><dd>{dueWithTime(item.nextDue, item.dueTime ?? "")}</dd></div>
             </dl>
           </Link>
           {canManage && item.origin === "original" ? <div className="checklists-list-card-actions">
@@ -427,7 +428,7 @@ export function ChecklistsListPage() {
               <td><div style={{ display: "flex", alignItems: "center", gap: 8 }}><AttachmentIndicator attachments={item.attachments} /><span>{item.title}</span></div></td>
               <td>{item.assignType === "all" ? t.everyone : item.assignee || "–"}</td>
               <td>{recurrenceLabel(item, t)}</td>
-              <td>{item.nextDue || "–"}</td>
+              <td>{dueWithTime(item.nextDue, item.dueTime ?? "")}</td>
               <td><span className={`chip ${item.completedAt ? "chip-g" : statusChip(item.status)}`}>{item.completedAt ? t.statusDone : statusLabel(item.status, t)}</span></td>
               {canManage ? <td style={{ textAlign: "right", whiteSpace: "nowrap" }} onClick={(event) => event.stopPropagation()}>
                 {item.origin === "original" ? <>
@@ -470,6 +471,8 @@ export function ChecklistFormPage({ id }: { id?: string }) {
   const [recurrence, setRecurrence] = useState("weekly");
   const [weekdays, setWeekdays] = useState<string[]>([]);
   const [dueIso, setDueIso] = useState("");
+  const [dueTime, setDueTime] = useState("");
+  const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [startIso, setStartIso] = useState("");
   const [endIso, setEndIso] = useState("");
   const [noEnd, setNoEnd] = useState(true);
@@ -491,6 +494,7 @@ export function ChecklistFormPage({ id }: { id?: string }) {
     setRecurrence(selected.recurrence === "once" ? "weekly" : selected.recurrence);
     setWeekdays(selected.weekdays ?? []);
     setDueIso(selected.dueIso);
+    setDueTime(selected.dueTime ?? "");
     setStartIso(selected.startIso);
     setEndIso(selected.endIso);
     setNoEnd(!selected.endIso);
@@ -527,7 +531,7 @@ export function ChecklistFormPage({ id }: { id?: string }) {
     setBusy(true);
     const nextDesc = sanitizeJobHtml(descRef.current?.getHtml() ?? desc);
     const nextId = await saveChecklist(id && !asTemplate ? id : undefined, {
-      title, desc: nextDesc, items, assignType, departmentIds, assigneeId, dueType, recurrence: recurrence as PublicChecklist["recurrence"], weekdays, dueIso, startIso, endIso, noEnd, status, kind,
+      title, desc: nextDesc, items, assignType, departmentIds, assigneeId, dueType, recurrence: recurrence as PublicChecklist["recurrence"], weekdays, dueIso, dueTime, startIso, endIso, noEnd, status, kind,
       keepAttachmentIds: kept.map((file) => file.id).filter((id): id is string => Boolean(id)), files: uploads,
     });
     setBusy(false);
@@ -565,9 +569,32 @@ export function ChecklistFormPage({ id }: { id?: string }) {
             <div style={{ fontSize: 11.5, color: "var(--text3)", marginBottom: 16 }}>{t.autoTranslate}</div>
             <div style={{ marginBottom: 16 }}><AttachmentField existing={kept} files={uploads} onExistingChange={setKept} onFilesChange={setUploads} onProcessingChange={setAttachmentsBusy} /></div>
             <label className="field-lbl">{t.points}</label>
+            {items.length > 1 ? <div style={{ fontSize: 11.5, color: "var(--text3)", marginBottom: 8 }}>{t.dragItem}</div> : null}
             <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
               {items.map((item, index) => (
-                <div key={`${item}-${index}`} className="doc-row" style={{ padding: "8px 10px" }}>
+                <div
+                  key={`${item}-${index}`}
+                  className="doc-row"
+                  style={{ padding: "8px 10px", opacity: dragFrom === index ? 0.55 : 1 }}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={() => {
+                    if (dragFrom == null) return;
+                    setItems(moveIndex(items, dragFrom, index));
+                    setDragFrom(null);
+                  }}
+                >
+                  <span
+                    draggable
+                    role="button"
+                    aria-label={t.dragItem}
+                    title={t.dragItem}
+                    style={{ cursor: "grab", color: "var(--text3)", fontSize: 14, lineHeight: 1, userSelect: "none" }}
+                    onDragStart={(event: DragEvent<HTMLSpanElement>) => {
+                      event.dataTransfer.effectAllowed = "move";
+                      setDragFrom(index);
+                    }}
+                    onDragEnd={() => setDragFrom(null)}
+                  >⋮⋮</span>
                   <div className="doc-ic" style={{ width: 26, height: 26, fontSize: 12 }}>{index + 1}</div>
                   <div className="doc-name">{item}</div>
                   <button type="button" className="icon-btn danger" onClick={() => setItems(items.filter((_, i) => i !== index))}>🗑️</button>
@@ -604,6 +631,8 @@ export function ChecklistFormPage({ id }: { id?: string }) {
               <label style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}><input type="radio" checked={dueType === "once"} onChange={() => setDueType("once")} /> {t.once}</label>
               <label style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}><input type="radio" checked={dueType === "recurring"} onChange={() => setDueType("recurring")} /> {t.recurring}</label>
             </div>
+            <label className="field-lbl">{t.dueTime}</label>
+            <input className="field-input" type="time" style={{ marginBottom: 12 }} value={dueTime} onChange={(event) => setDueTime(event.target.value)} />
             {dueType === "once" ? <>
               <label className="field-lbl">{t.due}</label>
               <input className="field-input" type="date" value={dueIso} onChange={(event) => setDueIso(event.target.value)} />
@@ -729,14 +758,36 @@ function ChecklistItemEditor({
 export function ChecklistDetailPage({ id }: { id: string }) {
   const t = useT();
   const toast = useToast();
-  const { checklists, templates, users, canManage, ready, updateItem, completeChecklist } = useTasks();
+  const { checklists, templates, users, canManage, ready, updateItem, reorderItems, completeChecklist } = useTasks();
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
+  const [dragFrom, setDragFrom] = useState<number | null>(null);
   const item = checklists.find((row) => row.id === id) || templates.find((row) => row.id === id);
+  const serverOrder = item?.items.map((row) => row.id).join("|") ?? "";
+  const [orderIds, setOrderIds] = useState<string[]>([]);
+  useEffect(() => {
+    setOrderIds(serverOrder ? serverOrder.split("|") : []);
+  }, [serverOrder]);
   if (!ready) return <Shell title={t.listTitle}><BrandLoader label={t.loading} /></Shell>;
   if (!item) return <Shell title={t.listTitle}><Link href="/tasks/checklists" className="back-link">{t.backChecklists}</Link><div className="card"><div className="cb">{t.emptyChecklists}</div></div></Shell>;
   const canWorkItems = canManage && item.kind === "checklist" && item.status === "active" && !item.completedAt;
+  const canReorder = canManage && !item.completedAt;
+  const orderedItems = orderIds.map((rowId) => item.items.find((row) => row.id === rowId)).filter((row): row is PublicChecklistItem => Boolean(row));
+  const shownItems = orderedItems.length === item.items.length ? orderedItems : item.items;
   const allItemsResolved = item.items.every((row) => row.state !== "open" && (row.state !== "exception" || Boolean(row.comment.trim())));
+
+  async function dropItem(index: number) {
+    if (!canReorder || dragFrom == null) return;
+    const previous = shownItems.map((row) => row.id);
+    const next = moveIndex(previous, dragFrom, index);
+    setDragFrom(null);
+    setOrderIds(next);
+    const saved = await reorderItems(id, next);
+    if (!saved) {
+      setOrderIds(previous);
+      toast({ message: t.checklistSaveFailed, tone: "error" });
+    }
+  }
 
   async function complete() {
     setBusy(true);
@@ -756,7 +807,7 @@ export function ChecklistDetailPage({ id }: { id: string }) {
             <div>
               <div className="ct">{item.title}</div>
               <div style={{ fontSize: 11.5, color: "var(--text2)", fontWeight: 400, marginTop: 2 }}>
-                {item.assignType === "all" ? t.everyone : item.assignee} · {recurrenceLabel(item, t)} · {item.nextDue || "–"}
+                {item.assignType === "all" ? t.everyone : item.assignee} · {recurrenceLabel(item, t)} · {dueWithTime(item.nextDue, item.dueTime ?? "")}
               </div>
               {item.assignType !== "person" && !item.completedAt ? <div style={{ fontSize: 12, color: "var(--text2)", fontWeight: 400, marginTop: 6 }}>{item.assignType === "dept" ? fill(t.sharedDept, { name: item.assignee || t.assignDept }) : t.sharedAll}</div> : null}
             </div>
@@ -765,15 +816,37 @@ export function ChecklistDetailPage({ id }: { id: string }) {
           <div className="cb">
             {item.desc ? <div className="job-desc-preview" style={{ fontSize: 13, color: "var(--text2)", marginBottom: 14, lineHeight: 1.6 }} dangerouslySetInnerHTML={{ __html: richTextHtml(item.desc) }} /> : null}
             <AttachmentGallery attachments={item.attachments} />
+            {canReorder && shownItems.length > 1 ? <div style={{ fontSize: 11.5, color: "var(--text3)", marginBottom: 8 }}>{t.dragItem}</div> : null}
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              {item.items.map((row) => (
-                <ChecklistItemEditor
-                  key={`${row.id}:${row.state}:${row.comment}:${row.assigneeId}`}
-                  row={row}
-                  users={users}
-                  editable={canWorkItems}
-                  save={(input) => updateItem(id, row.id, input)}
-                />
+              {shownItems.map((row, index) => (
+                <div
+                  key={row.id}
+                  style={{ display: "flex", alignItems: "flex-start", gap: 8, opacity: dragFrom === index ? 0.55 : 1 }}
+                  onDragOver={(event) => { if (canReorder) event.preventDefault(); }}
+                  onDrop={() => void dropItem(index)}
+                >
+                  {canReorder ? <span
+                    draggable
+                    role="button"
+                    aria-label={t.dragItem}
+                    title={t.dragItem}
+                    style={{ cursor: "grab", color: "var(--text3)", fontSize: 14, lineHeight: 1, paddingTop: 14, userSelect: "none" }}
+                    onDragStart={(event: DragEvent<HTMLSpanElement>) => {
+                      event.dataTransfer.effectAllowed = "move";
+                      setDragFrom(index);
+                    }}
+                    onDragEnd={() => setDragFrom(null)}
+                  >⋮⋮</span> : null}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <ChecklistItemEditor
+                      key={`${row.id}:${row.state}:${row.comment}:${row.assigneeId}`}
+                      row={row}
+                      users={users}
+                      editable={canWorkItems}
+                      save={(input) => updateItem(id, row.id, input)}
+                    />
+                  </div>
+                </div>
               ))}
             </div>
             {item.completedAt ? <div style={{ fontSize: 12.5, color: "var(--text2)", marginTop: 12 }}>{t.completedMeta.replace("{when}", item.completedAt).replace("{name}", item.completedBy || "–")}</div> : null}

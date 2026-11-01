@@ -1704,6 +1704,8 @@
     "descPlaceholder": "Kurze Anleitung oder Kontext...",
     "autoTranslate": "🌐 Schreib einfach in deiner Sprache – andere Mitarbeiter sehen automatisch ihre eigene Version.",
     "points": "Checklisten-Punkte",
+    "dragItem": "Ziehen, um die Reihenfolge zu ändern",
+    "dueTime": "Uhrzeit",
     "newPoint": "Neuer Punkt...",
     "add": "+ Hinzufügen",
     "assignCard": "Zuständig",

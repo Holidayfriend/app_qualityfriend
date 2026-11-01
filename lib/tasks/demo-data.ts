@@ -44,6 +44,7 @@ export type PublicChecklist = {
   recurrence: "once" | "daily" | "weekly" | "monthly" | "quarterly" | "yearly";
   weekdays: string[];
   dueIso: string;
+  dueTime?: string;
   startIso: string;
   endIso: string;
   nextDue: string;

@@ -1,0 +1,1 @@
+ALTER TABLE "hotel_checklists" ADD COLUMN IF NOT EXISTS "due_time" VARCHAR(5) NOT NULL DEFAULT '';

@@ -1835,6 +1835,7 @@ model HotelChecklist {
   startAt        DateTime?                  @map("start_at") @db.Date
   endAt          DateTime?                  @map("end_at") @db.Date
   dueAt          DateTime?                  @map("due_at") @db.Date
+  dueTime        String                     @default("") @map("due_time") @db.VarChar(5)
   originalLocale String                     @default("en") @map("original_locale") @db.VarChar(8)
   completedAt    DateTime?                  @map("completed_at") @db.Timestamptz(3)
   createdAt      DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)

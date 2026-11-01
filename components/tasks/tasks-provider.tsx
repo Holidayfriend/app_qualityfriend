@@ -39,6 +39,7 @@ type ChecklistInput = {
   recurrence: PublicChecklist["recurrence"];
   weekdays: string[];
   dueIso: string;
+  dueTime: string;
   startIso: string;
   endIso: string;
   noEnd: boolean;
@@ -74,6 +75,7 @@ type Ctx = {
   saveChecklist: (id: string | undefined, input: ChecklistInput) => Promise<string | null>;
   setChecklistStatus: (id: string, status: "active" | "archived") => Promise<boolean>;
   updateItem: (checklistId: string, itemId: string, input: ChecklistItemInput) => Promise<string | null>;
+  reorderItems: (checklistId: string, itemIds: string[]) => Promise<boolean>;
   completeChecklist: (id: string, comment: string) => Promise<string | null>;
 };
 
@@ -188,6 +190,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     form.set("recurrence", input.recurrence);
     form.set("weekdays", JSON.stringify(input.weekdays));
     form.set("dueIso", input.dueIso);
+    form.set("dueTime", input.dueTime);
     form.set("startIso", input.startIso);
     form.set("endIso", input.endIso);
     form.set("noEnd", String(input.noEnd));
@@ -227,6 +230,17 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     return null;
   }, [locale, reload]);
 
+  const reorderItems = useCallback(async (checklistId: string, itemIds: string[]) => {
+    const res = await fetch(`/api/checklists/${checklistId}?locale=${locale}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ itemOrder: itemIds }),
+    });
+    if (!res.ok) return false;
+    await reload();
+    return true;
+  }, [locale, reload]);
+
   const completeChecklist = useCallback(async (id: string, comment: string) => {
     const res = await fetch(`/api/checklists/${id}?locale=${locale}`, {
       method: "PATCH",
@@ -257,8 +271,8 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     doneWeek,
     totalWeek: doneWeek + open.length,
     periodic,
-    saveTask, toggleTask, saveChecklist, setChecklistStatus, updateItem, completeChecklist,
-  }), [canManage, checklists, completeChecklist, departments, doneWeek, dueToday.length, dueWeek.length, open.length, overdue.length, periodic, ready, saveChecklist, saveTask, setChecklistStatus, tasks, templates, toggleTask, updateItem, users]);
+    saveTask, toggleTask, saveChecklist, setChecklistStatus, updateItem, reorderItems, completeChecklist,
+  }), [canManage, checklists, completeChecklist, departments, doneWeek, dueToday.length, dueWeek.length, open.length, overdue.length, periodic, ready, reorderItems, saveChecklist, saveTask, setChecklistStatus, tasks, templates, toggleTask, updateItem, users]);
 
   return <TasksContext.Provider value={value}>{children}</TasksContext.Provider>;
 }

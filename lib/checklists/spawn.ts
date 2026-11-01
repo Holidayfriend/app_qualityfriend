@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Prisma, PrismaClient } from "../../app/generated/prisma/client";
 import { usersInDepartments } from "../users/memberships";
+import { ensureChecklistDueTime } from "./ensure-due-time";
 import { hotelTodayIso, isDueOn, isoDate, parseIsoDate } from "./recurrence";
 
 type Db = PrismaClient | Prisma.TransactionClient;
@@ -113,6 +114,7 @@ export async function spawnRun(db: Db, original: Prisma.HotelChecklistGetPayload
       startAt: original.startAt,
       endAt: original.endAt,
       dueAt,
+      dueTime: original.dueTime,
       originalLocale: original.originalLocale,
       items: {
         create: original.items.map((item, index) => ({
@@ -148,6 +150,7 @@ export async function spawnIfDue(db: Db, original: Prisma.HotelChecklistGetPaylo
 }
 
 export async function spawnAllHotelChecklists(prisma: PrismaClient, hotelTenantId?: string) {
+  await ensureChecklistDueTime();
   const hotels = await prisma.hotelTenant.findMany({
     where: { isActive: true, ...(hotelTenantId ? { id: hotelTenantId } : {}) },
     select: { id: true, timeZone: true },

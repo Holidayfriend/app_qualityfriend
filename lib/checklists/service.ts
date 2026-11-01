@@ -13,6 +13,8 @@ import { copyAttachmentFile, deleteAttachmentFile, isAttachmentUpload, saveAttac
 import { hotelTodayIso, isoDate, nextDueIso, parseIsoDate } from "./recurrence";
 import { notifyChecklist, recipientIds } from "./spawn";
 import { translateChecklistFields } from "./translate";
+import { checklistDueTime } from "./due-time";
+import { ensureChecklistDueTime } from "./ensure-due-time";
 import { checklistCompletionError, checklistItemError, isChecklistItemState } from "./item-policy";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -120,6 +122,7 @@ export function toPublicChecklist(row: Row, locale: string, today: string, timeZ
     recurrence: row.recurrence.toLowerCase() as "once" | "daily" | "weekly" | "monthly" | "quarterly" | "yearly",
     weekdays: row.weekdays,
     dueIso: isoDate(row.dueAt),
+    dueTime: row.dueTime || "",
     startIso: isoDate(row.startAt),
     endIso: isoDate(row.endAt),
     nextDue: dateOf(parseIsoDate(nextIso), locale, timeZone),
@@ -179,6 +182,7 @@ function checklistBody(form: FormData): Record<string, unknown> {
     recurrence: formValue(form, "recurrence"),
     weekdays: parseJsonList(form.get("weekdays")),
     dueIso: formValue(form, "dueIso"),
+    dueTime: formValue(form, "dueTime"),
     startIso: formValue(form, "startIso"),
     endIso: formValue(form, "endIso"),
     noEnd: formValue(form, "noEnd") === "true",
@@ -272,6 +276,7 @@ async function parsedBody(actor: TasksActor, body: Record<string, unknown>, loca
     startAt: dueType === "RECURRING" ? parseIsoDate(String(body.startIso ?? "")) : null,
     endAt: dueType === "RECURRING" && !body.noEnd ? parseIsoDate(String(body.endIso ?? "")) : null,
     dueAt: dueType === "ONCE" ? parseIsoDate(String(body.dueIso ?? "")) : null,
+    dueTime: checklistDueTime(body.dueTime),
     originalLocale: locale === "de" || locale === "it" ? locale : "en",
     title: locales.title.en,
     titleDe: locales.title.de,
@@ -289,6 +294,7 @@ async function hotelToday(actor: TasksActor) {
 }
 
 export async function listChecklists(actor: TasksActor, locale: string) {
+  await ensureChecklistDueTime();
   const { today, timeZone } = await hotelToday(actor);
   const rows = await prisma.hotelChecklist.findMany({
     where: visibleChecklistWhere(actor),
@@ -300,12 +306,14 @@ export async function listChecklists(actor: TasksActor, locale: string) {
 
 export async function getChecklist(actor: TasksActor, id: string, locale: string) {
   if (!isUuid(id)) return null;
+  await ensureChecklistDueTime();
   const { today, timeZone } = await hotelToday(actor);
   const row = await prisma.hotelChecklist.findFirst({ where: { id, ...visibleChecklistWhere(actor) }, include });
   return row ? toPublicChecklist(row, locale, today, timeZone) : null;
 }
 
 export async function createChecklist(actor: TasksActor, form: FormData, locale: string) {
+  await ensureChecklistDueTime();
   const body = checklistBody(form);
   const parsed = await parsedBody(actor, body, locale);
   if ("error" in parsed) return parsed;
@@ -360,6 +368,7 @@ export async function createChecklist(actor: TasksActor, form: FormData, locale:
 
 export async function updateChecklist(actor: TasksActor, id: string, form: FormData, locale: string) {
   if (!isUuid(id)) return { error: "NOT_FOUND" as const };
+  await ensureChecklistDueTime();
   const existing = await prisma.hotelChecklist.findFirst({ where: { id, hotelTenantId: actor.hotel_tenant_id, origin: "ORIGINAL" }, include: { attachments: true } });
   if (!existing) return { error: "NOT_FOUND" as const };
   const body = checklistBody(form);
@@ -470,6 +479,31 @@ export async function updateChecklistItem(actor: TasksActor, id: string, itemId:
         before: { state: item.state, comment: item.comment, assigneeId: item.assigneeId },
         after: { state: next, comment: state === "exception" ? comment : "", assigneeId },
       },
+    });
+  });
+  return getChecklist(actor, id, locale).then((checklist) => checklist ? { checklist } : { error: "NOT_FOUND" as const });
+}
+
+export async function reorderChecklistItems(actor: TasksActor, id: string, itemIds: unknown, locale: string) {
+  if (!isUuid(id) || !actor.canManage) return { error: "NOT_FOUND" as const };
+  await ensureChecklistDueTime();
+  const existing = await prisma.hotelChecklist.findFirst({ where: { id, hotelTenantId: actor.hotel_tenant_id }, include });
+  if (!existing || existing.completedAt) return { error: "NOT_FOUND" as const };
+  const known = new Set(existing.items.map((item) => item.id));
+  const requested = Array.isArray(itemIds) ? itemIds.map((item) => String(item)) : [];
+  const ordered = requested.filter((itemId, index) => isUuid(itemId) && known.has(itemId) && requested.indexOf(itemId) === index);
+  for (const item of existing.items) if (!ordered.includes(item.id)) ordered.push(item.id);
+  await prisma.$transaction(async (tx) => {
+    for (const [index, itemId] of ordered.entries()) {
+      await tx.hotelChecklistItem.update({ where: { id: itemId }, data: { sortOrder: index } });
+    }
+    await recordAuditLog(tx, { module: "tasks",
+      hotelTenantId: actor.hotel_tenant_id,
+      actorId: actor.id,
+      action: "UPDATE",
+      entityType: "CHECKLIST",
+      entityId: id,
+      changes: { itemOrder: ordered },
     });
   });
   return getChecklist(actor, id, locale).then((checklist) => checklist ? { checklist } : { error: "NOT_FOUND" as const });
