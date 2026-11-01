@@ -10,7 +10,9 @@ import { useI18n } from "../i18n/i18n-provider";
 import { getScheduleMessages, type ScheduleMessages } from "../../lib/i18n/schedule-messages";
 import { type AbsenceStatus, type Employee, type LeaveCategory, type LeaveDuration, type ShiftCell } from "../../lib/schedule/demo-data";
 import { addDaysIso, formatDayHeader, formatWeekRange, localTodayIso, mondayOfIso } from "../../lib/schedule/week";
-import { formatWorkHours, weekWorkHours } from "../../lib/schedule/hours";
+import { formatWorkHours, shiftWorkHours, weekWorkHours } from "../../lib/schedule/hours";
+import { breakMinutesForSave, shiftWarnings } from "../../lib/schedule/shift-rules";
+import { ConfirmDialog } from "../ui/confirm-dialog";
 import { useSchedule } from "./schedule-provider";
 
 type T = ScheduleMessages;
@@ -50,8 +52,9 @@ function shiftMeta(cell: ShiftCell | undefined, t: T) {
   }
   const start = cell.start.slice(0, 5);
   const end = cell.end.slice(0, 5);
+  const split = cell.splitStart && cell.splitEnd ? ` / ${cell.splitStart.slice(0, 5)}–${cell.splitEnd.slice(0, 5)}` : "";
   const cls = start <= "08:00" ? "dp-f" : start <= "13:00" ? "dp-m" : "dp-s";
-  return { label: start && end ? `${start}–${end}` : t.dash, sub: "", cls };
+  return { label: start && end ? `${start}–${end}${split}` : t.dash, sub: "", cls };
 }
 
 function categoryLabel(category: LeaveCategory, t: T) {
@@ -358,9 +361,10 @@ export function ScheduleOwnPage() {
 export function ScheduleAbsencesPage({ board }: { board?: "swap" }) {
   const t = useT();
   const toast = useToast();
-  const { isPlanner, ready, absences, decideAbsence, employees, currentUserId } = useSchedule();
+  const { isPlanner, ready, absences, decideAbsence, deleteAbsence, employees, currentUserId } = useSchedule();
   const [filter, setFilter] = useState<"all" | AbsenceStatus>("all");
   const [busyId, setBusyId] = useState("");
+  const [deleteId, setDeleteId] = useState("");
   const own = employees.find((item) => item.key === currentUserId) ?? employees[0];
   const swapBoard = board === "swap";
   const rows = absences.filter((item) => {
@@ -377,6 +381,18 @@ export function ScheduleAbsencesPage({ board }: { board?: "swap" }) {
       toast({ message: ok ? (status === "approved" ? (swapBoard ? t.swapApproved : t.absenceApproved) : t.absenceRejected) : t.saveShiftFailed, tone: ok ? "success" : "error" });
     } finally {
       setBusyId("");
+    }
+  }
+
+  async function removeAbsence() {
+    if (!deleteId || busyId) return;
+    setBusyId(deleteId);
+    try {
+      const ok = await deleteAbsence(deleteId);
+      toast({ message: ok ? t.absenceDeleted : t.saveShiftFailed, tone: ok ? "success" : "error" });
+    } finally {
+      setBusyId("");
+      setDeleteId("");
     }
   }
 
@@ -413,9 +429,10 @@ export function ScheduleAbsencesPage({ board }: { board?: "swap" }) {
               <td>{item.note || t.dash}</td>
               <td><span className={`chip ${status.cls}`}>{status.label}</span></td>
               <td>{item.status === "approved" && item.decidedBy ? fill(t.approvedBy, { name: item.decidedBy }) : item.status === "rejected" && item.decidedBy ? fill(t.rejectedBy, { name: item.decidedBy }) : t.dash}</td>
-              <td style={{ textAlign: "right" }}>{isPlanner && item.status === "open"
-                ? <><button type="button" className="icon-btn" disabled={Boolean(busyId)} onClick={() => void decide(item.id, "approved")}>✅</button> <button type="button" className="icon-btn danger" disabled={Boolean(busyId)} onClick={() => void decide(item.id, "rejected")}>✖️</button></>
-                : t.dash}</td>
+              <td style={{ textAlign: "right" }}>{isPlanner ? <>
+                {item.status === "open" ? <><button type="button" className="icon-btn" disabled={Boolean(busyId)} onClick={() => void decide(item.id, "approved")}>✅</button> <button type="button" className="icon-btn danger" disabled={Boolean(busyId)} onClick={() => void decide(item.id, "rejected")}>✖️</button> </> : null}
+                <button type="button" className="icon-btn danger" disabled={Boolean(busyId)} title={t.deleteAbsence} onClick={() => setDeleteId(item.id)}>🗑️</button>
+              </> : t.dash}</td>
             </tr>;
           }) : <tr><td colSpan={8} style={{ textAlign: "center", color: "var(--text3)", padding: 20 }}>{t.empty}</td></tr>}
         </tbody>
@@ -435,13 +452,17 @@ export function ScheduleAbsencesPage({ board }: { board?: "swap" }) {
             {item.note ? <div><dt>{t.colNote}</dt><dd>{item.note}</dd></div> : null}
             {item.decidedBy ? <div><dt>{t.colDecidedBy}</dt><dd>{item.status === "approved" ? fill(t.approvedBy, { name: item.decidedBy }) : fill(t.rejectedBy, { name: item.decidedBy })}</dd></div> : null}
           </dl>
-          {isPlanner && item.status === "open" ? <div className="schedule-request-actions">
-            <button type="button" className="btn btn-primary" disabled={Boolean(busyId)} onClick={() => void decide(item.id, "approved")}>✅ {t.statusApproved}</button>
-            <button type="button" className="btn btn-ghost" disabled={Boolean(busyId)} onClick={() => void decide(item.id, "rejected")}>✕ {t.statusRejected}</button>
+          {isPlanner ? <div className="schedule-request-actions">
+            {item.status === "open" ? <>
+              <button type="button" className="btn btn-primary" disabled={Boolean(busyId)} onClick={() => void decide(item.id, "approved")}>✅ {t.statusApproved}</button>
+              <button type="button" className="btn btn-ghost" disabled={Boolean(busyId)} onClick={() => void decide(item.id, "rejected")}>✕ {t.statusRejected}</button>
+            </> : null}
+            <button type="button" className="btn btn-ghost" style={{ color: "var(--red)" }} disabled={Boolean(busyId)} onClick={() => setDeleteId(item.id)}>{t.deleteAbsence}</button>
           </div> : null}
         </article>;
       }) : <div className="schedule-empty-card">{t.empty}</div>}
     </div>
+    <ConfirmDialog open={Boolean(deleteId)} title={t.deleteAbsence} message={t.deleteAbsenceConfirm} confirmLabel={t.deleteAbsence} cancelLabel={t.cancel} pending={Boolean(busyId)} onConfirm={() => void removeAbsence()} onCancel={() => setDeleteId("")} />
   </Shell>;
 }
 
@@ -489,14 +510,16 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
   const { locale } = useI18n();
   const router = useRouter();
   const toast = useToast();
-  const { ready, shiftsReady, isPlanner, employees, templates, saveShift, weekDates } = useSchedule();
+  const { ready, shiftsReady, isPlanner, employees, templates, saveShift, deleteShift, weekDates } = useSchedule();
   const emp = employees.find((item) => item.key === employee);
   const dayLabel = weekDates[day] ? formatDayHeader(weekDates[day], locale) : t.days[day] ?? t.days[0];
   const [form, setForm] = useState({
     template: "", start: "09:00", end: "17:00", pause: "", note: "", repeat: "none",
     leaveCategory: "paid" as LeaveCategory, leaveDuration: "full" as LeaveDuration,
+    split: false, splitStart: "", splitEnd: "", splitPause: "",
   });
   const [busy, setBusy] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const isOff = form.template === "off";
   const isVac = form.template === "vac";
   const isLeave = isOff || isVac;
@@ -517,18 +540,22 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
       template: off ? "off" : vac ? "vac" : cell.templateId,
       start: (off || vac) && !partial ? "" : cell.start || "09:00",
       end: (off || vac) && !partial ? "" : cell.end || "17:00",
-      pause: off || vac ? "" : cell.breakMins ? String(cell.breakMins) : "",
+      pause: off || vac ? "" : String(cell.breakMins),
       note: cell.note,
       repeat: "none",
       leaveCategory: cell.leaveCategory || "paid",
       leaveDuration: cell.leaveDuration || "full",
+      split: Boolean(cell.splitStart && cell.splitEnd),
+      splitStart: cell.splitStart || "",
+      splitEnd: cell.splitEnd || "",
+      splitPause: cell.splitStart && cell.splitEnd ? String(cell.splitBreakMins || 0) : "",
     });
   }, [day, emp, ready, shiftsReady]);
 
   function applyTemplate(value: string) {
     setForm((current) => {
       if (value === "off" || value === "vac") {
-        return { ...current, template: value, start: "", end: "", pause: "", note: "", leaveCategory: "paid", leaveDuration: "full" };
+        return { ...current, template: value, start: "", end: "", pause: "", note: "", leaveCategory: "paid", leaveDuration: "full", split: false, splitStart: "", splitEnd: "", splitPause: "" };
       }
       if (value === "") {
         return { ...current, template: value, start: current.start || "09:00", end: current.end || "17:00" };
@@ -540,8 +567,12 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
         template: value,
         start: template.start,
         end: template.end,
-        pause: template.breakMins ? String(template.breakMins) : "",
+        pause: String(template.breakMins),
         note: template.note,
+        split: false,
+        splitStart: "",
+        splitEnd: "",
+        splitPause: "",
       };
     });
   }
@@ -553,6 +584,10 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
       toast({ message: t.needShiftTimes, tone: "error" });
       return;
     }
+    if (!isLeave && form.split && (!form.splitStart || !form.splitEnd)) {
+      toast({ message: t.needShiftTimes, tone: "error" });
+      return;
+    }
     setBusy(true);
     try {
       const saved = await saveShift({
@@ -561,6 +596,9 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
         start: form.start,
         end: form.end,
         breakMins: form.pause,
+        splitStart: !isLeave && form.split ? form.splitStart : "",
+        splitEnd: !isLeave && form.split ? form.splitEnd : "",
+        splitBreakMins: !isLeave && form.split ? form.splitPause : "",
         note: form.note,
         template: form.template,
         repeat: form.repeat,
@@ -582,6 +620,33 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
       setBusy(false);
     }
   }
+
+  async function remove() {
+    if (!emp || busy) return;
+    setBusy(true);
+    try {
+      const ok = await deleteShift(emp.key, day);
+      if (!ok) {
+        toast({ message: t.saveShiftFailed, tone: "error" });
+        return;
+      }
+      toast({ message: t.shiftDeleted, tone: "success" });
+      router.push("/schedule");
+    } finally {
+      setConfirmDelete(false);
+      setBusy(false);
+    }
+  }
+
+  const warnings = isLeave ? [] : shiftWarnings({
+    start: form.start,
+    end: form.end,
+    splitStart: form.split ? form.splitStart : "",
+    splitEnd: form.split ? form.splitEnd : "",
+  });
+  const countedBreak = breakMinutesForSave(form.pause, !isLeave) ?? 0;
+  const countedSplitBreak = form.split ? (breakMinutesForSave(form.splitPause, true) ?? 0) : 0;
+  const countedHours = !isLeave ? formatWorkHours(shiftWorkHours({ kind: "work", start: form.start, end: form.end, breakMins: countedBreak, splitStart: form.split ? form.splitStart : "", splitEnd: form.split ? form.splitEnd : "", splitBreakMins: countedSplitBreak })) : "";
 
   if (!ready || !shiftsReady) return <Shell title={t.shiftTitle}><BrandLoader label={t.loading} /></Shell>;
   if (!isPlanner) {
@@ -633,7 +698,22 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
             <div><label className="field-lbl">{partialLeave ? t.workTimes : t.start}</label><input className="field-input" type="time" value={form.start} onChange={(event) => setForm((current) => ({ ...current, start: event.target.value }))} /></div>
             <div><label className="field-lbl">{t.end}</label><input className="field-input" type="time" value={form.end} onChange={(event) => setForm((current) => ({ ...current, end: event.target.value }))} /></div>
           </div>
-          {isLeave ? null : <div><label className="field-lbl">{t.breakMins}</label><input className="field-input" type="number" placeholder="30" value={form.pause} onChange={(event) => setForm((current) => ({ ...current, pause: event.target.value }))} /></div>}
+          {isLeave ? null : <>
+            <div>
+              <label className="field-lbl">{t.breakMins}</label>
+              <input className="field-input" type="number" placeholder="30" value={form.pause} onChange={(event) => setForm((current) => ({ ...current, pause: event.target.value }))} />
+              <p style={{ fontSize: 12, color: "var(--text3)", margin: "4px 0 0" }}>{t.breakDefaultHint}</p>
+            </div>
+            <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13 }}>
+              <input type="checkbox" checked={form.split} onChange={(event) => setForm((current) => ({ ...current, split: event.target.checked }))} />
+              {t.splitShift}
+            </label>
+            {form.split ? <div className="field-row">
+              <div><label className="field-lbl">{t.splitStart}</label><input className="field-input" type="time" value={form.splitStart} onChange={(event) => setForm((current) => ({ ...current, splitStart: event.target.value }))} /></div>
+              <div><label className="field-lbl">{t.end}</label><input className="field-input" type="time" value={form.splitEnd} onChange={(event) => setForm((current) => ({ ...current, splitEnd: event.target.value }))} /></div>
+              <div><label className="field-lbl">{t.breakMins}</label><input className="field-input" type="number" placeholder="30" value={form.splitPause} onChange={(event) => setForm((current) => ({ ...current, splitPause: event.target.value }))} /></div>
+            </div> : null}
+          </>}
         </>}
         <div><label className="field-lbl">{isLeave ? t.comment : t.note}</label><input className="field-input" placeholder={t.optional} value={form.note} onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))} /></div>
         <p style={{ fontSize: 12, color: "var(--text3)", margin: 0 }}>{t.autoTranslate}</p>
@@ -644,10 +724,16 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
             {REPEAT_WEEKS.map((weeks) => <option key={weeks} value={String(weeks)}>{repeatLabels[weeks]}</option>)}
           </select>
         </div>
-        <div className="schedule-form-actions" style={{ display: "flex", gap: 10 }}>
+        {warnings.length ? <div style={{ padding: "10px 12px", background: "var(--amber-bg)", border: "1px solid #FDE68A", borderRadius: 8, fontSize: 13, color: "var(--amber)" }}>
+          {warnings.map((warning) => <p key={warning.code} style={{ margin: "0 0 4px" }}>{warning.code === "long" ? fill(t.longShiftWarning, { hours: String(warning.hours ?? "") }) : warning.code === "splitLong" ? fill(t.splitLongWarning, { hours: String(warning.hours ?? "") }) : t.splitOverlapWarning}</p>)}
+        </div> : null}
+        {!isLeave && form.start && form.end ? <p style={{ fontSize: 12, color: "var(--text3)", margin: 0 }}>{fill(t.countedHours, { hours: countedHours })}</p> : null}
+        <div className="schedule-form-actions" style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <button type="button" className="btn btn-primary" style={{ flex: 1 }} disabled={busy} onClick={() => void save()}>{t.save}</button>
+          {emp.shifts[day] && emp.shifts[day].kind !== "empty" ? <button type="button" className="btn btn-ghost" style={{ color: "var(--red)" }} disabled={busy} onClick={() => setConfirmDelete(true)}>{t.deleteShift}</button> : null}
           <Link href="/schedule" className="btn btn-ghost">{t.cancel}</Link>
         </div>
+        <ConfirmDialog open={confirmDelete} title={t.deleteShift} message={t.deleteShiftConfirm} confirmLabel={t.deleteShift} cancelLabel={t.cancel} pending={busy} onConfirm={() => void remove()} onCancel={() => setConfirmDelete(false)} />
       </div>
     </section>
   </Shell>;

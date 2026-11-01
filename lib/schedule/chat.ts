@@ -25,8 +25,9 @@ function parseLocale(value: unknown): ChatLocale {
 function shiftLine(row: PublicShift, names: Map<string, string>, locale: ChatLocale) {
   const who = names.get(row.userId) || row.userId;
   const kind = row.kind === "vac" ? "VACATION" : row.kind === "off" ? `OFF ${row.leaveCategory || ""} ${row.leaveDuration || ""}`.trim() : "WORK";
-  const times = row.start && row.end ? `${row.start.slice(0, 5)}–${row.end.slice(0, 5)}` : "full day";
-  const hours = row.kind === "work" ? ` ${shiftWorkHours({ kind: row.kind, start: row.start, end: row.end, breakMins: row.breakMins }).toFixed(1)}h` : "";
+  const split = row.splitStart && row.splitEnd ? ` / ${row.splitStart.slice(0, 5)}–${row.splitEnd.slice(0, 5)}` : "";
+  const times = row.start && row.end ? `${row.start.slice(0, 5)}–${row.end.slice(0, 5)}${split}` : "full day";
+  const hours = row.kind === "work" ? ` ${shiftWorkHours(row).toFixed(1)}h` : "";
   const draft = row.draft ? " DRAFT" : "";
   const note = row.note ? ` note:${row.note.slice(0, 80)}` : "";
   return `${who} | ${row.date} ${formatDayHeader(row.date, locale)} | ${kind} ${times}${hours}${draft}${note}`;
@@ -76,7 +77,7 @@ async function schedulePack(actor: ScheduleActor, locale: ChatLocale) {
   }).join("\n") || "(no leave or swap requests)";
   const templateLines = templates.map((row) => `${pickLocalized(row.name, row.nameDe, row.nameIt, locale)} ${row.startTime}–${row.endTime} break ${row.breakMinutes}m`).join("\n") || "(no templates)";
   const hotelName = hotel ? pickLocalized(hotel.hotelNameEn, hotel.hotelNameDe, hotel.hotelNameIt, locale) : "";
-  const workHours = shifts.filter((row) => row.kind === "work").reduce((total, row) => total + shiftWorkHours({ kind: row.kind, start: row.start, end: row.end, breakMins: row.breakMins }), 0);
+  const workHours = shifts.filter((row) => row.kind === "work").reduce((total, row) => total + shiftWorkHours(row), 0);
   return [
     "PACK TYPE: hotel roster facts from QualityFriend. Do not invent people, days, or hours.",
     `Hotel: ${hotelName || "(unnamed)"}`,

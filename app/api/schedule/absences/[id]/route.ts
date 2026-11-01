@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { scheduleEditor } from "../../../../../lib/schedule/access";
-import { decideAbsence } from "../../../../../lib/schedule/leaves";
+import { decideAbsence, deleteAbsence } from "../../../../../lib/schedule/leaves";
 import { supportedLocales } from "../../../../../lib/i18n/dictionaries";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -18,6 +18,20 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json(result);
   } catch (error) {
     console.error("Decide absence failed", error);
+    return NextResponse.json({ error: "SAVE_FAILED" }, { status: 500 });
+  }
+}
+
+export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const actor = await scheduleEditor();
+  if (!actor) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+  const { id } = await params;
+  try {
+    const result = await deleteAbsence(actor, id);
+    if ("error" in result) return NextResponse.json(result, { status: result.error === "FORBIDDEN" ? 403 : 404 });
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error("Delete absence failed", error);
     return NextResponse.json({ error: "SAVE_FAILED" }, { status: 500 });
   }
 }

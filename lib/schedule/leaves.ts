@@ -281,3 +281,40 @@ export async function decideAbsence(actor: ScheduleActor, id: string, status: "a
   if (!result) return { error: "NOT_FOUND" as const };
   return { absence: asPublic(result, locale) };
 }
+
+export async function deleteAbsence(actor: ScheduleActor, id: string) {
+  await ensureTable();
+  if (!actor.canManage || !UUID.test(id)) return { error: "FORBIDDEN" as const };
+  const removed = await prisma.$transaction(async (tx) => {
+    const previous = await tx.hotelLeaveRequest.findFirst({
+      where: { id, hotelTenantId: actor.hotel_tenant_id },
+      include: leaveInclude,
+    });
+    if (!previous) return null;
+    const category = fromDbCategory(previous.category);
+    if (previous.status === "APPROVED" && category !== "swap") {
+      const dates = datesInclusive(isoDate(previous.startDate), isoDate(previous.endDate)).map((date) => new Date(`${date}T00:00:00.000Z`));
+      const where = {
+        hotelTenantId: actor.hotel_tenant_id,
+        userId: previous.userId,
+        workDate: { in: dates },
+        kind: { in: ["OFF", "VACATION"] },
+      };
+      await tx.hotelShiftDraft.deleteMany({ where });
+      await tx.hotelShift.deleteMany({ where });
+    }
+    await tx.hotelLeaveRequest.delete({ where: { id } });
+    const title = `${personName(previous.user)} · ${isoDate(previous.startDate)}`;
+    await recordAuditLog(tx, { module: "schedule",
+      hotelTenantId: actor.hotel_tenant_id,
+      actorId: actor.id,
+      action: "DELETE",
+      entityType: category === "swap" ? "SWAP_REQUEST" : "LEAVE_REQUEST",
+      entityId: id,
+      changes: { before: { title, status: previous.status } },
+    });
+    return previous;
+  });
+  if (!removed) return { error: "NOT_FOUND" as const };
+  return { ok: true as const };
+}

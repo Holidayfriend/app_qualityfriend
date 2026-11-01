@@ -1956,18 +1956,21 @@ model HotelShift {
   kind           String              @db.VarChar(20)
   startTime      String              @default("") @map("start_time") @db.VarChar(5)
   endTime        String              @default("") @map("end_time") @db.VarChar(5)
-  breakMinutes   Int                 @default(0) @map("break_minutes")
-  leaveCategory  String              @default("") @map("leave_category") @db.VarChar(20)
-  leaveDuration  String              @default("") @map("leave_duration") @db.VarChar(20)
-  note           String              @default("") @db.Text
-  noteDe         String              @default("") @map("note_de") @db.Text
-  noteIt         String              @default("") @map("note_it") @db.Text
-  originalLocale String              @default("en") @map("original_locale") @db.VarChar(8)
-  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
-  updatedById    String?             @map("updated_by_id") @db.Uuid
-  hotelTenant    HotelTenant         @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
-  user           User                @relation("HotelShiftEmployee", fields: [userId], references: [id], onDelete: Cascade)
+  breakMinutes     Int                 @default(0) @map("break_minutes")
+  splitStartTime   String              @default("") @map("split_start_time") @db.VarChar(5)
+  splitEndTime     String              @default("") @map("split_end_time") @db.VarChar(5)
+  splitBreakMinutes Int                @default(0) @map("split_break_minutes")
+  leaveCategory    String              @default("") @map("leave_category") @db.VarChar(20)
+  leaveDuration    String              @default("") @map("leave_duration") @db.VarChar(20)
+  note             String              @default("") @db.Text
+  noteDe           String              @default("") @map("note_de") @db.Text
+  noteIt           String              @default("") @map("note_it") @db.Text
+  originalLocale   String              @default("en") @map("original_locale") @db.VarChar(8)
+  createdAt        DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedById      String?             @map("updated_by_id") @db.Uuid
+  hotelTenant      HotelTenant         @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+  user             User                @relation("HotelShiftEmployee", fields: [userId], references: [id], onDelete: Cascade)
   createdBy      User                @relation("HotelShiftAuthor", fields: [createdById], references: [id], onDelete: Restrict)
   updatedBy      User?               @relation("HotelShiftUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   template       HotelShiftTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
@@ -1991,18 +1994,21 @@ model HotelShiftDraft {
   kind           String              @db.VarChar(20)
   startTime      String              @default("") @map("start_time") @db.VarChar(5)
   endTime        String              @default("") @map("end_time") @db.VarChar(5)
-  breakMinutes   Int                 @default(0) @map("break_minutes")
-  leaveCategory  String              @default("") @map("leave_category") @db.VarChar(20)
-  leaveDuration  String              @default("") @map("leave_duration") @db.VarChar(20)
-  note           String              @default("") @db.Text
-  noteDe         String              @default("") @map("note_de") @db.Text
-  noteIt         String              @default("") @map("note_it") @db.Text
-  originalLocale String              @default("en") @map("original_locale") @db.VarChar(8)
-  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
-  updatedById    String?             @map("updated_by_id") @db.Uuid
-  hotelTenant    HotelTenant         @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
-  user           User                @relation("HotelShiftDraftEmployee", fields: [userId], references: [id], onDelete: Cascade)
+  breakMinutes     Int                 @default(0) @map("break_minutes")
+  splitStartTime   String              @default("") @map("split_start_time") @db.VarChar(5)
+  splitEndTime     String              @default("") @map("split_end_time") @db.VarChar(5)
+  splitBreakMinutes Int                @default(0) @map("split_break_minutes")
+  leaveCategory    String              @default("") @map("leave_category") @db.VarChar(20)
+  leaveDuration    String              @default("") @map("leave_duration") @db.VarChar(20)
+  note             String              @default("") @db.Text
+  noteDe           String              @default("") @map("note_de") @db.Text
+  noteIt           String              @default("") @map("note_it") @db.Text
+  originalLocale   String              @default("en") @map("original_locale") @db.VarChar(8)
+  createdAt        DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  updatedById      String?             @map("updated_by_id") @db.Uuid
+  hotelTenant      HotelTenant         @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+  user             User                @relation("HotelShiftDraftEmployee", fields: [userId], references: [id], onDelete: Cascade)
   createdBy      User                @relation("HotelShiftDraftAuthor", fields: [createdById], references: [id], onDelete: Restrict)
   updatedBy      User?               @relation("HotelShiftDraftUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
   template       HotelShiftTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)

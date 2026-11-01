@@ -8,6 +8,7 @@ import { addDaysIso, datesFromThroughWeeks, mondayOfIso, weekIsoDates } from "./
 import { translateShiftNote } from "./translate";
 import { notifySchedulePublished } from "./notify";
 import { shouldCopyWeekShift } from "./copy-policy";
+import { breakMinutesForSave } from "./shift-rules";
 import { Prisma } from "../../app/generated/prisma/client";
 import type { ScheduleActor } from "./access";
 import {
@@ -25,6 +26,9 @@ export type PublicShift = {
   start: string;
   end: string;
   breakMins: number;
+  splitStart: string;
+  splitEnd: string;
+  splitBreakMins: number;
   note: string;
   templateId: string;
   leaveCategory: LeaveCategory | "";
@@ -41,13 +45,6 @@ export function parseTime(value: string) {
   return `${String(hours).padStart(2, "0")}:${match[2]}`;
 }
 
-function parseBreakMins(value: unknown) {
-  if (value === "" || value == null) return 0;
-  const amount = typeof value === "number" ? value : Number(String(value).trim());
-  if (!Number.isFinite(amount)) return null;
-  return Math.round(amount);
-}
-
 function asPublic(row: {
   userId: string;
   workDate: Date;
@@ -55,6 +52,9 @@ function asPublic(row: {
   startTime: string;
   endTime: string;
   breakMinutes: number;
+  splitStartTime?: string;
+  splitEndTime?: string;
+  splitBreakMinutes?: number;
   note: string;
   noteDe: string;
   noteIt: string;
@@ -74,6 +74,9 @@ function asPublic(row: {
     start: row.startTime,
     end: row.endTime,
     breakMins: row.breakMinutes,
+    splitStart: row.splitStartTime ?? "",
+    splitEnd: row.splitEndTime ?? "",
+    splitBreakMins: row.splitBreakMinutes ?? 0,
     note: pickLocalized(row.note, row.noteDe, row.noteIt, locale),
     templateId: row.templateId ?? "",
     leaveCategory: kind === "off" ? leaveCategory : kind === "vac" ? "vacation" : "",
@@ -110,6 +113,9 @@ export async function ensureShiftTable() {
   await prisma.$executeRawUnsafe(`ALTER TABLE "hotel_shifts" ADD COLUMN IF NOT EXISTS "leave_category" VARCHAR(20) NOT NULL DEFAULT ''`);
   await prisma.$executeRawUnsafe(`ALTER TABLE "hotel_shifts" ADD COLUMN IF NOT EXISTS "leave_duration" VARCHAR(20) NOT NULL DEFAULT ''`);
   await prisma.$executeRawUnsafe(`ALTER TABLE "hotel_shifts" ADD COLUMN IF NOT EXISTS "updated_by_id" UUID`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "hotel_shifts" ADD COLUMN IF NOT EXISTS "split_start_time" VARCHAR(5) NOT NULL DEFAULT ''`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "hotel_shifts" ADD COLUMN IF NOT EXISTS "split_end_time" VARCHAR(5) NOT NULL DEFAULT ''`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "hotel_shifts" ADD COLUMN IF NOT EXISTS "split_break_minutes" INTEGER NOT NULL DEFAULT 0`);
   await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "hotel_shifts_hotel_tenant_id_user_id_work_date_key" ON "hotel_shifts"("hotel_tenant_id", "user_id", "work_date")`);
   await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "hotel_shifts_hotel_tenant_id_work_date_idx" ON "hotel_shifts"("hotel_tenant_id", "work_date")`);
   await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "hotel_shifts_user_id_work_date_idx" ON "hotel_shifts"("user_id", "work_date")`);
@@ -137,6 +143,9 @@ export async function ensureShiftTable() {
       CONSTRAINT "hotel_shift_drafts_pkey" PRIMARY KEY ("id")
     )
   `);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "hotel_shift_drafts" ADD COLUMN IF NOT EXISTS "split_start_time" VARCHAR(5) NOT NULL DEFAULT ''`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "hotel_shift_drafts" ADD COLUMN IF NOT EXISTS "split_end_time" VARCHAR(5) NOT NULL DEFAULT ''`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "hotel_shift_drafts" ADD COLUMN IF NOT EXISTS "split_break_minutes" INTEGER NOT NULL DEFAULT 0`);
   await prisma.$executeRawUnsafe(`CREATE UNIQUE INDEX IF NOT EXISTS "hotel_shift_drafts_hotel_tenant_id_user_id_work_date_key" ON "hotel_shift_drafts"("hotel_tenant_id", "user_id", "work_date")`);
 }
 
@@ -146,6 +155,9 @@ type ShiftWrite = {
   startTime: string;
   endTime: string;
   breakMinutes: number;
+  splitStartTime: string;
+  splitEndTime: string;
+  splitBreakMinutes: number;
   leaveCategory: string;
   leaveDuration: string;
   originalLocale: string;
@@ -166,15 +178,18 @@ async function writeShiftRow(
   await tx.$executeRawUnsafe(
     `INSERT INTO "${table}" (
       "id","hotel_tenant_id","user_id","created_by_id","updated_by_id","template_id","work_date","kind",
-      "start_time","end_time","break_minutes","leave_category","leave_duration","original_locale",
+      "start_time","end_time","break_minutes","split_start_time","split_end_time","split_break_minutes","leave_category","leave_duration","original_locale",
       "note","note_de","note_it","created_at","updated_at"
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7::date,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7::date,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)
     ON CONFLICT ("hotel_tenant_id","user_id","work_date") DO UPDATE SET
       "kind"=EXCLUDED."kind",
       "template_id"=EXCLUDED."template_id",
       "start_time"=EXCLUDED."start_time",
       "end_time"=EXCLUDED."end_time",
       "break_minutes"=EXCLUDED."break_minutes",
+      "split_start_time"=EXCLUDED."split_start_time",
+      "split_end_time"=EXCLUDED."split_end_time",
+      "split_break_minutes"=EXCLUDED."split_break_minutes",
       "leave_category"=EXCLUDED."leave_category",
       "leave_duration"=EXCLUDED."leave_duration",
       "original_locale"=EXCLUDED."original_locale",
@@ -194,6 +209,9 @@ async function writeShiftRow(
     data.startTime,
     data.endTime,
     data.breakMinutes,
+    data.splitStartTime,
+    data.splitEndTime,
+    data.splitBreakMinutes,
     data.leaveCategory,
     data.leaveDuration,
     data.originalLocale,
@@ -238,6 +256,9 @@ export async function applyOffDays(
     startTime: partial ? input.startTime : "",
     endTime: partial ? input.endTime : "",
     breakMinutes: 0,
+    splitStartTime: "",
+    splitEndTime: "",
+    splitBreakMinutes: 0,
     leaveCategory: vacation ? "" : toDbCategory(input.category),
     leaveDuration: toDbDuration(input.duration),
     originalLocale: input.locale,
@@ -284,6 +305,9 @@ function toShiftWrite(row: {
   startTime: string;
   endTime: string;
   breakMinutes: number;
+  splitStartTime?: string;
+  splitEndTime?: string;
+  splitBreakMinutes?: number;
   leaveCategory: string;
   leaveDuration: string;
   originalLocale: string;
@@ -298,6 +322,9 @@ function toShiftWrite(row: {
     startTime: row.startTime,
     endTime: row.endTime,
     breakMinutes: row.breakMinutes,
+    splitStartTime: row.splitStartTime ?? "",
+    splitEndTime: row.splitEndTime ?? "",
+    splitBreakMinutes: row.splitBreakMinutes ?? 0,
     leaveCategory: row.leaveCategory,
     leaveDuration: row.leaveDuration,
     originalLocale: row.originalLocale,
@@ -441,6 +468,9 @@ export async function publishWeekShifts(actor: ScheduleActor) {
         startTime: draft.startTime,
         endTime: draft.endTime,
         breakMinutes: draft.breakMinutes,
+        splitStartTime: draft.splitStartTime,
+        splitEndTime: draft.splitEndTime,
+        splitBreakMinutes: draft.splitBreakMinutes,
         leaveCategory: draft.leaveCategory,
         leaveDuration: draft.leaveDuration,
         originalLocale: draft.originalLocale,
@@ -519,9 +549,15 @@ export async function saveShiftAssignment(actor: ScheduleActor, body: Record<str
 
   const start = parseTime(typeof body.start === "string" ? body.start : "");
   const end = parseTime(typeof body.end === "string" ? body.end : "");
-  const breakMins = parseBreakMins(body.breakMins);
-  if (breakMins === null || breakMins < 0 || breakMins > 720) return { error: "INVALID_BREAK" as const };
-  const needsTimes = kind === "WORK" || ((kind === "OFF" || kind === "VACATION") && leaveDuration === "PARTIAL");
+  const work = kind === "WORK";
+  const breakMins = breakMinutesForSave(body.breakMins, work);
+  if (breakMins === null) return { error: "INVALID_BREAK" as const };
+  const splitStart = work ? parseTime(typeof body.splitStart === "string" ? body.splitStart : "") : "";
+  const splitEnd = work ? parseTime(typeof body.splitEnd === "string" ? body.splitEnd : "") : "";
+  if ((splitStart && !splitEnd) || (!splitStart && splitEnd)) return { error: "INVALID_TIMES" as const };
+  const splitBreakMins = splitStart ? breakMinutesForSave(body.splitBreakMins, true) : 0;
+  if (splitBreakMins === null) return { error: "INVALID_BREAK" as const };
+  const needsTimes = work || ((kind === "OFF" || kind === "VACATION") && leaveDuration === "PARTIAL");
   if (needsTimes && (!start || !end)) return { error: "INVALID_TIMES" as const };
 
   const note = typeof body.note === "string" ? body.note.trim().slice(0, 2000) : "";
@@ -542,7 +578,10 @@ export async function saveShiftAssignment(actor: ScheduleActor, body: Record<str
       templateId,
       startTime: keepTimes ? start : "",
       endTime: keepTimes ? end : "",
-      breakMinutes: kind === "WORK" ? breakMins : 0,
+      breakMinutes: work ? breakMins : 0,
+      splitStartTime: splitStart,
+      splitEndTime: splitEnd,
+      splitBreakMinutes: splitBreakMins,
       leaveCategory,
       leaveDuration,
       originalLocale: source,
@@ -560,4 +599,24 @@ export async function saveShiftAssignment(actor: ScheduleActor, body: Record<str
     });
   });
   return { ok: true as const, dates, dayCount: dates.length, repeat: dates.length === 1 ? "none" : repeat || "none" };
+}
+
+export async function deleteShiftDay(actor: ScheduleActor, userId: string, date: string) {
+  await ensureShiftTable();
+  if (!UUID.test(userId) || !DATE.test(date)) return { error: "INVALID" as const };
+  const day = new Date(`${date}T00:00:00.000Z`);
+  await prisma.$transaction(async (tx) => {
+    const where = { hotelTenantId: actor.hotel_tenant_id, userId, workDate: day };
+    await tx.hotelShiftDraft.deleteMany({ where });
+    await tx.hotelShift.deleteMany({ where });
+    await recordAuditLog(tx, { module: "schedule",
+      hotelTenantId: actor.hotel_tenant_id,
+      actorId: actor.id,
+      action: "DELETE",
+      entityType: "SHIFT",
+      entityId: userId,
+      changes: { after: { title: date } },
+    });
+  });
+  return { ok: true as const };
 }

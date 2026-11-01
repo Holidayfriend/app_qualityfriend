@@ -10,6 +10,9 @@ export type ShiftCell = {
   start: string;
   end: string;
   breakMins: number;
+  splitStart: string;
+  splitEnd: string;
+  splitBreakMins: number;
   note: string;
   templateId: string;
   leaveCategory: LeaveCategory | "";
@@ -18,7 +21,7 @@ export type ShiftCell = {
   draft: boolean;
 };
 export type Employee = { key: string; name: string; departmentId: string; departmentIds: string[]; departmentName: string; shifts: ShiftCell[] };
-export const EMPTY_CELL: ShiftCell = { kind: "empty", start: "", end: "", breakMins: 0, note: "", templateId: "", leaveCategory: "", leaveDuration: "", updatedBy: "", draft: false };
+export const EMPTY_CELL: ShiftCell = { kind: "empty", start: "", end: "", breakMins: 0, splitStart: "", splitEnd: "", splitBreakMins: 0, note: "", templateId: "", leaveCategory: "", leaveDuration: "", updatedBy: "", draft: false };
 export const EMPTY_SHIFTS: ShiftCell[] = Array.from({ length: 7 }, () => ({ ...EMPTY_CELL }));
 export type Absence = {
   id: string;

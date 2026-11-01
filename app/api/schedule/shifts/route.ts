@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { scheduleEditor, scheduleViewer } from "../../../../lib/schedule/access";
-import { countShiftDrafts, listWeekShifts, saveShiftAssignment } from "../../../../lib/schedule/shifts";
+import { countShiftDrafts, deleteShiftDay, listWeekShifts, saveShiftAssignment } from "../../../../lib/schedule/shifts";
 import { supportedLocales } from "../../../../lib/i18n/dictionaries";
 
 function localeOf(request: Request) {
@@ -15,6 +15,15 @@ export async function GET(request: Request) {
   const shifts = await listWeekShifts(actor, weekStart, localeOf(request));
   const draftCount = await countShiftDrafts(actor);
   return NextResponse.json({ shifts, draftCount }, { headers: { "Cache-Control": "no-store" } });
+}
+
+export async function DELETE(request: Request) {
+  const actor = await scheduleEditor();
+  if (!actor) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+  const url = new URL(request.url);
+  const result = await deleteShiftDay(actor, url.searchParams.get("userId") ?? "", url.searchParams.get("date") ?? "");
+  if ("error" in result) return NextResponse.json(result, { status: 400 });
+  return NextResponse.json(result);
 }
 
 export async function POST(request: Request) {

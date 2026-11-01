@@ -27,6 +27,9 @@ export type ShiftExportRow = {
   start: string;
   end: string;
   breakMins: number;
+  splitStart?: string;
+  splitEnd?: string;
+  splitBreakMins?: number;
   note: string;
   leaveCategory?: string;
   leaveDuration?: string;
@@ -55,6 +58,9 @@ export function entriesFromShifts(people: ExportPerson[], shifts: ShiftExportRow
       start: shift.start,
       end: shift.end,
       breakMins: shift.breakMins,
+      splitStart: shift.splitStart || "",
+      splitEnd: shift.splitEnd || "",
+      splitBreakMins: shift.splitBreakMins || 0,
       note: shift.note,
       templateId: "",
       leaveCategory: shift.leaveCategory === "paid" || shift.leaveCategory === "unpaid" || shift.leaveCategory === "paidSick" || shift.leaveCategory === "swap" || shift.leaveCategory === "vacation" ? shift.leaveCategory : "",
@@ -70,9 +76,9 @@ export function entriesFromShifts(people: ExportPerson[], shifts: ShiftExportRow
       employee: person.name,
       department: person.departmentName,
       type,
-      start: work || cell.leaveDuration === "partial" ? cell.start.slice(0, 5) : "",
-      end: work || cell.leaveDuration === "partial" ? cell.end.slice(0, 5) : "",
-      breakMins: work ? Math.max(0, cell.breakMins) : 0,
+      start: work || cell.leaveDuration === "partial" ? [cell.start.slice(0, 5), cell.splitStart?.slice(0, 5)].filter(Boolean).join(" / ") : "",
+      end: work || cell.leaveDuration === "partial" ? [cell.end.slice(0, 5), cell.splitEnd?.slice(0, 5)].filter(Boolean).join(" / ") : "",
+      breakMins: work ? Math.max(0, cell.breakMins) + (cell.splitStart && cell.splitEnd ? Math.max(0, cell.splitBreakMins || 0) : 0) : 0,
       hours: shiftWorkHours(cell),
       duration: cell.leaveDuration === "partial" || cell.leaveDuration === "full" ? cell.leaveDuration : "",
       note: cell.note,
@@ -144,7 +150,8 @@ export function pdfCellLabel(cell: ShiftCell | undefined, absent: string, dash: 
   if (cell.kind === "off" || cell.kind === "vac") return absent;
   const start = cell.start.slice(0, 5);
   const end = cell.end.slice(0, 5);
-  return start && end ? `${start}–${end}` : dash;
+  const split = cell.splitStart && cell.splitEnd ? ` / ${cell.splitStart.slice(0, 5)}–${cell.splitEnd.slice(0, 5)}` : "";
+  return start && end ? `${start}–${end}${split}` : dash;
 }
 
 export function weekExportEntries(staff: { name: string; departmentName: string; shifts: ShiftCell[] }[], weekDates: string[]): ExportEntry[] {
@@ -160,9 +167,9 @@ export function weekExportEntries(staff: { name: string; departmentName: string;
         employee: person.name,
         department: person.departmentName,
         type,
-        start: work || cell.leaveDuration === "partial" ? cell.start.slice(0, 5) : "",
-        end: work || cell.leaveDuration === "partial" ? cell.end.slice(0, 5) : "",
-        breakMins: work ? Math.max(0, cell.breakMins) : 0,
+        start: work || cell.leaveDuration === "partial" ? [cell.start.slice(0, 5), cell.splitStart?.slice(0, 5)].filter(Boolean).join(" / ") : "",
+        end: work || cell.leaveDuration === "partial" ? [cell.end.slice(0, 5), cell.splitEnd?.slice(0, 5)].filter(Boolean).join(" / ") : "",
+        breakMins: work ? Math.max(0, cell.breakMins) + (cell.splitStart && cell.splitEnd ? Math.max(0, cell.splitBreakMins || 0) : 0) : 0,
         hours: shiftWorkHours(cell),
         duration: cell.leaveDuration === "partial" || cell.leaveDuration === "full" ? cell.leaveDuration : "",
         note: cell.note,

@@ -15,6 +15,9 @@ type ShiftInput = {
   start: string;
   end: string;
   breakMins: string;
+  splitStart: string;
+  splitEnd: string;
+  splitBreakMins: string;
   note: string;
   template: string;
   repeat: string;
@@ -41,6 +44,9 @@ type PublicShift = {
   start: string;
   end: string;
   breakMins: number;
+  splitStart?: string;
+  splitEnd?: string;
+  splitBreakMins?: number;
   note: string;
   templateId: string;
   leaveCategory?: LeaveCategory | "";
@@ -68,6 +74,8 @@ type Store = {
   draftCount: number;
   setEmployees: (employees: Employee[] | ((current: Employee[]) => Employee[])) => void;
   saveShift: (input: ShiftInput) => Promise<number | null>;
+  deleteShift: (empKey: string, day: number) => Promise<boolean>;
+  deleteAbsence: (id: string) => Promise<boolean>;
   publishWeek: () => Promise<{ cells: number; employees: number } | null>;
   copyWeekTo: (toWeekStart: string) => Promise<{ cells: number; targetWeekStart: string } | null>;
   saveAbsence: (input: AbsenceInput) => Promise<boolean>;
@@ -123,6 +131,9 @@ function asShifts(value: unknown): PublicShift[] {
       start: typeof row.start === "string" ? row.start : "",
       end: typeof row.end === "string" ? row.end : "",
       breakMins: typeof row.breakMins === "number" ? row.breakMins : 0,
+      splitStart: typeof row.splitStart === "string" ? row.splitStart : "",
+      splitEnd: typeof row.splitEnd === "string" ? row.splitEnd : "",
+      splitBreakMins: typeof row.splitBreakMins === "number" ? row.splitBreakMins : 0,
       note: typeof row.note === "string" ? row.note : "",
       templateId: typeof row.templateId === "string" ? row.templateId : "",
       leaveCategory: asLeaveCategory(row.leaveCategory),
@@ -171,6 +182,9 @@ function cellFromShift(row: PublicShift | undefined): ShiftCell {
     start: row.start,
     end: row.end,
     breakMins: row.breakMins,
+    splitStart: row.splitStart || "",
+    splitEnd: row.splitEnd || "",
+    splitBreakMins: row.splitBreakMins || 0,
     note: row.note,
     templateId: row.templateId,
     leaveCategory: row.leaveCategory || "",
@@ -291,6 +305,9 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
         start: input.start,
         end: input.end,
         breakMins: input.breakMins,
+        splitStart: input.splitStart,
+        splitEnd: input.splitEnd,
+        splitBreakMins: input.splitBreakMins,
         note: input.note,
         template: input.template,
         repeat: input.repeat,
@@ -303,6 +320,23 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
     await reloadWeekShifts().catch(() => undefined);
     return typeof body.dayCount === "number" ? body.dayCount : 1;
   }, [locale, reloadWeekShifts, weekDates]);
+
+  const deleteShift = useCallback(async (empKey: string, day: number) => {
+    const date = weekDates[day];
+    if (!date) return false;
+    const response = await fetch(`/api/schedule/shifts?userId=${encodeURIComponent(empKey)}&date=${date}`, { method: "DELETE" });
+    if (!response.ok) return false;
+    await reloadWeekShifts().catch(() => undefined);
+    return true;
+  }, [reloadWeekShifts, weekDates]);
+
+  const deleteAbsence = useCallback(async (id: string) => {
+    const response = await fetch(`/api/schedule/absences/${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (!response.ok) return false;
+    setAbsences((current) => current.filter((item) => item.id !== id));
+    await reloadWeekShifts().catch(() => undefined);
+    return true;
+  }, [reloadWeekShifts]);
 
   const publishWeek = useCallback(async () => {
     const response = await fetch("/api/schedule/publish", { method: "POST" });
@@ -389,8 +423,8 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
     goToNextWeek: () => setWeekStartIso((current) => addDaysIso(current, 7)),
     goToWeek,
     departments, employees, absences, templates, draftCount,
-    setEmployees, saveShift, publishWeek, copyWeekTo, saveAbsence, decideAbsence, saveTemplate, deleteTemplate,
-  }), [absences, copyWeekTo, currentUserId, decideAbsence, deleteTemplate, departments, draftCount, employees, fullName, goToWeek, isPlanner, publishWeek, ready, role, saveAbsence, saveShift, saveTemplate, shiftsReady, templates, weekDates, weekStartIso]);
+    setEmployees, saveShift, deleteShift, deleteAbsence, publishWeek, copyWeekTo, saveAbsence, decideAbsence, saveTemplate, deleteTemplate,
+  }), [absences, copyWeekTo, currentUserId, decideAbsence, deleteAbsence, deleteShift, deleteTemplate, departments, draftCount, employees, fullName, goToWeek, isPlanner, publishWeek, ready, role, saveAbsence, saveShift, saveTemplate, shiftsReady, templates, weekDates, weekStartIso]);
 
   return <ScheduleContext.Provider value={value}>{children}</ScheduleContext.Provider>;
 }

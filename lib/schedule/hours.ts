@@ -1,21 +1,19 @@
 import type { ShiftCell } from "./demo-data";
+import { spanMinutes } from "./shift-rules";
 
-function clockMins(value: string) {
-  const match = value.trim().match(/^(\d{1,2}):([0-5]\d)/);
-  if (!match) return null;
-  const hours = Number(match[1]);
-  if (hours > 23) return null;
-  return hours * 60 + Number(match[2]);
+function blockHours(start: string, end: string, breakMins: number) {
+  const mins = spanMinutes(start, end);
+  if (mins == null) return 0;
+  return Math.max(0, mins - Math.max(0, breakMins)) / 60;
 }
 
-export function shiftWorkHours(shift: Pick<ShiftCell, "kind" | "start" | "end" | "breakMins">) {
+export function shiftWorkHours(shift: Pick<ShiftCell, "kind" | "start" | "end" | "breakMins"> & Partial<Pick<ShiftCell, "splitStart" | "splitEnd" | "splitBreakMins">>) {
   if (shift.kind !== "work") return 0;
-  const start = clockMins(shift.start);
-  const end = clockMins(shift.end);
-  if (start == null || end == null) return 0;
-  let mins = end - start;
-  if (mins <= 0) mins += 24 * 60;
-  return Math.max(0, mins - Math.max(0, shift.breakMins)) / 60;
+  const first = blockHours(shift.start, shift.end, shift.breakMins);
+  const splitStart = shift.splitStart?.trim() ?? "";
+  const splitEnd = shift.splitEnd?.trim() ?? "";
+  if (!splitStart || !splitEnd) return first;
+  return first + blockHours(splitStart, splitEnd, shift.splitBreakMins ?? 0);
 }
 
 export function weekWorkHours(employees: { shifts: ShiftCell[] }[]) {
