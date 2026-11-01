@@ -30,6 +30,7 @@ export type PublicAbsence = {
   status: "open" | "approved" | "rejected";
   source: "request" | "direct";
   decidedBy: string;
+  decisionReason: string;
   swapWith: string;
   swapWithUserId: string;
 };
@@ -63,6 +64,7 @@ async function ensureTable() {
   `);
   await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "hotel_leave_requests_hotel_tenant_id_status_start_date_idx" ON "hotel_leave_requests"("hotel_tenant_id", "status", "start_date")`);
   await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "hotel_leave_requests_user_id_start_date_idx" ON "hotel_leave_requests"("user_id", "start_date")`);
+  await prisma.$executeRawUnsafe(`ALTER TABLE "hotel_leave_requests" ADD COLUMN IF NOT EXISTS "decision_reason" VARCHAR(2000) NOT NULL DEFAULT ''`);
   await prisma.$executeRawUnsafe(`ALTER TABLE "hotel_leave_requests" ADD COLUMN IF NOT EXISTS "swap_with_user_id" UUID`);
   await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "hotel_leave_requests_swap_with_user_id_idx" ON "hotel_leave_requests"("swap_with_user_id")`);
 }
@@ -89,6 +91,7 @@ function asPublic(row: {
   source: string;
   user: { firstName: string; lastName: string };
   decidedBy?: { firstName: string; lastName: string } | null;
+  decisionReason?: string;
   swapWith?: { firstName: string; lastName: string } | null;
   swapWithUserId?: string | null;
 }, locale: string): PublicAbsence {
@@ -107,6 +110,7 @@ function asPublic(row: {
     status,
     source: row.source === "DIRECT" ? "direct" : "request",
     decidedBy: personName(row.decidedBy),
+    decisionReason: row.decisionReason ?? "",
     swapWith: personName(row.swapWith),
     swapWithUserId: row.swapWithUserId ?? "",
   };
@@ -228,7 +232,7 @@ export async function createAbsence(actor: ScheduleActor, body: Record<string, u
   return { absence: asPublic(row, locale) };
 }
 
-export async function decideAbsence(actor: ScheduleActor, id: string, status: "approved" | "rejected", locale: string, confirmOverwrite = false) {
+export async function decideAbsence(actor: ScheduleActor, id: string, status: "approved" | "rejected", locale: string, confirmOverwrite = false, reason = "") {
   await ensureTable();
   if (!actor.canManage || !UUID.test(id)) return { error: "FORBIDDEN" as const };
   if (status === "approved" && !confirmOverwrite) {
@@ -241,6 +245,7 @@ export async function decideAbsence(actor: ScheduleActor, id: string, status: "a
       if (conflicts.length) return { error: "SHIFT_CONFLICT" as const, dates: conflicts };
     }
   }
+  const decisionReason = status === "rejected" ? reason.trim().slice(0, 2000) : "";
   const nextStatus = status === "approved" ? "APPROVED" : "REJECTED";
   const result = await prisma.$transaction(async (tx) => {
     const previous = await tx.hotelLeaveRequest.findFirst({
@@ -252,7 +257,7 @@ export async function decideAbsence(actor: ScheduleActor, id: string, status: "a
     if (status === "approved" && category === "swap" && !previous.swapWithUserId) return null;
     const updated = await tx.hotelLeaveRequest.update({
       where: { id },
-      data: { status: nextStatus, decidedById: actor.id },
+      data: { status: nextStatus, decidedById: actor.id, decisionReason },
       include: leaveInclude,
     });
     if (status === "approved") {
@@ -275,9 +280,9 @@ export async function decideAbsence(actor: ScheduleActor, id: string, status: "a
       }
     }
     const isSwap = fromDbCategory(previous.category) === "swap";
-    await notifyLeaveDecided(tx, actor.hotel_tenant_id, previous.userId, actor.id, status === "approved", isSwap);
+    await notifyLeaveDecided(tx, actor.hotel_tenant_id, previous.userId, actor.id, status === "approved", isSwap, decisionReason);
     if (isSwap && previous.swapWithUserId) {
-      await notifyLeaveDecided(tx, actor.hotel_tenant_id, previous.swapWithUserId, actor.id, status === "approved", true);
+      await notifyLeaveDecided(tx, actor.hotel_tenant_id, previous.swapWithUserId, actor.id, status === "approved", true, decisionReason);
     }
     const pairTitle = `${personName(previous.user)}${previous.swapWith ? ` ↔ ${personName(previous.swapWith)}` : ""}`;
     await recordAuditLog(tx, { module: "schedule",
@@ -288,7 +293,7 @@ export async function decideAbsence(actor: ScheduleActor, id: string, status: "a
       entityId: id,
       changes: {
         before: { status: previous.status, title: pairTitle },
-        after: { status: nextStatus, title: pairTitle },
+        after: { status: nextStatus, title: pairTitle, decisionReason },
       },
     });
     return updated;

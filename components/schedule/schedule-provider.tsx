@@ -87,7 +87,7 @@ type Store = {
   publishWeek: (weekStart: string) => Promise<{ cells: number; employees: number } | null>;
   copyWeekTo: (toWeekStart: string) => Promise<{ cells: number; targetWeekStart: string } | null>;
   saveAbsence: (input: AbsenceInput) => Promise<boolean | string[]>;
-  decideAbsence: (id: string, status: AbsenceStatus, confirmOverwrite?: boolean) => Promise<boolean | string[]>;
+  decideAbsence: (id: string, status: AbsenceStatus, confirmOverwrite?: boolean, reason?: string) => Promise<boolean | string[]>;
   saveTemplate: (id: string | undefined, input: TemplateInput) => Promise<string | null>;
   deleteTemplate: (id: string) => Promise<boolean>;
 };
@@ -177,6 +177,7 @@ function asAbsences(value: unknown): Absence[] {
       status: row.status === "approved" || row.status === "rejected" ? row.status : "open",
       source: row.source === "direct" ? "direct" : "request",
       decidedBy: typeof row.decidedBy === "string" ? row.decidedBy : "",
+      decisionReason: typeof row.decisionReason === "string" ? row.decisionReason : "",
       swapWith: typeof row.swapWith === "string" ? row.swapWith : "",
       swapWithUserId: typeof row.swapWithUserId === "string" ? row.swapWithUserId : "",
     }];
@@ -392,11 +393,11 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
     return true;
   }, [locale, reloadWeekShifts]);
 
-  const decideAbsence = useCallback(async (id: string, status: AbsenceStatus, confirmOverwrite = false) => {
+  const decideAbsence = useCallback(async (id: string, status: AbsenceStatus, confirmOverwrite = false, reason = "") => {
     const response = await fetch(`/api/schedule/absences/${id}?locale=${locale}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status, confirmOverwrite }),
+      body: JSON.stringify({ status, confirmOverwrite, reason }),
     });
     const body = await response.json().catch(() => ({})) as { absence?: Absence; error?: string; dates?: unknown };
     const conflicts = conflictDates(body);

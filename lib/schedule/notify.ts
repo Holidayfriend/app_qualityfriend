@@ -76,8 +76,9 @@ export async function notifyLeaveRequested(tx: Tx, hotelTenantId: string, reques
   });
 }
 
-export async function notifyLeaveDecided(tx: Tx, hotelTenantId: string, employeeId: string, actorId: string, approved: boolean, swap: boolean) {
+export async function notifyLeaveDecided(tx: Tx, hotelTenantId: string, employeeId: string, actorId: string, approved: boolean, swap: boolean, reason = "") {
   if (employeeId === actorId) return;
+  const why = reason.trim().slice(0, 300);
   const dest = swap ? "/schedule/swaps" : "/schedule/absences";
   await notify(tx, {
     hotelTenantId,
@@ -91,9 +92,9 @@ export async function notifyLeaveDecided(tx: Tx, hotelTenantId: string, employee
         it: { title: swap ? "Scambio turno approvato" : "Permesso approvato", body: swap ? "Lo scambio è stato approvato. Apri La mia settimana per vedere i turni aggiornati." : "La tua richiesta è stata approvata." },
       }
       : {
-        en: { title: swap ? "Shift swap rejected" : "Time off rejected", body: swap ? "The shift swap request was rejected." : "Your request was rejected." },
-        de: { title: swap ? "Schichttausch abgelehnt" : "Freistellung abgelehnt", body: swap ? "Die Tauschanfrage wurde abgelehnt." : "Deine Anfrage wurde abgelehnt." },
-        it: { title: swap ? "Scambio turno rifiutato" : "Permesso rifiutato", body: swap ? "La richiesta di scambio è stata rifiutata." : "La tua richiesta è stata rifiutata." },
+        en: { title: swap ? "Shift swap rejected" : "Time off rejected", body: why ? (swap ? `The shift swap request was rejected. Reason: ${why}` : `Your request was rejected. Reason: ${why}`) : (swap ? "The shift swap request was rejected." : "Your request was rejected.") },
+        de: { title: swap ? "Schichttausch abgelehnt" : "Freistellung abgelehnt", body: why ? (swap ? `Die Tauschanfrage wurde abgelehnt. Grund: ${why}` : `Deine Anfrage wurde abgelehnt. Grund: ${why}`) : (swap ? "Die Tauschanfrage wurde abgelehnt." : "Deine Anfrage wurde abgelehnt.") },
+        it: { title: swap ? "Scambio turno rifiutato" : "Permesso rifiutato", body: why ? (swap ? `La richiesta di scambio è stata rifiutata. Motivo: ${why}` : `La tua richiesta è stata rifiutata. Motivo: ${why}`) : (swap ? "La richiesta di scambio è stata rifiutata." : "La tua richiesta è stata rifiutata.") },
       },
   });
 }

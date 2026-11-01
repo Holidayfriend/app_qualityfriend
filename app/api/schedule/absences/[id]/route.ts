@@ -13,7 +13,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const status = body?.status === "rejected" ? "rejected" : body?.status === "approved" ? "approved" : null;
   if (!status) return NextResponse.json({ error: "INVALID" }, { status: 400 });
   try {
-    const result = await decideAbsence(actor, id, status, lang, body?.confirmOverwrite === true);
+    const reason = typeof body?.reason === "string" ? body.reason : "";
+    const result = await decideAbsence(actor, id, status, lang, body?.confirmOverwrite === true, reason);
     if ("error" in result) {
       const statusCode = result.error === "FORBIDDEN" ? 403 : result.error === "SHIFT_CONFLICT" ? 409 : 404;
       return NextResponse.json(result, { status: statusCode });

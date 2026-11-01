@@ -2064,6 +2064,7 @@ model HotelLeaveRequest {
   noteIt         String      @default("") @map("note_it") @db.Text
   originalLocale String      @default("en") @map("original_locale") @db.VarChar(8)
   status         String      @db.VarChar(20)
+  decisionReason String      @default("") @map("decision_reason") @db.VarChar(2000)
   source         String      @default("REQUEST") @db.VarChar(20)
   createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)

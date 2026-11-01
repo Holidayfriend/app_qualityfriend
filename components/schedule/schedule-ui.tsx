@@ -397,6 +397,7 @@ export function ScheduleAbsencesPage({ board }: { board?: "swap" }) {
   const [busyId, setBusyId] = useState("");
   const [deleteId, setDeleteId] = useState("");
   const [sickConflict, setSickConflict] = useState<{ id: string; dates: string[] } | null>(null);
+  const [rejecting, setRejecting] = useState<{ id: string; reason: string } | null>(null);
   const own = employees.find((item) => item.key === currentUserId) ?? employees[0];
   const swapBoard = board === "swap";
   const rows = absences.filter((item) => {
@@ -405,17 +406,19 @@ export function ScheduleAbsencesPage({ board }: { board?: "swap" }) {
     return filter === "all" || item.status === filter;
   });
 
-  async function decide(id: string, status: AbsenceStatus, confirmOverwrite = false) {
-    if (busyId) return;
+  async function decide(id: string, status: AbsenceStatus, confirmOverwrite = false, reason = "") {
+    if (busyId) return false;
     setBusyId(id);
     try {
-      const ok = await decideAbsence(id, status, confirmOverwrite);
+      const ok = await decideAbsence(id, status, confirmOverwrite, reason);
       if (Array.isArray(ok)) {
         setSickConflict({ id, dates: ok });
-        return;
+        return false;
       }
       setSickConflict(null);
+      if (ok && status === "rejected") setRejecting(null);
       toast({ message: ok ? (status === "approved" ? (swapBoard ? t.swapApproved : t.absenceApproved) : t.absenceRejected) : t.saveShiftFailed, tone: ok ? "success" : "error" });
+      return ok;
     } finally {
       setBusyId("");
     }
@@ -465,9 +468,9 @@ export function ScheduleAbsencesPage({ board }: { board?: "swap" }) {
               <td>{item.start}{item.end !== item.start ? ` ${t.dash} ${item.end}` : ""}</td>
               <td>{item.note || t.dash}</td>
               <td><span className={`chip ${status.cls}`}>{status.label}</span></td>
-              <td>{item.status === "approved" && item.decidedBy ? fill(t.approvedBy, { name: item.decidedBy }) : item.status === "rejected" && item.decidedBy ? fill(t.rejectedBy, { name: item.decidedBy }) : t.dash}</td>
+              <td>{item.status === "approved" && item.decidedBy ? fill(t.approvedBy, { name: item.decidedBy }) : item.status === "rejected" && item.decidedBy ? fill(t.rejectedBy, { name: item.decidedBy }) : t.dash}{item.status === "rejected" && item.decisionReason ? <div style={{ marginTop: 4, fontSize: 12, color: "var(--text2)" }}>{item.decisionReason}</div> : null}</td>
               <td style={{ textAlign: "right" }}>{isPlanner ? <>
-                {item.status === "open" ? <><button type="button" className="icon-btn" disabled={Boolean(busyId)} onClick={() => void decide(item.id, "approved")}>✅</button> <button type="button" className="icon-btn danger" disabled={Boolean(busyId)} onClick={() => void decide(item.id, "rejected")}>✖️</button> </> : null}
+                {item.status === "open" ? <><button type="button" className="icon-btn" disabled={Boolean(busyId)} onClick={() => void decide(item.id, "approved")}>✅</button> <button type="button" className="icon-btn danger" disabled={Boolean(busyId)} onClick={() => setRejecting({ id: item.id, reason: "" })}>✖️</button> </> : null}
                 <button type="button" className="icon-btn danger" disabled={Boolean(busyId)} title={t.deleteAbsence} onClick={() => setDeleteId(item.id)}>🗑️</button>
               </> : t.dash}</td>
             </tr>;
@@ -488,17 +491,33 @@ export function ScheduleAbsencesPage({ board }: { board?: "swap" }) {
             {item.category !== "swap" ? <div><dt>{t.colDuration}</dt><dd>{durationLabel(item.category, item.duration, t)}{item.duration === "partial" && item.startTime && item.endTime ? ` (${item.startTime}–${item.endTime})` : ""}</dd></div> : null}
             {item.note ? <div><dt>{t.colNote}</dt><dd>{item.note}</dd></div> : null}
             {item.decidedBy ? <div><dt>{t.colDecidedBy}</dt><dd>{item.status === "approved" ? fill(t.approvedBy, { name: item.decidedBy }) : fill(t.rejectedBy, { name: item.decidedBy })}</dd></div> : null}
+            {item.status === "rejected" && item.decisionReason ? <div><dt>{t.rejectReason}</dt><dd>{item.decisionReason}</dd></div> : null}
           </dl>
           {isPlanner ? <div className="schedule-request-actions">
             {item.status === "open" ? <>
               <button type="button" className="btn btn-primary" disabled={Boolean(busyId)} onClick={() => void decide(item.id, "approved")}>✅ {t.statusApproved}</button>
-              <button type="button" className="btn btn-ghost" disabled={Boolean(busyId)} onClick={() => void decide(item.id, "rejected")}>✕ {t.statusRejected}</button>
+              <button type="button" className="btn btn-ghost" disabled={Boolean(busyId)} onClick={() => setRejecting({ id: item.id, reason: "" })}>✕ {t.statusRejected}</button>
             </> : null}
             <button type="button" className="btn btn-ghost" style={{ color: "var(--red)" }} disabled={Boolean(busyId)} onClick={() => setDeleteId(item.id)}>{t.deleteAbsence}</button>
           </div> : null}
         </article>;
       }) : <div className="schedule-empty-card">{t.empty}</div>}
     </div>
+    {rejecting ? <div className="no-print" style={{ position: "fixed", inset: 0, zIndex: 120, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,.45)", padding: 16 }} onMouseDown={(event) => { if (event.target === event.currentTarget && !busyId) setRejecting(null); }}>
+      <div role="dialog" aria-modal="true" className="card" style={{ width: "100%", maxWidth: 420, margin: 0 }}>
+        <div className="ch"><div className="ct">{t.rejectTitle}</div></div>
+        <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <label className="field-lbl">{t.rejectReason}
+            <textarea className="field-input" rows={3} maxLength={2000} placeholder={t.rejectReasonPlaceholder} value={rejecting.reason} disabled={Boolean(busyId)} onChange={(event) => setRejecting((current) => current ? { ...current, reason: event.target.value } : current)} />
+          </label>
+          <p style={{ fontSize: 12, color: "var(--text3)", margin: 0 }}>{t.rejectReasonOptional}</p>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <button type="button" className="btn btn-ghost" disabled={Boolean(busyId)} onClick={() => setRejecting(null)}>{t.cancel}</button>
+            <button type="button" className="btn btn-primary" disabled={Boolean(busyId)} onClick={() => { if (rejecting) void decide(rejecting.id, "rejected", false, rejecting.reason.trim()); }}>{t.rejectConfirm}</button>
+          </div>
+        </div>
+      </div>
+    </div> : null}
     <ConfirmDialog open={Boolean(deleteId)} title={t.deleteAbsence} message={t.deleteAbsenceConfirm} confirmLabel={t.deleteAbsence} cancelLabel={t.cancel} pending={Boolean(busyId)} onConfirm={() => void removeAbsence()} onCancel={() => setDeleteId("")} />
     <ConfirmDialog open={Boolean(sickConflict)} title={t.sickOverwriteTitle} message={fill(t.sickOverwriteMessage, { dates: sickConflict?.dates.join(", ") ?? "" })} confirmLabel={t.sickOverwriteConfirm} cancelLabel={t.cancel} pending={Boolean(busyId)} onConfirm={() => { if (sickConflict) void decide(sickConflict.id, "approved", true); }} onCancel={() => setSickConflict(null)} />
   </Shell>;

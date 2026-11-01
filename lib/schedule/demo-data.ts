@@ -37,6 +37,7 @@ export type Absence = {
   status: AbsenceStatus;
   source: "request" | "direct";
   decidedBy: string;
+  decisionReason: string;
   swapWith: string;
   swapWithUserId: string;
 };
