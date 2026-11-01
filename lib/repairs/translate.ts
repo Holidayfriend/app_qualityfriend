@@ -1,6 +1,7 @@
 import "server-only";
 
 import { completeHotelChatJson } from "../ai/complete";
+import { fitsHotelLanguage } from "../i18n/hotel-language";
 import { prisma } from "../prisma";
 import { sanitizeJobHtml } from "../recruiting/job-fields";
 import { REPAIR_AREA_KEYS, type RepairAreaKey } from "./demo-data";
@@ -50,6 +51,16 @@ function asTags(value: unknown, fallback: string[]) {
   return Array.isArray(value) ? value.map((item) => String(item || "").trim()).filter(Boolean) : fallback;
 }
 
+function keepTranslated(value: unknown, fallback: string) {
+  const text = asText(value, fallback);
+  return fitsHotelLanguage(text) ? text : fallback;
+}
+
+function keepTags(value: unknown, fallback: string[]) {
+  const tags = asTags(value, fallback).filter((tag) => fitsHotelLanguage(tag));
+  return tags.length ? tags : fallback;
+}
+
 export async function translateRepairFields(
   hotelTenantId: string,
   locale: string,
@@ -65,7 +76,7 @@ export async function translateRepairFields(
     const json = await completeHotelChatJson(prisma, hotelTenantId, [
       {
         role: "system",
-        content: `You translate hotel maintenance tickets. Source language is ${source}. Return JSON only with keys title, description, location, tags. Each of title/description/location is an object {en,de,it}. tags is {en:[],de:[],it:[]}. Keep ${source} exactly as given. Translate into the other languages. Keep room numbers unchanged. Preserve HTML tags, links and formatting in description; translate only visible text. Do not add extra keys.`,
+        content: `You translate hotel maintenance tickets. Source language is ${source}. Return JSON only with keys title, description, location, tags. Each of title/description/location is an object {en,de,it}. tags is {en:[],de:[],it:[]}. Keep ${source} exactly as given. Translate into the other languages. Use only English, German, and Italian. Never use Swedish or any other language. Keep room numbers unchanged. Preserve HTML tags, links and formatting in description; translate only visible text. Do not add extra keys.`,
       },
       {
         role: "user",
@@ -84,10 +95,10 @@ export async function translateRepairFields(
     const location = json.location && typeof json.location === "object" ? json.location as Record<string, unknown> : {};
     const tags = json.tags && typeof json.tags === "object" ? json.tags as Record<string, unknown> : {};
     for (const lang of others) {
-      base.title[lang] = asText(title[lang], input.title).slice(0, 180);
-      base.description[lang] = cleanHtml(asText(translatedDescription[lang], description));
-      if (!known) base.location[lang] = asText(location[lang], base.location[source]).slice(0, 180);
-      base.tags[lang] = asTags(tags[lang], input.tags);
+      base.title[lang] = keepTranslated(title[lang], input.title).slice(0, 180);
+      base.description[lang] = cleanHtml(keepTranslated(translatedDescription[lang], description));
+      if (!known) base.location[lang] = keepTranslated(location[lang], base.location[source]).slice(0, 180);
+      base.tags[lang] = keepTags(tags[lang], input.tags);
     }
     base.title[source] = input.title;
     base.description[source] = description;
