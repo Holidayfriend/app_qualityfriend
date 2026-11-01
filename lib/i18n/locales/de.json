@@ -1619,6 +1619,8 @@
     "save": "Speichern",
     "saveDraft": "Als Entwurf speichern",
     "saveTemplate": "💾 Als Vorlage speichern",
+    "showFormat": "Formatierung",
+    "hideFormat": "Formatierung ausblenden",
     "translating": "Wird in die anderen Sprachen übersetzt…",
     "saveFailed": "Die Übergabe konnte nicht gespeichert werden. Bitte erneut versuchen.",
     "draftSaved": "Als Entwurf gespeichert.",

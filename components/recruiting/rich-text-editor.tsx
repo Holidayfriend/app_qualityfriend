@@ -103,7 +103,8 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, {
   locale: Locale;
   invalid?: boolean;
   height?: number;
-}>(function RichTextEditor({ value, onChange, placeholder, locale, invalid = false, height = 350 }, ref) {
+  compact?: boolean;
+}>(function RichTextEditor({ value, onChange, placeholder, locale, invalid = false, height = 350, compact = false }, ref) {
   const holderRef = useRef<HTMLDivElement>(null);
   const targetRef = useRef<HTMLElement | null>(null);
   const valueRef = useRef(value);
@@ -145,6 +146,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, {
         placeholder,
         dialogsInBody: true,
         lang: locale === "de" ? "de-DE" : locale === "it" ? "it-IT" : "en-US",
+        ...(compact ? { toolbar: [["font", ["bold", "italic", "underline"]], ["para", ["ul", "ol"]], ["insert", ["link"]]] } : {}),
         callbacks: {
           onChange: (contents: string) => {
             if (!destroyed) onChangeRef.current(contents);
@@ -170,7 +172,7 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, {
       targetRef.current = null;
       holder.replaceChildren();
     };
-  }, [height, locale, placeholder]);
+  }, [compact, height, locale, placeholder]);
 
   useEffect(() => {
     const target = targetRef.current;

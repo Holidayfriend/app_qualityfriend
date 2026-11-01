@@ -1619,6 +1619,8 @@
     "save": "Salva",
     "saveDraft": "Salva come bozza",
     "saveTemplate": "💾 Salva come modello",
+    "showFormat": "Formattazione",
+    "hideFormat": "Nascondi formattazione",
     "translating": "Traduzione nelle altre lingue…",
     "saveFailed": "Impossibile salvare la consegna. Riprova.",
     "draftSaved": "Salvata come bozza.",

@@ -1621,6 +1621,8 @@
     "save": "Save",
     "saveDraft": "Save as draft",
     "saveTemplate": "💾 Save as template",
+    "showFormat": "Formatting",
+    "hideFormat": "Hide formatting",
     "translating": "Translating into the other languages…",
     "saveFailed": "Could not save the handover. Please try again.",
     "draftSaved": "Saved as draft.",

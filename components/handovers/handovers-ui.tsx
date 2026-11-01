@@ -187,7 +187,35 @@ export function HandoversFormPage({ id, aiDraft = false }: { id?: string; aiDraf
   const [uploads, setUploads] = useState<File[]>([]);
   const [attachmentsBusy, setAttachmentsBusy] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [phone, setPhone] = useState(false);
+  const [formatOpen, setFormatOpen] = useState(false);
+  const [keyboardOffset, setKeyboardOffset] = useState(0);
   const descRef = useRef<RichTextEditorHandle>(null);
+
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 767px)");
+    const apply = () => setPhone(query.matches);
+    apply();
+    query.addEventListener("change", apply);
+    return () => query.removeEventListener("change", apply);
+  }, []);
+
+  useEffect(() => {
+    if (!phone) return;
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+    const place = () => {
+      const covered = window.innerHeight - viewport.height - viewport.offsetTop;
+      setKeyboardOffset(Math.max(0, Math.round(covered)));
+    };
+    place();
+    viewport.addEventListener("resize", place);
+    viewport.addEventListener("scroll", place);
+    return () => {
+      viewport.removeEventListener("resize", place);
+      viewport.removeEventListener("scroll", place);
+    };
+  }, [phone]);
 
   useEffect(() => {
     if (existing) {
@@ -276,7 +304,10 @@ export function HandoversFormPage({ id, aiDraft = false }: { id?: string; aiDraf
             <label className="field-lbl">{t.title}</label>
             <input className="field-input" style={{ marginBottom: 14 }} placeholder={t.titlePlaceholder} value={title} onChange={(event) => setTitle(event.target.value)} />
             <label className="field-lbl">{t.description}</label>
-            <RichTextEditor ref={descRef} value={desc} onChange={setDesc} placeholder={t.descPlaceholder} locale={locale} height={280} />
+            {phone ? <button type="button" className="btn btn-ghost handover-format-toggle" onClick={() => setFormatOpen((open) => !open)}>{formatOpen ? t.hideFormat : t.showFormat}</button> : null}
+            <div className={`handover-editor${phone && !formatOpen ? " is-collapsed" : ""}`}>
+              <RichTextEditor ref={descRef} value={desc} onChange={setDesc} placeholder={t.descPlaceholder} locale={locale} height={phone ? 140 : 280} compact={phone} />
+            </div>
             <div style={{ fontSize: 11.5, color: "var(--text3)", margin: "6px 0 0" }}>{t.autoTranslate}</div>
             <div style={{ marginTop: 16 }}><AttachmentField existing={kept} files={uploads} onExistingChange={setKept} onFilesChange={setUploads} onProcessingChange={setAttachmentsBusy} /></div>
           </div>
@@ -302,8 +333,8 @@ export function HandoversFormPage({ id, aiDraft = false }: { id?: string; aiDraf
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>{tags.map((tag, index) => <span key={`${tag}-${index}`} className="chip chip-b">{tag} <span style={{ cursor: "pointer", marginLeft: 4 }} onClick={() => setTags(tags.filter((_, i) => i !== index))}>✕</span></span>)}</div>
           </div>
         </div>
-        <div className="card">
-          <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div className="card handover-save-card">
+          <div className="cb handover-save-bar" data-keyboard={phone && keyboardOffset > 0 ? "true" : "false"} style={{ display: "flex", flexDirection: "column", gap: 10, ["--handover-save-bottom" as string]: `${keyboardOffset}px` }}>
             <button type="submit" className="btn btn-primary" disabled={busy || attachmentsBusy}>{t.save}</button>
             <button type="button" className="btn btn-ghost" disabled={busy || attachmentsBusy} onClick={() => void persist("handover", "draft")}>{t.saveDraft}</button>
             <button type="button" className="btn btn-ghost" disabled={busy || attachmentsBusy} onClick={() => void persist("template")}>{t.saveTemplate}</button>

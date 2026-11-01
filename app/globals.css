@@ -391,6 +391,21 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 .qf-dashboard .job-summernote.is-invalid .note-editor.note-frame { border-color:#dc2626 }
 .qf-dashboard .job-summernote.is-invalid .note-editor.note-frame.note-focus { border-color:#dc2626 }
 .qf-dashboard .job-summernote .note-toolbar { background:var(--bg);border-bottom:1px solid var(--border) }
+.qf-dashboard .handover-format-toggle { margin-bottom:8px }
+@media (max-width: 767px) {
+  .qf-dashboard .handover-editor.is-collapsed .note-toolbar { display:none }
+  .qf-dashboard .handover-editor .note-toolbar { padding:2px 4px }
+  .qf-dashboard .handover-editor .note-btn { padding:3px 7px }
+  .qf-dashboard .handover-save-card { border:none;background:transparent;box-shadow:none }
+  .qf-dashboard .handover-save-bar {
+    position:fixed;left:0;right:0;bottom:calc(68px + env(safe-area-inset-bottom));z-index:35;display:grid !important;grid-template-columns:1.2fr 1fr;gap:8px;
+    padding:10px 12px;background:var(--surface);border-top:1px solid var(--border);
+    box-shadow:0 -6px 18px rgba(0,0,0,.08)
+  }
+  .qf-dashboard .handover-save-bar[data-keyboard="true"] { bottom:var(--handover-save-bottom) }
+  .qf-dashboard .handover-save-bar .btn-primary { grid-column:1 / -1 }
+  .qf-dashboard form.g2 { padding-bottom:188px }
+}
 .qf-dashboard .job-summernote .note-editing-area .note-editable { background:var(--surface);color:var(--text);font-family:inherit }
 .settings-policy-editor .job-summernote .note-editor.note-frame { border:1px solid var(--qf-border);border-radius:7px;background:#fff }
 .settings-policy-editor .job-summernote .note-editor.note-frame.note-focus { border-color:var(--qf-accent) }
