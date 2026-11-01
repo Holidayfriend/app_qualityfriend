@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { HousekeepingTopTabs } from "./housekeeping-top-tabs";
-import { useEffect, useId, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { AppShell } from "../dashboard/app-shell";
 import { useI18n } from "../i18n/i18n-provider";
 import { useToast } from "../ui/toast-provider";
@@ -172,18 +172,20 @@ function ExtraJobRow({job,showEmployee,canComplete,onToggle,t}:{job:ExtraJobToda
   const [comment,setComment]=useState(job.comment);
   const [focused,setFocused]=useState(false);
   const [saving,setSaving]=useState(false);
-  useEffect(()=>{if(!focused)setComment(job.comment);},[focused,job.comment]);
+  const skipBlurSave=useRef(false);
+  useEffect(()=>{if(!focused&&!saving)setComment(job.comment);},[focused,saving,job.comment]);
   async function save(completed:boolean,nextComment:string,input?:HTMLInputElement){
     setSaving(true);
     try{
       await onToggle(job.assignmentId,completed,nextComment);
     }catch{
       if(input)input.checked=!completed;
+      setComment(job.comment);
     }finally{
       setSaving(false);
     }
   }
-  return <div className={`py-[11px] ${job.completed?"opacity-70":""}`}><div className="flex min-h-[44px] items-start gap-3">{canComplete?<input type="checkbox" className="mt-1" checked={job.completed} disabled={saving} onChange={event=>void save(event.currentTarget.checked,comment.trim(),event.currentTarget)}/>:null}<span className="min-w-0 flex-1"><b className={`block text-[13.5px] leading-[1.3] ${job.completed?"line-through":""}`}>{job.description}</b><small className="mt-0.5 block text-[12px] text-[var(--qf-text-muted)]">{job.minutes} {t.minutes}{showEmployee?` · ${t.assignedTo} ${job.employeeName}`:""}</small>{canComplete?<label className="mt-2 block text-[11px] text-[var(--qf-text-muted)]">{t.extraComment}<textarea className="qf-field mt-1 min-h-[64px]" value={comment} disabled={saving} placeholder={t.extraCommentPlaceholder} onFocus={()=>setFocused(true)} onChange={event=>setComment(event.target.value)} onBlur={()=>{setFocused(false);const next=comment.trim();if(next!==job.comment)void save(job.completed,next);}}/></label>:job.comment?<p className="mt-1 text-[12px] text-[var(--qf-text-muted)]">{job.comment}</p>:null}</span></div></div>;
+  return <div className={`py-[11px] ${job.completed?"opacity-70":""}`}><div className="flex min-h-[44px] items-start gap-3">{canComplete?<input type="checkbox" className="mt-1" checked={job.completed} disabled={saving} onPointerDown={()=>{skipBlurSave.current=true;}} onChange={event=>void save(event.currentTarget.checked,comment.trim(),event.currentTarget)}/>:null}<span className="min-w-0 flex-1"><b className={`block text-[13.5px] leading-[1.3] ${job.completed?"line-through":""}`}>{job.description}</b><small className="mt-0.5 block text-[12px] text-[var(--qf-text-muted)]">{job.minutes} {t.minutes}{showEmployee?` · ${t.assignedTo} ${job.employeeName}`:""}</small>{canComplete?<label className="mt-2 block text-[11px] text-[var(--qf-text-muted)]">{t.extraComment}<textarea className="qf-field mt-1 min-h-[64px]" maxLength={2000} value={comment} disabled={saving} placeholder={t.extraCommentPlaceholder} onFocus={()=>setFocused(true)} onChange={event=>setComment(event.target.value)} onBlur={()=>{setFocused(false);const next=comment.trim();if(skipBlurSave.current){skipBlurSave.current=false;return;}if(next!==job.comment)void save(job.completed,next);}}/></label>:job.comment?<p className="mt-1 text-[12px] text-[var(--qf-text-muted)]">{job.comment}</p>:null}</span></div></div>;
 }
 function ExtraJobsSection({title,jobs,showEmployee,canComplete,onToggle,t}:{title:string;jobs:ExtraJobToday[];showEmployee:boolean;canComplete:boolean;onToggle:(assignmentId:string,completed:boolean,comment:string)=>Promise<void>;t:T}){
   return <section className={card}><Head>{title}</Head><div className="divide-y divide-[var(--qf-border)] px-5">{jobs.length?jobs.map(job=><ExtraJobRow key={job.assignmentId} job={job} showEmployee={showEmployee} canComplete={canComplete} onToggle={onToggle} t={t}/>):<p className="py-4 text-[12px] text-[var(--qf-text-muted)]">{t.extraEmpty}</p>}</div></section>;
