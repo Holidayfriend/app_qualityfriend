@@ -10,7 +10,7 @@ import { useI18n } from "../i18n/i18n-provider";
 import { getScheduleMessages, type ScheduleMessages } from "../../lib/i18n/schedule-messages";
 import { type AbsenceStatus, type Employee, type LeaveCategory, type LeaveDuration, type ShiftCell } from "../../lib/schedule/demo-data";
 import { addDaysIso, formatDayHeader, formatWeekRange, localTodayIso, mondayOfIso } from "../../lib/schedule/week";
-import { formatWorkHours, shiftWorkHours, weekWorkHours } from "../../lib/schedule/hours";
+import { formatWorkHours, hoursForHomeDepartment, shiftWorkHours, weekWorkHours } from "../../lib/schedule/hours";
 import { breakMinutesForSave, shiftWarnings } from "../../lib/schedule/shift-rules";
 import { ConfirmDialog } from "../ui/confirm-dialog";
 import { useSchedule } from "./schedule-provider";
@@ -508,10 +508,11 @@ export function ScheduleStatsPage() {
   const scheduledHours = weekWorkHours(employees);
   const avgHours = employees.length ? scheduledHours / employees.length : 0;
   const absenceDays = employees.reduce((total, emp) => total + emp.shifts.filter((shift) => shift.kind === "off" || shift.kind === "vac").length, 0);
+  const homeHours = hoursForHomeDepartment(employees);
   const deptHours = departments.map((dept) => ({
     id: dept.id,
     name: dept.name,
-    hours: weekWorkHours(employees.filter((emp) => emp.departmentIds.includes(dept.id))),
+    hours: homeHours.get(dept.id) ?? 0,
   }));
   const maxDeptHours = Math.max(...deptHours.map((dept) => dept.hours), 0);
   if (!ready) return <Shell title={t.pageTitle} tabs><BrandLoader label={t.loading} /></Shell>;

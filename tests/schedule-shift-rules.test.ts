@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { shiftWorkHours } from "../lib/schedule/hours";
+import { hoursForHomeDepartment, shiftWorkHours } from "../lib/schedule/hours";
 import { breakMinutesForSave, conflictingWorkDates, shiftWarnings } from "../lib/schedule/shift-rules";
 
 test("an empty break deducts 30 minutes and an explicit 0 does not", () => {
@@ -19,6 +19,18 @@ test("a 16 hour shift warns and can still be described as two blocks", () => {
   assert.equal(shiftWarnings({ start: "07:00", end: "11:00", splitStart: "17:00", splitEnd: "21:00" }).length, 0);
   assert.equal(shiftWarnings({ start: "07:00", end: "15:00", splitStart: "14:00", splitEnd: "18:00" })[0]?.code, "overlap");
   assert.equal(shiftWorkHours({ kind: "work", start: "07:00", end: "11:00", breakMins: 0, splitStart: "17:00", splitEnd: "21:00", splitBreakMins: 0 }), 8);
+});
+
+test("statistics count a multi-department person once", () => {
+  const shift = { kind: "work" as const, start: "07:00", end: "15:00", breakMins: 30 };
+  const totals = hoursForHomeDepartment([
+    { departmentId: "kitchen", departmentIds: ["kitchen", "service"], shifts: [shift] },
+    { departmentId: "service", departmentIds: ["service"], shifts: [shift] },
+    { departmentId: "", departmentIds: [], shifts: [shift] },
+  ]);
+  assert.equal(totals.get("kitchen"), 7.5);
+  assert.equal(totals.get("service"), 7.5);
+  assert.equal([...totals.values()].reduce((sum, hours) => sum + hours, 0), 15);
 });
 
 test("sick leave conflicts only with the work shift the planner sees", () => {
