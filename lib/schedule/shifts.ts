@@ -8,7 +8,7 @@ import { addDaysIso, datesFromThroughWeeks, mondayOfIso, weekIsoDates } from "./
 import { translateShiftNote } from "./translate";
 import { notifySchedulePublished } from "./notify";
 import { shouldCopyWeekShift } from "./copy-policy";
-import { breakMinutesForSave } from "./shift-rules";
+import { breakMinutesForSave, conflictingWorkDates } from "./shift-rules";
 import { Prisma } from "../../app/generated/prisma/client";
 import type { ScheduleActor } from "./access";
 import {
@@ -358,6 +358,24 @@ function shiftKey(userId: string, workDate: Date | string) {
   return `${userId}:${date}`;
 }
 
+function isoDay(value: Date | string) {
+  return typeof value === "string" ? value.slice(0, 10) : value.toISOString().slice(0, 10);
+}
+
+export async function workShiftConflictDates(actor: ScheduleActor, userId: string, dates: string[]) {
+  const unique = [...new Set(dates.filter((date) => DATE.test(date)))];
+  if (!unique.length || !UUID.test(userId)) return [];
+  await ensureShiftTable();
+  const days = unique.map((date) => new Date(`${date}T00:00:00.000Z`));
+  const where = { hotelTenantId: actor.hotel_tenant_id, userId, workDate: { in: days } };
+  const published = await prisma.hotelShift.findMany({ where, select: { workDate: true, kind: true } });
+  const drafts = await prisma.hotelShiftDraft.findMany({ where, select: { workDate: true, kind: true } });
+  return conflictingWorkDates(unique, [
+    ...published.map((row) => ({ date: isoDay(row.workDate), kind: row.kind, draft: false })),
+    ...drafts.map((row) => ({ date: isoDay(row.workDate), kind: row.kind, draft: true })),
+  ]);
+}
+
 export async function countShiftDrafts(actor: ScheduleActor) {
   if (!actor.canManage) return 0;
   await ensureShiftTable();
@@ -452,12 +470,17 @@ export async function copyWeekShifts(actor: ScheduleActor, fromWeekStart: string
   return { cells, targetWeekStart: targetMonday };
 }
 
-export async function publishWeekShifts(actor: ScheduleActor) {
+export async function publishWeekShifts(actor: ScheduleActor, weekStart: string) {
+  if (!DATE.test(weekStart)) return { error: "INVALID" as const };
+  const monday = mondayOfIso(weekStart);
+  const from = new Date(`${monday}T00:00:00.000Z`);
+  const to = new Date(`${addDaysIso(monday, 6)}T00:00:00.000Z`);
   await ensureShiftTable();
   const result = await prisma.$transaction(async (tx) => {
     const drafts = await tx.hotelShiftDraft.findMany({
-      where: { hotelTenantId: actor.hotel_tenant_id },
+      where: { hotelTenantId: actor.hotel_tenant_id, workDate: { gte: from, lte: to } },
     });
+    if (!drafts.length) return { cells: 0, employees: 0 };
     for (const draft of drafts) {
       const existing = await tx.hotelShift.findFirst({
         where: { hotelTenantId: actor.hotel_tenant_id, userId: draft.userId, workDate: draft.workDate },
@@ -494,7 +517,7 @@ export async function publishWeekShifts(actor: ScheduleActor) {
       }
     }
     await tx.hotelShiftDraft.deleteMany({
-      where: { hotelTenantId: actor.hotel_tenant_id },
+      where: { hotelTenantId: actor.hotel_tenant_id, workDate: { gte: from, lte: to } },
     });
     const publishedUserIds = [...new Set(drafts.map((draft) => draft.userId))];
     await notifySchedulePublished(tx, actor.hotel_tenant_id, publishedUserIds, actor.id);
@@ -504,7 +527,7 @@ export async function publishWeekShifts(actor: ScheduleActor) {
       action: "STATUS_CHANGE",
       entityType: "SHIFT",
       entityId: randomUUID(),
-      changes: { after: { title: `${drafts.length} cells`, status: "PUBLISHED", cells: drafts.length, employees: publishedUserIds.filter((id) => id !== actor.id).length } },
+      changes: { after: { title: `${monday} · ${drafts.length} cells`, status: "PUBLISHED", cells: drafts.length, employees: publishedUserIds.filter((id) => id !== actor.id).length } },
     });
     return { cells: drafts.length, employees: publishedUserIds.filter((id) => id !== actor.id).length };
   });
@@ -560,10 +583,6 @@ export async function saveShiftAssignment(actor: ScheduleActor, body: Record<str
   const needsTimes = work || ((kind === "OFF" || kind === "VACATION") && leaveDuration === "PARTIAL");
   if (needsTimes && (!start || !end)) return { error: "INVALID_TIMES" as const };
 
-  const note = typeof body.note === "string" ? body.note.trim().slice(0, 2000) : "";
-  const source = locale === "de" || locale === "it" ? locale : "en";
-  const notes = await translateShiftNote(actor.hotel_tenant_id, source, note);
-
   const repeat = typeof body.repeat === "string" ? body.repeat : "";
   const dates = repeat === "thisWeek"
     ? datesFromThroughWeeks(date, 1)
@@ -571,6 +590,14 @@ export async function saveShiftAssignment(actor: ScheduleActor, body: Record<str
       ? datesFromThroughWeeks(date, Number(repeat))
       : [date];
   const keepTimes = kind === "WORK" || leaveDuration === "PARTIAL";
+  if (kind === "OFF" && leaveCategory === "PAID_SICK" && body.confirmOverwrite !== true) {
+    const conflicts = await workShiftConflictDates(actor, userId, dates);
+    if (conflicts.length) return { error: "SHIFT_CONFLICT" as const, dates: conflicts };
+  }
+
+  const note = typeof body.note === "string" ? body.note.trim().slice(0, 2000) : "";
+  const source = locale === "de" || locale === "it" ? locale : "en";
+  const notes = await translateShiftNote(actor.hotel_tenant_id, source, note);
 
   await prisma.$transaction(async (tx) => {
     await upsertShiftDays(tx, actor, userId, dates, {

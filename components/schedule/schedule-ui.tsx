@@ -124,6 +124,8 @@ export function SchedulePlanPage() {
   const { isPlanner, ready, employees, departments, weekStartIso, weekDates, goToPrevWeek, goToNextWeek, publishWeek, copyWeekTo, draftCount } = useSchedule();
   const [deptFilter, setDeptFilter] = useState("all");
   const [publishing, setPublishing] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [publishTarget, setPublishTarget] = useState(weekStartIso);
   const [copyOpen, setCopyOpen] = useState(false);
   const [copyTarget, setCopyTarget] = useState(() => addDaysIso(weekStartIso, 7));
   const [copying, setCopying] = useState(false);
@@ -173,19 +175,29 @@ export function SchedulePlanPage() {
     }
   }
 
+  function openPublish() {
+    setPublishTarget(weekStartIso);
+    setPublishOpen(true);
+  }
+
   async function publish() {
-    if (!draftCount || publishing) return;
+    if (publishing) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(publishTarget)) {
+      toast({ message: t.publishFailed, tone: "error" });
+      return;
+    }
     setPublishing(true);
     try {
-      const result = await publishWeek();
+      const result = await publishWeek(mondayOfIso(publishTarget));
       if (!result) {
         toast({ message: t.publishFailed, tone: "error" });
         return;
       }
       toast({
-        message: result.employees ? fill(t.publishedOk, { n: String(result.employees) }) : t.publishedNone,
-        tone: "success",
+        message: result.cells ? (result.employees ? fill(t.publishedOk, { n: String(result.employees) }) : t.publishedNone) : t.publishedNone,
+        tone: result.cells ? "success" : "info",
       });
+      if (result.cells) setPublishOpen(false);
     } finally {
       setPublishing(false);
     }
@@ -199,6 +211,22 @@ export function SchedulePlanPage() {
 
   return <Shell title={t.pageTitle} tabs>
     {publishing || copying ? <BrandLoader label={copying ? t.copyTitle : t.publishing} overlay /> : null}
+    {publishOpen ? <div className="no-print" style={{ position: "fixed", inset: 0, zIndex: 120, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,.45)", padding: 16 }} onMouseDown={(event) => { if (event.target === event.currentTarget && !publishing) setPublishOpen(false); }}>
+      <div role="dialog" aria-modal="true" className="card" style={{ width: "100%", maxWidth: 420, margin: 0 }}>
+        <div className="ch"><div className="ct">{t.publishTitle}</div></div>
+        <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <p style={{ fontSize: 13, color: "var(--text2)", margin: 0 }}>{t.publishHint}</p>
+          <div><label className="field-lbl">{t.publishWeekOf}</label>
+            <input className="field-input" type="date" value={publishTarget} onChange={(event) => setPublishTarget(event.target.value)} />
+          </div>
+          <p style={{ fontSize: 12, color: "var(--text3)", margin: 0 }}>{formatWeekRange(mondayOfIso(/^\d{4}-\d{2}-\d{2}$/.test(publishTarget) ? publishTarget : weekStartIso), locale)}</p>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <button type="button" className="btn btn-ghost" disabled={publishing} onClick={() => setPublishOpen(false)}>{t.cancel}</button>
+            <button type="button" className="btn btn-primary" disabled={publishing} onClick={() => void publish()}>{t.publishConfirm}</button>
+          </div>
+        </div>
+      </div>
+    </div> : null}
     {copyOpen ? <div className="no-print" style={{ position: "fixed", inset: 0, zIndex: 120, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,.45)", padding: 16 }} onMouseDown={(event) => { if (event.target === event.currentTarget && !copying) setCopyOpen(false); }}>
       <div role="dialog" aria-modal="true" className="card" style={{ width: "100%", maxWidth: 420, margin: 0 }}>
         <div className="ch"><div className="ct">{t.copyTitle}</div></div>
@@ -236,7 +264,7 @@ export function SchedulePlanPage() {
           <button type="button" className="btn btn-ghost" style={{ fontSize: 12 }} onClick={openCopy}>{t.copyWeek}</button>
           <button type="button" className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => window.print()}>{t.print}</button>
           <Link href={`/schedule/export?from=${weekStartIso}&to=${addDaysIso(weekStartIso, 6)}&department=${deptFilter}`} className="btn btn-ghost" style={{ fontSize: 12 }}>{t.export}</Link>
-          <button type="button" className="btn btn-primary" style={{ fontSize: 12 }} disabled={!draftCount || publishing} onClick={() => void publish()}>{draftCount ? fill(t.publishChanges, { n: String(draftCount) }) : t.publish}</button>
+          <button type="button" className="btn btn-primary" style={{ fontSize: 12 }} disabled={!draftCount || publishing} onClick={openPublish}>{draftCount ? fill(t.publishChanges, { n: String(draftCount) }) : t.publish}</button>
         </div>
       </div>
       <div className="cb" style={{ overflowX: "auto" }}>
@@ -263,7 +291,7 @@ export function SchedulePlanPage() {
           <button type="button" className="btn btn-ghost" onClick={() => window.print()}>{t.print}</button>
           <Link href={`/schedule/export?from=${weekStartIso}&to=${addDaysIso(weekStartIso, 6)}&department=${deptFilter}`} className="btn btn-ghost">{t.export}</Link>
         </div>
-        <button type="button" className="btn btn-primary schedule-publish-button" disabled={!draftCount || publishing} onClick={() => void publish()}>{draftCount ? fill(t.publishChanges, { n: String(draftCount) }) : t.publish}</button>
+        <button type="button" className="btn btn-primary schedule-publish-button" disabled={!draftCount || publishing} onClick={openPublish}>{draftCount ? fill(t.publishChanges, { n: String(draftCount) }) : t.publish}</button>
       </section>
 
       <div className="schedule-week-jump">
@@ -365,6 +393,7 @@ export function ScheduleAbsencesPage({ board }: { board?: "swap" }) {
   const [filter, setFilter] = useState<"all" | AbsenceStatus>("all");
   const [busyId, setBusyId] = useState("");
   const [deleteId, setDeleteId] = useState("");
+  const [sickConflict, setSickConflict] = useState<{ id: string; dates: string[] } | null>(null);
   const own = employees.find((item) => item.key === currentUserId) ?? employees[0];
   const swapBoard = board === "swap";
   const rows = absences.filter((item) => {
@@ -373,11 +402,16 @@ export function ScheduleAbsencesPage({ board }: { board?: "swap" }) {
     return filter === "all" || item.status === filter;
   });
 
-  async function decide(id: string, status: AbsenceStatus) {
+  async function decide(id: string, status: AbsenceStatus, confirmOverwrite = false) {
     if (busyId) return;
     setBusyId(id);
     try {
-      const ok = await decideAbsence(id, status);
+      const ok = await decideAbsence(id, status, confirmOverwrite);
+      if (Array.isArray(ok)) {
+        setSickConflict({ id, dates: ok });
+        return;
+      }
+      setSickConflict(null);
       toast({ message: ok ? (status === "approved" ? (swapBoard ? t.swapApproved : t.absenceApproved) : t.absenceRejected) : t.saveShiftFailed, tone: ok ? "success" : "error" });
     } finally {
       setBusyId("");
@@ -463,6 +497,7 @@ export function ScheduleAbsencesPage({ board }: { board?: "swap" }) {
       }) : <div className="schedule-empty-card">{t.empty}</div>}
     </div>
     <ConfirmDialog open={Boolean(deleteId)} title={t.deleteAbsence} message={t.deleteAbsenceConfirm} confirmLabel={t.deleteAbsence} cancelLabel={t.cancel} pending={Boolean(busyId)} onConfirm={() => void removeAbsence()} onCancel={() => setDeleteId("")} />
+    <ConfirmDialog open={Boolean(sickConflict)} title={t.sickOverwriteTitle} message={fill(t.sickOverwriteMessage, { dates: sickConflict?.dates.join(", ") ?? "" })} confirmLabel={t.sickOverwriteConfirm} cancelLabel={t.cancel} pending={Boolean(busyId)} onConfirm={() => { if (sickConflict) void decide(sickConflict.id, "approved", true); }} onCancel={() => setSickConflict(null)} />
   </Shell>;
 }
 
@@ -520,6 +555,7 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
   });
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [conflictDates, setConflictDates] = useState<string[]>([]);
   const isOff = form.template === "off";
   const isVac = form.template === "vac";
   const isLeave = isOff || isVac;
@@ -577,7 +613,7 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
     });
   }
 
-  async function save() {
+  async function save(confirmOverwrite = false) {
     if (!emp || busy) return;
     const needsTimes = !hideWorkTimes;
     if (needsTimes && (!form.start || !form.end)) {
@@ -604,7 +640,12 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
         repeat: form.repeat,
         leaveCategory: form.leaveCategory,
         leaveDuration: form.leaveDuration,
+        confirmOverwrite,
       });
+      if (Array.isArray(saved)) {
+        setConflictDates(saved);
+        return;
+      }
       if (!saved) {
         toast({ message: t.saveShiftFailed, tone: "error" });
         return;
@@ -734,6 +775,7 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
           <Link href="/schedule" className="btn btn-ghost">{t.cancel}</Link>
         </div>
         <ConfirmDialog open={confirmDelete} title={t.deleteShift} message={t.deleteShiftConfirm} confirmLabel={t.deleteShift} cancelLabel={t.cancel} pending={busy} onConfirm={() => void remove()} onCancel={() => setConfirmDelete(false)} />
+        <ConfirmDialog open={conflictDates.length > 0} title={t.sickOverwriteTitle} message={fill(t.sickOverwriteMessage, { dates: conflictDates.join(", ") })} confirmLabel={t.sickOverwriteConfirm} cancelLabel={t.cancel} pending={busy} onConfirm={() => void save(true)} onCancel={() => setConflictDates([])} />
       </div>
     </section>
   </Shell>;
@@ -859,6 +901,7 @@ export function ScheduleRequestPage({ employee, requestType }: { employee?: stri
   const lockedSwap = requestType === "swap";
   const lockedLeave = requestType === "leave";
   const [busy, setBusy] = useState(false);
+  const [conflictDates, setConflictDates] = useState<string[]>([]);
   const [form, setForm] = useState({
     empKey: employee || "",
     category: (lockedSwap ? "swap" : "paid") as LeaveCategory,
@@ -883,8 +926,8 @@ export function ScheduleRequestPage({ employee, requestType }: { employee?: stri
     });
   }, [currentUserId, employee, employees]);
 
-  async function save(event: FormEvent) {
-    event.preventDefault();
+  async function save(event?: FormEvent, confirmOverwrite = false) {
+    event?.preventDefault();
     if (!form.start) {
       toast({ message: t.needStart, tone: "error" });
       return;
@@ -912,7 +955,12 @@ export function ScheduleRequestPage({ employee, requestType }: { employee?: stri
         note: form.note,
         applyDirect: isPlanner,
         swapWithUserId: isSwap ? form.swapWithKey : undefined,
+        confirmOverwrite,
       });
+      if (Array.isArray(ok)) {
+        setConflictDates(ok);
+        return;
+      }
       if (!ok) {
         toast({ message: t.requestFailed, tone: "error" });
         return;
@@ -988,6 +1036,7 @@ export function ScheduleRequestPage({ employee, requestType }: { employee?: stri
         <div><label className="field-lbl">{t.comment}</label><input className="field-input" placeholder={t.optional} value={form.note} onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))} /></div>
         <p style={{ fontSize: 12, color: "var(--text3)", margin: 0 }}>{t.autoTranslate}</p>
         <button type="submit" className="btn btn-primary" disabled={busy}>{lockedSwap && !isPlanner ? t.sendRequest : t.save}</button>
+        <ConfirmDialog open={conflictDates.length > 0} title={t.sickOverwriteTitle} message={fill(t.sickOverwriteMessage, { dates: conflictDates.join(", ") })} confirmLabel={t.sickOverwriteConfirm} cancelLabel={t.cancel} pending={busy} onConfirm={() => void save(undefined, true)} onCancel={() => setConflictDates([])} />
       </div>
     </form>
   </Shell>;

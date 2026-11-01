@@ -23,6 +23,7 @@ type ShiftInput = {
   repeat: string;
   leaveCategory: LeaveCategory;
   leaveDuration: LeaveDuration;
+  confirmOverwrite?: boolean;
 };
 type AbsenceInput = {
   userId: string;
@@ -35,7 +36,14 @@ type AbsenceInput = {
   note: string;
   applyDirect: boolean;
   swapWithUserId?: string;
+  confirmOverwrite?: boolean;
 };
+
+function conflictDates(body: { error?: string; dates?: unknown }) {
+  if (body.error !== "SHIFT_CONFLICT" || !Array.isArray(body.dates)) return null;
+  const dates = body.dates.filter((date): date is string => typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date));
+  return dates.length ? dates : null;
+}
 
 type PublicShift = {
   userId: string;
@@ -73,13 +81,13 @@ type Store = {
   templates: Template[];
   draftCount: number;
   setEmployees: (employees: Employee[] | ((current: Employee[]) => Employee[])) => void;
-  saveShift: (input: ShiftInput) => Promise<number | null>;
+  saveShift: (input: ShiftInput) => Promise<number | string[] | null>;
   deleteShift: (empKey: string, day: number) => Promise<boolean>;
   deleteAbsence: (id: string) => Promise<boolean>;
-  publishWeek: () => Promise<{ cells: number; employees: number } | null>;
+  publishWeek: (weekStart: string) => Promise<{ cells: number; employees: number } | null>;
   copyWeekTo: (toWeekStart: string) => Promise<{ cells: number; targetWeekStart: string } | null>;
-  saveAbsence: (input: AbsenceInput) => Promise<boolean>;
-  decideAbsence: (id: string, status: AbsenceStatus) => Promise<boolean>;
+  saveAbsence: (input: AbsenceInput) => Promise<boolean | string[]>;
+  decideAbsence: (id: string, status: AbsenceStatus, confirmOverwrite?: boolean) => Promise<boolean | string[]>;
   saveTemplate: (id: string | undefined, input: TemplateInput) => Promise<string | null>;
   deleteTemplate: (id: string) => Promise<boolean>;
 };
@@ -313,9 +321,12 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
         repeat: input.repeat,
         leaveCategory: input.leaveCategory,
         leaveDuration: input.leaveDuration,
+        confirmOverwrite: input.confirmOverwrite === true,
       }),
     });
-    const body = await response.json().catch(() => ({})) as { dayCount?: number; error?: string; detail?: string };
+    const body = await response.json().catch(() => ({})) as { dayCount?: number; error?: string; detail?: string; dates?: unknown };
+    const conflicts = conflictDates(body);
+    if (conflicts) return conflicts;
     if (!response.ok) throw new Error(body.detail || body.error || "SAVE_FAILED");
     await reloadWeekShifts().catch(() => undefined);
     return typeof body.dayCount === "number" ? body.dayCount : 1;
@@ -338,8 +349,12 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
     return true;
   }, [reloadWeekShifts]);
 
-  const publishWeek = useCallback(async () => {
-    const response = await fetch("/api/schedule/publish", { method: "POST" });
+  const publishWeek = useCallback(async (weekStart: string) => {
+    const response = await fetch("/api/schedule/publish", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ weekStart }),
+    });
     if (!response.ok) return null;
     const body = await response.json() as { cells?: number; employees?: number };
     await reloadWeekShifts().catch(() => undefined);
@@ -368,21 +383,25 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
     });
+    const conflictBody = await response.json().catch(() => ({})) as { absence?: Absence; error?: string; dates?: unknown };
+    const conflicts = conflictDates(conflictBody);
+    if (conflicts) return conflicts;
     if (!response.ok) return false;
-    const body = await response.json() as { absence?: Absence };
-    if (body.absence) setAbsences((current) => [body.absence as Absence, ...current.filter((item) => item.id !== body.absence?.id)]);
+    if (conflictBody.absence) setAbsences((current) => [conflictBody.absence as Absence, ...current.filter((item) => item.id !== conflictBody.absence?.id)]);
     if (input.applyDirect) await reloadWeekShifts().catch(() => undefined);
     return true;
   }, [locale, reloadWeekShifts]);
 
-  const decideAbsence = useCallback(async (id: string, status: AbsenceStatus) => {
+  const decideAbsence = useCallback(async (id: string, status: AbsenceStatus, confirmOverwrite = false) => {
     const response = await fetch(`/api/schedule/absences/${id}?locale=${locale}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, confirmOverwrite }),
     });
+    const body = await response.json().catch(() => ({})) as { absence?: Absence; error?: string; dates?: unknown };
+    const conflicts = conflictDates(body);
+    if (conflicts) return conflicts;
     if (!response.ok) return false;
-    const body = await response.json() as { absence?: Absence };
     if (body.absence) setAbsences((current) => current.map((item) => item.id === id ? body.absence as Absence : item));
     if (status === "approved") await reloadWeekShifts().catch(() => undefined);
     return true;

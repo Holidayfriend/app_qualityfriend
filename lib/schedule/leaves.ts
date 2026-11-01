@@ -5,7 +5,7 @@ import { prisma } from "../prisma";
 import { recordAuditLog } from "../audit/audit-service";
 import { pickLocalized } from "../recruiting/job-fields";
 import { translateShiftNote } from "./translate";
-import { applyOffDays, applySwapDays, ensureShiftTable, parseTime } from "./shifts";
+import { applyOffDays, applySwapDays, ensureShiftTable, parseTime, workShiftConflictDates } from "./shifts";
 import { notifyLeaveDecided, notifyLeaveRequested } from "./notify";
 import type { ScheduleActor } from "./access";
 import {
@@ -169,10 +169,15 @@ export async function createAbsence(actor: ScheduleActor, body: Record<string, u
     swapPartnerName = personName(partner);
   }
 
+  const applyNow = actor.canManage && body.applyDirect === true;
+  if (applyNow && category === "paidSick" && body.confirmOverwrite !== true) {
+    const conflicts = await workShiftConflictDates(actor, userId, dates);
+    if (conflicts.length) return { error: "SHIFT_CONFLICT" as const, dates: conflicts };
+  }
+
   const note = typeof body.note === "string" ? body.note.trim().slice(0, 2000) : "";
   const sourceLang = locale === "de" || locale === "it" ? locale : "en";
   const notes = await translateShiftNote(actor.hotel_tenant_id, sourceLang, note);
-  const applyNow = actor.canManage && body.applyDirect === true;
   const status = applyNow ? "APPROVED" : "OPEN";
   const source = applyNow ? "DIRECT" : "REQUEST";
 
@@ -223,9 +228,19 @@ export async function createAbsence(actor: ScheduleActor, body: Record<string, u
   return { absence: asPublic(row, locale) };
 }
 
-export async function decideAbsence(actor: ScheduleActor, id: string, status: "approved" | "rejected", locale: string) {
+export async function decideAbsence(actor: ScheduleActor, id: string, status: "approved" | "rejected", locale: string, confirmOverwrite = false) {
   await ensureTable();
   if (!actor.canManage || !UUID.test(id)) return { error: "FORBIDDEN" as const };
+  if (status === "approved" && !confirmOverwrite) {
+    const existing = await prisma.hotelLeaveRequest.findFirst({
+      where: { id, hotelTenantId: actor.hotel_tenant_id },
+      select: { status: true, category: true, userId: true, startDate: true, endDate: true },
+    });
+    if (existing && existing.status === "OPEN" && fromDbCategory(existing.category) === "paidSick") {
+      const conflicts = await workShiftConflictDates(actor, existing.userId, datesInclusive(isoDate(existing.startDate), isoDate(existing.endDate)));
+      if (conflicts.length) return { error: "SHIFT_CONFLICT" as const, dates: conflicts };
+    }
+  }
   const nextStatus = status === "approved" ? "APPROVED" : "REJECTED";
   const result = await prisma.$transaction(async (tx) => {
     const previous = await tx.hotelLeaveRequest.findFirst({

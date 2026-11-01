@@ -21,7 +21,7 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   try {
     const result = await createAbsence(actor, body, localeOf(request));
-    if ("error" in result) return NextResponse.json(result, { status: 400 });
+    if ("error" in result) return NextResponse.json(result, { status: result.error === "SHIFT_CONFLICT" ? 409 : 400 });
     return NextResponse.json(result);
   } catch (error) {
     console.error("Create absence failed", error);

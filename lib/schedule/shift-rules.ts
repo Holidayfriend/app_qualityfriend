@@ -46,6 +46,14 @@ function overlaps(left: [number, number], right: [number, number]) {
   return false;
 }
 
+/** Dates where the shift the planner sees is a work shift. A draft wins over the published row. */
+export function conflictingWorkDates(dates: string[], rows: { date: string; kind: string; draft?: boolean }[]) {
+  const effective = new Map<string, string>();
+  const ordered = [...rows].sort((left, right) => Number(Boolean(left.draft)) - Number(Boolean(right.draft)));
+  for (const row of ordered) effective.set(row.date, row.kind);
+  return dates.filter((date) => effective.get(date) === "WORK");
+}
+
 export function shiftWarnings(input: { start: string; end: string; splitStart?: string; splitEnd?: string }) {
   const warnings: ShiftWarning[] = [];
   const first = spanMinutes(input.start, input.end);
