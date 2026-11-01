@@ -350,20 +350,23 @@ function EmployeeRow({ emp, t }: { emp: Employee; t: T }) {
 export function ScheduleOwnPage() {
   const t = useT();
   const { locale } = useI18n();
-  const { ready, currentUserId, fullName, employees, weekDates } = useSchedule();
-  const own = employees.find((item) => item.key === currentUserId) ?? employees[0];
+  const { ready, shiftsReady, currentUserId, fullName, employees, weekDates, weekStartIso, goToPrevWeek, goToNextWeek } = useSchedule();
+  const own = employees.find((item) => item.key === currentUserId);
   const dayLabels = weekDates.map((iso) => formatDayHeader(iso, locale));
   if (!ready) return <Shell title={t.pageTitle} tabs><BrandLoader label={t.loading} /></Shell>;
   return <Shell title={t.pageTitle} tabs>
     <section className="card schedule-own-card" style={{ marginBottom: 16 }}>
       <div className="ch schedule-own-header" style={{ flexWrap: "wrap", gap: 8 }}>
         <div className="ct">{fill(t.ownWeek, { name: fullName || own?.name || "" })}</div>
-        <div className="schedule-own-actions" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div className="schedule-own-actions" style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <button type="button" className="btn btn-ghost" style={{ fontSize: 12 }} onClick={goToPrevWeek}>{t.prevWeek}</button>
+          <span style={{ fontSize: 12, color: "var(--text2)" }}>{formatWeekRange(weekStartIso, locale)}</span>
+          <button type="button" className="btn btn-ghost" style={{ fontSize: 12 }} onClick={goToNextWeek}>{t.nextWeek}</button>
           <Link href="/schedule/request?type=leave" className="btn btn-primary" style={{ fontSize: 12 }}>{t.requestLeaveBtn}</Link>
           <Link href="/schedule/request?type=swap" className="btn btn-ghost" style={{ fontSize: 12 }}>{t.requestSwapBtn}</Link>
         </div>
       </div>
-      <div className="cb">
+      <div className="cb" style={{ opacity: shiftsReady ? 1 : 0.45 }}>
         {own ? <div className="schedule-own-grid schedule-desktop-only" style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 8 }}>
           {dayLabels.map((day, index) => {
             const meta = shiftMeta(own.shifts[index], t);
@@ -898,7 +901,7 @@ export function ScheduleRequestPage({ employee, requestType }: { employee?: stri
   const t = useT();
   const router = useRouter();
   const toast = useToast();
-  const { ready, employees, isPlanner, currentUserId, saveAbsence } = useSchedule();
+  const { ready, employees, isPlanner, currentUserId, fullName, saveAbsence } = useSchedule();
   const lockedSwap = requestType === "swap";
   const lockedLeave = requestType === "leave";
   const [busy, setBusy] = useState(false);
@@ -917,6 +920,11 @@ export function ScheduleRequestPage({ employee, requestType }: { employee?: stri
 
   useEffect(() => {
     setForm((current) => {
+      if (!isPlanner) {
+        const next = currentUserId || "";
+        if (current.empKey === next) return current;
+        return { ...current, empKey: next, swapWithKey: current.swapWithKey === next ? "" : current.swapWithKey };
+      }
       if (current.empKey && employees.some((item) => item.key === current.empKey)) return current;
       const next = employee && employees.some((item) => item.key === employee)
         ? employee
@@ -925,7 +933,7 @@ export function ScheduleRequestPage({ employee, requestType }: { employee?: stri
           : employees[0]?.key ?? "";
       return current.empKey === next ? current : { ...current, empKey: next };
     });
-  }, [currentUserId, employee, employees]);
+  }, [currentUserId, employee, employees, isPlanner]);
 
   async function save(event?: FormEvent, confirmOverwrite = false) {
     event?.preventDefault();
@@ -987,13 +995,13 @@ export function ScheduleRequestPage({ employee, requestType }: { employee?: stri
       <div className="ch"><div className="ct">{title}</div></div>
       <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div><label className="field-lbl">{t.employee}</label>
-          <select className="field-select" disabled={!isPlanner} value={form.empKey} onChange={(event) => setForm((current) => ({
+          {isPlanner ? <select className="field-select" value={form.empKey} onChange={(event) => setForm((current) => ({
             ...current,
             empKey: event.target.value,
             swapWithKey: current.swapWithKey === event.target.value ? "" : current.swapWithKey,
           }))}>
             {employees.map((item) => <option key={item.key} value={item.key}>{item.name}</option>)}
-          </select>
+          </select> : <div className="field-input">{employees.find((item) => item.key === currentUserId)?.name || fullName}</div>}
         </div>
         {lockedSwap ? null : <div><label className="field-lbl">{t.requestKind}</label>
           <select className="field-select" value={form.category === "vacation" ? "vacation" : "off"} onChange={(event) => setForm((current) => ({
