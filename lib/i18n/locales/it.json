@@ -419,11 +419,13 @@
     "description": "Gli elementi eliminati di questo hotel possono essere ripristinati qui.",
     "empty": "Il cestino è vuoto.",
     "restore": "Ripristina",
+    "edit": "Modifica",
     "deleted": "Eliminato",
     "types": {
       "department": "Reparto",
       "team": "Team",
-      "user": "Utente"
+      "user": "Utente",
+      "manual": "Manuale"
     }
   },
   "hotelLanguageMessages": {
@@ -1419,8 +1421,13 @@
     "create": "Crea manuale",
     "cancel": "Annulla",
     "delete": "Elimina",
+    "edit": "Modifica",
+    "editTitle": "Modifica documento",
+    "save": "Salva",
+    "recycleBin": "Cestino",
+    "inBin": "Questo documento è nel cestino. Ripristinalo per mostrarlo di nuovo nei manuali.",
     "deleteConfirm": "Eliminare questo documento?",
-    "deleteMessage": "{title} verrà rimosso dai manuali e dall’assistente IA.",
+    "deleteMessage": "{title} verrà spostato nel cestino. Resterà fuori dai manuali e dall’assistente IA finché non lo ripristini.",
     "fileRequired": "Scegli un file.",
     "departmentRequired": "Seleziona un reparto.",
     "categories": {

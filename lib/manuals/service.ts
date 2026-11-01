@@ -4,15 +4,16 @@ import { randomUUID } from "node:crypto";
 import { recordAuditLog } from "../audit/audit-service";
 import { prisma } from "../prisma";
 import { dispatchManualIndex } from "./dispatch";
-import { deleteManualBlob, readManualBlob, saveManualBlob } from "./file-blob";
+import { ensureManualDeletedColumn } from "./ensure-deleted";
+import { readManualBlob, saveManualBlob } from "./file-blob";
 import { deleteManualFile, isManualUpload, mimeFor, readManualFile, saveManualFile } from "./storage";
 import { departmentIdsOf } from "../users/memberships";
 import type { ManualsActor } from "./access";
 
 function visibleWhere(actor: ManualsActor) {
-  if (actor.canManage) return { hotelTenantId: actor.hotel_tenant_id };
+  if (actor.canManage) return { hotelTenantId: actor.hotel_tenant_id, isDeleted: false };
   const departmentIds = departmentIdsOf(actor);
-  return { hotelTenantId: actor.hotel_tenant_id, OR: [{ departmentId: null }, ...(departmentIds.length ? [{ departmentId: { in: departmentIds } }] : [])] };
+  return { hotelTenantId: actor.hotel_tenant_id, isDeleted: false, OR: [{ departmentId: null }, ...(departmentIds.length ? [{ departmentId: { in: departmentIds } }] : [])] };
 }
 
 function titleFromFile(name: string) {
@@ -85,6 +86,7 @@ export async function ensureManualNotifications(user: { id: string; hotelTenantI
   const documents = await prisma.manualDocument.findMany({
     where: {
       hotelTenantId: user.hotelTenantId,
+      isDeleted: false,
       createdById: { not: user.id },
       OR: [{ departmentId: null }, ...(departmentIds.length ? [{ departmentId: { in: departmentIds } }] : [])],
     },
@@ -116,6 +118,7 @@ export async function ensureManualNotifications(user: { id: string; hotelTenantI
 }
 
 export async function listManuals(actor: ManualsActor, locale: string) {
+  await ensureManualDeletedColumn();
   const [documents, departments] = await Promise.all([
     prisma.manualDocument.findMany({
       where: visibleWhere(actor),
@@ -213,12 +216,61 @@ export async function createManual(actor: ManualsActor, form: FormData) {
   }
 }
 
+export async function getManualForEdit(actor: ManualsActor, id: string) {
+  await ensureManualDeletedColumn();
+  const document = await prisma.manualDocument.findFirst({
+    where: { id, hotelTenantId: actor.hotel_tenant_id },
+    select: { id: true, title: true, originalName: true, departmentId: true, isDeleted: true },
+  });
+  if (!document) return null;
+  return {
+    id: document.id,
+    title: document.title,
+    originalName: document.originalName,
+    departmentId: document.departmentId,
+    hotelWide: !document.departmentId,
+    isDeleted: document.isDeleted,
+  };
+}
+
+export async function updateManual(actor: ManualsActor, id: string, input: { title?: unknown; scope?: unknown; departmentId?: unknown }) {
+  await ensureManualDeletedColumn();
+  const existing = await prisma.manualDocument.findFirst({ where: { id, hotelTenantId: actor.hotel_tenant_id } });
+  if (!existing) return { error: "NOT_FOUND" as const };
+  const title = String(input.title ?? existing.title).trim().slice(0, 180);
+  if (!title) return { error: "INVALID" as const };
+  const scope = String(input.scope ?? (existing.departmentId ? "department" : "hotel"));
+  let departmentId: string | null = null;
+  if (scope !== "hotel") {
+    const department = await prisma.department.findFirst({
+      where: { id: String(input.departmentId ?? ""), hotelTenantId: actor.hotel_tenant_id, isDeleted: false },
+      select: { id: true },
+    });
+    if (!department) return { error: "INVALID_DEPARTMENT" as const };
+    departmentId = department.id;
+  }
+  await prisma.$transaction(async (tx) => {
+    await tx.manualDocument.update({ where: { id }, data: { title, departmentId } });
+    await tx.manualChunk.updateMany({ where: { documentId: id }, data: { departmentId } });
+    await recordAuditLog(tx, { module: "manuals",
+      hotelTenantId: actor.hotel_tenant_id,
+      actorId: actor.id,
+      action: "UPDATE",
+      entityType: "MANUAL",
+      entityId: id,
+      changes: { before: existing.title, after: title },
+    });
+  });
+  return { ok: true as const, isDeleted: existing.isDeleted };
+}
+
 export async function removeManual(actor: ManualsActor, id: string) {
-  const document = await prisma.manualDocument.findFirst({ where: { id, hotelTenantId: actor.hotel_tenant_id } });
+  await ensureManualDeletedColumn();
+  const document = await prisma.manualDocument.findFirst({ where: { id, hotelTenantId: actor.hotel_tenant_id, isDeleted: false } });
   if (!document) return { error: "NOT_FOUND" as const };
   await prisma.$transaction(async (tx) => {
-    await deleteManualBlob(tx, document.storageKey);
-    await tx.manualDocument.delete({ where: { id } });
+    await tx.manualChunk.deleteMany({ where: { documentId: id } });
+    await tx.manualDocument.update({ where: { id }, data: { isDeleted: true, deletedAt: new Date(), indexStatus: "PENDING", indexError: null } });
     await recordAuditLog(tx, { module: "manuals",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
@@ -228,7 +280,6 @@ export async function removeManual(actor: ManualsActor, id: string) {
       changes: { before: document.title },
     });
   });
-  await deleteManualFile(document.storageKey);
   return { ok: true as const };
 }
 

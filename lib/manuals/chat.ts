@@ -44,9 +44,10 @@ function scoreChunk(title: string, content: string, queryTokens: string[]) {
 }
 
 function visibleDocuments(actor: ManualsActor) {
-  if (actor.canManage) return { hotelTenantId: actor.hotel_tenant_id, indexStatus: "READY" };
+  if (actor.canManage) return { hotelTenantId: actor.hotel_tenant_id, isDeleted: false, indexStatus: "READY" };
   return {
     hotelTenantId: actor.hotel_tenant_id,
+    isDeleted: false,
     indexStatus: "READY",
     OR: [{ departmentId: null }, ...(departmentIdsOf(actor).length ? [{ departmentId: { in: departmentIdsOf(actor) } }] : [])],
   };

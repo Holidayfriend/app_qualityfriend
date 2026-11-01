@@ -998,12 +998,15 @@ model ManualDocument {
   createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   indexStatus   String        @default("PENDING") @map("index_status") @db.VarChar(20)
   indexError    String?       @map("index_error") @db.Text
+  isDeleted     Boolean       @default(false) @map("is_deleted")
+  deletedAt     DateTime?     @map("deleted_at") @db.Timestamptz(3)
   hotelTenant   HotelTenant   @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
   department    Department?   @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   createdBy     User          @relation("ManualDocumentAuthor", fields: [createdById], references: [id], onDelete: Restrict)
   chunks        ManualChunk[]
 
   @@index([hotelTenantId, createdAt])
+  @@index([hotelTenantId, isDeleted])
   @@index([hotelTenantId, departmentId])
   @@index([createdById])
   @@map("manual_documents")

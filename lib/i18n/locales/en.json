@@ -421,11 +421,13 @@
     "description": "Deleted items from this hotel can be restored here.",
     "empty": "The recycle bin is empty.",
     "restore": "Restore",
+    "edit": "Edit",
     "deleted": "Deleted",
     "types": {
       "department": "Department",
       "team": "Team",
-      "user": "User"
+      "user": "User",
+      "manual": "Manual"
     }
   },
   "hotelLanguageMessages": {
@@ -1421,8 +1423,13 @@
     "create": "Create manual",
     "cancel": "Cancel",
     "delete": "Delete",
+    "edit": "Edit",
+    "editTitle": "Edit document",
+    "save": "Save",
+    "recycleBin": "Recycle bin",
+    "inBin": "This document is in the recycle bin. Restore it when it should appear in Manuals again.",
     "deleteConfirm": "Delete this document?",
-    "deleteMessage": "{title} will be removed from Manuals and from the AI assistant.",
+    "deleteMessage": "{title} will move to the recycle bin. It leaves Manuals and the AI assistant until you restore it.",
     "fileRequired": "Please choose a file.",
     "departmentRequired": "Please select a department.",
     "categories": {

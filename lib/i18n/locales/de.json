@@ -419,11 +419,13 @@
     "description": "Gelöschte Einträge dieses Hotels können hier wiederhergestellt werden.",
     "empty": "Der Papierkorb ist leer.",
     "restore": "Wiederherstellen",
+    "edit": "Bearbeiten",
     "deleted": "Gelöscht",
     "types": {
       "department": "Abteilung",
       "team": "Team",
-      "user": "Benutzer"
+      "user": "Benutzer",
+      "manual": "Handbuch"
     }
   },
   "hotelLanguageMessages": {
@@ -1419,8 +1421,13 @@
     "create": "Handbuch erstellen",
     "cancel": "Abbrechen",
     "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "editTitle": "Dokument bearbeiten",
+    "save": "Speichern",
+    "recycleBin": "Papierkorb",
+    "inBin": "Dieses Dokument liegt im Papierkorb. Stellen Sie es wieder her, damit es wieder unter Handbücher erscheint.",
     "deleteConfirm": "Dieses Dokument löschen?",
-    "deleteMessage": "{title} wird aus den Handbüchern und vom KI-Assistenten entfernt.",
+    "deleteMessage": "{title} wird in den Papierkorb verschoben. Es verschwindet aus den Handbüchern und vom KI-Assistenten, bis Sie es wiederherstellen.",
     "fileRequired": "Bitte eine Datei wählen.",
     "departmentRequired": "Bitte eine Abteilung wählen.",
     "categories": {

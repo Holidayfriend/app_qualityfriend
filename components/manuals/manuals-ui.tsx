@@ -130,6 +130,7 @@ export function ManualsPage() {
           </a>
           <div className="hb-actions">
             <a className="icon-btn" href={`/api/manuals/${doc.id}/file?download=1`} download={heading} aria-label={t.download} title={t.download}>⬇️</a>
+            {canManage ? <Link href={`/manuals/${doc.id}/edit`} className="icon-btn" aria-label={t.edit} title={t.edit}>✏️</Link> : null}
             {canManage ? <button type="button" className="icon-btn danger" aria-label={t.delete} onClick={() => setPendingDelete(doc)}>🗑️</button> : null}
           </div>
         </div>;
@@ -200,6 +201,81 @@ export function ManualsUploadPage() {
         </div>
       </form>
       {saving ? <BrandLoader label={t.loading} overlay /> : null}
+    </main>
+  </AppShell>;
+}
+
+export function ManualsEditPage({ id }: { id: string }) {
+  const { locale } = useI18n();
+  const t = getManualsMessages(locale);
+  const router = useRouter();
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [departmentId, setDepartmentId] = useState("");
+  const [title, setTitle] = useState("");
+  const [deleted, setDeleted] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState("");
+  const hotelWide = !departmentId;
+
+  useEffect(() => {
+    Promise.all([
+      loadHotelDepartments(locale),
+      fetch(`/api/manuals/${id}`, { cache: "no-store" }).then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error();
+        return data.document as { title: string; departmentId: string | null; isDeleted: boolean };
+      }),
+    ]).then(([departmentRows, document]) => {
+      setDepartments(departmentRows);
+      setTitle(document.title);
+      setDepartmentId(document.departmentId || "");
+      setDeleted(document.isDeleted);
+      setReady(true);
+    }).catch(() => setNotice(t.failed));
+  }, [id, locale, t.failed]);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (!title.trim()) { setNotice(t.failed); return; }
+    setSaving(true);
+    setNotice("");
+    const response = await fetch(`/api/manuals/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: title.trim(), scope: hotelWide ? "hotel" : "department", departmentId }),
+    });
+    setSaving(false);
+    if (!response.ok) { setNotice(t.failed); return; }
+    const data = await response.json() as { isDeleted?: boolean };
+    router.push(data.isDeleted ? "/settings/recycle-bin" : "/manuals");
+  }
+
+  return <AppShell activeItem="manuals" pageTitle={t.editTitle}>
+    <main className="qf-dashboard pb-24 lg:pb-[24px]">
+      <Link href={deleted ? "/settings/recycle-bin" : "/manuals"} className="back-link">← {deleted ? t.recycleBin : t.pageTitle}</Link>
+      <form onSubmit={submit} className="card" style={{ maxWidth: 640 }}>
+        <div className="ch"><div className="ct">{t.editTitle}</div></div>
+        <div className="cb" style={{ display: "grid", gap: 16 }}>
+          {deleted ? <p style={{ fontSize: 12.5, color: "var(--text2)" }}>{t.inBin}</p> : null}
+          <div>
+            <div className="field-lbl">{t.scope}</div>
+            <div className="hb-cat" style={{ marginTop: 8 }}>
+              <div className={`hb-cat-btn${hotelWide ? " active" : ""}`} onClick={() => setDepartmentId("")}>{departmentIcon("", true)} {t.hotelWide}</div>
+              {departments.map((department) => <div key={department.id} className={`hb-cat-btn${departmentId === department.id ? " active" : ""}`} onClick={() => setDepartmentId(department.id)}>{departmentIcon(department.name)} {department.name}</div>)}
+            </div>
+          </div>
+          <label className="field-lbl">{t.docTitle}
+            <input className="field-input" name="title" value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t.titlePlaceholder} />
+          </label>
+          {notice ? <p role="status" style={{ fontSize: 12 }}>{notice}</p> : null}
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+            <Link href={deleted ? "/settings/recycle-bin" : "/manuals"} className="btn btn-ghost">{t.cancel}</Link>
+            <button type="submit" className="btn btn-primary" disabled={saving || !ready}>{t.save}</button>
+          </div>
+        </div>
+      </form>
+      {saving || !ready && !notice ? <BrandLoader label={t.loading} overlay /> : null}
     </main>
   </AppShell>;
 }

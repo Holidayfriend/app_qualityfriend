@@ -11,15 +11,24 @@ export async function indexManualDocument(data: ManualIndexJob) {
   try {
     const document = await prisma.manualDocument.findFirst({
       where: { id: data.documentId, hotelTenantId: data.hotelTenantId },
-      select: { id: true, storageKey: true, mimeType: true, departmentId: true, hotelTenantId: true },
+      select: { id: true, storageKey: true, mimeType: true, departmentId: true, hotelTenantId: true, isDeleted: true },
     });
     if (!document) throw new Error("Manual document not found");
+    if (document.isDeleted) {
+      await prisma.manualChunk.deleteMany({ where: { documentId: document.id } });
+      return { documentId: document.id, chunks: 0 };
+    }
     await prisma.manualDocument.update({ where: { id: document.id }, data: { indexStatus: "RUNNING", indexError: null } });
     const bytes = await readManualFile(document.storageKey) ?? await readManualBlob(prisma, document.storageKey);
     if (!bytes) throw new Error(`Manual file ${document.storageKey} is not on the worker disk and has no database copy. Re-upload the document.`);
     const text = await extractManualBuffer(bytes, document.mimeType, document.storageKey);
     const chunks = splitManualText(text);
     await prisma.$transaction(async (tx) => {
+      const current = await tx.manualDocument.findFirst({ where: { id: document.id }, select: { isDeleted: true } });
+      if (current?.isDeleted) {
+        await tx.manualChunk.deleteMany({ where: { documentId: document.id } });
+        return;
+      }
       await tx.manualChunk.deleteMany({ where: { documentId: document.id } });
       if (chunks.length) {
         await tx.manualChunk.createMany({
