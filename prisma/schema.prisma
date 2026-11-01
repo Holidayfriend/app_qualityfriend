@@ -379,10 +379,27 @@ model HousekeepingExtraJobAssignment {
   hotelTenant         HotelTenant                  @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   extraJob            ExtraJob                     @relation(fields: [hotelTenantId, extraJobId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
   assignedTo          User                         @relation("HousekeepingExtraJobAssignee", fields: [hotelTenantId, assignedToId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade)
+  comments            HousekeepingExtraJobComment[]
 
   @@unique([hotelTenantId, workDate, extraJobId, assignedToId])
   @@index([hotelTenantId, workDate, assignedToId])
   @@map("housekeeping_extra_job_assignments")
+}
+
+model HousekeepingExtraJobComment {
+  id            String                         @id @default(uuid()) @db.Uuid
+  hotelTenantId String                         @map("hotel_tenant_id") @db.Uuid
+  assignmentId  String                         @map("assignment_id") @db.Uuid
+  authorId      String                         @map("author_id") @db.Uuid
+  text          String                         @db.VarChar(2000)
+  createdAt     DateTime                       @default(now()) @map("created_at") @db.Timestamptz(3)
+  hotelTenant   HotelTenant                    @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade, map: "hk_extra_comment_tenant_fkey")
+  assignment    HousekeepingExtraJobAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade, onUpdate: Cascade, map: "hk_extra_comment_assignment_fkey")
+  author        User                           @relation("HousekeepingExtraJobCommentAuthor", fields: [hotelTenantId, authorId], references: [hotelTenantId, id], onDelete: Restrict, onUpdate: Cascade, map: "hk_extra_comment_author_fkey")
+
+  @@index([assignmentId, createdAt])
+  @@index([hotelTenantId, authorId])
+  @@map("housekeeping_extra_job_comments")
 }
 
 model HousekeepingPermanentRoomAssignment {
@@ -496,6 +513,7 @@ model HotelTenant {
   roomChecklistTemplateRecords                   RoomChecklistTemplate[]
   housekeepingRoomAssignmentRecords              HousekeepingRoomAssignment[]
   housekeepingExtraJobAssignmentRecords          HousekeepingExtraJobAssignment[]
+  housekeepingExtraJobCommentRecords             HousekeepingExtraJobComment[]
   housekeepingChecklistCompletionRecords         HousekeepingChecklistCompletion[]
   housekeepingPermanentRoomAssignmentRecords     HousekeepingPermanentRoomAssignment[]
   housekeepingPermanentExtraJobAssignmentRecords HousekeepingPermanentExtraJobAssignment[]
@@ -777,6 +795,7 @@ model User {
   departmentChatReads                            DepartmentChatRead[]
   housekeepingRoomAssignmentRecords              HousekeepingRoomAssignment[]              @relation("HousekeepingRoomAssignee")
   housekeepingExtraJobAssignmentRecords          HousekeepingExtraJobAssignment[]          @relation("HousekeepingExtraJobAssignee")
+  housekeepingExtraJobComments                   HousekeepingExtraJobComment[]             @relation("HousekeepingExtraJobCommentAuthor")
   housekeepingChecklistCompletionRecords         HousekeepingChecklistCompletion[]         @relation("HousekeepingChecklistChecker")
   housekeepingPermanentRoomAssignmentRecords     HousekeepingPermanentRoomAssignment[]     @relation("HousekeepingPermanentRoomAssignee")
   housekeepingPermanentExtraJobAssignmentRecords HousekeepingPermanentExtraJobAssignment[] @relation("HousekeepingPermanentExtraJobAssignee")

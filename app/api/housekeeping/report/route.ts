@@ -65,8 +65,16 @@ export async function GET(request: Request) {
         plannedMinutes: true,
         descriptionSnapshot: true,
         completedAt: true,
-        comment: true,
         assignedTo: { select: { firstName: true, lastName: true } },
+        comments: {
+          orderBy: { createdAt: "asc" },
+          select: {
+            id: true,
+            text: true,
+            createdAt: true,
+            author: { select: { firstName: true, lastName: true } },
+          },
+        },
         extraJob: { select: { descriptionEn: true, descriptionDe: true, descriptionIt: true } },
       },
     }),
@@ -89,7 +97,12 @@ export async function GET(request: Request) {
     description: translatedExtra(activeLocale, { ...row.extraJob, descriptionSnapshot: row.descriptionSnapshot }),
     minutes: row.plannedMinutes,
     employeeName: `${row.assignedTo.firstName} ${row.assignedTo.lastName}`.trim(),
-    comment: row.comment,
+    comments: row.comments.map((item) => ({
+      id: item.id,
+      text: item.text,
+      author: `${item.author.firstName} ${item.author.lastName}`.trim(),
+      createdAt: item.createdAt.toISOString(),
+    })),
     completedAt: row.completedAt?.toISOString() ?? null,
   });
 

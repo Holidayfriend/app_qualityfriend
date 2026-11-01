@@ -49,8 +49,16 @@ export async function GET(request: Request) {
       plannedMinutes: true,
       descriptionSnapshot: true,
       completedAt: true,
-      comment: true,
       assignedToId: true,
+      comments: {
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          text: true,
+          createdAt: true,
+          author: { select: { firstName: true, lastName: true } },
+        },
+      },
       assignedTo: { select: { id: true, firstName: true, lastName: true } },
       extraJob: { select: { descriptionEn: true, descriptionDe: true, descriptionIt: true } },
     },
@@ -61,7 +69,12 @@ export async function GET(request: Request) {
     description: translated(activeLocale, { ...assignment.extraJob, descriptionSnapshot: assignment.descriptionSnapshot }),
     minutes: assignment.plannedMinutes,
     completed: assignment.completedAt !== null,
-    comment: assignment.comment,
+    comments: assignment.comments.map((row) => ({
+      id: row.id,
+      text: row.text,
+      author: `${row.author.firstName} ${row.author.lastName}`.trim(),
+      createdAt: row.createdAt.toISOString(),
+    })),
     employeeId: assignment.assignedToId,
     employeeName: `${assignment.assignedTo.firstName} ${assignment.assignedTo.lastName}`.trim(),
   });
@@ -114,4 +127,47 @@ export async function PATCH(request: Request) {
   }
 
   return Response.json({ success: true, completed: body.completed, comment: comment ?? "" });
+}
+
+export async function POST(request: Request) {
+  const current = await actor();
+  if (!current) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
+  const { user, access } = current;
+  if (!access.housekeeper && !access.admin) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
+
+  await ensureExtraJobComment();
+  const body = await request.json().catch(() => null) as { assignmentId?: unknown; text?: unknown } | null;
+  const assignmentId = typeof body?.assignmentId === "string" ? body.assignmentId : "";
+  const text = typeof body?.text === "string" ? body.text.trim().slice(0, 2000) : "";
+  if (!assignmentId || !text) return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
+
+  let date: string;
+  try { date = hotelDate(hotelTimeZone(user.hotelTenant.timeZone)); } catch { return Response.json({ error: "INVALID_HOTEL_TIME_ZONE" }, { status: 500 }); }
+
+  const assignment = await prisma.housekeepingExtraJobAssignment.findFirst({
+    where: { id: assignmentId, hotelTenantId: user.hotelTenantId, workDate: new Date(`${date}T00:00:00.000Z`) },
+    select: { id: true, assignedToId: true },
+  });
+  if (!assignment) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
+  if (!access.admin && assignment.assignedToId !== user.id) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
+
+  const author = await prisma.user.findFirst({
+    where: { id: user.id, hotelTenantId: user.hotelTenantId },
+    select: { firstName: true, lastName: true },
+  });
+  if (!author) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
+
+  const row = await prisma.housekeepingExtraJobComment.create({
+    data: { hotelTenantId: user.hotelTenantId, assignmentId: assignment.id, authorId: user.id, text },
+    select: { id: true, text: true, createdAt: true },
+  });
+
+  return Response.json({
+    comment: {
+      id: row.id,
+      text: row.text,
+      author: `${author.firstName} ${author.lastName}`.trim(),
+      createdAt: row.createdAt.toISOString(),
+    },
+  }, { status: 201 });
 }
