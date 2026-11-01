@@ -10,7 +10,7 @@ export async function GET(request: Request) {
   const lang = supportedLocales.includes(locale as (typeof supportedLocales)[number]) ? locale : "en";
   const [rooms, departments, users] = await Promise.all([
     prisma.room.findMany({
-      where: { hotelTenantId: user.hotel_tenant_id, isActive: true, archivedAt: null },
+      where: { hotelTenantId: user.hotel_tenant_id, isActive: true, archivedAt: null, number: { notIn: ["100", "200"] } },
       orderBy: { number: "asc" },
       select: { id: true, number: true },
     }),

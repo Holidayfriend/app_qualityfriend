@@ -336,7 +336,7 @@ export function RepairsFormPage({ id }: { id?: string }) {
               const isArea = REPAIR_AREA_KEYS.includes(location as RepairAreaKey);
               const isRoomLoc = Boolean(location) && (rooms.some((room) => room.number === location) || /^\d+[a-z]?$/i.test(location));
               const selectValue = isRoomLoc || isArea || location === "" ? location : "__custom__";
-              const extraRoom = isRoomLoc && !rooms.some((room) => room.number === location);
+              const extraRoom = isRoomLoc && !rooms.some((room) => room.number === location) && location !== "100" && location !== "200";
               return <>
                 <select className="field-select" style={{ marginBottom: selectValue === "__custom__" ? 8 : 14 }} value={selectValue} onChange={(event) => { const value = event.target.value; setLocation(value); if (value !== "__custom__") setCustomLocation(""); }}>
                   <option value="">{t.chooseLocation}</option>

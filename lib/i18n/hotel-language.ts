@@ -1,4 +1,4 @@
-const SWEDISH_WORD = /\b(och|inte|är|också|från|denna|detta|ska|skulle|eller)\b/i;
+const SWEDISH_WORD = /(?:^|[^\p{L}])(och|inte|är|också|från|denna|detta|ska|skulle|eller)(?=$|[^\p{L}])/iu;
 
 /** English, German, and Italian only. Swedish letters and common Swedish words are rejected. */
 export function fitsHotelLanguage(text: string) {
