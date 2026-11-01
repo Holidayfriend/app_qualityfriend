@@ -2,6 +2,7 @@ import { Prisma } from "../../../../../app/generated/prisma/client";
 import { getSessionUserId } from "../../../../../lib/auth/session";
 import { hotelTimeZone } from "../../../../../lib/hotel/clock";
 import { housekeepingAccess } from "../../../../../lib/housekeeping/access";
+import { ensureExtraJobComment } from "../../../../../lib/housekeeping/ensure-extra-comment";
 import { prisma } from "../../../../../lib/prisma";
 
 type Locale = "en" | "de" | "it";
@@ -39,6 +40,7 @@ export async function GET(request: Request) {
   let date: string;
   try { date = hotelDate(hotelTimeZone(user.hotelTenant.timeZone)); } catch { return Response.json({ error: "INVALID_HOTEL_TIME_ZONE" }, { status: 500 }); }
 
+  await ensureExtraJobComment();
   const assignments = await prisma.housekeepingExtraJobAssignment.findMany({
     where: { hotelTenantId: user.hotelTenantId, workDate: new Date(`${date}T00:00:00.000Z`) },
     orderBy: [{ descriptionSnapshot: "asc" }, { id: "asc" }],
@@ -47,6 +49,7 @@ export async function GET(request: Request) {
       plannedMinutes: true,
       descriptionSnapshot: true,
       completedAt: true,
+      comment: true,
       assignedToId: true,
       assignedTo: { select: { id: true, firstName: true, lastName: true } },
       extraJob: { select: { descriptionEn: true, descriptionDe: true, descriptionIt: true } },
@@ -58,6 +61,7 @@ export async function GET(request: Request) {
     description: translated(activeLocale, { ...assignment.extraJob, descriptionSnapshot: assignment.descriptionSnapshot }),
     minutes: assignment.plannedMinutes,
     completed: assignment.completedAt !== null,
+    comment: assignment.comment,
     employeeId: assignment.assignedToId,
     employeeName: `${assignment.assignedTo.firstName} ${assignment.assignedTo.lastName}`.trim(),
   });
@@ -80,8 +84,10 @@ export async function PATCH(request: Request) {
   const { user, access } = current;
   if (!access.housekeeper && !access.admin) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
 
-  const body = await request.json().catch(() => null) as { assignmentId?: unknown; completed?: unknown } | null;
+  await ensureExtraJobComment();
+  const body = await request.json().catch(() => null) as { assignmentId?: unknown; completed?: unknown; comment?: unknown } | null;
   const assignmentId = typeof body?.assignmentId === "string" ? body.assignmentId : "";
+  const comment = typeof body?.comment === "string" ? body.comment.trim().slice(0, 2000) : undefined;
   if (!assignmentId || typeof body?.completed !== "boolean") return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
 
   let date: string;
@@ -89,7 +95,7 @@ export async function PATCH(request: Request) {
 
   const assignment = await prisma.housekeepingExtraJobAssignment.findFirst({
     where: { id: assignmentId, hotelTenantId: user.hotelTenantId, workDate: new Date(`${date}T00:00:00.000Z`) },
-    select: { id: true, assignedToId: true },
+    select: { id: true, assignedToId: true, completedAt: true },
   });
   if (!assignment) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
   if (!access.admin && assignment.assignedToId !== user.id) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
@@ -97,12 +103,15 @@ export async function PATCH(request: Request) {
   try {
     await prisma.housekeepingExtraJobAssignment.update({
       where: { id: assignment.id },
-      data: { completedAt: body.completed ? new Date() : null },
+      data: {
+        completedAt: body.completed ? assignment.completedAt ?? new Date() : null,
+        ...(comment === undefined ? {} : { comment }),
+      },
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError) return Response.json({ error: "UPDATE_FAILED" }, { status: 409 });
     throw error;
   }
 
-  return Response.json({ success: true, completed: body.completed });
+  return Response.json({ success: true, completed: body.completed, comment: comment ?? "" });
 }

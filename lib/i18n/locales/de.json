@@ -848,6 +848,8 @@
     "extraToday": "Heute zusätzliche Jobs",
     "myExtraToday": "Meine Zusatzaufgaben heute",
     "extraEmpty": "Keine Zusatzaufgaben für heute zugewiesen.",
+    "extraComment": "Kommentar",
+    "extraCommentPlaceholder": "Optionaler Kommentar",
     "assignedTo": "Zugewiesen an",
     "report": "Bericht",
     "reportHelp": "Tagesprotokoll der erledigten und offenen Aufgaben. Datum wählen, um die Historie nach dem täglichen Reset zu sehen.",

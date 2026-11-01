@@ -1,6 +1,7 @@
 import { getSessionUserId } from "../../../../lib/auth/session";
 import { hotelTimeZone } from "../../../../lib/hotel/clock";
 import { housekeepingAccess } from "../../../../lib/housekeeping/access";
+import { ensureExtraJobComment } from "../../../../lib/housekeeping/ensure-extra-comment";
 import { prisma } from "../../../../lib/prisma";
 
 type Locale = "en" | "de" | "it";
@@ -47,6 +48,7 @@ export async function GET(request: Request) {
   const requested = params.get("date")?.trim() || today;
   if (!dateRe.test(requested)) return Response.json({ error: "INVALID_DATE" }, { status: 400 });
   const workDate = asDate(requested);
+  await ensureExtraJobComment();
 
   const [dailyRuns, extras, rooms] = await Promise.all([
     prisma.housekeepingDailyRun.findMany({
@@ -63,6 +65,7 @@ export async function GET(request: Request) {
         plannedMinutes: true,
         descriptionSnapshot: true,
         completedAt: true,
+        comment: true,
         assignedTo: { select: { firstName: true, lastName: true } },
         extraJob: { select: { descriptionEn: true, descriptionDe: true, descriptionIt: true } },
       },
@@ -86,6 +89,7 @@ export async function GET(request: Request) {
     description: translatedExtra(activeLocale, { ...row.extraJob, descriptionSnapshot: row.descriptionSnapshot }),
     minutes: row.plannedMinutes,
     employeeName: `${row.assignedTo.firstName} ${row.assignedTo.lastName}`.trim(),
+    comment: row.comment,
     completedAt: row.completedAt?.toISOString() ?? null,
   });
 

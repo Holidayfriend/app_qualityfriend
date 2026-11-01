@@ -373,6 +373,7 @@ model HousekeepingExtraJobAssignment {
   assignmentOrigin    HousekeepingAssignmentOrigin @default(TODAY_ONLY) @map("assignment_origin")
   descriptionSnapshot String                       @default("") @map("description_snapshot") @db.Text
   completedAt         DateTime?                    @map("completed_at") @db.Timestamptz(3)
+  comment             String                       @default("") @db.VarChar(2000)
   createdAt           DateTime                     @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt           DateTime                     @updatedAt @map("updated_at") @db.Timestamptz(3)
   hotelTenant         HotelTenant                  @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)

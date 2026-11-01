@@ -850,6 +850,8 @@
     "extraToday": "Additional jobs today",
     "myExtraToday": "My additional jobs today",
     "extraEmpty": "No additional jobs assigned today.",
+    "extraComment": "Comment",
+    "extraCommentPlaceholder": "Optional comment",
     "assignedTo": "Assigned to",
     "report": "Report",
     "reportHelp": "Daily record of completed and missing work. Pick a date to review history after the daily reset.",
