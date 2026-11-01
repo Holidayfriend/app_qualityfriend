@@ -25,11 +25,20 @@ test("drafts allow empty description, location, listing image, and logo", () => 
   }
 });
 
-test("publishing still requires all classic job fields", () => {
-  for (const field of ["description", "location", "image", "logo"] as const) {
+test("publishing still requires description and location", () => {
+  for (const field of ["description", "location"] as const) {
     const missing = complete();
     missing[field] = true;
     assert.equal(hasMissingClassicJobFields(missing, "active"), true);
+  }
+});
+
+test("listing image and favicon stay optional when publishing", () => {
+  for (const field of ["image", "logo"] as const) {
+    const missing = complete();
+    missing[field] = true;
+    assert.equal(classicJobFieldRequired(field, "active"), false);
+    assert.equal(hasMissingClassicJobFields(missing, "active"), false);
   }
 });
 

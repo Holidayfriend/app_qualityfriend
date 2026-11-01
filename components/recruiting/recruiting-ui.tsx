@@ -20,6 +20,7 @@ import { formatHotelDate, formatStoredDate, readHotelTimeZone } from "../../lib/
 import { isValidEmployeeTaxId } from "../../lib/recruiting/employee-fields";
 import { jobSaveErrorKey } from "../../lib/recruiting/job-save-error";
 import type { PublicJob } from "../../lib/recruiting/job-fields";
+import { bestListingJob } from "../../lib/recruiting/best-listing";
 import { classicJobFieldRequired, hasMissingClassicJobFields } from "../../lib/recruiting/job-validation";
 import { internationalPhoneNumber, isValidInternationalPhoneNumber, phoneNumberParts } from "../../lib/recruiting/phone-number";
 import { recruitingMailUrl, recruitingWhatsAppUrl } from "../../lib/recruiting/contact-links";
@@ -375,7 +376,7 @@ function Jobs({ t, locale }: { t: T; locale: Locale }) {
   const clicks = jobs.reduce((sum, job) => sum + job.clicks, 0);
   const apps = jobs.reduce((sum, job) => sum + job.apps, 0);
   const avgConv = clicks ? ((apps / clicks) * 100).toFixed(1) : "–";
-  const best = [...jobs].sort((a, b) => parseFloat(b.conv) - parseFloat(a.conv))[0];
+  const best = bestListingJob(jobs);
   const rows = jobs.filter((job) => (filter === "all" || job.status === filter) && job.title.toLowerCase().includes(search.toLowerCase()));
   const statusLabel = (status: JobStatus) => status === "active" ? t.active : status === "draft" ? t.draft : t.archived;
   async function toggleArchive(id: string) {

@@ -13,7 +13,7 @@ const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 const jobInclude = {
   department: { select: { nameEn: true, nameDe: true, nameIt: true } },
-  hotelTenant: { select: { hotelNameEn: true, hotelNameDe: true, hotelNameIt: true, dataProtectionEn: true, dataProtectionDe: true, dataProtectionIt: true, privacyPolicyEn: true, privacyPolicyDe: true, privacyPolicyIt: true } },
+  hotelTenant: { select: { hotelNameEn: true, hotelNameDe: true, hotelNameIt: true, logoUrl: true, dataProtectionEn: true, dataProtectionDe: true, dataProtectionIt: true, privacyPolicyEn: true, privacyPolicyDe: true, privacyPolicyIt: true } },
 } as const;
 
 async function jobBySlug(slug: string) {
@@ -93,7 +93,9 @@ export async function GET(request: Request, context: Context) {
   }
   const apps = await prisma.recruitingApplication.count({ where: { jobId: current.id, viaPublicPage: true } });
   const hotel = job.hotelTenant;
-  return Response.json({ job: { ...toPublicJob(current, apps, locale, true, job.department), whatsappNumber: current.whatsappEnabled ? current.whatsappNumber : "", hotelName: hotelLabel(hotel, locale), policies: { dataProtection: { en: hotel?.dataProtectionEn ?? "", de: hotel?.dataProtectionDe ?? "", it: hotel?.dataProtectionIt ?? "" }, privacyPolicy: { en: hotel?.privacyPolicyEn ?? "", de: hotel?.privacyPolicyDe ?? "", it: hotel?.privacyPolicyIt ?? "" } } } }, { headers: { "Cache-Control": "no-store" } });
+  const published = toPublicJob(current, apps, locale, true, job.department);
+  const logoImage = published.logoImage.trim() || hotel?.logoUrl?.trim() || "";
+  return Response.json({ job: { ...published, logoImage, whatsappNumber: current.whatsappEnabled ? current.whatsappNumber : "", hotelName: hotelLabel(hotel, locale), policies: { dataProtection: { en: hotel?.dataProtectionEn ?? "", de: hotel?.dataProtectionDe ?? "", it: hotel?.dataProtectionIt ?? "" }, privacyPolicy: { en: hotel?.privacyPolicyEn ?? "", de: hotel?.privacyPolicyDe ?? "", it: hotel?.privacyPolicyIt ?? "" } } } }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST(request: Request, context: Context) {
