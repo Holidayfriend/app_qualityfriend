@@ -26,6 +26,7 @@ export async function GET() {
     const auth = await context();
     if (!auth) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
     if ("unavailable" in auth) return NextResponse.json({ error: "MCP_NOT_ACTIVE" }, { status: 409 });
+    if (auth.role !== "ADMIN") return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
     const [stores, departments] = await Promise.all([
       fetch(`${baseUrl()}/rag/vector-stores?hotelId=${encodeURIComponent(auth.hotelId)}`, { headers: { Authorization: `Bearer ${auth.token}` }, cache: "no-store", signal: AbortSignal.timeout(15_000) }).then(payload),
       prisma.department.findMany({ where: { hotelTenantId: auth.tenantId, isActive: true, isDeleted: false }, orderBy: { nameEn: "asc" }, select: { id: true, nameEn: true, nameDe: true, nameIt: true, mcpDepartmentId: true } }),

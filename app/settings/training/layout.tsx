@@ -1,3 +1,3 @@
 import type { ReactNode } from "react";
-import { requireModuleAccess } from "../../../lib/auth/module-access";
-export default async function Layout({ children }: { children: ReactNode }) { await requireModuleAccess("mcp"); return children; }
+import { requireAdministrator } from "../../../lib/auth/module-access";
+export default async function Layout({ children }: { children: ReactNode }) { await requireAdministrator(); return children; }

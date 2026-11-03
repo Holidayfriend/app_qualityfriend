@@ -10,7 +10,7 @@ import { prisma } from "../../../../lib/prisma";
 async function actor() { const id = await getSessionUserId(); if (!id) return null; return prisma.user.findFirst({ where: { id, isActive: true, isDeleted: false }, select: { id: true, role: true, hotelTenantId: true } }); }
 
 export async function GET() {
-  const current = await actor(); if (!current) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
+  const current = await actor(); if (!current) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 }); if (current.role !== "ADMIN") return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   const hotel = await prisma.hotelTenant.findUnique({ where: { id: current.hotelTenantId }, select: { activeMcp: true, mcpHotelId: true, mcpUserEmail: true, mcpUserDepartment: true } });
   let credentials: Record<string, unknown> = {}, providerStates: unknown = [];
   if (hotel?.activeMcp && hotel.mcpHotelId) {

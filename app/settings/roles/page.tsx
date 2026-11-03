@@ -18,7 +18,7 @@ const rows: Row[] = [
   { id: "dashboard", icon: "🏠", levels: all },
   { id: "aiAssistant", icon: "✨", levels: all },
   { id: "chat", icon: "💬", levels: all },
-  { id: "mcp", icon: "🔌", levels: ["administrator"] },
+  { id: "mcp", icon: "🌐", levels: ["administrator"] },
   { id: "handovers", icon: "🤝", levels: all },
   { id: "tasks", icon: "✅", levels: all },
   { id: "housekeeping", icon: "🧹", levels: ["teamLead", "management", "administrator"] },
@@ -65,6 +65,7 @@ export default function RolesPage() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState("");
+  const [warning, setWarning] = useState("");
   const [mobileLevel, setMobileLevel] = useState<Level>("employee");
 
   useEffect(() => {
@@ -91,10 +92,12 @@ export default function RolesPage() {
     if (level === "administrator") return;
     const previous = access[moduleId];
     setAccess((current) => ({ ...current, [moduleId]: checked ? [...current[moduleId], level] : current[moduleId].filter((item) => item !== level) }));
-    setUpdating(true); setError("");
+    setUpdating(true); setError(""); setWarning("");
     try {
       const response = await fetch("/api/settings/role-permissions", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ role: databaseRoles[level] ?? level, moduleKey: moduleId, canView: checked }) });
       if (!response.ok) throw new Error();
+      const payload = await response.json().catch(() => null) as { warning?: string } | null;
+      if (payload?.warning === "MCP_SYNC_FAILED") setWarning(labels.mcpSyncFailed);
     } catch {
       setAccess((current) => ({ ...current, [moduleId]: previous }));
       setError(request.failed);
@@ -104,6 +107,7 @@ export default function RolesPage() {
   return <AppShell activeItem="settings"><main className="p-4 sm:p-5 lg:p-7">
     <button type="button" onClick={() => router.push("/settings")} className="mb-3.5 cursor-pointer text-[12.5px] font-semibold text-[var(--qf-text-muted)] hover:text-[var(--qf-accent)]">← {labels.settings}</button>
     {error ? <p role="alert" className="mb-4 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p> : null}
+    {warning ? <p role="status" className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">{warning}</p> : null}
     {loading ? <BrandLoader label={request.loading} /> : <section>
       <div className="mb-4 flex justify-end"><Link href="/settings/roles/new" className="rounded-lg bg-[var(--qf-accent)] px-4 py-2.5 text-sm font-semibold text-white">+ {customRoleMessages[locale].create}</Link></div><header className="mb-4"><div className="flex items-start justify-between gap-3"><div><h1 className="text-lg font-bold sm:text-xl">{labels.title}</h1><p className="mt-1 max-w-2xl text-xs leading-5 text-[var(--qf-text-muted)] sm:text-[13px]">{labels.description}</p></div>{updating ? <span className="shrink-0 rounded-full bg-[var(--qf-accent-soft)] px-2.5 py-1 text-[10px] font-bold text-[var(--qf-accent)]">{request.loading}</span> : null}</div></header>
 

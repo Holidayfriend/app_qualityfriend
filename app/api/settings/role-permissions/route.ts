@@ -12,20 +12,34 @@ export async function PATCH(request: Request) {
   const body = await request.json().catch(() => null), role = body && typeof body.role === "string" ? body.role : "", moduleKey = body && typeof body.moduleKey === "string" ? body.moduleKey : "", canView = body && typeof body.canView === "boolean" ? body.canView : null;
   if ((role === "ADMIN" || !await prisma.hotelRole.findUnique({ where: { hotelTenantId_key: { hotelTenantId: current.hotelTenantId, key: role } } })) || !modules.has(moduleKey) || canView === null) return NextResponse.json({ error: "INVALID_FIELDS" }, { status: 400 });
   try {
-    const mcp = moduleKey === "mcp" ? await getMcpUserContext(current.hotelTenantId) : null;
     await prisma.$transaction(async (tx) => {
       const keys = moduleKey === "revenue" ? ["revenue", "budget", "competitors"] : [moduleKey];
       let result = { id: "" };
       let previousView = false;
       for (const keyName of keys) {
-        const key = { hotelTenantId: current.hotelTenantId, role: role, moduleKey: keyName };
+        const key = { hotelTenantId: current.hotelTenantId, role, moduleKey: keyName };
         const previous = await tx.roleModulePermission.findUnique({ where: { hotelTenantId_role_moduleKey: key } });
         if (keyName === moduleKey) previousView = previous?.canView ?? false;
         result = await tx.roleModulePermission.upsert({ where: { hotelTenantId_role_moduleKey: key }, create: { ...key, canView }, update: { canView } });
       }
-      if (mcp) { const users = await tx.user.findMany({ where: { hotelTenantId: current.hotelTenantId, role: role, isDeleted: false }, select: { id: true, mcpUserId: true, email: true, role: true, isActive: true, departmentId: true } }); for (const user of users) { const remote = await setRemoteUserAccess(mcp, user, canView); if (!user.mcpUserId) await tx.user.update({ where: { id: user.id }, data: { mcpUserId: remote.id, mcpUserPassword: remote.password } }); } }
       await recordAuditLog(tx, { module: "settings", hotelTenantId: current.hotelTenantId, actorId: current.id, action: "UPDATE", entityType: "ROLE_PERMISSION", entityId: result.id, changes: { before: `${role} · ${moduleKey}: ${previousView}`, after: `${role} · ${moduleKey}: ${canView}` } });
-    }, { timeout: 30_000 });
+    });
+  } catch (error) {
+    console.error("Role permission update failed", error);
+    return NextResponse.json({ error: "UPDATE_FAILED" }, { status: 500 });
+  }
+  if (moduleKey !== "mcp") return NextResponse.json({ success: true });
+  try {
+    const mcp = await getMcpUserContext(current.hotelTenantId);
+    if (!mcp) return NextResponse.json({ success: true });
+    const users = await prisma.user.findMany({ where: { hotelTenantId: current.hotelTenantId, role, isDeleted: false }, select: { id: true, mcpUserId: true, email: true, role: true, isActive: true, departmentId: true } });
+    for (const user of users) {
+      const remote = await setRemoteUserAccess(mcp, user, canView);
+      if (!user.mcpUserId) await prisma.user.update({ where: { id: user.id }, data: { mcpUserId: remote.id, mcpUserPassword: remote.password } });
+    }
     return NextResponse.json({ success: true });
-  } catch (error) { console.error("Role/MCP synchronization failed", error); return NextResponse.json({ error: "MCP_SYNC_FAILED" }, { status: 502 }); }
+  } catch (error) {
+    console.error("Role permission saved; MCP synchronization failed", error);
+    return NextResponse.json({ success: true, warning: "MCP_SYNC_FAILED" });
+  }
 }

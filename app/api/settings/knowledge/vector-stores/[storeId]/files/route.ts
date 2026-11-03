@@ -19,7 +19,7 @@ function failed(error: unknown, code: string) { return NextResponse.json({ error
 
 export async function GET(_request: Request, { params }: Context) {
   try {
-    const auth = await context(); if (!auth) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 }); if ("unavailable" in auth) return NextResponse.json({ error: "MCP_NOT_ACTIVE" }, { status: 409 });
+    const auth = await context(); if (!auth) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 }); if ("unavailable" in auth) return NextResponse.json({ error: "MCP_NOT_ACTIVE" }, { status: 409 }); if (auth.role !== "ADMIN") return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
     const storeId = (await params).storeId;
     const [result, departments] = await Promise.all([
       fetch(`${baseUrl()}/rag/vector-stores/${encodeURIComponent(storeId)}/files?limit=50&hotelId=${encodeURIComponent(auth.hotelId)}`, { headers: { Authorization: `Bearer ${auth.token}` }, cache: "no-store", signal: AbortSignal.timeout(15_000) }).then(read),

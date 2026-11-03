@@ -9,8 +9,10 @@ const filesPath = () => process.env.MCP_FINE_TUNING_FILES_PATH || "/openai/fine-
 async function mcpContext() {
   const userId = await getSessionUserId();
   if (!userId) return null;
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { hotelTenant: { select: { activeMcp: true, mcpHotelId: true, mcpUserEmail: true, mcpUserPassword: true } } } });
-  const hotel = user?.hotelTenant;
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true, hotelTenant: { select: { activeMcp: true, mcpHotelId: true, mcpUserEmail: true, mcpUserPassword: true } } } });
+  if (!user) return null;
+  if (user.role !== "ADMIN") return { forbidden: true } as const;
+  const hotel = user.hotelTenant;
   if (!hotel?.activeMcp || !hotel.mcpHotelId || !hotel.mcpUserEmail || !hotel.mcpUserPassword) return { unavailable: true } as const;
   return { hotelId: hotel.mcpHotelId, token: await loginMcpUser(hotel.mcpUserEmail, hotel.mcpUserPassword) };
 }
@@ -30,6 +32,7 @@ export async function GET() {
   try {
     const auth = await mcpContext();
     if (!auth) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
+    if ("forbidden" in auth) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
     if ("unavailable" in auth) return NextResponse.json({ error: "MCP_NOT_ACTIVE" }, { status: 409 });
     return relay(await fetch(endpoint(auth.hotelId), { headers: { Authorization: `Bearer ${auth.token}` }, cache: "no-store", signal: AbortSignal.timeout(15_000) }));
   } catch (error) {
@@ -41,6 +44,7 @@ export async function POST(request: Request) {
   try {
     const auth = await mcpContext();
     if (!auth) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
+    if ("forbidden" in auth) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
     if ("unavailable" in auth) return NextResponse.json({ error: "MCP_NOT_ACTIVE" }, { status: 409 });
     const input = await request.formData();
     const files = input.getAll("files").filter((entry): entry is File => entry instanceof File);

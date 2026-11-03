@@ -472,6 +472,7 @@
     "settings": "Einstellungen",
     "title": "Rollen & Modul-Zugriff",
     "description": "Steuert, welche Module in der Seitenleiste für welche Rolle sichtbar sind.",
+    "mcpSyncFailed": "Der Rollenzugriff wurde gespeichert. MCP-Benutzer konnten nicht aktualisiert werden, weil der MCP-Dienst nicht erreichbar war.",
     "module": "Modul",
     "levels": {
       "employee": "Mitarbeiter",
@@ -503,7 +504,7 @@
   },
   "additionalModuleMessages": {
     "chat": "Chat",
-    "mcp": "MCP",
+    "mcp": "MCP-Portal",
     "competitors": "Konkurrenztarife",
     "users": "Benutzer erstellen & bearbeiten",
     "departmentTeams": "Teams & Abteilungen verwalten",

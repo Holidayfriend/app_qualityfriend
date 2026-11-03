@@ -474,6 +474,7 @@
     "settings": "Settings",
     "title": "Roles & module access",
     "description": "Controls which modules are visible in the sidebar for each role.",
+    "mcpSyncFailed": "The role access was saved. MCP users could not be updated because the MCP service could not be reached.",
     "module": "Module",
     "levels": {
       "employee": "Employee",
@@ -505,7 +506,7 @@
   },
   "additionalModuleMessages": {
     "chat": "Chat",
-    "mcp": "MCP",
+    "mcp": "MCP Portal",
     "competitors": "Competitor rates",
     "users": "Create & edit users",
     "departmentTeams": "Manage teams & departments",

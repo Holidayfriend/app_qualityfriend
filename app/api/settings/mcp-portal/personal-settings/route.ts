@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getPersonalMcpSession, getSessionUserId, refreshMcpSession } from "@/lib/auth/session";
+import { mcpPortalAccess } from "@/lib/mcp/portal-context";
 import {
   getMcpUserPreferences,
   McpApiError,
@@ -34,6 +35,8 @@ function isProvider(value: unknown): value is Provider {
 async function currentMcpUser() {
   const id = await getSessionUserId();
   if (!id) return { error: "UNAUTHENTICATED" as const, status: 401 };
+  const denied = await mcpPortalAccess(id);
+  if (denied) return denied;
   let user = await prisma.user.findFirst({
     where: { id, isActive: true, isDeleted: false },
     select: {

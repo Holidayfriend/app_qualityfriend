@@ -472,6 +472,7 @@
     "settings": "Impostazioni",
     "title": "Ruoli e accesso ai moduli",
     "description": "Controlla quali moduli sono visibili nella barra laterale per ciascun ruolo.",
+    "mcpSyncFailed": "L'accesso del ruolo è stato salvato. Non è stato possibile aggiornare gli utenti MCP perché il servizio MCP non era raggiungibile.",
     "module": "Modulo",
     "levels": {
       "employee": "Dipendente",
@@ -503,7 +504,7 @@
   },
   "additionalModuleMessages": {
     "chat": "Chat",
-    "mcp": "MCP",
+    "mcp": "Portale MCP",
     "competitors": "Tariffe concorrenti",
     "users": "Crea e modifica utenti",
     "departmentTeams": "Gestisci team e reparti",
