@@ -55,6 +55,8 @@ services:
       MAIL_FROM_NAME: ${MAIL_FROM_NAME:-QualityFriend}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      DATAFORSEO_LOGIN: ${DATAFORSEO_LOGIN:-}
+      DATAFORSEO_PASSWORD: ${DATAFORSEO_PASSWORD:-}
       WATCHPACK_POLLING: "true"
     ports:
       - "${APP_HOST_PORT:-3000}:3000"

@@ -601,6 +601,7 @@ model HotelTenant {
   paymentEvents                                  PaymentEvent[]
   couponRedemptions                              CouponRedemption[]
   competitors                                    Competitor[]
+  competitorSettings                             CompetitorSettings?
   weather                                        HotelWeather?
 
   @@index([isActive])
@@ -642,6 +643,7 @@ model Competitor {
   reviewCount         Int?        @map("review_count")
   minPrice            Decimal?    @map("min_price") @db.Decimal(14, 2)
   maxPrice            Decimal?    @map("max_price") @db.Decimal(14, 2)
+  adr                 Decimal?    @db.Decimal(14, 2)
   latitude            Float?
   longitude           Float?
   image               String?     @db.Text
@@ -658,6 +660,20 @@ model Competitor {
   @@index([hotelTenantId, locationKey, name])
   @@index([hotelTenantId, locationKey, bestValueRank])
   @@map("competitors")
+}
+
+model CompetitorSettings {
+  hotelTenantId String      @id @map("hotel_tenant_id") @db.Uuid
+  latitude      Float?
+  longitude     Float?
+  locationCode  Int?        @map("location_code")
+  locationName  String?     @map("location_name") @db.VarChar(255)
+  mustInclude   Json        @default("[]") @map("must_include")
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant   HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+
+  @@map("competitor_settings")
 }
 
 model Coupon {
