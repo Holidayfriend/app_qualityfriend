@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import type { PrismaClient } from "../../app/generated/prisma/client";
+import type { Prisma, PrismaClient } from "../../app/generated/prisma/client";
 import { readAsaFile } from "../housekeeping/asa-file";
 import { parseForecastXml, type ForecastReservationRecord } from "./xml-parser";
 
@@ -20,9 +20,9 @@ function chunks<T>(rows: T[]) {
 }
 
 export async function replaceHotelForecast(prisma: PrismaClient, hotelTenantId: string, reservations: ForecastReservationRecord[]) {
-  const reservationRows = [];
-  const roomRows = [];
-  const guestRows = [];
+  const reservationRows: Prisma.ForecastReservationCreateManyInput[] = [];
+  const roomRows: Prisma.ForecastReservationRoomCreateManyInput[] = [];
+  const guestRows: Prisma.ForecastReservationGuestCreateManyInput[] = [];
   for (const reservation of reservations) {
     const reservationId = randomUUID();
     reservationRows.push({

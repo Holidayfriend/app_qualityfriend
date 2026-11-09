@@ -45,7 +45,7 @@ async function main() {
       throw new Error(reason);
     }
   });
-  await boss.work<ForecastImportJob>(queues.forecastImport, async ([job]) => {
+  await boss.work<ForecastImportJob, unknown, { includeMetadata: true }>(queues.forecastImport, { includeMetadata: true }, async ([job]) => {
     if (!job.data?.hotelTenantId || !job.data.xmlName || !job.data.runId || !job.data.sourceId) throw new Error("Invalid forecast import payload.");
     const prisma = createJobPrisma(2);
     const client = await pool.connect();
