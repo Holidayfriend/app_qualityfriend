@@ -598,6 +598,7 @@ model HotelTenant {
   hotelShifts                                    HotelShift[]
   hotelShiftDrafts                               HotelShiftDraft[]
   hotelLeaveRequests                             HotelLeaveRequest[]
+  scheduleAiSuggestions                          ScheduleAiSuggestion[]
   manualDocuments                                ManualDocument[]
   manualChunks                                   ManualChunk[]
   aiConversations                                AiConversation[]
@@ -2296,4 +2297,24 @@ model HotelLeaveRequest {
   @@index([createdById])
   @@index([swapWithUserId])
   @@map("hotel_leave_requests")
+}
+
+model ScheduleAiSuggestion {
+  id            String      @id @default(uuid()) @db.Uuid
+  hotelTenantId String      @map("hotel_tenant_id") @db.Uuid
+  weekStart     DateTime    @map("week_start") @db.Date
+  titleEn       String      @default("") @map("title_en") @db.VarChar(180)
+  titleDe       String      @default("") @map("title_de") @db.VarChar(180)
+  titleIt       String      @default("") @map("title_it") @db.VarChar(180)
+  bodyEn        String      @default("") @map("body_en") @db.Text
+  bodyDe        String      @default("") @map("body_de") @db.Text
+  bodyIt        String      @default("") @map("body_it") @db.Text
+  generatedAt   DateTime    @map("generated_at") @db.Timestamptz(3)
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant   HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+
+  @@unique([hotelTenantId, weekStart])
+  @@index([hotelTenantId, weekStart])
+  @@map("schedule_ai_suggestions")
 }

@@ -130,6 +130,8 @@ export function SchedulePlanPage() {
   const [copyTarget, setCopyTarget] = useState(() => addDaysIso(weekStartIso, 7));
   const [copying, setCopying] = useState(false);
   const [selectedDay, setSelectedDay] = useState(0);
+  const [suggestion, setSuggestion] = useState<{ title: string; body: string } | null>(null);
+  const [suggesting, setSuggesting] = useState(false);
   const visible = employees.filter((emp) => deptFilter === "all" || (deptFilter === "none" ? emp.departmentIds.length === 0 : emp.departmentIds.includes(deptFilter)));
   const scheduledHours = weekWorkHours(visible);
   const dayLabels = weekDates.map((iso) => formatDayHeader(iso, locale));
@@ -138,6 +140,37 @@ export function SchedulePlanPage() {
     const todayIndex = weekDates.indexOf(localTodayIso());
     setSelectedDay((current) => todayIndex >= 0 ? todayIndex : Math.min(current, Math.max(weekDates.length - 1, 0)));
   }, [weekDates]);
+
+  useEffect(() => {
+    let active = true;
+    fetch(`/api/schedule/suggestion?weekStart=${weekStartIso}&locale=${locale}`, { cache: "no-store" })
+      .then(async (response) => response.ok ? response.json() as Promise<{ suggestion?: { title: string; body: string } | null }> : { suggestion: null })
+      .then((data) => { if (active) setSuggestion(data.suggestion?.title ? data.suggestion : null); })
+      .catch(() => { if (active) setSuggestion(null); });
+    return () => { active = false; };
+  }, [locale, weekStartIso]);
+
+  async function askSuggestion() {
+    if (suggesting) return;
+    setSuggesting(true);
+    try {
+      const response = await fetch("/api/schedule/suggestion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ weekStart: weekStartIso, locale }),
+      });
+      const data = await response.json().catch(() => null) as { suggestion?: { title: string; body: string } | null } | null;
+      if (!response.ok || !data?.suggestion?.title) {
+        toast({ message: t.suggestionFailed, tone: "error" });
+        return;
+      }
+      setSuggestion(data.suggestion);
+    } catch {
+      toast({ message: t.suggestionFailed, tone: "error" });
+    } finally {
+      setSuggesting(false);
+    }
+  }
 
   function openCopy() {
     setCopyTarget(addDaysIso(weekStartIso, 7));
@@ -310,8 +343,8 @@ export function SchedulePlanPage() {
 
       <div className="schedule-mobile-alert">
         <span aria-hidden>⚠️</span>
-        <div><strong>{t.alertOpenStrong}</strong><span>{t.alertOpenBody}</span></div>
-        <button type="button" className="btn" onClick={() => toast({ message: t.alertAi, tone: "info" })}>{t.aiSuggest}</button>
+        <div>{suggestion ? <><strong>{suggestion.title}</strong><span> {suggestion.body}</span></> : <span>{t.suggestionEmpty}</span>}</div>
+        <button type="button" className="btn" disabled={suggesting} onClick={() => void askSuggestion()}>{suggesting ? t.suggestionWorking : t.aiSuggest}</button>
       </div>
 
       <section className="card schedule-day-card">
@@ -330,8 +363,8 @@ export function SchedulePlanPage() {
       </section>
     </div>
     <div className="no-print schedule-desktop-alert" style={{ padding: "12px 16px", background: "var(--amber-bg)", border: "1px solid #FDE68A", borderRadius: 8, fontSize: 13.5, color: "var(--amber)", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-      ⚠️ <strong>{t.alertOpenStrong}</strong>{t.alertOpenBody}
-      <button type="button" className="btn" style={{ marginLeft: "auto", background: "var(--amber)", color: "#fff", fontSize: 12, padding: "5px 12px" }} onClick={() => toast({ message: t.alertAi, tone: "info" })}>{t.aiSuggest}</button>
+      ⚠️ {suggestion ? <><strong>{suggestion.title}</strong> {suggestion.body}</> : <span>{t.suggestionEmpty}</span>}
+      <button type="button" className="btn" style={{ marginLeft: "auto", background: "var(--amber)", color: "#fff", fontSize: 12, padding: "5px 12px" }} disabled={suggesting} onClick={() => void askSuggestion()}>{suggesting ? t.suggestionWorking : t.aiSuggest}</button>
     </div>
     </div>
   </Shell>;
