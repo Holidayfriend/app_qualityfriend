@@ -91,7 +91,7 @@ export function RecommendationsView() {
         <Kpi label={t.seasonForecast} value="1.42" suffix="Mio€" sub={<><Chip tone="green">≈ +8%</Chip> {t.aboveBudget}</>} />
         <Kpi label={t.marketPosition} value="#1" accent sub={t.ofHotels} />
       </section>
-      <section className="grid grid-cols-1 gap-[18px] xl:grid-cols-2">
+      <section>
         <Card title={t.dailyTitle} action={loading ? t.lastCalculated : calculated} flush>
           <DataTable headers={[{ label: t.date }, { label: t.day }, { label: t.occupancyCol }, { label: t.current }, { label: t.aiRecommendation }, { label: t.competitorAvg }, { label: t.status }, { label: t.adopted, align: "center" }]}>
             {rows.map((row) => {
@@ -123,26 +123,7 @@ export function RecommendationsView() {
             ) : null}
           </DataTable>
         </Card>
-        <Card title={t.insights}>
-          <Insight icon="🔴" tone="red" title={t.underpriced} meta={t.underpricedMeta} badge={t.underpricedValue} badgeTone="red" />
-          <Insight icon="✅" tone="green" title={t.gapStable} meta={t.gapStableMeta} />
-          <Insight icon="📊" tone="blue" title={t.bookingPace} meta={t.bookingPaceMeta} />
-        </Card>
       </section>
     </ForecastShell>
-  );
-}
-
-function Insight({ icon, tone, title, meta, badge, badgeTone }: { icon: string; tone: "red" | "green" | "blue"; title: string; meta: string; badge?: string; badgeTone?: "red" }) {
-  const bg = tone === "red" ? "bg-[#FEE2E2]" : tone === "green" ? "bg-[#DCFCE7]" : "bg-[#DBEAFE]";
-  return (
-    <article className="flex items-start gap-3 border-b border-[var(--qf-border)] py-[11px] last:border-0">
-      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] text-[15px] ${bg}`}>{icon}</span>
-      <div className="min-w-0 flex-1">
-        <h3 className="text-[13.5px] font-semibold leading-[1.3]">{title}</h3>
-        <p className="mt-0.5 text-[12px] text-[var(--qf-text-muted)]">{meta}</p>
-      </div>
-      {badge ? <span className={`shrink-0 rounded-[5px] px-2 py-[3px] text-[11px] font-semibold ${badgeTone === "red" ? "bg-[#FEE2E2] text-[#DC2626]" : ""}`}>{badge}</span> : null}
-    </article>
   );
 }
