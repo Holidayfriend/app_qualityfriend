@@ -6,6 +6,7 @@ import { useI18n } from "../i18n/i18n-provider";
 
 type Status = "urgent" | "adjust" | "optimal";
 
+type Summary = { en: string; de: string; it: string };
 type Row = {
   date: string;
   occupancy: number;
@@ -33,6 +34,7 @@ export function RecommendationsView() {
   const t = useForecast().recommendations;
   const { locale } = useI18n();
   const [rows, setRows] = useState<Row[]>([]);
+  const [summary, setSummary] = useState<Summary>({ en: "", de: "", it: "" });
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -41,12 +43,13 @@ export function RecommendationsView() {
     fetch("/api/revenue/recommendations")
       .then(async (response) => {
         if (!response.ok) throw new Error("load");
-        return response.json() as Promise<{ generatedAt: string | null; rows: Row[] }>;
+        return response.json() as Promise<{ generatedAt: string | null; rows: Row[]; summary?: Summary }>;
       })
       .then((data) => {
         if (!active) return;
         setRows(data.rows ?? []);
         setGeneratedAt(data.generatedAt ?? null);
+        setSummary(data.summary ?? { en: "", de: "", it: "" });
       })
       .catch(() => {
         if (!active) return;
@@ -80,7 +83,7 @@ export function RecommendationsView() {
   return (
     <ForecastShell activeItem="revenue">
       <AiBanner title={t.bannerTitle}>
-        {t.bannerBefore}<strong className="font-bold">{t.bannerAmount}</strong>{t.bannerAfter}
+        {(locale === "de" ? summary.de : locale === "it" ? summary.it : summary.en) || t.notCalculated}
       </AiBanner>
       <section className="mb-[22px] grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-4">
         <Kpi label={t.occupancy} value="78" suffix="%" sub={<><Chip tone="green">↑ +4%</Chip> {t.vsLastYear}</>} />

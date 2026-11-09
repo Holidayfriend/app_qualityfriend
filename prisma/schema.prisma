@@ -611,6 +611,9 @@ model HotelTenant {
   competitors                                    Competitor[]
   competitorSettings                             CompetitorSettings?
   revenueDailyRecommendations                    RevenueDailyRecommendation[]
+  budgetMonthSummaries                           BudgetMonthSummary[]
+  budgetCategorySummaries                        BudgetCategorySummary[]
+  forecastNarrative                              ForecastNarrative?
   forecastReservations                           ForecastReservation[]
   forecastReservationRooms                       ForecastReservationRoom[]
   forecastReservationGuests                      ForecastReservationGuest[]
@@ -706,6 +709,69 @@ model RevenueDailyRecommendation {
   @@unique([hotelTenantId, stayDate])
   @@index([hotelTenantId, stayDate])
   @@map("revenue_daily_recommendations")
+}
+
+model BudgetMonthSummary {
+  id                  String      @id @default(uuid()) @db.Uuid
+  hotelTenantId       String      @map("hotel_tenant_id") @db.Uuid
+  year                Int
+  month               Int
+  occupancyPercent    Int         @map("occupancy_percent")
+  currentAdr          Decimal?    @map("current_adr") @db.Decimal(14, 2)
+  recommendedAdr      Decimal?    @map("recommended_adr") @db.Decimal(14, 2)
+  forecastRevenue     Decimal     @default(0) @map("forecast_revenue") @db.Decimal(14, 2)
+  lastYearRevenue     Decimal     @default(0) @map("last_year_revenue") @db.Decimal(14, 2)
+  vsLastYearPercent   Decimal?    @map("vs_last_year_percent") @db.Decimal(8, 1)
+  generatedAt         DateTime    @map("generated_at") @db.Timestamptz(3)
+  createdAt           DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant         HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+
+  @@unique([hotelTenantId, year, month])
+  @@index([hotelTenantId, year, month])
+  @@map("budget_month_summaries")
+}
+
+model BudgetCategorySummary {
+  id                String      @id @default(uuid()) @db.Uuid
+  hotelTenantId     String      @map("hotel_tenant_id") @db.Uuid
+  year              Int
+  month             Int
+  categoryId        String      @map("category_id") @db.Uuid
+  nameEn            String      @map("name_en") @db.VarChar(180)
+  nameDe            String?     @map("name_de") @db.VarChar(180)
+  nameIt            String?     @map("name_it") @db.VarChar(180)
+  roomCount         Int         @map("room_count")
+  occupancyPercent  Int         @map("occupancy_percent")
+  currentAdr        Decimal?    @map("current_adr") @db.Decimal(14, 2)
+  recommendedAdr    Decimal?    @map("recommended_adr") @db.Decimal(14, 2)
+  revenue           Decimal     @default(0) @db.Decimal(14, 2)
+  revenueShare      Int         @map("revenue_share")
+  generatedAt       DateTime    @map("generated_at") @db.Timestamptz(3)
+  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant       HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+
+  @@unique([hotelTenantId, year, month, categoryId])
+  @@index([hotelTenantId, year, month])
+  @@map("budget_category_summaries")
+}
+
+model ForecastNarrative {
+  id             String      @id @default(uuid()) @db.Uuid
+  hotelTenantId  String      @unique @map("hotel_tenant_id") @db.Uuid
+  priceEn        String      @default("") @map("price_en") @db.Text
+  priceDe        String      @default("") @map("price_de") @db.Text
+  priceIt        String      @default("") @map("price_it") @db.Text
+  competitorEn   String      @default("") @map("competitor_en") @db.Text
+  competitorDe   String      @default("") @map("competitor_de") @db.Text
+  competitorIt   String      @default("") @map("competitor_it") @db.Text
+  generatedAt    DateTime    @map("generated_at") @db.Timestamptz(3)
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant    HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+
+  @@map("forecast_narratives")
 }
 
 model ForecastReservation {

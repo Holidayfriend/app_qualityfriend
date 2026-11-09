@@ -107,7 +107,7 @@ async function occupiedByDate(prisma: PrismaClient, hotelTenantId: string, dates
   }));
 }
 
-async function hotelRates(prisma: PrismaClient, hotelTenantId: string) {
+export async function loadHotelAdr(prisma: PrismaClient, hotelTenantId: string) {
   const settings = await prisma.competitorSettings.findUnique({
     where: { hotelTenantId },
     select: { locationCode: true },
@@ -148,7 +148,7 @@ export async function generateHotelRevenueWeek(prisma: PrismaClient, hotelTenant
   const [capacity, occupied, rates] = await Promise.all([
     prisma.room.count({ where: { hotelTenantId, isActive: true, archivedAt: null } }),
     occupiedByDate(prisma, hotelTenantId, dates),
-    hotelRates(prisma, hotelTenantId),
+    loadHotelAdr(prisma, hotelTenantId),
   ]);
   const days: RevenueDayInput[] = dates.map((date) => ({
     date,

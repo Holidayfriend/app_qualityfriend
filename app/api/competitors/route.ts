@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { accessibleModules } from "../../../lib/auth/module-access";
 import { getSessionUserId } from "../../../lib/auth/session";
 import { prisma } from "../../../lib/prisma";
+import { listForecastNarrative } from "../../../lib/revenue/narratives";
 import { hasTrustedOrigin } from "../../../lib/security/request-origin";
 
 async function actor() {
@@ -36,7 +37,10 @@ export async function GET() {
     where: { hotelTenantId: current.hotelTenantId },
     select: { locationCode: true },
   });
-  if (!settings?.locationCode) return NextResponse.json({ hotels: [] });
+  if (!settings?.locationCode) {
+    const narrative = await listForecastNarrative(prisma, current.hotelTenantId);
+    return NextResponse.json({ hotels: [], summary: narrative.competitor });
+  }
 
   const rows = await prisma.competitor.findMany({
     where: { hotelTenantId: current.hotelTenantId, locationKey: String(settings.locationCode) },
@@ -56,7 +60,9 @@ export async function GET() {
     },
   });
 
+  const narrative = await listForecastNarrative(prisma, current.hotelTenantId);
   return NextResponse.json({
+    summary: narrative.competitor,
     hotels: rows.map((row) => {
       const own = row.name.startsWith("[OWN HOTEL] ");
       const stars = Number(row.accommodationType);

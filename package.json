@@ -10,6 +10,7 @@
     "worker": "tsx scripts/worker.ts",
     "jobs:smoke": "tsx scripts/jobs-smoke.ts",
     "housekeeping:daily": "tsx scripts/housekeeping-daily.ts",
+    "revenue:daily": "tsx scripts/revenue-daily.ts",
     "housekeeping:import": "tsx scripts/housekeeping-import.ts",
     "forecast:import": "tsx scripts/forecast-import.ts",
     "housekeeping:breakfast-clear": "tsx scripts/housekeeping-breakfast-clear.ts",

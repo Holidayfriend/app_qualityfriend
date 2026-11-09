@@ -1,7 +1,6 @@
 import { accessibleModules } from "../../../../lib/auth/module-access";
 import { getSessionUserId } from "../../../../lib/auth/session";
-import { checkAsaFile } from "../../../../lib/housekeeping/asa-file";
-import { dispatchForecastImport } from "../../../../lib/forecast/dispatch";
+import { dispatchRevenueRefresh } from "../../../../lib/revenue/refresh";
 import { prisma } from "../../../../lib/prisma";
 import { hasTrustedOrigin } from "../../../../lib/security/request-origin";
 
@@ -15,14 +14,12 @@ export async function POST(request: Request) {
     if (!id) return json({ error: "UNAUTHENTICATED" }, 401);
     const user = await prisma.user.findFirst({
       where: { id, isActive: true, isDeleted: false, hotelTenant: { isActive: true } },
-      select: { id: true, hotelTenantId: true, role: true, hotelTenant: { select: { forecastXmlName: true, subscriptionStatus: true } } },
+      select: { id: true, hotelTenantId: true, role: true, hotelTenant: { select: { subscriptionStatus: true } } },
     });
     if (!user) return json({ error: "UNAUTHENTICATED" }, 401);
     const modules = await accessibleModules({ id: user.id, hotel_tenant_id: user.hotelTenantId, role: user.role });
     if (!["ACTIVE", "COMPED"].includes(user.hotelTenant.subscriptionStatus) || !modules.includes("budget")) return json({ error: "FORBIDDEN" }, 403);
-    const result = await checkAsaFile(user.hotelTenant.forecastXmlName);
-    if (result !== "READY") return json({ error: result }, result === "ASA_XML_NOT_FOUND" ? 404 : 400);
-    const jobId = await dispatchForecastImport(user.hotelTenantId, user.hotelTenant.forecastXmlName!.trim(), user.id);
+    const jobId = await dispatchRevenueRefresh(user.hotelTenantId);
     if (!jobId) return json({ error: "REFRESH_ALREADY_PENDING" }, 409);
     return json({ status: "queued", dispatched: true, jobId }, 202);
   } catch {

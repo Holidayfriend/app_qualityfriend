@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useI18n } from "../i18n/i18n-provider";
 import { AiBanner, Card, DataTable, ForecastShell, Td, useForecast } from "./forecast-ui";
 
 type Hotel = {
@@ -29,8 +30,12 @@ function starText(count: number | null) {
   return `${"★".repeat(count)}${"☆".repeat(5 - count)}`;
 }
 
+type Summary = { en: string; de: string; it: string };
+
 export function CompetitorsView() {
   const t = useForecast().competitors;
+  const { locale } = useI18n();
+  const [summary, setSummary] = useState<Summary>({ en: "", de: "", it: "" });
   const [hotels, setHotels] = useState<Hotel[]>([]);
   const [query, setQuery] = useState("");
   const [minPrice, setMinPrice] = useState("");
@@ -49,9 +54,12 @@ export function CompetitorsView() {
     return fetch("/api/competitors")
       .then(async (response) => {
         if (!response.ok) throw new Error("load");
-        return response.json() as Promise<{ hotels: Hotel[] }>;
+        return response.json() as Promise<{ hotels: Hotel[]; summary?: Summary }>;
       })
-      .then((data) => setHotels(data.hotels ?? []));
+      .then((data) => {
+        setHotels(data.hotels ?? []);
+        setSummary(data.summary ?? { en: "", de: "", it: "" });
+      });
   }
 
   useEffect(() => {
@@ -143,7 +151,7 @@ export function CompetitorsView() {
 
   return (
     <ForecastShell activeItem="competitors">
-      <AiBanner title={t.bannerTitle}>{t.bannerBody}</AiBanner>
+      <AiBanner title={t.bannerTitle}>{(locale === "de" ? summary.de : locale === "it" ? summary.it : summary.en) || t.summaryEmpty}</AiBanner>
       <section className="mb-[18px] grid grid-cols-1 gap-3.5 md:grid-cols-2 xl:grid-cols-3">
         {loading ? <p className="text-[13px] text-[var(--qf-text-muted)]">{t.loading}</p> : null}
         {!loading && visible.length === 0 ? <p className="text-[13px] text-[var(--qf-text-muted)]">{t.empty}</p> : null}

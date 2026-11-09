@@ -1,8 +1,6 @@
 import "dotenv/config";
-import { hotelTimeZone } from "../lib/hotel/clock";
 import { generateHotelDailyPlan, hotelLocalDate } from "../lib/housekeeping/daily-plan";
 import { createJobPrisma } from "../lib/jobs/prisma";
-import { generateHotelRevenueWeek } from "../lib/revenue/daily-recommendations";
 
 async function main() {
   // Script-safe Prisma (not lib/prisma.ts — that uses server-only)
@@ -20,28 +18,19 @@ async function main() {
       select: { id: true, timeZone: true },
     });
 
-    let revenueFailed = false;
     for (const hotel of hotels) {
       // "Today" for this hotel as YYYY-MM-DD in the hotel's own time zone
       // (falls back to UTC if timeZone is missing/blank). Hotels in different
       // zones can therefore get different calendar dates at the same moment.
-      const workDate = hotelLocalDate(hotelTimeZone(hotel.timeZone));
+      const workDate = hotelLocalDate(hotel.timeZone?.trim() || "UTC");
 
       // Build/refresh that hotel's housekeeping plan for workDate.
       // Safe to re-run the same day (idempotent); returns summary counts for logging.
       const counts = await generateHotelDailyPlan(prisma, hotel.id, workDate);
-      let revenue: Record<string, unknown> = { ok: false };
-      try {
-        revenue = { ok: true, ...await generateHotelRevenueWeek(prisma, hotel.id, workDate) };
-      } catch (error) {
-        revenueFailed = true;
-        revenue = { ok: false, error: error instanceof Error ? error.message : String(error) };
-      }
 
       // One JSON line per hotel so cron/logs are easy to scan
-      console.log(JSON.stringify({ hotelTenantId: hotel.id, workDate, ...counts, revenue }));
+      console.log(JSON.stringify({ hotelTenantId: hotel.id, workDate, ...counts }));
     }
-    if (revenueFailed) process.exitCode = 1;
   } finally {
     await prisma.$disconnect();
   }

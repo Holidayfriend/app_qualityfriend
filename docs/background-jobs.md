@@ -39,13 +39,21 @@ into `hotel_ai_recommendations` (EN/DE/IT). Today only `RECRUITING` is generated
 the same job later. The recruiting hub banner reads the recruiting row. The
 worker also runs this job at 06:00 UTC.
 
-`housekeeping:daily` still builds the housekeeping plan, then writes seven
-revenue rows (today through the next six days) into
-`revenue_daily_recommendations`. Occupancy comes from reservation stays, current
-rate is the hotel's own competitor ADR, and competitor average is the mean of
-the other competitors' ADR values. The AI recommended rate uses the hotel's
-configured AI provider. Adopted is left unchanged on later runs. The revenue
-page reads those rows. The worker also runs this revenue refresh at 06:15 UTC.
+`housekeeping:daily` builds the housekeeping plan only.
+
+`revenue:daily` writes three saved tables. Daily recommendations on `/revenue`
+are the seven rows from today through the next six days. The two `/budget`
+tables are the rest of the season, month by month, and the current month by
+room category. Occupancy and revenue come from the stored forecast stays.
+Current ADR for a day or month is the hotel or booked rate, and the category
+current ADR is the value saved on the room category. The recommended rate uses
+the hotel's configured AI provider, with the fallback rate when that call fails.
+Adopted daily rows are left unchanged. The same run also asks the hotel AI
+for the `/revenue` price-recommendation summary and the `/competitors`
+competitive-analysis summary, each in English, German, and Italian, and stores
+them. The Budget refresh button queues this
+same job for the signed-in hotel. The worker also runs it for every hotel at
+06:15 UTC.
 
 The smoke command queues a harmless job and waits up to 45 seconds for the
 separate worker to finish it. Use `-- --dispatch-only` to queue without waiting,
@@ -159,11 +167,17 @@ stored forecast after the file on the ASA folder has been replaced:
 30 5 * * * cd /path/to/app_qualityfriend && docker compose exec -T worker npm run forecast:import >> /path/to/app_qualityfriend/forecast-import.log 2>&1
 ```
 
-For the daily housekeeping plan and the one-week revenue recommendations, add a
-once-a-day crontab entry. Run it after the morning XML import has finished:
+For the daily housekeeping plan, add a once-a-day crontab entry. Run it after
+the morning XML import has finished:
 
 ```cron
 15 6 * * * cd /path/to/app_qualityfriend && docker compose exec -T worker npm run housekeeping:daily >> /path/to/app_qualityfriend/housekeeping-daily.log 2>&1
+```
+
+Daily recommendations are a separate command:
+
+```cron
+20 6 * * * cd /path/to/app_qualityfriend && docker compose exec -T worker npm run revenue:daily >> /path/to/app_qualityfriend/revenue-daily.log 2>&1
 ```
 
 The worker also refreshes the revenue week at 06:15 UTC, so the Daily
