@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { AppShell } from "../../components/dashboard/app-shell";
 import { DashboardKpis } from "../../components/dashboard/dashboard-kpis";
 import { DashboardModules } from "../../components/dashboard/dashboard-modules";
+import { ActivitiesCard } from "../../components/dashboard/activities-card";
 import { HousekeepingCard } from "../../components/dashboard/housekeeping-card";
 import { OnDutyCard } from "../../components/dashboard/on-duty-card";
 import { WeatherCard } from "../../components/dashboard/weather-card";
@@ -40,17 +41,7 @@ export default function DashboardPage() {
     <DashboardKpis />
     <DashboardModules />
     <div className="g2">
-      <div className="card">
-        <div className="ch"><div className="ct">🔔 {d.activities}</div><span className="ca" onClick={() => router.push("/tasks")}>{d.allTasks} →</span></div>
-        <div className="cb">
-          <div className="al"><div className="al-ic r">⚡</div><div><div className="al-t">{d.expressCleaning}</div><div className="al-m">{d.expressCleaningMeta}</div></div><div className="al-r"><span className="sc sc-r">{d.urgentStatus}</span><div className="tl">{d.now}</div></div></div>
-          <div className="al"><div className="al-ic a">⭐</div><div><div className="al-t">{d.reviewActivity}</div><div className="al-m">{d.reviewActivityMeta}</div></div><div className="al-r"><span className="sc sc-a">{d.openStatus}</span><div className="tl">{d.oneHour}</div></div></div>
-          <div className="al"><div className="al-ic a">👤</div><div><div className="al-t">{d.breakfastCover}</div><div className="al-m">{d.breakfastCoverMeta}</div></div><div className="al-r"><span className="sc sc-a">{d.openStatus}</span><div className="tl">{d.twoHours}</div></div></div>
-          <div className="al"><div className="al-ic b">🤝</div><div><div className="al-t">{d.tablePlan}</div><div className="al-m">{d.tablePlanMeta}</div></div><div className="al-r"><span className="sc sc-g">{d.doneStatus}</span><div className="tl">09:14</div></div></div>
-          <div className="al"><div className="al-ic g">✅</div><div><div className="al-t">{d.firstAid}</div><div className="al-m">{d.firstAidMeta}</div></div><div className="al-r"><span className="sc sc-g">{d.doneStatus}</span><div className="tl">08:30</div></div></div>
-          <div className="al"><div className="al-ic g">✅</div><div><div className="al-t">{d.restock}</div><div className="al-m">{d.restockMeta}</div></div><div className="al-r"><span className="sc sc-g">{d.doneStatus}</span><div className="tl">08:10</div></div></div>
-        </div>
-      </div>
+      <ActivitiesCard />
       <div className="dash-stack">
         <WeatherCard />
         <HousekeepingCard />

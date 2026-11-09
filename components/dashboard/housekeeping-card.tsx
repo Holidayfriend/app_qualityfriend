@@ -36,7 +36,7 @@ export function HousekeepingCard() {
   }, []);
 
   const noteParts = [
-    summary.expressRooms.length ? d.hkExpressRooms.replace("{rooms}", summary.expressRooms.join(", ")) : "",
+    summary.expressRooms.length ? (summary.expressRooms.length === 1 ? d.hkExpressRoom : d.hkExpressRooms).replace("{rooms}", summary.expressRooms.join(", ")) : "",
     summary.noServiceRooms.length ? d.hkNoServiceRooms.replace("{rooms}", summary.noServiceRooms.join(", ")) : "",
   ].filter(Boolean);
 
