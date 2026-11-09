@@ -44,7 +44,7 @@ worker also runs this job at 06:00 UTC.
 `revenue:daily` writes three saved tables. Daily recommendations on `/revenue`
 are the seven rows from today through the next six days. The two `/budget`
 tables are the rest of the season, month by month, and the current month by
-room category. Occupancy and revenue come from the stored forecast stays.
+room category. The same run saves the three `/revenue` cards: occupancy for the next 30 days, the average current and recommended rate, and the rest-of-season forecast. Occupancy and revenue come from the stored forecast stays.
 Current ADR for a day or month is the hotel or booked rate, and the category
 current ADR is the value saved on the room category. The recommended rate uses
 the hotel's configured AI provider, with the fallback rate when that call fails.

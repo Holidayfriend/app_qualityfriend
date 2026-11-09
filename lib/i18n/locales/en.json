@@ -1799,7 +1799,7 @@
       "occupancy": "Occupancy (30 days)",
       "vsLastYear": "vs. last year",
       "avgRate": "Avg. rate: current / recommended",
-      "potential": "+€24 potential",
+      "potential": "{amount} potential",
       "seasonForecast": "Rest-of-season forecast",
       "aboveBudget": "above budget",
       "marketPosition": "Market position",

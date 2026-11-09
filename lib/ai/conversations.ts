@@ -7,15 +7,16 @@ import { manualsViewer } from "../manuals/access";
 import { answerManualQuestion } from "../manuals/chat";
 import { answerRecruitingQuestion } from "../recruiting/chat";
 import { answerScheduleQuestion } from "../schedule/chat";
+import { answerBudgetQuestion } from "./budget-chat";
 import { answerGeneralQuestion } from "./general-chat";
 import { isAssistantKey, type AssistantKey } from "./assistants";
 
 type Locale = "en" | "de" | "it";
 
 const PENDING: Record<Locale, (text: string) => string> = {
-  en: (text) => `(Not connected yet) I received: “${text}”. Manuals, Recruiting, and Optimize schedule use hotel data today.`,
-  de: (text) => `(Noch nicht verbunden) Ich habe erhalten: „${text}“. Handbücher, Recruiting-Hilfe und Dienstplan nutzen heute Hoteldaten.`,
-  it: (text) => `(Non ancora collegato) Ho ricevuto: “${text}”. Manuali, Aiuto recruiting e Ottimizza turni usano oggi i dati dell’hotel.`,
+  en: (text) => `(Not connected yet) I received: “${text}”.`,
+  de: (text) => `(Noch nicht verbunden) Ich habe erhalten: „${text}“.`,
+  it: (text) => `(Non ancora collegato) Ho ricevuto: “${text}”.`,
 };
 
 function localeOf(value: unknown): Locale {
@@ -69,6 +70,9 @@ async function produceReply(assistantKey: AssistantKey, message: string, history
   }
   if (assistantKey === "general") {
     return answerGeneralQuestion(message, history, locale);
+  }
+  if (assistantKey === "budget") {
+    return answerBudgetQuestion(message, history, locale);
   }
   return { answer: PENDING[locale](message.slice(0, 400)) };
 }

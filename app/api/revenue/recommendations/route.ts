@@ -4,6 +4,7 @@ import { getSessionUserId } from "../../../../lib/auth/session";
 import { prisma } from "../../../../lib/prisma";
 import { listCurrentRevenueWeek, setRevenueRecommendationAdopted } from "../../../../lib/revenue/daily-recommendations";
 import { listForecastNarrative } from "../../../../lib/revenue/narratives";
+import { listRevenueOverview } from "../../../../lib/revenue/overview";
 import { hasTrustedOrigin } from "../../../../lib/security/request-origin";
 
 async function actor() {
@@ -22,11 +23,12 @@ async function actor() {
 export async function GET() {
   const current = await actor();
   if (!current) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
-  const [week, narrative] = await Promise.all([
+  const [week, narrative, overview] = await Promise.all([
     listCurrentRevenueWeek(prisma, current.hotelTenantId),
     listForecastNarrative(prisma, current.hotelTenantId),
+    listRevenueOverview(prisma, current.hotelTenantId),
   ]);
-  return NextResponse.json({ ...week, summary: narrative.price });
+  return NextResponse.json({ ...week, summary: narrative.price, overview });
 }
 
 export async function PATCH(request: Request) {

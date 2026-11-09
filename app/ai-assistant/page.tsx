@@ -20,6 +20,7 @@ const copy = {
     recruitingHello: "Ich helfe mit Stellenanzeigen, Bewerbungen und Lebensläufen. Frag z. B. nach der Anzahl Bewerbungen oder nach der Erfahrung einer Person (mit Namen).",
     scheduleHello: "Ich sehe euren Dienstplan, Urlaub und Tauschanfragen. Frag z. B. wer diese Woche arbeitet, wo Lücken sind oder wie ihr Urlaub abdecken könnt.",
     generalHello: "Guten Morgen! Ich antworte aus Dienstplan, Handbüchern, Recruiting, Housekeeping (Zimmer, Reservierungen, Checklisten) und Reparaturen — für die Bereiche, die du öffnen darfst.",
+    budgetHello: "Ich erkläre Forecast, Tagespreise, Budget und Mitbewerber aus den gespeicherten Zahlen. Frag zum Beispiel nach der Auslastung, dem empfohlenen Preis oder einem Mitbewerber.",
     demo: "(Demo-Antwort) Ich habe deine Anfrage erhalten: „{text}“. Im echten System würde hier die KI-Antwort basierend auf euren Betriebsdaten erscheinen.",
     assistants: [
       ["✨", "Allgemeiner Assistent", "Fragen, Analysen, Ideen", "general"],
@@ -43,6 +44,7 @@ const copy = {
     recruitingHello: "I help with job ads, applications, and CVs. Ask for application counts, or name a candidate to check experience.",
     scheduleHello: "I can see your roster, time off, and swap requests. Ask who works this week, where coverage is thin, or how to cover vacation.",
     generalHello: "Good morning! I can answer from the roster, handbooks, recruiting, housekeeping (rooms, reservations, checklists), and repairs — for the areas you can open.",
+    budgetHello: "I explain the forecast, daily rates, budget, and competitors from the saved numbers. Ask about occupancy, a recommended rate, or a competitor.",
     demo: "(Demo response) I received your request: “{text}”. In the real system, the AI response based on your operational data would appear here.",
     assistants: [
       ["✨", "General Assistant", "Questions, analyses, ideas", "general"],
@@ -66,6 +68,7 @@ const copy = {
     recruitingHello: "Aiuto con annunci, candidature e CV. Chiedi i numeri o indica un candidato per l’esperienza.",
     scheduleHello: "Vedo i turni, ferie e richieste di scambio. Chiedi chi lavora questa settimana, dove manca copertura o come coprire le ferie.",
     generalHello: "Buongiorno! Rispondo da turni, manuali, recruiting, housekeeping (camere, prenotazioni, checklist) e riparazioni — per le aree che puoi aprire.",
+    budgetHello: "Spiego previsione, tariffe giornaliere, budget e concorrenti dai numeri salvati. Chiedi l’occupazione, una tariffa consigliata o un concorrente.",
     demo: "(Risposta demo) Ho ricevuto la richiesta: “{text}”. Nel sistema reale apparirebbe qui la risposta IA basata sui dati operativi.",
     assistants: [
       ["✨", "Assistente generale", "Domande, analisi, idee", "general"],
@@ -94,6 +97,7 @@ function starter(id: string, locale: "en" | "de" | "it", t: (typeof copy)[typeof
   if (id === "recruiting") return [{ side: "ai", time: now(locale), body: t.recruitingHello }];
   if (id === "schedule") return [{ side: "ai", time: now(locale), body: t.scheduleHello }];
   if (id === "general") return [{ side: "ai", time: now(locale), body: t.generalHello }];
+  if (id === "budget") return [{ side: "ai", time: now(locale), body: t.budgetHello }];
   return [];
 }
 
@@ -109,7 +113,7 @@ export default function Page() {
   const [messages, setMessages] = useState<Message[]>([]);
   const assistant = t.assistants[selected];
   const assistantKey = assistant[3];
-  const liveMode = assistantKey === "manuals" || assistantKey === "recruiting" || assistantKey === "schedule" || assistantKey === "general";
+  const liveMode = assistantKey === "manuals" || assistantKey === "recruiting" || assistantKey === "schedule" || assistantKey === "general" || assistantKey === "budget";
 
   useEffect(() => { if (box.current) box.current.scrollTop = box.current.scrollHeight; }, [messages, busy, loadingThread]);
 

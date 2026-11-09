@@ -7,6 +7,14 @@ import { useI18n } from "../i18n/i18n-provider";
 type Status = "urgent" | "adjust" | "optimal";
 
 type Summary = { en: string; de: string; it: string };
+type Overview = {
+  occupancy: number;
+  occupancyVsLastYear: number;
+  current: number | null;
+  recommended: number | null;
+  seasonRevenue: number;
+  seasonVsLastYear: number | null;
+};
 type Row = {
   date: string;
   occupancy: number;
@@ -30,11 +38,34 @@ function euro(value: number | null) {
   return `${Math.round(value)}€`;
 }
 
+function seasonAmount(value: number, locale: string) {
+  return new Intl.NumberFormat(locale === "de" ? "de-DE" : locale === "it" ? "it-IT" : "en-GB", { maximumFractionDigits: 0 }).format(value);
+}
+
+function gapAmount(current: number | null, recommended: number | null) {
+  if (current == null || recommended == null) return "–";
+  const gap = Math.round(recommended - current);
+  return `${gap > 0 ? "+" : ""}${gap}€`.replace("-", "−");
+}
+
+function gapTone(current: number | null, recommended: number | null) {
+  if (current == null || recommended == null || recommended === current) return "amber" as const;
+  return recommended > current ? "amber" as const : "red" as const;
+}
+
+function ChangeChip({ value }: { value: number | null }) {
+  if (value == null) return <Chip tone="amber">–</Chip>;
+  const rounded = Math.round(value * 10) / 10;
+  const text = `${rounded > 0 ? "+" : ""}${rounded}%`.replace("-", "−");
+  return <Chip tone={rounded > 0 ? "green" : rounded < 0 ? "red" : "amber"}>{text}</Chip>;
+}
+
 export function RecommendationsView() {
   const t = useForecast().recommendations;
   const { locale } = useI18n();
   const [rows, setRows] = useState<Row[]>([]);
   const [summary, setSummary] = useState<Summary>({ en: "", de: "", it: "" });
+  const [overview, setOverview] = useState<Overview | null>(null);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -43,18 +74,20 @@ export function RecommendationsView() {
     fetch("/api/revenue/recommendations")
       .then(async (response) => {
         if (!response.ok) throw new Error("load");
-        return response.json() as Promise<{ generatedAt: string | null; rows: Row[]; summary?: Summary }>;
+        return response.json() as Promise<{ generatedAt: string | null; rows: Row[]; summary?: Summary; overview?: Overview | null }>;
       })
       .then((data) => {
         if (!active) return;
         setRows(data.rows ?? []);
         setGeneratedAt(data.generatedAt ?? null);
         setSummary(data.summary ?? { en: "", de: "", it: "" });
+        setOverview(data.overview ?? null);
       })
       .catch(() => {
         if (!active) return;
         setRows([]);
         setGeneratedAt(null);
+        setOverview(null);
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -85,11 +118,10 @@ export function RecommendationsView() {
       <AiBanner title={t.bannerTitle}>
         {(locale === "de" ? summary.de : locale === "it" ? summary.it : summary.en) || t.notCalculated}
       </AiBanner>
-      <section className="mb-[22px] grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-4">
-        <Kpi label={t.occupancy} value="78" suffix="%" sub={<><Chip tone="green">↑ +4%</Chip> {t.vsLastYear}</>} />
-        <Kpi label={t.avgRate} value="318" suffix="→ 342€" sub={<Chip tone="amber">{t.potential}</Chip>} />
-        <Kpi label={t.seasonForecast} value="1.42" suffix="Mio€" sub={<><Chip tone="green">≈ +8%</Chip> {t.aboveBudget}</>} />
-        <Kpi label={t.marketPosition} value="#1" accent sub={t.ofHotels} />
+      <section className="mb-[22px] grid grid-cols-1 gap-3.5 sm:grid-cols-3">
+        <Kpi label={t.occupancy} value={overview ? String(overview.occupancy) : "–"} suffix={overview ? "%" : undefined} sub={overview ? <><ChangeChip value={overview.occupancyVsLastYear} /> {t.vsLastYear}</> : t.notCalculated} />
+        <Kpi label={t.avgRate} value={overview?.current == null ? "–" : String(Math.round(overview.current))} suffix={overview?.recommended == null ? undefined : `→ ${Math.round(overview.recommended)}€`} sub={overview ? <Chip tone={gapTone(overview.current, overview.recommended)}>{t.potential.replace("{amount}", gapAmount(overview.current, overview.recommended))}</Chip> : t.notCalculated} />
+        <Kpi label={t.seasonForecast} value={overview ? seasonAmount(overview.seasonRevenue, locale) : "–"} suffix={overview ? "€" : undefined} sub={overview ? <><ChangeChip value={overview.seasonVsLastYear} /> {t.vsLastYear}</> : t.notCalculated} />
       </section>
       <section>
         <Card title={t.dailyTitle} action={loading ? t.lastCalculated : calculated} flush>

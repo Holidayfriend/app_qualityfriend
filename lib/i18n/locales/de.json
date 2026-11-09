@@ -1797,7 +1797,7 @@
       "occupancy": "Auslastung (30 Tage)",
       "vsLastYear": "vs. Vorjahr",
       "avgRate": "Ø Rate: Aktuell / Empfohlen",
-      "potential": "+24€ Potenzial",
+      "potential": "{amount} Potenzial",
       "seasonForecast": "Prognose Rest-Saison",
       "aboveBudget": "über Budget",
       "marketPosition": "Marktposition",

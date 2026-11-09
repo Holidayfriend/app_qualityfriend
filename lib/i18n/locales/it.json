@@ -1797,7 +1797,7 @@
       "occupancy": "Occupazione (30 giorni)",
       "vsLastYear": "rispetto all'anno scorso",
       "avgRate": "Tariffa media: attuale / consigliata",
-      "potential": "+24 € di potenziale",
+      "potential": "{amount} di potenziale",
       "seasonForecast": "Previsione resto stagione",
       "aboveBudget": "sopra il budget",
       "marketPosition": "Posizione di mercato",

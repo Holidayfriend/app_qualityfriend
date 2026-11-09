@@ -3,6 +3,7 @@ import { generateHotelBudget } from "../budget/summaries";
 import { hotelLocalIso } from "../hotel/clock";
 import { generateHotelRevenueWeek } from "./daily-recommendations";
 import { generateForecastNarratives } from "./narratives";
+import { generateHotelRevenueOverview } from "./overview";
 import { getJobQueue, queues } from "../jobs/queue";
 
 export async function generateHotelForecastTables(prisma: PrismaClient, hotelTenantId: string) {
@@ -14,8 +15,9 @@ export async function generateHotelForecastTables(prisma: PrismaClient, hotelTen
   const startIso = hotelLocalIso(hotel.timeZone);
   const week = await generateHotelRevenueWeek(prisma, hotelTenantId, startIso);
   const budget = await generateHotelBudget(prisma, hotelTenantId, startIso);
+  const overview = await generateHotelRevenueOverview(prisma, hotelTenantId, startIso);
   const narrative = await generateForecastNarratives(prisma, hotelTenantId, startIso);
-  return { ok: true as const, ...week, ...budget, narrative };
+  return { ok: true as const, ...week, ...budget, overview, narrative };
 }
 
 export async function generateAllHotelForecastTables(prisma: PrismaClient, hotelTenantId?: string) {
