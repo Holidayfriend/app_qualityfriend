@@ -1,9 +1,37 @@
 "use client";
 
+import { useState } from "react";
+import { useToast } from "../ui/toast-provider";
 import { Card, DataTable, ForecastShell, Td, useForecast } from "./forecast-ui";
 
 export function DetailsView() {
   const t = useForecast().details;
+  const showToast = useToast();
+  const [refreshing, setRefreshing] = useState(false);
+  async function refreshForecast() {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      const response = await fetch("/api/budget/refresh", { method: "POST" });
+      const body = await response.json();
+      if (response.status === 202 && body.status === "queued") showToast({ message: t.queued, tone: "success" });
+      else {
+        const errors: Record<string, string> = {
+          ASA_XML_NAME_REQUIRED: t.missing,
+          INVALID_ASA_XML_NAME: t.invalid,
+          ASA_XML_NOT_FOUND: t.notFound,
+          UNAUTHENTICATED: t.unauthenticated,
+          FORBIDDEN: t.forbidden,
+          REFRESH_ALREADY_PENDING: t.pending,
+        };
+        showToast({ message: errors[body.error] ?? t.failed, tone: "error" });
+      }
+    } catch {
+      showToast({ message: t.failed, tone: "error" });
+    } finally {
+      setRefreshing(false);
+    }
+  }
   const months = [
     { name: t.august, extra: t.running, occ: "89%", current: "352€", rec: "378€", revenue: "145.000€", yoy: "+9%", tone: "text-[#16A34A]" },
     { name: t.september, extra: "", occ: "81%", current: "335€", rec: "360€", revenue: "121.000€", yoy: "+15%", tone: "text-[#16A34A]" },
@@ -19,6 +47,12 @@ export function DetailsView() {
   ];
   return (
     <ForecastShell activeItem="budget">
+      <div className="mb-3 flex justify-end">
+        <button type="button" onClick={() => void refreshForecast()} disabled={refreshing} aria-busy={refreshing} className="inline-flex items-center gap-2 rounded-[7px] border border-[var(--qf-border)] bg-white px-3 py-1.5 text-[12.5px] font-semibold disabled:cursor-wait disabled:opacity-60">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 7v5h-5" /><path d="M4 17v-5h5" /><path d="M6.1 7a7 7 0 0 1 11.55-2.1L20 8M4 16l2.35 3.1A7 7 0 0 0 17.9 17" /></svg>
+          {refreshing ? t.refreshing : t.refreshForecast}
+        </button>
+      </div>
       <div className="mb-[18px]">
         <Card title={t.monthsTitle} action={t.monthsBasis} flush>
           <DataTable headers={[{ label: t.month }, { label: t.avgOccupancy }, { label: t.adrCurrent }, { label: t.adrRecommended }, { label: t.forecastRevenue }, { label: t.vsLastYear }]}>

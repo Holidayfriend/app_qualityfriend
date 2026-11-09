@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { getJobQueue, queues, type ForecastImportJob } from "../jobs/queue";
 import { jobDatabase } from "../jobs/database";
 
-export async function dispatchForecastImport(hotelTenantId: string, xmlName: string) {
+export async function dispatchForecastImport(hotelTenantId: string, xmlName: string, actorId: string | null = null) {
   const boss = await getJobQueue();
   const client = await jobDatabase().connect();
   try {
@@ -18,8 +18,8 @@ export async function dispatchForecastImport(hotelTenantId: string, xmlName: str
     if (!jobId) { await client.query("ROLLBACK"); return null; }
     await client.query(`INSERT INTO import_runs (id,hotel_tenant_id,source_id,status,updated_at) VALUES ($1,$2,$3,'QUEUED',NOW())`, [runId, hotelTenantId, data.sourceId]);
     await client.query(`INSERT INTO audit_logs (id,hotel_tenant_id,actor_id,module,action,entity_type,entity_id,changes,description)
-      VALUES ($1,$2,NULL,'revenue','CREATE','FORECAST_IMPORT',$3,$4::jsonb,$5::jsonb)`,
-    [randomUUID(), hotelTenantId, runId, JSON.stringify({ jobId, status: "QUEUED" }), JSON.stringify({ en: "Forecast XML import dispatched", de: "Forecast-XML-Import gestartet", it: "Importazione XML previsioni avviata" })]);
+      VALUES ($1,$2,$3,'revenue','CREATE','FORECAST_IMPORT',$4,$5::jsonb,$6::jsonb)`,
+    [randomUUID(), hotelTenantId, actorId, runId, JSON.stringify({ jobId, status: "QUEUED" }), JSON.stringify({ en: "Forecast XML import dispatched", de: "Forecast-XML-Import gestartet", it: "Importazione XML previsioni avviata" })]);
     await client.query("COMMIT");
     return runId;
   } catch (error) { await client.query("ROLLBACK"); throw error; }
