@@ -2,6 +2,7 @@ import { Prisma } from "../../../../../app/generated/prisma/client";
 import { getSessionUserId } from "../../../../../lib/auth/session";
 import { hotelTimeZone } from "../../../../../lib/hotel/clock";
 import { housekeepingAccess } from "../../../../../lib/housekeeping/access";
+import { activeHousekeeperIds } from "../../../../../lib/housekeeping/active-housekeepers";
 import { ensureExtraJobComment } from "../../../../../lib/housekeeping/ensure-extra-comment";
 import { prisma } from "../../../../../lib/prisma";
 
@@ -41,7 +42,8 @@ export async function GET(request: Request) {
   try { date = hotelDate(hotelTimeZone(user.hotelTenant.timeZone)); } catch { return Response.json({ error: "INVALID_HOTEL_TIME_ZONE" }, { status: 500 }); }
 
   await ensureExtraJobComment();
-  const assignments = await prisma.housekeepingExtraJobAssignment.findMany({
+  const [assignments, housekeepers] = await Promise.all([
+    prisma.housekeepingExtraJobAssignment.findMany({
     where: { hotelTenantId: user.hotelTenantId, workDate: new Date(`${date}T00:00:00.000Z`) },
     orderBy: [{ descriptionSnapshot: "asc" }, { id: "asc" }],
     select: {
@@ -62,9 +64,12 @@ export async function GET(request: Request) {
       assignedTo: { select: { id: true, firstName: true, lastName: true } },
       extraJob: { select: { descriptionEn: true, descriptionDe: true, descriptionIt: true } },
     },
-  });
+  }),
+    activeHousekeeperIds(prisma, user.hotelTenantId),
+  ]);
+  const visible = assignments.filter((assignment) => housekeepers.has(assignment.assignedToId));
 
-  const mapJob = (assignment: (typeof assignments)[number]) => ({
+  const mapJob = (assignment: (typeof visible)[number]) => ({
     assignmentId: assignment.id,
     description: translated(activeLocale, { ...assignment.extraJob, descriptionSnapshot: assignment.descriptionSnapshot }),
     minutes: assignment.plannedMinutes,
@@ -79,8 +84,8 @@ export async function GET(request: Request) {
     employeeName: `${assignment.assignedTo.firstName} ${assignment.assignedTo.lastName}`.trim(),
   });
 
-  const all = access.admin ? assignments.map(mapJob) : [];
-  const mine = access.housekeeper ? assignments.filter((assignment) => assignment.assignedToId === user.id).map(mapJob) : [];
+  const all = access.admin ? visible.map(mapJob) : [];
+  const mine = access.housekeeper ? visible.filter((assignment) => assignment.assignedToId === user.id).map(mapJob) : [];
 
   return Response.json({
     date,

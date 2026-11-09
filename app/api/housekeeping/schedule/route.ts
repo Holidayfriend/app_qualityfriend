@@ -48,9 +48,12 @@ export async function GET(request: Request) {
     prisma.$queryRaw<AssignmentRow[]>`SELECT id,assigned_to_id,item_id,planned_minutes,completed_at FROM (SELECT id,assigned_to_id,room_id AS item_id,planned_minutes,completed_at FROM housekeeping_room_assignments WHERE hotel_tenant_id=${user.hotelTenantId}::uuid AND work_date=${date}::date) assignments`,
     prisma.$queryRaw<AssignmentRow[]>`SELECT id,assigned_to_id,item_id,planned_minutes,completed_at FROM (SELECT id,assigned_to_id,extra_job_id AS item_id,planned_minutes,completed_at FROM housekeeping_extra_job_assignments WHERE hotel_tenant_id=${user.hotelTenantId}::uuid AND work_date=${date}::date) assignments`,
   ]);
+  const activeIds = new Set(eligibleUsers.map((employee) => employee.id));
+  const visibleRoomAssignments = roomAssignments.map((assignment) => assignment.assigned_to_id && activeIds.has(assignment.assigned_to_id) ? assignment : { ...assignment, assigned_to_id: null });
+  const visibleExtraAssignments = extraAssignments.filter((assignment) => assignment.assigned_to_id && activeIds.has(assignment.assigned_to_id));
   const employeeWorkload = eligibleUsers.map((employee) => {
-    const assignedRooms = roomAssignments.filter((assignment) => assignment.assigned_to_id === employee.id);
-    const assignedExtras = extraAssignments.filter((assignment) => assignment.assigned_to_id === employee.id);
+    const assignedRooms = visibleRoomAssignments.filter((assignment) => assignment.assigned_to_id === employee.id);
+    const assignedExtras = visibleExtraAssignments.filter((assignment) => assignment.assigned_to_id === employee.id);
     return { id: employee.id, name: `${employee.firstName} ${employee.lastName}`.trim(), role: employee.role, capacityMinutes: 480,
       assignedMinutes: [...assignedRooms, ...assignedExtras].reduce((sum, assignment) => sum + assignment.planned_minutes, 0),
       completedMinutes: [...assignedRooms, ...assignedExtras].filter((assignment) => assignment.completed_at).reduce((sum, assignment) => sum + assignment.planned_minutes, 0),
@@ -58,8 +61,8 @@ export async function GET(request: Request) {
   });
   return Response.json({ date, timeZone, employees: employeeWorkload,
     floors: [...new Map(rooms.filter((room) => room.floor).map((room) => [room.floor!.id, room.floor!])).values()].sort((a, b) => a.sortOrder - b.sortOrder).map((floor) => ({ id: floor.id, code: floor.code, name: (activeLocale === "de" ? floor.nameDe || floor.nameEn : activeLocale === "it" ? floor.nameIt || floor.nameEn : floor.nameEn) || floor.code,
-      rooms: rooms.filter((room) => room.floor?.id === floor.id).map((room) => ({ id: room.id, number: room.number, plannedMinutes: room.category?.normalMinutes ?? 0, assignedToId: roomAssignments.find((assignment) => assignment.item_id === room.id)?.assigned_to_id ?? null })) })),
-    extras: extras.map((extra) => ({ id: extra.id, description: extraJobDescription(extra, activeLocale), minutes: extra.minutes, assignedToIds: extraAssignments.filter((assignment) => assignment.item_id === extra.id).map((assignment) => assignment.assigned_to_id) })),
+      rooms: rooms.filter((room) => room.floor?.id === floor.id).map((room) => ({ id: room.id, number: room.number, plannedMinutes: room.category?.normalMinutes ?? 0, assignedToId: visibleRoomAssignments.find((assignment) => assignment.item_id === room.id)?.assigned_to_id ?? null })) })),
+    extras: extras.map((extra) => ({ id: extra.id, description: extraJobDescription(extra, activeLocale), minutes: extra.minutes, assignedToIds: visibleExtraAssignments.filter((assignment) => assignment.item_id === extra.id).map((assignment) => assignment.assigned_to_id) })),
   }, { headers: { "Cache-Control": "no-store" } });
 }
 

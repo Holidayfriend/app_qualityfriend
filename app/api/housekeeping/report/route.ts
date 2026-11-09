@@ -1,6 +1,7 @@
 import { getSessionUserId } from "../../../../lib/auth/session";
 import { hotelTimeZone } from "../../../../lib/hotel/clock";
 import { housekeepingAccess } from "../../../../lib/housekeeping/access";
+import { activeHousekeeperIds } from "../../../../lib/housekeeping/active-housekeepers";
 import { ensureExtraJobComment } from "../../../../lib/housekeeping/ensure-extra-comment";
 import { prisma } from "../../../../lib/prisma";
 
@@ -50,7 +51,7 @@ export async function GET(request: Request) {
   const workDate = asDate(requested);
   await ensureExtraJobComment();
 
-  const [dailyRuns, extras, rooms] = await Promise.all([
+  const [dailyRuns, extras, rooms, housekeepers] = await Promise.all([
     prisma.housekeepingDailyRun.findMany({
       where: { hotelTenantId: user.hotelTenantId },
       orderBy: { workDate: "desc" },
@@ -65,6 +66,7 @@ export async function GET(request: Request) {
         plannedMinutes: true,
         descriptionSnapshot: true,
         completedAt: true,
+        assignedToId: true,
         assignedTo: { select: { firstName: true, lastName: true } },
         comments: {
           orderBy: { createdAt: "asc" },
@@ -86,11 +88,14 @@ export async function GET(request: Request) {
         cleaningType: true,
         plannedMinutes: true,
         completedAt: true,
+        assignedToId: true,
         room: { select: { number: true } },
         assignedTo: { select: { firstName: true, lastName: true } },
       },
     }),
+    activeHousekeeperIds(prisma, user.hotelTenantId),
   ]);
+  const openExtras = extras.filter((row) => row.completedAt || housekeepers.has(row.assignedToId));
 
   const mapExtra = (row: (typeof extras)[number]) => ({
     id: row.id,
@@ -111,7 +116,7 @@ export async function GET(request: Request) {
     number: row.room.number,
     cleaningType: row.cleaningType,
     minutes: row.plannedMinutes,
-    employeeName: row.assignedTo ? `${row.assignedTo.firstName} ${row.assignedTo.lastName}`.trim() : null,
+    employeeName: row.assignedTo && (row.completedAt || (row.assignedToId && housekeepers.has(row.assignedToId))) ? `${row.assignedTo.firstName} ${row.assignedTo.lastName}`.trim() : null,
     completedAt: row.completedAt?.toISOString() ?? null,
   });
 
@@ -125,8 +130,8 @@ export async function GET(request: Request) {
     today,
     date: requested,
     availableDates,
-    extrasCompleted: extras.filter((row) => row.completedAt).map(mapExtra),
-    extrasMissing: extras.filter((row) => !row.completedAt).map(mapExtra),
+    extrasCompleted: openExtras.filter((row) => row.completedAt).map(mapExtra),
+    extrasMissing: openExtras.filter((row) => !row.completedAt).map(mapExtra),
     roomsClean: rooms.filter((row) => row.completedAt).map(mapRoom),
     roomsMissing: rooms.filter((row) => !row.completedAt).map(mapRoom),
   }, { headers: { "Cache-Control": "no-store" } });

@@ -3,6 +3,7 @@ import { recordAuditLog } from "../../../../lib/audit/audit-service";
 import { roomAuditSnapshot } from "../../../../lib/housekeeping/settings-audit";
 import { hotelTimeZone } from "../../../../lib/hotel/clock";
 import { housekeepingAccess } from "../../../../lib/housekeeping/access";
+import { activeHousekeeperIds } from "../../../../lib/housekeeping/active-housekeepers";
 import { getSessionUserId } from "../../../../lib/auth/session";
 import { prisma } from "../../../../lib/prisma";
 
@@ -98,14 +99,16 @@ export async function GET(request: Request) {
     const arrivalChecks = activeLocale === "de" ? strings(checklist?.arrivalChecksDe) : activeLocale === "it" ? strings(checklist?.arrivalChecksIt) : strings(checklist?.arrivalChecksEn);
     const state = room.roomOperationalStateRecords[0];
     const status = ({ UNKNOWN: "unassigned", DIRTY: "dirty", CLEANING: "cleaning", CLEAN: "clean", INSPECTED: "inspected" } as const)[state?.cleanliness ?? "UNKNOWN"];
-    const [cleaners, assignment, completedChecks] = await Promise.all([
+    const [cleaners, assignment, completedChecks, housekeepers] = await Promise.all([
       access.admin ? housekeepingUsers(user.hotelTenantId) : Promise.resolve([]),
       prisma.housekeepingRoomAssignment.findFirst({
         where: { hotelTenantId: user.hotelTenantId, roomId: room.id, workDate: day },
         select: { assignedToId: true, assignedTo: { select: { firstName: true, lastName: true } } },
       }),
       prisma.$queryRaw<Array<{ checklist_type: "ROOM" | "ARRIVAL"; check_index: number }>>`SELECT checklist_type,check_index FROM housekeeping_checklist_completions WHERE hotel_tenant_id=${user.hotelTenantId}::uuid AND room_id=${room.id}::uuid AND work_date=${date}::date`,
+      activeHousekeeperIds(prisma, user.hotelTenantId),
     ]);
+    const assignedCleaner = assignment?.assignedToId && housekeepers.has(assignment.assignedToId) ? assignment : null;
     const completed = new Set(completedChecks.map((check) => `${check.checklist_type}:${check.check_index}`));
     return Response.json({ room: {
       id: room.id, number: room.number, name: translatedName(room, activeLocale),
@@ -117,8 +120,8 @@ export async function GET(request: Request) {
       canAdmin: access.admin,
       roomChecks: roomChecks.map((label, index) => ({ index, label, checked: completed.has(`ROOM:${index}`) })),
       arrivalChecks: arrivalChecks.map((label, index) => ({ index, label, checked: completed.has(`ARRIVAL:${index}`) })), cleaners,
-      assignedCleanerId: assignment?.assignedToId ?? null,
-      assignedCleanerName: assignment?.assignedTo ? `${assignment.assignedTo.firstName} ${assignment.assignedTo.lastName}`.trim() : null,
+      assignedCleanerId: assignedCleaner?.assignedToId ?? null,
+      assignedCleanerName: assignedCleaner?.assignedTo ? `${assignedCleaner.assignedTo.firstName} ${assignedCleaner.assignedTo.lastName}`.trim() : null,
       reservation: stay ? serializeStay(stay) : null,
       departureReservation: departureStay ? serializeStay(departureStay) : null,
 
@@ -129,7 +132,8 @@ export async function GET(request: Request) {
     let date: string;
     try { date = localDate(configuredZone); } catch { return Response.json({ error: "INVALID_HOTEL_TIME_ZONE" }, { status: 500 }); }
     const day = utcDate(date);
-    const floors = await prisma.floor.findMany({
+    const [floors, housekeepers] = await Promise.all([
+      prisma.floor.findMany({
       where: { hotelTenantId: user.hotelTenantId, isActive: true, archivedAt: null },
       orderBy: [{ sortOrder: "asc" }, { code: "asc" }],
       select: { id: true, code: true, nameEn: true, nameDe: true, nameIt: true, roomRecords: {
@@ -139,7 +143,7 @@ export async function GET(request: Request) {
         } } }, orderBy: { number: "asc" }, select: {
           id: true, number: true,
           roomOperationalStateRecords: { take: 1, select: { cleanliness: true, breakfastInRoom: true, doNotDisturb: true, noService: true, isExpress: true, linenChange: true } },
-          housekeepingScheduleAssignmentRecords: { where: { workDate: day }, take: 1, select: { cleaningType: true, assignedTo: { select: { firstName: true, lastName: true } } } },
+          housekeepingScheduleAssignmentRecords: { where: { workDate: day }, take: 1, select: { cleaningType: true, assignedToId: true, assignedTo: { select: { firstName: true, lastName: true } } } },
           reservationRoomStayRecords: { where: {
             arrivalDate: { lte: day }, departureDate: { gte: day },
             reservation: { sourcePresent: true, status: { notIn: ["CANCELLED", "NO_SHOW"] } },
@@ -150,7 +154,9 @@ export async function GET(request: Request) {
           },
         },
       } },
-    });
+    }),
+      activeHousekeeperIds(prisma, user.hotelTenantId),
+    ]);
     return Response.json({ date, timeZone: configuredZone, floors: floors.map((floor) => ({
       id: floor.id, code: floor.code, name: translatedName(floor, activeLocale) || floor.code,
       rooms: floor.roomRecords.map((room) => {
@@ -160,10 +166,11 @@ export async function GET(request: Request) {
         const departureStay = stays.find((stay) => stay.departureDate.getTime() === day.getTime());
         const state = room.roomOperationalStateRecords[0];
         const assignment = room.housekeepingScheduleAssignmentRecords[0];
+        const activeAssignee = assignment?.assignedToId && housekeepers.has(assignment.assignedToId) ? assignment.assignedTo : null;
         const status = state?.noService ? "noCleaningDesired" as const : ({ UNKNOWN: "unassigned", DIRTY: "dirty", CLEANING: "cleaning", CLEAN: "clean", INSPECTED: "inspected" } as const)[state?.cleanliness ?? "UNKNOWN"];
         const isExpress = Boolean(state?.isExpress) || assignment?.cleaningType === "EXPRESS";
         return { id: room.id, number: room.number, status, isExpress,
-          assignedUserName: assignment?.assignedTo ? `${assignment.assignedTo.firstName} ${assignment.assignedTo.lastName}`.trim() || null : null,
+          assignedUserName: activeAssignee ? `${activeAssignee.firstName} ${activeAssignee.lastName}`.trim() || null : null,
           linenChange: Boolean(state?.linenChange),
           breakfastInRoom: state?.breakfastInRoom ?? false,
           doNotDisturb: state?.doNotDisturb ?? false,

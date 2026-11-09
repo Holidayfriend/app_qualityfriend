@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto"; // Node helper to create a unique UUID for new rows
-import type { PrismaClient } from "../../app/generated/prisma/client"; // Type of the Prisma client passed in from the script
+import { Prisma, type PrismaClient } from "../../app/generated/prisma/client"; // Type of the Prisma client passed in from the script
+import { activeHousekeeperIds } from "./active-housekeepers";
 
 /**
  * Stay selection and upserts stay as SQL: Postgres DISTINCT ON, FOR UPDATE, and
@@ -56,6 +57,14 @@ export function linenDueToday(stay: Pick<StayRow, "arrival_date" | "departure_da
     || stay.linen_frequency === "ON_REQUEST" && (stay.linen_weekdays ?? []).includes(isoWeekday(date));
 }
 
+// Keep the permanent link when a cleaner was saved, but hand today's work only to someone who is still an active housekeeper.
+export function permanentCleaner(assignedToId: string | null, activeIds: ReadonlySet<string>) {
+  return {
+    assignedToId: assignedToId && activeIds.has(assignedToId) ? assignedToId : null,
+    origin: assignedToId ? "PERMANENT" as const : "TODAY_ONLY" as const,
+  };
+}
+
 // The dropdown belongs to the current stay. Departure day puts it back to Daily for the next guest.
 // A same-day arrival does not keep the leaving guest's value; the stay query already picks the departure.
 export function preferenceOnWorkDate(preference: string | null | undefined, departureDate: string, workDate: string) {
@@ -67,6 +76,7 @@ export function preferenceOnWorkDate(preference: string | null | undefined, depa
 export async function generateHotelDailyPlan(prisma: PrismaClient, hotelTenantId: string, workDate: string) {
   const runId = randomUUID(); // id for the housekeeping_daily_runs row we are about to write
   try {
+    const housekeepers = await activeHousekeeperIds(prisma, hotelTenantId);
     // All reads/writes below succeed together or roll back together. 120s max for a large hotel.
     return await prisma.$transaction(async (tx) => {
       // Lock this hotel+date run row so two cron starts cannot generate the same day at once
@@ -137,14 +147,16 @@ export async function generateHotelDailyPlan(prisma: PrismaClient, hotelTenantId
         }
         // Insert today's room assignment, or update stay/type/minutes if it already exists.
         // If origin is PERMANENT, also refresh the cleaner; if TODAY_ONLY, keep the person already assigned.
+        // A saved cleaner who is no longer an active housekeeper stays on the permanent row, but today's room is left open.
+        const cleaner = permanentCleaner(stay.assigned_to_id, housekeepers);
         await tx.$executeRaw`
           INSERT INTO housekeeping_room_assignments
             (id,hotel_tenant_id,work_date,room_id,assigned_to_id,reservation_stay_id,cleaning_type,assignment_origin,planned_minutes,updated_at)
           VALUES (
             ${randomUUID()}::uuid, ${hotelTenantId}::uuid, ${workDate}::date, ${stay.room_id}::uuid,
-            ${stay.assigned_to_id}::uuid, ${stay.stay_id}::uuid,
+            ${cleaner.assignedToId}::uuid, ${stay.stay_id}::uuid,
             ${plan.type}::"HousekeepingCleaningType",
-            ${stay.assigned_to_id ? "PERMANENT" : "TODAY_ONLY"}::"HousekeepingAssignmentOrigin",
+            ${cleaner.origin}::"HousekeepingAssignmentOrigin",
             ${plan.minutes}, NOW()
           )
           ON CONFLICT (hotel_tenant_id,work_date,room_id) DO UPDATE SET
@@ -183,7 +195,10 @@ export async function generateHotelDailyPlan(prisma: PrismaClient, hotelTenantId
         JOIN extra_jobs e ON e.id=p.extra_job_id AND e.hotel_tenant_id=p.hotel_tenant_id
         WHERE p.hotel_tenant_id=${hotelTenantId}::uuid`;
 
+      let extrasGenerated = 0;
       for (const extra of extras) {
+        if (!housekeepers.has(extra.assigned_to_id)) continue;
+        extrasGenerated++;
         // Copy each permanent extra onto today's plan; update minutes/description if the row already exists
         await tx.$executeRaw`
           INSERT INTO housekeeping_extra_job_assignments
@@ -199,18 +214,45 @@ export async function generateHotelDailyPlan(prisma: PrismaClient, hotelTenantId
             updated_at=NOW()`;
       }
 
+      // Drop open work already copied to someone who is no longer an active housekeeper.
+      // Finished rows stay so the report still shows work that was actually done.
+      await clearInactiveAssignments(tx, hotelTenantId, workDate, [...housekeepers]);
+
       // Mark this hotel+date run finished and store how many rooms/extras were generated
       await tx.$executeRaw`
         UPDATE housekeeping_daily_runs
-        SET status='SUCCEEDED', rooms_generated=${roomsGenerated}, extras_generated=${extras.length}, finished_at=NOW()
+        SET status='SUCCEEDED', rooms_generated=${roomsGenerated}, extras_generated=${extrasGenerated}, finished_at=NOW()
         WHERE hotel_tenant_id=${hotelTenantId}::uuid AND work_date=${workDate}::date`;
 
-      return { rooms: roomsGenerated, extras: extras.length }; // logged as JSON by the CLI script
+      return { rooms: roomsGenerated, extras: extrasGenerated }; // logged as JSON by the CLI script
     }, { timeout: 120_000 });
   } catch (error) {
     await recordFailure(prisma, hotelTenantId, workDate, error); // write FAILED outside the rolled-back transaction
     throw error; // let the script print the error and exit non-zero
   }
+}
+
+async function clearInactiveAssignments(tx: Pick<PrismaClient, "$executeRaw">, hotelTenantId: string, workDate: string, activeIds: string[]) {
+  if (activeIds.length === 0) {
+    await tx.$executeRaw`
+      DELETE FROM housekeeping_extra_job_assignments
+      WHERE hotel_tenant_id=${hotelTenantId}::uuid AND work_date=${workDate}::date AND completed_at IS NULL`;
+    await tx.$executeRaw`
+      UPDATE housekeeping_room_assignments
+      SET assigned_to_id=NULL, updated_at=NOW()
+      WHERE hotel_tenant_id=${hotelTenantId}::uuid AND work_date=${workDate}::date AND completed_at IS NULL AND assigned_to_id IS NOT NULL`;
+    return;
+  }
+  const ids = Prisma.join(activeIds.map((id) => Prisma.sql`${id}::uuid`));
+  await tx.$executeRaw`
+    DELETE FROM housekeeping_extra_job_assignments
+    WHERE hotel_tenant_id=${hotelTenantId}::uuid AND work_date=${workDate}::date AND completed_at IS NULL
+      AND assigned_to_id NOT IN (${ids})`;
+  await tx.$executeRaw`
+    UPDATE housekeeping_room_assignments
+    SET assigned_to_id=NULL, updated_at=NOW()
+    WHERE hotel_tenant_id=${hotelTenantId}::uuid AND work_date=${workDate}::date AND completed_at IS NULL
+      AND assigned_to_id IS NOT NULL AND assigned_to_id NOT IN (${ids})`;
 }
 
 // Persist a FAILED daily-run row after the transaction rolled back (so cron/logs can see it)

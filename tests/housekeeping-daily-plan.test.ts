@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { cleaningPlan, linenDueToday, preferenceOnWorkDate } from "../lib/housekeeping/daily-plan";
+import { cleaningPlan, linenDueToday, permanentCleaner, preferenceOnWorkDate } from "../lib/housekeeping/daily-plan";
+import { isActiveHousekeeper } from "../lib/housekeeping/active-housekeepers";
 
 const base = { arrival_date: "2026-09-14", departure_date: "2026-10-14", normal_minutes: 40, express_minutes: 20, departure_minutes: 50, cleaning_weekdays: [] as number[], linen_weekdays: [] as number[], cleaning_frequency: "EVERY_SECOND_DAY", linen_frequency: "WEEKLY" };
 const date = (nights: number) => new Date(Date.UTC(2026, 8, 14 + nights)).toISOString().slice(0, 10);
@@ -88,4 +89,22 @@ test("outside the stay there is no service", () => {
     assert.equal(cleaningPlan(base, day).type, "NONE");
     assert.equal(linenDueToday(base, day), false);
   }
+});
+
+test("permanent work is copied only for someone who is still an active housekeeper", () => {
+  const active = new Set(["keeper"]);
+  assert.deepEqual(permanentCleaner("keeper", active), { assignedToId: "keeper", origin: "PERMANENT" });
+  assert.deepEqual(permanentCleaner("former", active), { assignedToId: null, origin: "PERMANENT" });
+  assert.deepEqual(permanentCleaner(null, active), { assignedToId: null, origin: "TODAY_ONLY" });
+});
+
+test("housekeeper access follows the role, and inactive or removed users are excluded", () => {
+  const employee = { role: "EMPLOYEE", isActive: true, isDeleted: false };
+  assert.equal(isActiveHousekeeper(employee, []), true);
+  assert.equal(isActiveHousekeeper(employee, [{ moduleKey: "housekeeper", canView: false }]), false);
+  assert.equal(isActiveHousekeeper({ ...employee, isActive: false }, []), false);
+  assert.equal(isActiveHousekeeper({ ...employee, isDeleted: true }, []), false);
+  assert.equal(isActiveHousekeeper({ role: "ADMIN", isActive: true, isDeleted: false }, []), false);
+  assert.equal(isActiveHousekeeper({ role: "TEAM_LEAD", isActive: true, isDeleted: false }, []), false);
+  assert.equal(isActiveHousekeeper({ role: "TEAM_LEAD", isActive: true, isDeleted: false }, [{ moduleKey: "housekeeper", canView: true }]), true);
 });
