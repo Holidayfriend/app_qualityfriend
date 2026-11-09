@@ -1,24 +1,82 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AiBanner, Card, Chip, DataTable, ForecastShell, Kpi, Td, useForecast } from "./forecast-ui";
+import { useI18n } from "../i18n/i18n-provider";
 
-const rows = [
-  { date: "22.08.", day: "sa", occ: "92%", current: "380€", rec: "420€", avg: "401€", status: "urgent", adopted: false },
-  { date: "23.08.", day: "su", occ: "88%", current: "360€", rec: "395€", avg: "388€", status: "adjust", adopted: false },
-  { date: "24.08.", day: "mo", occ: "61%", current: "280€", rec: "275€", avg: "279€", status: "optimal", adopted: true },
-  { date: "25.08.", day: "tu", occ: "58%", current: "275€", rec: "270€", avg: "268€", status: "optimal", adopted: true },
-  { date: "26.08.", day: "we", occ: "64%", current: "280€", rec: "285€", avg: "291€", status: "adjust", adopted: false },
-  { date: "27.08.", day: "th", occ: "71%", current: "300€", rec: "312€", avg: "305€", status: "adjust", adopted: false },
-  { date: "28.08.", day: "fr", occ: "85%", current: "340€", rec: "375€", avg: "360€", status: "urgent", adopted: false },
-  { date: "29.08.", day: "sa", occ: "95%", current: "380€", rec: "435€", avg: "410€", status: "urgent", adopted: false },
-] as const;
+type Status = "urgent" | "adjust" | "optimal";
+
+type Row = {
+  date: string;
+  occupancy: number;
+  current: number | null;
+  recommended: number | null;
+  competitorAvg: number | null;
+  status: Status;
+  adopted: boolean;
+};
 
 const tone = { urgent: "red", adjust: "amber", optimal: "green" } as const;
+const dayKeys = ["su", "mo", "tu", "we", "th", "fr", "sa"] as const;
+
+function shortDate(iso: string) {
+  const [, month, day] = iso.split("-");
+  return `${day}.${month}.`;
+}
+
+function euro(value: number | null) {
+  if (value === null) return "–";
+  return `${Math.round(value)}€`;
+}
 
 export function RecommendationsView() {
   const t = useForecast().recommendations;
-  const [adopted, setAdopted] = useState(rows.map((row) => row.adopted));
+  const { locale } = useI18n();
+  const [rows, setRows] = useState<Row[]>([]);
+  const [generatedAt, setGeneratedAt] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/revenue/recommendations")
+      .then(async (response) => {
+        if (!response.ok) throw new Error("load");
+        return response.json() as Promise<{ generatedAt: string | null; rows: Row[] }>;
+      })
+      .then((data) => {
+        if (!active) return;
+        setRows(data.rows ?? []);
+        setGeneratedAt(data.generatedAt ?? null);
+      })
+      .catch(() => {
+        if (!active) return;
+        setRows([]);
+        setGeneratedAt(null);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const calculated = generatedAt
+    ? t.lastCalculatedAt.replace("{when}", new Date(generatedAt).toLocaleString(locale === "de" ? "de-DE" : locale === "it" ? "it-IT" : "en-GB", { dateStyle: "medium", timeStyle: "short" }))
+    : t.notCalculated;
+
+  function setAdopted(date: string, adopted: boolean) {
+    const previous = rows;
+    setRows((current) => current.map((row) => row.date === date ? { ...row, adopted } : row));
+    fetch("/api/revenue/recommendations", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date, adopted }),
+    }).then((response) => {
+      if (!response.ok) setRows(previous);
+    }).catch(() => setRows(previous));
+  }
+
   return (
     <ForecastShell activeItem="revenue">
       <AiBanner title={t.bannerTitle}>
@@ -31,27 +89,35 @@ export function RecommendationsView() {
         <Kpi label={t.marketPosition} value="#1" accent sub={t.ofHotels} />
       </section>
       <section className="grid grid-cols-1 gap-[18px] xl:grid-cols-2">
-        <Card title={t.dailyTitle} action={t.lastCalculated} flush>
+        <Card title={t.dailyTitle} action={loading ? t.lastCalculated : calculated} flush>
           <DataTable headers={[{ label: t.date }, { label: t.day }, { label: t.occupancyCol }, { label: t.current }, { label: t.aiRecommendation }, { label: t.competitorAvg }, { label: t.status }, { label: t.adopted, align: "center" }]}>
-            {rows.map((row, index) => (
-              <tr key={row.date} className="group">
-                <Td>{row.date}</Td>
-                <Td>{t.days[row.day]}</Td>
-                <Td>{row.occ}</Td>
-                <Td>{row.current}</Td>
-                <Td strong>{row.rec}</Td>
-                <Td>{row.avg}</Td>
-                <Td><Chip tone={tone[row.status]}>{t[row.status]}</Chip></Td>
-                <Td align="center">
-                  <input
-                    type="checkbox"
-                    checked={adopted[index]}
-                    aria-label={`${t.adopted} ${row.date}`}
-                    onChange={(event) => setAdopted((current) => current.map((value, item) => item === index ? event.target.checked : value))}
-                  />
-                </Td>
+            {rows.map((row) => {
+              const day = dayKeys[new Date(`${row.date}T00:00:00.000Z`).getUTCDay()];
+              return (
+                <tr key={row.date} className="group">
+                  <Td>{shortDate(row.date)}</Td>
+                  <Td>{t.days[day]}</Td>
+                  <Td>{row.occupancy}%</Td>
+                  <Td>{euro(row.current)}</Td>
+                  <Td strong>{euro(row.recommended)}</Td>
+                  <Td>{euro(row.competitorAvg)}</Td>
+                  <Td><Chip tone={tone[row.status]}>{t[row.status]}</Chip></Td>
+                  <Td align="center">
+                    <input
+                      type="checkbox"
+                      checked={row.adopted}
+                      aria-label={`${t.adopted} ${shortDate(row.date)}`}
+                      onChange={(event) => setAdopted(row.date, event.target.checked)}
+                    />
+                  </Td>
+                </tr>
+              );
+            })}
+            {!loading && rows.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="px-3 py-4 text-[13px] text-[var(--qf-text-muted)]">{t.emptyDaily}</td>
               </tr>
-            ))}
+            ) : null}
           </DataTable>
         </Card>
         <Card title={t.insights}>

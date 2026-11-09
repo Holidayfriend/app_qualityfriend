@@ -7,6 +7,7 @@ import { createJobQueue, initializeQueues, queues, type HotelWelcomeJob, type Ho
 import { sendHotelWelcomeEmail, sendUserWelcomeEmail } from "../lib/users/welcome-email";
 import { indexManualDocument } from "../lib/manuals/index-job";
 import { generateAllHotelAiRecommendations } from "../lib/ai/daily-recommendations";
+import { generateAllHotelRevenueWeeks } from "../lib/revenue/daily-recommendations";
 import { runHousekeepingAiAllocation } from "../lib/housekeeping/ai-allocate";
 import { scoreRecruitingApplication } from "../lib/recruiting/ai-score-job";
 import { spawnAllHotelChecklists } from "../lib/checklists/spawn";
@@ -101,6 +102,17 @@ async function main() {
     try {
       const results = await syncAllHotelWeather(prisma);
       console.log(`[worker] Weather daily completed`, { hotels: results.length, failed: results.filter((item) => item.ok === false).length });
+      return { hotels: results.length };
+    } finally {
+      await prisma.$disconnect();
+    }
+  });
+  await boss.schedule(queues.revenueDaily, "15 6 * * *", {}, { tz: "UTC", singletonKey: "revenue-daily", singletonSeconds: 3600 });
+  await boss.work(queues.revenueDaily, async () => {
+    const prisma = createJobPrisma(2);
+    try {
+      const results = await generateAllHotelRevenueWeeks(prisma);
+      console.log(`[worker] Revenue daily completed`, { hotels: results.length, failed: results.filter((item) => item.ok === false).length });
       return { hotels: results.length };
     } finally {
       await prisma.$disconnect();

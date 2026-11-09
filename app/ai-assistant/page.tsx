@@ -23,8 +23,6 @@ const copy = {
     demo: "(Demo-Antwort) Ich habe deine Anfrage erhalten: „{text}“. Im echten System würde hier die KI-Antwort basierend auf euren Betriebsdaten erscheinen.",
     assistants: [
       ["✨", "Allgemeiner Assistent", "Fragen, Analysen, Ideen", "general"],
-      ["📝", "Übergabe schreiben", "Schichtübergabe generieren", "handover"],
-      ["⭐", "Rezension beantworten", "TripAdvisor / Google", "review"],
       ["📊", "Budget-Analyse", "Zahlen erklären & forecasen", "budget"],
       ["🔍", "Recruiting-Hilfe", "Stellenanzeigen & Interviews", "recruiting"],
       ["📖", "Handbücher", "Dokumente & Abläufe", "manuals"],
@@ -48,8 +46,6 @@ const copy = {
     demo: "(Demo response) I received your request: “{text}”. In the real system, the AI response based on your operational data would appear here.",
     assistants: [
       ["✨", "General Assistant", "Questions, analyses, ideas", "general"],
-      ["📝", "Write a handover", "Generate a shift handover", "handover"],
-      ["⭐", "Reply to a review", "TripAdvisor / Google", "review"],
       ["📊", "Budget analysis", "Explain numbers & forecast", "budget"],
       ["🔍", "Recruiting help", "Job ads & interviews", "recruiting"],
       ["📖", "Manuals", "Documents & procedures", "manuals"],
@@ -73,8 +69,6 @@ const copy = {
     demo: "(Risposta demo) Ho ricevuto la richiesta: “{text}”. Nel sistema reale apparirebbe qui la risposta IA basata sui dati operativi.",
     assistants: [
       ["✨", "Assistente generale", "Domande, analisi, idee", "general"],
-      ["📝", "Scrivi una consegna", "Genera consegna del turno", "handover"],
-      ["⭐", "Rispondi a una recensione", "TripAdvisor / Google", "review"],
       ["📊", "Analisi budget", "Spiega dati e previsioni", "budget"],
       ["🔍", "Aiuto recruiting", "Annunci e colloqui", "recruiting"],
       ["📖", "Manuali", "Documenti e procedure", "manuals"],

@@ -1,4 +1,4 @@
-export const ASSISTANT_KEYS = ["general", "handover", "review", "budget", "recruiting", "manuals", "schedule"] as const;
+export const ASSISTANT_KEYS = ["general", "budget", "recruiting", "manuals", "schedule"] as const;
 export type AssistantKey = (typeof ASSISTANT_KEYS)[number];
 
 export function isAssistantKey(value: unknown): value is AssistantKey {

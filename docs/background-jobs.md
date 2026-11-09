@@ -39,6 +39,14 @@ into `hotel_ai_recommendations` (EN/DE/IT). Today only `RECRUITING` is generated
 the same job later. The recruiting hub banner reads the recruiting row. The
 worker also runs this job at 06:00 UTC.
 
+`housekeeping:daily` still builds the housekeeping plan, then writes seven
+revenue rows (today through the next six days) into
+`revenue_daily_recommendations`. Occupancy comes from reservation stays, current
+rate is the hotel's own competitor ADR, and competitor average is the mean of
+the other competitors' ADR values. The AI recommended rate uses the hotel's
+configured AI provider. Adopted is left unchanged on later runs. The revenue
+page reads those rows. The worker also runs this revenue refresh at 06:15 UTC.
+
 The smoke command queues a harmless job and waits up to 45 seconds for the
 separate worker to finish it. Use `-- --dispatch-only` to queue without waiting,
 then `-- --id=JOB_ID` to verify that same job later (for example, after restarting
@@ -131,6 +139,17 @@ hotel and totals, continues if one dispatch fails, and exits nonzero for dispatc
 failures. Already queued/running imports are skipped using the existing queue's
 per-hotel singleton protection. Worker failures use existing retries and import
 run records. Check completion with `docker compose logs --since 2h worker`.
+
+For the daily housekeeping plan and the one-week revenue recommendations, add a
+once-a-day crontab entry. Run it after the morning XML import has finished:
+
+```cron
+15 6 * * * cd /path/to/app_qualityfriend && docker compose exec -T worker npm run housekeeping:daily >> /path/to/app_qualityfriend/housekeeping-daily.log 2>&1
+```
+
+The worker also refreshes the revenue week at 06:15 UTC, so the Daily
+recommendations table updates even when this crontab line is not installed.
+Restart the worker after deploying so it picks up the `revenue-daily` schedule.
 
 System imports retain audit/import-run records with no user actor and do not send
 user notifications. Hotel eligibility and XML settings are checked again by the

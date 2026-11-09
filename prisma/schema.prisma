@@ -31,6 +31,12 @@ enum ReservationStatus {
   NO_SHOW
 }
 
+enum RevenueRecommendationStatus {
+  URGENT
+  ADJUST
+  OPTIMAL
+}
+
 enum RoomCleanliness {
   UNKNOWN
   DIRTY
@@ -602,6 +608,7 @@ model HotelTenant {
   couponRedemptions                              CouponRedemption[]
   competitors                                    Competitor[]
   competitorSettings                             CompetitorSettings?
+  revenueDailyRecommendations                    RevenueDailyRecommendation[]
   weather                                        HotelWeather?
 
   @@index([isActive])
@@ -674,6 +681,26 @@ model CompetitorSettings {
   hotelTenant   HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
 
   @@map("competitor_settings")
+}
+
+model RevenueDailyRecommendation {
+  id               String                      @id @default(uuid()) @db.Uuid
+  hotelTenantId    String                      @map("hotel_tenant_id") @db.Uuid
+  stayDate         DateTime                    @map("stay_date") @db.Date
+  occupancyPercent Int                         @map("occupancy_percent")
+  currentRate      Decimal?                    @map("current_rate") @db.Decimal(14, 2)
+  recommendedRate  Decimal?                    @map("recommended_rate") @db.Decimal(14, 2)
+  competitorAvg    Decimal?                    @map("competitor_avg") @db.Decimal(14, 2)
+  status           RevenueRecommendationStatus
+  adopted          Boolean                     @default(false)
+  generatedAt      DateTime                    @map("generated_at") @db.Timestamptz(3)
+  createdAt        DateTime                    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant      HotelTenant                 @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+
+  @@unique([hotelTenantId, stayDate])
+  @@index([hotelTenantId, stayDate])
+  @@map("revenue_daily_recommendations")
 }
 
 model Coupon {
