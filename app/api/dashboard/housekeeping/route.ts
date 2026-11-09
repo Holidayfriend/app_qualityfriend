@@ -4,6 +4,7 @@ import { hotelTimeZone } from "../../../../lib/hotel/clock";
 import { hotelLocalDate } from "../../../../lib/housekeeping/daily-plan";
 import { dashboardHousekeepingSnapshot } from "../../../../lib/housekeeping/dashboard-ops";
 import { prisma } from "../../../../lib/prisma";
+import { OWN_HOTEL_PREFIX } from "../../../../lib/revenue/daily-recommendations";
 
 export async function GET() {
   const current = await currentAccessUser();
@@ -23,5 +24,23 @@ export async function GET() {
   }
 
   const snapshot = await dashboardHousekeepingSnapshot(current.hotel_tenant_id, workDate);
-  return NextResponse.json(snapshot, { headers: { "Cache-Control": "no-store" } });
+  const settings = await prisma.competitorSettings.findUnique({
+    where: { hotelTenantId: current.hotel_tenant_id },
+    select: { locationCode: true },
+  });
+  const own = settings?.locationCode
+    ? await prisma.competitor.findFirst({
+      where: {
+        hotelTenantId: current.hotel_tenant_id,
+        locationKey: String(settings.locationCode),
+        name: { startsWith: OWN_HOTEL_PREFIX },
+      },
+      orderBy: { lastFetchedAt: "desc" },
+      select: { rating: true, reviewCount: true },
+    })
+    : null;
+  return NextResponse.json(
+    { ...snapshot, rating: own?.rating ?? null, reviewCount: own?.reviewCount ?? null },
+    { headers: { "Cache-Control": "no-store" } },
+  );
 }

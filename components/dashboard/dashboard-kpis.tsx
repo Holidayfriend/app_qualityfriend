@@ -12,6 +12,8 @@ type Snapshot = {
   roomsDue: number;
   roomsOpen: number;
   expressRooms: string[];
+  rating: number | null;
+  reviewCount: number | null;
 };
 
 const empty: Snapshot = {
@@ -23,6 +25,8 @@ const empty: Snapshot = {
   roomsDue: 0,
   roomsOpen: 0,
   expressRooms: [],
+  rating: null,
+  reviewCount: null,
 };
 
 export function DashboardKpis() {
@@ -47,6 +51,8 @@ export function DashboardKpis() {
           roomsDue: Number(next.roomsDue) || 0,
           roomsOpen: Number(next.roomsOpen) || 0,
           expressRooms: Array.isArray(next.expressRooms) ? next.expressRooms : [],
+          rating: typeof next.rating === "number" && Number.isFinite(next.rating) ? next.rating : null,
+          reviewCount: typeof next.reviewCount === "number" && Number.isFinite(next.reviewCount) ? next.reviewCount : null,
         });
       })
       .catch(() => {})
@@ -81,8 +87,8 @@ export function DashboardKpis() {
       </div>
       <div className="kpi">
         <div className="kpi-lbl">{d.rating}</div>
-        <div className="kpi-val">4.9<span>/5</span></div>
-        <div className="kpi-sub"><span className="chip chip-b">{d.reviews}</span></div>
+        <div className="kpi-val">{loaded && data.rating != null ? (Math.round(data.rating * 10) / 10).toFixed(1) : "–"}<span>/5</span></div>
+        <div className="kpi-sub">{loaded && data.reviewCount != null ? <span className="chip chip-b">{d.reviews.replace("{n}", String(data.reviewCount))}</span> : null}</div>
       </div>
     </div>
   );
