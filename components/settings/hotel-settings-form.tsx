@@ -11,7 +11,7 @@ type Messages = (typeof accountSettingsMessages)[Locale];
 export type HotelSettingsValues = {
   hotelNameEn: string; hotelNameDe: string; hotelNameIt: string; email: string; logoUrl: string; companyName: string;
   streetAddress: string; postalCode: string; city: string; country: string; province: string; contactPerson: string;
-  phoneNumber: string; vatId: string; tripadvisorId: string; asaXmlName: string; timeZone: string; hotelLanguage: string;
+  phoneNumber: string; vatId: string; tripadvisorId: string; asaXmlName: string; forecastXmlName: string; timeZone: string; hotelLanguage: string;
   pecAddress: string; invoiceEmail: string; sdiCode: string; legalForm: string; roomCount: string; starRating: string; seasonal: boolean;
   openingPeriod: string; closurePeriod: string; checkInTime: string; checkOutTime: string; pmsName: string;
 };
@@ -136,6 +136,7 @@ export function HotelSettingsForm<T extends HotelSettingsValues>({ hotel, setHot
         </SelectField>
         {pmsChoice === "OTHER" ? <Input label={t.pmsOther} value={hotel.pmsName} onChange={(event) => update({ pmsName: event.target.value })} /> : null}
         <Input label={t.asaXmlName} value={hotel.asaXmlName} maxLength={255} placeholder="hotel" onChange={(event) => update({ asaXmlName: event.target.value })} />
+        <Input label={t.forecastXmlName} value={hotel.forecastXmlName} maxLength={255} placeholder="Forecast_qualityfriend" onChange={(event) => update({ forecastXmlName: event.target.value })} />
         <Input label={t.tripadvisor} value={hotel.tripadvisorId} onChange={(event) => update({ tripadvisorId: event.target.value })} />
       </Group>
     </>

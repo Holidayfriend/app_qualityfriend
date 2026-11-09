@@ -505,6 +505,7 @@ enum PaymentProvider {
 model HotelTenant {
   notifications                                  Notification[]
   asaXmlName                                     String?                                   @map("asa_xml_name") @db.VarChar(255)
+  forecastXmlName                                String?                                   @map("forecast_xml_name") @db.VarChar(255)
   // Configure before resolving hotel-local operational dates; no guessed default.
   timeZone                                       String?                                   @map("time_zone") @db.VarChar(80)
   floorRecords                                   Floor[]

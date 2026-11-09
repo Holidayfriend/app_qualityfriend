@@ -1052,6 +1052,7 @@
     "exists": "Diese E-Mail wird bereits verwendet.",
     "error": "Änderungen konnten nicht gespeichert werden.",
     "asaXmlName": "Housekeeping ASA XML",
+    "forecastXmlName": "Forecast XML",
     "invalidAsaXmlName": "Geben Sie nur einen Dateinamen ein (maximal 255 Zeichen), ohne Ordnerpfad oder URL.",
     "dataProtection": "Datenschutzrichtlinie",
     "privacyPolicy": "Datenschutzerklärung",
