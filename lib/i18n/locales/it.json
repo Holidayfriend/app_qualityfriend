@@ -899,6 +899,7 @@
     "name": "Nome",
     "label": "Descrizione",
     "time": "Tempo (min.)",
+    "currentAdr": "ADR medio attuale (€)",
     "expressCleaning": "Pulizia express (min.)",
     "normalCleaning": "Pulizia normale (min.)",
     "departureCleaning": "Pulizia partenza (min.)",

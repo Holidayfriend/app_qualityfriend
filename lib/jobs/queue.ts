@@ -1,7 +1,8 @@
 import { PgBoss } from "pg-boss";
 
-export const queues = { smoke: "qualityfriend-smoke", housekeeping: "housekeeping-import", housekeepingFailed: "housekeeping-import-failed", weatherDaily: "weather-daily", checklistsDaily: "checklists-daily", manualIndex: "manual-index", recruitingAiScore: "recruiting-ai-score", aiRecommendationDaily: "ai-recommendation-daily", revenueDaily: "revenue-daily", housekeepingAiAllocate: "housekeeping-ai-allocate", userWelcome: "user-welcome-email", hotelWelcome: "hotel-welcome-email" } as const;
+export const queues = { smoke: "qualityfriend-smoke", housekeeping: "housekeeping-import", housekeepingFailed: "housekeeping-import-failed", forecastImport: "forecast-import", weatherDaily: "weather-daily", checklistsDaily: "checklists-daily", manualIndex: "manual-index", recruitingAiScore: "recruiting-ai-score", aiRecommendationDaily: "ai-recommendation-daily", revenueDaily: "revenue-daily", housekeepingAiAllocate: "housekeeping-ai-allocate", userWelcome: "user-welcome-email", hotelWelcome: "hotel-welcome-email" } as const;
 export type HousekeepingImportJob = { hotelTenantId: string; actorId: string | null; xmlName: string; runId: string; sourceId: string };
+export type ForecastImportJob = { hotelTenantId: string; xmlName: string; runId: string; sourceId: string };
 export type SmokeJob = { message: string };
 export type ManualIndexJob = { hotelTenantId: string; documentId: string };
 export type RecruitingAiScoreJob = { hotelTenantId: string; applicationId: string };
@@ -22,6 +23,10 @@ export async function initializeQueues(boss: PgBoss) {
   await boss.createQueue(queues.housekeeping, {
     policy: "exclusive", retryLimit: 2, retryDelay: 30, retryBackoff: true,
     expireInSeconds: 1800, deleteAfterSeconds: 7 * 24 * 60 * 60, deadLetter: queues.housekeepingFailed,
+  });
+  await boss.createQueue(queues.forecastImport, {
+    policy: "exclusive", retryLimit: 1, retryDelay: 60, retryBackoff: true,
+    expireInSeconds: 1800, deleteAfterSeconds: 7 * 24 * 60 * 60,
   });
   await boss.createQueue(queues.smoke, {
     retryLimit: 3,

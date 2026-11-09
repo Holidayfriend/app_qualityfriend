@@ -140,6 +140,25 @@ failures. Already queued/running imports are skipped using the existing queue's
 per-hotel singleton protection. Worker failures use existing retries and import
 run records. Check completion with `docker compose logs --since 2h worker`.
 
+## Scheduled forecast XML imports
+
+Forecast XML is a separate file from the housekeeping ASA export. The filename is
+the Forecast XML field on Account settings. The command queues one job for every
+active hotel whose name is not empty. The worker downloads that file from the same
+ASA folder, deletes that hotel’s previous forecast rows, and stores every
+reservation, room stay, sale, and guest. It does not change the budget screen.
+
+```bash
+docker compose exec -T worker npm run forecast:import
+```
+
+Restart the worker after deploying this queue. A daily crontab can refresh the
+stored forecast after the file on the ASA folder has been replaced:
+
+```cron
+30 5 * * * cd /path/to/app_qualityfriend && docker compose exec -T worker npm run forecast:import >> /path/to/app_qualityfriend/forecast-import.log 2>&1
+```
+
 For the daily housekeeping plan and the one-week revenue recommendations, add a
 once-a-day crontab entry. Run it after the morning XML import has finished:
 

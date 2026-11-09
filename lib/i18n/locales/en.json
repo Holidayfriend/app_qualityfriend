@@ -901,6 +901,7 @@
     "name": "Name",
     "label": "Description",
     "time": "Time (min.)",
+    "currentAdr": "Avg. ADR current (€)",
     "expressCleaning": "Express cleaning (min.)",
     "normalCleaning": "Regular cleaning (min.)",
     "departureCleaning": "Departure cleaning (min.)",

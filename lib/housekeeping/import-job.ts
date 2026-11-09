@@ -139,7 +139,7 @@ export function importFailureReason(error: unknown) {
   if (messages[code]) return `${messages[code]} (${code})`;
   // Only expose messages authored by our parser/importer, never raw SQL or guest parameters.
   const message = error instanceof Error ? error.message : "";
-  if (/^(Invalid XML (date|count|field length)|Malformed XML|Unexpected XML root|Too many XML reservations|Ambiguous duplicate reservation in XML|XML departure precedes arrival|XML contains no supported reservations|XML document types and custom entities are not supported|ASA XML file unavailable|ASA XML exceeds 20 MB|Import settings or authorization changed|Import run not found|Import already failed)$/.test(message)) return message;
+  if (/^(Invalid XML (date|count|field length|amount)|Malformed XML|Unexpected XML root|Too many XML reservations|Ambiguous duplicate reservation in XML|XML departure precedes arrival|XML contains no supported reservations|XML document types and custom entities are not supported|ASA XML file unavailable|ASA XML exceeds 20 MB|Import settings or authorization changed|Import run not found|Import already failed)$/.test(message)) return message;
   return code && /^[A-Z0-9_]{2,30}$/.test(code) ? `Import failed with error code ${code}.` : "Import failed. Check the XML data and worker configuration.";
 }
 

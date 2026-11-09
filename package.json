@@ -11,6 +11,7 @@
     "jobs:smoke": "tsx scripts/jobs-smoke.ts",
     "housekeeping:daily": "tsx scripts/housekeeping-daily.ts",
     "housekeeping:import": "tsx scripts/housekeeping-import.ts",
+    "forecast:import": "tsx scripts/forecast-import.ts",
     "housekeeping:breakfast-clear": "tsx scripts/housekeeping-breakfast-clear.ts",
     "competitors:weekly": "tsx scripts/competitors-weekly.ts",
     "weather:daily": "tsx scripts/weather-daily.ts",

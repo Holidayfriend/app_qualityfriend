@@ -110,6 +110,7 @@ model RoomCategory {
   normalMinutes     Int?        @map("normal_minutes")
   departureMinutes  Int?        @map("departure_minutes")
   finalMinutes      Int?        @map("final_minutes")
+  currentAdr        Decimal?    @map("current_adr") @db.Decimal(14, 2)
   cleaningFrequency String?     @map("cleaning_frequency") @db.VarChar(30)
   cleaningWeekdays  Int[]       @default([]) @map("cleaning_weekdays")
   linenFrequency    String?     @map("linen_frequency") @db.VarChar(30)
@@ -610,6 +611,9 @@ model HotelTenant {
   competitors                                    Competitor[]
   competitorSettings                             CompetitorSettings?
   revenueDailyRecommendations                    RevenueDailyRecommendation[]
+  forecastReservations                           ForecastReservation[]
+  forecastReservationRooms                       ForecastReservationRoom[]
+  forecastReservationGuests                      ForecastReservationGuest[]
   weather                                        HotelWeather?
 
   @@index([isActive])
@@ -702,6 +706,77 @@ model RevenueDailyRecommendation {
   @@unique([hotelTenantId, stayDate])
   @@index([hotelTenantId, stayDate])
   @@map("revenue_daily_recommendations")
+}
+
+model ForecastReservation {
+  id                String                    @id @default(uuid()) @db.Uuid
+  hotelTenantId     String                    @map("hotel_tenant_id") @db.Uuid
+  externalId        String                    @map("external_id") @db.VarChar(64)
+  reservationDate   DateTime?                 @map("reservation_date") @db.Date
+  number            String                    @default("") @db.VarChar(40)
+  type              String                    @default("") @db.VarChar(40)
+  touristParty      Int                       @default(0) @map("tourist_party")
+  advertisingMedium String?                   @map("advertising_medium") @db.VarChar(80)
+  bookingChannel    String?                   @map("booking_channel") @db.VarChar(120)
+  bookingGroup      String?                   @map("booking_group") @db.VarChar(255)
+  guestGender       String?                   @map("guest_gender") @db.VarChar(20)
+  guestDateOfBirth  DateTime?                 @map("guest_date_of_birth") @db.Date
+  guestPostalCode   String?                   @map("guest_postal_code") @db.VarChar(20)
+  guestCity         String?                   @map("guest_city") @db.VarChar(120)
+  guestCountry      String?                   @map("guest_country") @db.VarChar(80)
+  createdAt         DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant       HotelTenant               @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+  rooms             ForecastReservationRoom[]
+
+  @@unique([hotelTenantId, externalId])
+  @@index([hotelTenantId, reservationDate])
+  @@map("forecast_reservations")
+}
+
+model ForecastReservationRoom {
+  id                      String                     @id @default(uuid()) @db.Uuid
+  hotelTenantId           String                     @map("hotel_tenant_id") @db.Uuid
+  forecastReservationId   String                     @map("forecast_reservation_id") @db.Uuid
+  arrivalDate             DateTime                   @map("arrival_date") @db.Date
+  departureDate           DateTime                   @map("departure_date") @db.Date
+  status                  String                     @default("") @db.VarChar(40)
+  roomType                String                     @default("") @map("room_type") @db.VarChar(80)
+  roomNumber              String                     @default("") @map("room_number") @db.VarChar(40)
+  ratePlanCode            String?                    @map("rate_plan_code") @db.VarChar(80)
+  adults                  Int?
+  children                Int?
+  infants                 Int?
+  accommodationSale       Decimal                    @default(0) @map("accommodation_sale") @db.Decimal(14, 2)
+  additionalServicesSale  Decimal                    @default(0) @map("additional_services_sale") @db.Decimal(14, 2)
+  spaSale                 Decimal                    @default(0) @map("spa_sale") @db.Decimal(14, 2)
+  extrasSale              Decimal                    @default(0) @map("extras_sale") @db.Decimal(14, 2)
+  createdAt               DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant             HotelTenant                @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+  reservation             ForecastReservation        @relation(fields: [forecastReservationId], references: [id], onDelete: Cascade)
+  guests                  ForecastReservationGuest[]
+
+  @@index([hotelTenantId, arrivalDate])
+  @@index([hotelTenantId, departureDate])
+  @@index([hotelTenantId, roomType])
+  @@map("forecast_reservation_rooms")
+}
+
+model ForecastReservationGuest {
+  id            String                  @id @default(uuid()) @db.Uuid
+  hotelTenantId String                  @map("hotel_tenant_id") @db.Uuid
+  forecastRoomId String                 @map("forecast_room_id") @db.Uuid
+  gender        String?                 @db.VarChar(20)
+  dateOfBirth   DateTime?               @map("date_of_birth") @db.Date
+  country       String?                 @db.VarChar(80)
+  createdAt     DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant   HotelTenant             @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+  room          ForecastReservationRoom @relation(fields: [forecastRoomId], references: [id], onDelete: Cascade)
+
+  @@index([hotelTenantId, forecastRoomId])
+  @@map("forecast_reservation_guests")
 }
 
 model Coupon {

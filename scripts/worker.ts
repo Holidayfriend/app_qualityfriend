@@ -1,9 +1,9 @@
 import "dotenv/config";
 import { Pool } from "pg";
 import { importHousekeeping, recordImportFailure, importFailureReason } from "../lib/housekeeping/import-job";
-import type { HousekeepingImportJob } from "../lib/jobs/queue";
+import { importHotelForecast } from "../lib/forecast/import-job";
 import { createJobPrisma } from "../lib/jobs/prisma";
-import { createJobQueue, initializeQueues, queues, type HotelWelcomeJob, type HousekeepingAiAllocateJob, type ManualIndexJob, type RecruitingAiScoreJob, type SmokeJob, type UserWelcomeJob } from "../lib/jobs/queue";
+import { createJobQueue, initializeQueues, queues, type ForecastImportJob, type HotelWelcomeJob, type HousekeepingAiAllocateJob, type HousekeepingImportJob, type ManualIndexJob, type RecruitingAiScoreJob, type SmokeJob, type UserWelcomeJob } from "../lib/jobs/queue";
 import { sendHotelWelcomeEmail, sendUserWelcomeEmail } from "../lib/users/welcome-email";
 import { indexManualDocument } from "../lib/manuals/index-job";
 import { generateAllHotelAiRecommendations } from "../lib/ai/daily-recommendations";
@@ -43,6 +43,28 @@ async function main() {
       console.error(`[worker] Housekeeping import ${job.id} attempt ${job.retryCount + 1} failed: ${reason}`);
       await recordImportFailure(pool, job.data, job.retryCount >= job.retryLimit, reason);
       throw new Error(reason);
+    }
+  });
+  await boss.work<ForecastImportJob>(queues.forecastImport, async ([job]) => {
+    if (!job.data?.hotelTenantId || !job.data.xmlName || !job.data.runId || !job.data.sourceId) throw new Error("Invalid forecast import payload.");
+    const prisma = createJobPrisma(2);
+    const client = await pool.connect();
+    try {
+      await client.query(`UPDATE import_runs SET status='RUNNING',error_summary=NULL,updated_at=NOW() WHERE id=$1 AND hotel_tenant_id=$2 AND status NOT IN ('SUCCEEDED','FAILED')`, [job.data.runId, job.data.hotelTenantId]);
+      const result = await importHotelForecast(prisma, job.data.hotelTenantId, job.data.xmlName);
+      await client.query(`UPDATE import_runs SET status='SUCCEEDED',finished_at=NOW(),checksum=$3,records_read=$4,records_created=$5,records_rejected=$6,updated_at=NOW() WHERE id=$1 AND hotel_tenant_id=$2`, [job.data.runId, job.data.hotelTenantId, result.checksum, result.read, result.reservations, result.skippedRooms]);
+      await client.query(`UPDATE hotel_import_sources SET last_successful_at=NOW(),updated_at=NOW() WHERE id=$1 AND hotel_tenant_id=$2`, [job.data.sourceId, job.data.hotelTenantId]);
+      console.log(`[worker] Forecast import ${job.id} completed`, { reservations: result.reservations, rooms: result.rooms, guests: result.guests, skippedRooms: result.skippedRooms });
+      return { reservations: result.reservations, rooms: result.rooms, guests: result.guests, skippedRooms: result.skippedRooms };
+    } catch (error) {
+      const reason = importFailureReason(error);
+      const final = job.retryCount >= job.retryLimit;
+      await client.query(`UPDATE import_runs SET status=$3::"ImportRunStatus",error_summary=$4,finished_at=CASE WHEN $5 THEN NOW() ELSE NULL END,updated_at=NOW() WHERE id=$1 AND hotel_tenant_id=$2 AND status NOT IN ('SUCCEEDED','FAILED')`, [job.data.runId, job.data.hotelTenantId, final ? "FAILED" : "QUEUED", reason, final]);
+      console.error(`[worker] Forecast import ${job.id} attempt ${job.retryCount + 1} failed: ${reason}`);
+      throw new Error(reason);
+    } finally {
+      client.release();
+      await prisma.$disconnect();
     }
   });
   await boss.work<SmokeJob>(queues.smoke, async ([job]) => {

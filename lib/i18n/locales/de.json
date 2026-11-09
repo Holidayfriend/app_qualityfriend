@@ -899,6 +899,7 @@
     "name": "Name",
     "label": "Bezeichnung",
     "time": "Zeit (Min.)",
+    "currentAdr": "Ø ADR aktuell (€)",
     "expressCleaning": "Expressreinigung (Min.)",
     "normalCleaning": "Normale Reinigung (Min.)",
     "departureCleaning": "Reinigung Abreise (Min.)",
