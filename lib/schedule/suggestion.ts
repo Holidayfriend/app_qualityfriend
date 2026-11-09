@@ -90,6 +90,11 @@ export async function refreshScheduleSuggestion(actor: ScheduleActor, weekStart:
     deptIds.set(user.id, [...new Set(rows.map((row) => row.id))]);
   }
   const names = new Map(users.map((user) => [user.id, `${user.firstName} ${user.lastName}`.trim()]));
+  const assigned = new Set(shifts.map((shift) => `${shift.userId}|${shift.date}`));
+  const unassigned = users.flatMap((user) => {
+    const missing = dates.filter((date) => !assigned.has(`${user.id}|${date}`));
+    return missing.length ? [{ name: names.get(user.id) || user.id, days: missing.length }] : [];
+  });
   const gaps: Array<{ date: string; name: string; departmentId: string }> = [];
   for (const date of dates) {
     const day = shifts.filter((shift) => shift.date === date);
@@ -109,21 +114,27 @@ export async function refreshScheduleSuggestion(actor: ScheduleActor, weekStart:
     return `${who} | ${depts} | ${shift.date} | ${kind} ${times}${shift.draft ? " DRAFT" : ""}`;
   });
   const leaveLines = absences.filter((row) => row.status !== "rejected" && row.start <= end && row.end >= monday).slice(0, 30).map((row) => `${row.status} ${row.category} ${row.employee} ${row.start}${row.end !== row.start ? `-${row.end}` : ""}`);
-  const gapLines = gaps.slice(0, 12).map((gap) => `${gap.date} ${gap.name} off, nobody else working in ${departments.get(gap.departmentId)?.nameEn || "department"}`);
-  const fallback = fallbackText(monday, gaps, departments);
+  const gapLines = gaps.slice(0, 8).map((gap) => `${gap.date} ${gap.name} is off and nobody else is working in ${departments.get(gap.departmentId)?.nameEn || "that department"}`);
+  const unassignedLines = unassigned.map((row) => row.days === dates.length ? `${row.name} has no shift on any day` : `${row.name} has no shift on ${row.days} days`);
+  const fallback = fallbackText(monday, unassigned, gaps, departments);
   let parsed: Record<string, unknown> | null = null;
   try {
     parsed = await completeHotelChatJson(prisma, actor.hotel_tenant_id, [
       {
         role: "system",
-        content: "Write one short schedule alert in English, German, and Italian. Use only the names, dates, and gaps in the facts. If a gap is listed, use the first one. If no gap is listed, say this week is covered. Do not invent people, meals, breakfast, or jobs. Return JSON only: {\"en\":{\"title\":\"...\",\"body\":\"...\"},\"de\":{\"title\":\"...\",\"body\":\"...\"},\"it\":{\"title\":\"...\",\"body\":\"...\"}}. Title under 80 characters. Body is one sentence under 240 characters. German and Italian must be real translations.",
+        content: "Write one short schedule alert in English, German, and Italian. A blank day is not assigned. It is not a day off, and the week is not covered while any unassigned line exists. If unassigned is not empty, name those people and the number of days, and do not say the week is covered. Mention one department gap only when gaps is not empty. If both lists are empty, say the week is covered. Do not invent people, meals, breakfast, or jobs. Return JSON only: {\"en\":{\"title\":\"...\",\"body\":\"...\"},\"de\":{\"title\":\"...\",\"body\":\"...\"},\"it\":{\"title\":\"...\",\"body\":\"...\"}}. Title under 80 characters. Body is one or two sentences under 320 characters. German and Italian must be real translations.",
       },
-      { role: "user", content: JSON.stringify({ weekStart: monday, shifts: shiftLines.slice(0, 120), leave: leaveLines, gaps: gapLines }) },
+      { role: "user", content: JSON.stringify({ weekStart: monday, shifts: shiftLines.slice(0, 120), leave: leaveLines, unassigned: unassignedLines, gaps: gapLines }) },
     ], { temperature: 0.2, timeoutMs: 60_000 });
   } catch (error) {
     if (!(error instanceof HotelAiNotConfiguredError)) console.error(JSON.stringify({ hotelTenantId: actor.hotel_tenant_id, error: error instanceof Error ? error.message : String(error) }));
   }
   const text = suggestionFromAi(parsed, fallback);
+  if (unassigned.length && [text.en, text.de, text.it].some((item) => /covered|abgedeckt|coperta/i.test(`${item.title} ${item.body}`))) {
+    text.en = fallback.en;
+    text.de = fallback.de;
+    text.it = fallback.it;
+  }
   const generatedAt = new Date();
   await prisma.scheduleAiSuggestion.upsert({
     where: { hotelTenantId_weekStart: { hotelTenantId: actor.hotel_tenant_id, weekStart: parseIsoDate(monday) } },
@@ -144,13 +155,33 @@ export async function refreshScheduleSuggestion(actor: ScheduleActor, weekStart:
   return listScheduleSuggestion(actor, monday, locale);
 }
 
-function fallbackText(monday: string, gaps: Array<{ date: string; name: string; departmentId: string }>, departments: Map<string, { nameEn: string; nameDe: string | null; nameIt: string | null }>): Record<Locale, Text> {
+function nameList(names: string[], locale: Locale) {
+  if (names.length <= 1) return names[0] ?? "";
+  const last = names[names.length - 1];
+  const rest = names.slice(0, -1).join(", ");
+  const join = locale === "de" ? " und " : locale === "it" ? " e " : " and ";
+  return `${rest}${join}${last}`;
+}
+
+function fallbackText(monday: string, unassigned: Array<{ name: string; days: number }>, gaps: Array<{ date: string; name: string; departmentId: string }>, departments: Map<string, { nameEn: string; nameDe: string | null; nameIt: string | null }>): Record<Locale, Text> {
+  if (unassigned.length) {
+    const whole = unassigned.filter((row) => row.days === 7).map((row) => row.name);
+    const partial = unassigned.filter((row) => row.days < 7);
+    const partialEn = partial.map((row) => `${row.name} has no shift on ${row.days} days`).join(". ");
+    const partialDe = partial.map((row) => `${row.name} hat an ${row.days} Tagen keine Schicht`).join(". ");
+    const partialIt = partial.map((row) => `${row.name} non ha un turno per ${row.days} giorni`).join(". ");
+    return {
+      en: { title: "Shifts are not assigned", body: [whole.length ? `${nameList(whole, "en")} ${whole.length === 1 ? "has" : "have"} no shift on any day this week.` : "", partialEn].filter(Boolean).join(" ") },
+      de: { title: "Schichten sind nicht eingeteilt", body: [whole.length ? `${nameList(whole, "de")} ${whole.length === 1 ? "hat" : "haben"} diese Woche an keinem Tag eine Schicht.` : "", partialDe].filter(Boolean).join(" ") },
+      it: { title: "Turni non assegnati", body: [whole.length ? `${nameList(whole, "it")} non ${whole.length === 1 ? "ha" : "hanno"} nessun turno in questa settimana.` : "", partialIt].filter(Boolean).join(" ") },
+    };
+  }
   const gap = gaps[0];
   if (!gap) {
     return {
-      en: { title: `Week of ${monday} is covered`, body: "No saved absence leaves a department without someone working that day." },
-      de: { title: `Woche vom ${monday} ist abgedeckt`, body: "Keine gespeicherte Abwesenheit lässt eine Abteilung an dem Tag ohne Mitarbeitende." },
-      it: { title: `Settimana del ${monday} coperta`, body: "Nessuna assenza salvata lascia un reparto senza una persona al lavoro quel giorno." },
+      en: { title: `Week of ${monday} is covered`, body: "Every person has a shift or an absence on each day, and each absence has someone working in that department." },
+      de: { title: `Woche vom ${monday} ist abgedeckt`, body: "Jede Person hat an jedem Tag eine Schicht oder eine Abwesenheit, und für jede Abwesenheit arbeitet jemand in der Abteilung." },
+      it: { title: `Settimana del ${monday} coperta`, body: "Ogni persona ha un turno o un'assenza in ogni giorno, e per ogni assenza lavora qualcuno nel reparto." },
     };
   }
   const day = formatDayHeader(gap.date, "en");
