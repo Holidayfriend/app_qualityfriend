@@ -9,6 +9,7 @@ import { BrandLoader } from "../ui/brand-loader";
 import { AttachmentField, AttachmentGallery, AttachmentIndicator, type AttachmentItem } from "../ui/attachment-field";
 import { useToast } from "../ui/toast-provider";
 import { RichTextEditor, richTextHtml, sanitizeJobHtml, type RichTextEditorHandle } from "../recruiting/rich-text-editor";
+import { useAiRecommendation } from "../ai/use-ai-recommendation";
 import { getHandoversMessages, type HandoversMessages } from "../../lib/i18n/handovers-messages";
 import { useHandovers, type HotelDept, type PublicHandover } from "./handovers-provider";
 
@@ -60,6 +61,7 @@ async function patchHandover(id: string, locale: string, body: Record<string, un
 
 export function HandoversDashboardPage() {
   const t = useT();
+  const briefing = useAiRecommendation("HANDOVERS");
   const { handovers, canManage, ready } = useHandovers();
   if (!ready) return <Shell title={t.pageTitle}><BrandLoader label={t.loading} /></Shell>;
   const current = handovers.filter((item) => item.status === "offen" && item.pinned);
@@ -83,13 +85,7 @@ export function HandoversDashboardPage() {
         {canManage ? <div className="card">
           <div className="ch"><div className="ct">{t.aiSummaryTitle}</div></div>
           <div className="cb">
-            <div style={{ fontSize: 13.5, lineHeight: 1.7, color: "var(--text)" }}>
-              <strong>{t.aiFocusLabel}</strong> {t.aiFocus}
-              <br /><br />
-              <strong>{t.aiOpenLabel}</strong> {t.aiOpen}
-              <br /><br />
-              <strong>{t.aiStaffLabel}</strong> {t.aiStaff}
-            </div>
+            <div style={{ fontSize: 13.5, lineHeight: 1.7, color: "var(--text)", whiteSpace: "pre-line" }}>{briefing.ready ? (briefing.body || t.aiEmpty) : ""}</div>
             <hr className="div" />
             <Link href="/handovers/new?ai=1" className="btn btn-purple" style={{ width: "100%", justifyContent: "center" }}>{t.aiFill}</Link>
           </div>
@@ -239,9 +235,24 @@ export function HandoversFormPage({ id, aiDraft = false }: { id?: string; aiDraf
       return;
     }
     if (!aiDraft) return;
-    setTitle(t.aiDraftTitle);
-    setDesc(richTextHtml(`⚠️ ${t.aiDraftUrgent}\n\n🏷 ${t.aiDraftGuests}\n\n📦 ${t.aiDraftOther}`));
-  }, [existing, aiDraft, t.aiDraftTitle, t.aiDraftUrgent, t.aiDraftGuests, t.aiDraftOther]);
+    let ignore = false;
+    fetch(`/api/ai-recommendations?place=HANDOVERS&locale=${locale}`, { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { body?: unknown } | null) => {
+        if (ignore) return;
+        const body = typeof data?.body === "string" ? data.body.trim() : "";
+        if (!body) {
+          toast({ message: t.aiEmpty, tone: "error" });
+          return;
+        }
+        setTitle(t.aiDraftTitle);
+        setDesc(richTextHtml(body));
+      })
+      .catch(() => {
+        if (!ignore) toast({ message: t.aiEmpty, tone: "error" });
+      });
+    return () => { ignore = true; };
+  }, [existing, aiDraft, locale, t.aiDraftTitle, t.aiEmpty, toast]);
 
   function applyTemplate(value: string) {
     setTemplate(value);

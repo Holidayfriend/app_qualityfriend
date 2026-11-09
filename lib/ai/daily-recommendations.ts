@@ -1,12 +1,17 @@
 import { Pool } from "pg";
 import type { PrismaClient } from "../../app/generated/prisma/client";
 import { generateHotelRecruitingBriefing } from "../recruiting/daily-briefing";
+import { collectOpsFacts, generateOpsBriefing, type OpsPlace } from "./ops-briefing";
+import type { OpsFacts } from "./ops-briefing-text";
 
-export const AI_RECOMMENDATION_PLACES = ["RECRUITING", "DASHBOARD"] as const;
+export const AI_RECOMMENDATION_PLACES = ["DASHBOARD", "HANDOVERS", "TASKS", "RECRUITING"] as const;
 export type AiRecommendationPlace = (typeof AI_RECOMMENDATION_PLACES)[number];
 
-/** Places the daily job writes today. Add DASHBOARD here when that generator exists. */
-export const ENABLED_AI_RECOMMENDATION_PLACES: AiRecommendationPlace[] = ["RECRUITING"];
+export const ENABLED_AI_RECOMMENDATION_PLACES: AiRecommendationPlace[] = ["DASHBOARD", "HANDOVERS", "TASKS", "RECRUITING"];
+
+function isOpsPlace(place: AiRecommendationPlace): place is OpsPlace {
+  return place === "DASHBOARD" || place === "HANDOVERS" || place === "TASKS";
+}
 
 export async function ensureAiRecommendationTable() {
   const connectionString = process.env.DATABASE_URL;
@@ -15,7 +20,7 @@ export async function ensureAiRecommendationTable() {
   try {
     await pool.query(`
       DO $$ BEGIN
-        CREATE TYPE "AiRecommendationPlace" AS ENUM ('RECRUITING', 'DASHBOARD');
+        CREATE TYPE "AiRecommendationPlace" AS ENUM ('RECRUITING', 'DASHBOARD', 'HANDOVERS', 'TASKS');
       EXCEPTION
         WHEN duplicate_object THEN NULL;
       END $$
@@ -36,6 +41,8 @@ export async function ensureAiRecommendationTable() {
       CREATE UNIQUE INDEX IF NOT EXISTS "hotel_ai_recommendations_hotel_tenant_id_place_key"
         ON "hotel_ai_recommendations"("hotel_tenant_id", "place")
     `);
+    await pool.query(`ALTER TYPE "AiRecommendationPlace" ADD VALUE IF NOT EXISTS 'HANDOVERS'`);
+    await pool.query(`ALTER TYPE "AiRecommendationPlace" ADD VALUE IF NOT EXISTS 'TASKS'`);
     await pool.query(`
       DO $$
       BEGIN
@@ -55,8 +62,9 @@ export async function ensureAiRecommendationTable() {
   }
 }
 
-async function generatePlace(prisma: PrismaClient, hotelTenantId: string, place: AiRecommendationPlace) {
+async function generatePlace(prisma: PrismaClient, hotelTenantId: string, place: AiRecommendationPlace, facts: OpsFacts | null) {
   if (place === "RECRUITING") return generateHotelRecruitingBriefing(prisma, hotelTenantId);
+  if (isOpsPlace(place) && facts) return generateOpsBriefing(prisma, hotelTenantId, place, facts);
   return { hotelTenantId, place, skipped: true };
 }
 
@@ -68,9 +76,17 @@ export async function generateAllHotelAiRecommendations(prisma: PrismaClient, ho
   });
   const results: Array<Record<string, unknown>> = [];
   for (const hotel of hotels) {
+    let facts: OpsFacts | null = null;
+    try {
+      facts = await collectOpsFacts(prisma, hotel.id);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(JSON.stringify({ hotelTenantId: hotel.id, place: "OPS", error: message }));
+    }
     for (const place of ENABLED_AI_RECOMMENDATION_PLACES) {
       try {
-        results.push({ ok: true, place, ...await generatePlace(prisma, hotel.id, place) });
+        if (isOpsPlace(place) && !facts) throw new Error("Operational facts were not collected.");
+        results.push({ ok: true, place, ...await generatePlace(prisma, hotel.id, place, facts) });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         results.push({ ok: false, hotelTenantId: hotel.id, place, error: message });

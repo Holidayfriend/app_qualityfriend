@@ -1,6 +1,6 @@
-import { randomUUID } from "node:crypto";
 import type { PrismaClient } from "../../app/generated/prisma/client";
 import { completeHotelChatJson } from "../ai/complete";
+import { saveHotelAiRecommendation } from "../ai/recommendation-store";
 import { hotelDayStart, hotelLocalIso, hotelTimeZone } from "../hotel/clock";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -163,21 +163,8 @@ function fallbackBodies(facts: Facts) {
   };
 }
 
-async function writeBodies(prisma: PrismaClient, hotelTenantId: string, bodies: { bodyEn: string; bodyDe: string; bodyIt: string }) {
-  const generatedAt = new Date();
-  const existing = await prisma.hotelAiRecommendation.findUnique({
-    where: { hotelTenantId_place: { hotelTenantId, place: "RECRUITING" } },
-  });
-  if (existing) {
-    await prisma.hotelAiRecommendation.update({
-      where: { hotelTenantId_place: { hotelTenantId, place: "RECRUITING" } },
-      data: { ...bodies, generatedAt },
-    });
-    return;
-  }
-  await prisma.hotelAiRecommendation.create({
-    data: { id: randomUUID(), hotelTenantId, place: "RECRUITING", ...bodies, generatedAt },
-  });
+function writeBodies(prisma: PrismaClient, hotelTenantId: string, bodies: { bodyEn: string; bodyDe: string; bodyIt: string }) {
+  return saveHotelAiRecommendation(prisma, hotelTenantId, "RECRUITING", bodies);
 }
 
 export async function generateHotelRecruitingBriefing(prisma: PrismaClient, hotelTenantId: string) {

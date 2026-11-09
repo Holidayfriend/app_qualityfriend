@@ -34,10 +34,13 @@ Open-Meteo weather, and upserts `hotel_weather`. The dashboard reads that row
 only. The same job also runs from the worker schedule at 06:00 and 14:00 UTC.
 
 `ai_recomendation:daily` writes one AI recommendation row per hotel and place
-into `hotel_ai_recommendations` (EN/DE/IT). Today only `RECRUITING` is generated
-(from live jobs, applications, scores, and offers). `DASHBOARD` is reserved for
-the same job later. The recruiting hub banner reads the recruiting row. The
-worker also runs this job at 06:00 UTC.
+into `hotel_ai_recommendations` (EN/DE/IT). It generates `DASHBOARD`, `HANDOVERS`,
+and `TASKS` from today's arrivals, departures, express and no-service rooms,
+open tasks, extra jobs, and published absences, then `RECRUITING` from live jobs,
+applications, scores, and offers. Each place asks the hotel AI to rewrite that
+factual note and stores the fallback when the model is missing or drops a fact.
+The dashboard, handover summary, task priority banner, and recruiting hub read
+those rows. The worker also runs this job at 06:00 UTC.
 
 `housekeeping:daily` builds the housekeeping plan only.
 

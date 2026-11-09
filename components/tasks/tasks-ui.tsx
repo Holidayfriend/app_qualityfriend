@@ -8,6 +8,7 @@ import { useI18n } from "../i18n/i18n-provider";
 import { BrandLoader } from "../ui/brand-loader";
 import { AttachmentField, AttachmentGallery, AttachmentIndicator, type AttachmentItem } from "../ui/attachment-field";
 import { useToast } from "../ui/toast-provider";
+import { useAiRecommendation } from "../ai/use-ai-recommendation";
 import { getTasksMessages, type TasksMessages } from "../../lib/i18n/tasks-messages";
 import { RichTextEditor, richTextHtml, sanitizeJobHtml, type RichTextEditorHandle } from "../recruiting/rich-text-editor";
 import { dueWithTime, moveIndex } from "../../lib/checklists/due-time";
@@ -86,6 +87,7 @@ function aiToday(tasks: PublicTask[]) {
 
 export function TasksDashboardPage() {
   const t = useT();
+  const briefing = useAiRecommendation("TASKS");
   const { tasks, templates, canManage, ready, openCount, overdueCount, dueTodayCount, dueWeekCount, doneWeek, totalWeek, periodic, toggleTask } = useTasks();
   const [dept, setDept] = useState("all");
   if (!ready) return <Shell title={t.pageTitle}><BrandLoader label={t.loading} /></Shell>;
@@ -113,7 +115,7 @@ export function TasksDashboardPage() {
       <div style={{ fontSize: 20 }}>✨</div>
       <div style={{ flex: 1 }}>
         <div className="ai-title">{t.aiTitle}</div>
-        <div className="ai-body">{fill(t.aiBody, { total: String(openCount), today: String(dueTodayCount || today.filter((item) => item.status !== "done").length) })}</div>
+        <div className="ai-body">{briefing.ready ? (briefing.body || t.aiEmpty) : ""}</div>
       </div>
       <button type="button" className="ai-btn">{t.aiCriteria}</button>
     </div>
