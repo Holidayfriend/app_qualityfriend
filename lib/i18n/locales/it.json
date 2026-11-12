@@ -1730,6 +1730,7 @@
     "statusDone": "Completato",
     "listTitle": "Checklist",
     "filterActive": "Attive",
+    "filterOriginals": "Originali",
     "filterDraft": "Bozza",
     "filterArchived": "Archiviate",
     "search": "🔍 Cerca...",

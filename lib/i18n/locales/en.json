@@ -1732,6 +1732,7 @@
     "statusDone": "Done",
     "listTitle": "Checklists",
     "filterActive": "Active",
+    "filterOriginals": "Originals",
     "filterDraft": "Draft",
     "filterArchived": "Archived",
     "search": "🔍 Search...",

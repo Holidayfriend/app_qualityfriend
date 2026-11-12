@@ -371,14 +371,16 @@ export function ChecklistsListPage() {
   const t = useT();
   const router = useRouter();
   const { checklists, canManage, ready, setChecklistStatus } = useTasks();
-  const [filter, setFilter] = useState<"all" | "active" | "draft" | "archived">("all");
+  const [filter, setFilter] = useState<"all" | "active" | "originals" | "draft" | "archived">("all");
   const [query, setQuery] = useState("");
   if (!ready) return <Shell title={t.listTitle}><BrandLoader label={t.loading} /></Shell>;
   const rows = checklists.filter((item) => {
     if (item.kind !== "checklist") return false;
-    if (item.origin === "run") return !item.completedAt && (filter === "all" || filter === "active") && (!query || item.title.toLowerCase().includes(query.toLowerCase()));
-    const statusOk = filter === "all" || (filter === "active" ? item.status === "active" && !item.completedAt : item.status === filter);
-    return statusOk && (!query || item.title.toLowerCase().includes(query.toLowerCase()));
+    const matchesQuery = !query || item.title.toLowerCase().includes(query.toLowerCase());
+    if (!matchesQuery) return false;
+    if (filter === "originals") return item.origin === "original";
+    if (item.origin === "run") return !item.completedAt && (filter === "all" || filter === "active");
+    return filter === "all" || (filter === "active" ? item.status === "active" && !item.completedAt : item.status === filter);
   });
   function openRow(item: PublicChecklist) {
     router.push(`/tasks/checklists/${item.id}`);
@@ -387,7 +389,7 @@ export function ChecklistsListPage() {
     <Link href="/tasks" className="back-link">{t.backTasks}</Link>
     <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
       <div className="filter-row" style={{ marginBottom: 0 }}>
-        {([["all", t.filterAll], ["active", t.filterActive], ...(canManage ? [["draft", t.filterDraft], ["archived", t.filterArchived]] as const : [])] as const).map(([id, label]) => (
+        {([["all", t.filterAll], ["active", t.filterActive], ["originals", t.filterOriginals], ...(canManage ? [["draft", t.filterDraft], ["archived", t.filterArchived]] as const : [])] as const).map(([id, label]) => (
           <button key={id} type="button" className={`filter-btn${filter === id ? " active" : ""}`} onClick={() => setFilter(id)}>{label}</button>
         ))}
       </div>
