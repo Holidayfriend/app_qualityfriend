@@ -5,7 +5,9 @@ import { completeHotelChatJson, HotelAiNotConfiguredError } from "../ai/complete
 import { prisma } from "../prisma";
 import { pickLocalized } from "../recruiting/job-fields";
 import type { ScheduleActor } from "./access";
+import { activeHousekeeperIds } from "../housekeeping/active-housekeepers";
 import { listAbsences } from "./leaves";
+import { proposeShifts, type ShiftProposal } from "./shift-proposal";
 import { listWeekShifts } from "./shifts";
 import { formatDayHeader, mondayOfIso, parseIsoDate, weekIsoDates } from "./week";
 
@@ -54,14 +56,59 @@ export async function listScheduleSuggestion(actor: ScheduleActor, weekStart: st
   const row = await prisma.scheduleAiSuggestion.findUnique({
     where: { hotelTenantId_weekStart: { hotelTenantId: actor.hotel_tenant_id, weekStart: parseIsoDate(monday) } },
   });
-  if (!row?.titleEn) return null;
   const language = localeOf(locale);
+  const proposals = await weekShiftProposals(actor, monday, language);
+  if (!row?.titleEn && proposals.length === 0) return null;
   return {
     weekStart: monday,
-    title: language === "de" ? row.titleDe || row.titleEn : language === "it" ? row.titleIt || row.titleEn : row.titleEn,
-    body: language === "de" ? row.bodyDe || row.bodyEn : language === "it" ? row.bodyIt || row.bodyEn : row.bodyEn,
-    generatedAt: row.generatedAt.toISOString(),
+    title: row?.titleEn ? (language === "de" ? row.titleDe || row.titleEn : language === "it" ? row.titleIt || row.titleEn : row.titleEn) : "",
+    body: row?.titleEn ? (language === "de" ? row.bodyDe || row.bodyEn : language === "it" ? row.bodyIt || row.bodyEn : row.bodyEn) : "",
+    generatedAt: row?.generatedAt.toISOString() ?? "",
+    proposals,
   };
+}
+
+export async function weekShiftProposals(actor: ScheduleActor, monday: string, locale: Locale): Promise<ShiftProposal[]> {
+  const dates = weekIsoDates(monday);
+  const [users, shifts, housekeepers, assignments] = await Promise.all([
+    prisma.user.findMany({
+      where: { hotelTenantId: actor.hotel_tenant_id, isActive: true, isDeleted: false },
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+      select: {
+        id: true, firstName: true, lastName: true,
+        department: { select: { nameEn: true, nameDe: true, nameIt: true, isDeleted: true } },
+        departmentMemberships: { select: { department: { select: { nameEn: true, nameDe: true, nameIt: true, isDeleted: true } } } },
+      },
+    }),
+    listWeekShifts(actor, monday, "en"),
+    activeHousekeeperIds(prisma, actor.hotel_tenant_id),
+    prisma.housekeepingRoomAssignment.findMany({
+      where: { hotelTenantId: actor.hotel_tenant_id, workDate: { gte: parseIsoDate(monday), lte: parseIsoDate(dates[6]) } },
+      select: { workDate: true, assignedToId: true },
+    }),
+  ]);
+  const roomGroups = new Map<string, number>();
+  for (const row of assignments) {
+    const key = `${row.assignedToId ?? ""}|${row.workDate.toISOString().slice(0, 10)}`;
+    roomGroups.set(key, (roomGroups.get(key) ?? 0) + 1);
+  }
+  return proposeShifts({
+    dates,
+    people: users.map((user) => {
+      const rows = [user.department, ...user.departmentMemberships.map((item) => item.department)].filter((row): row is NonNullable<typeof user.department> => Boolean(row && !row.isDeleted));
+      return {
+        id: user.id,
+        name: `${user.firstName} ${user.lastName}`.trim(),
+        departments: [...new Set(rows.map((row) => deptName(row, locale)))],
+        housekeeper: housekeepers.has(user.id),
+      };
+    }),
+    shifts: shifts.map((shift) => ({ userId: shift.userId, date: shift.date, kind: shift.kind, start: shift.start, end: shift.end })),
+    rooms: [...roomGroups.entries()].map(([key, rooms]) => {
+      const split = key.indexOf("|");
+      return { userId: key.slice(0, split) || null, date: key.slice(split + 1), rooms };
+    }),
+  });
 }
 
 export async function refreshScheduleSuggestion(actor: ScheduleActor, weekStart: string, locale: unknown) {

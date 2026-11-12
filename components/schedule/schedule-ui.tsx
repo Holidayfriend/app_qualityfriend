@@ -22,6 +22,38 @@ function fill(template: string, vars: Record<string, string>) {
   return Object.entries(vars).reduce((text, [key, value]) => text.replaceAll(`{${key}}`, value), template);
 }
 
+type ShiftProposal = {
+  userId: string;
+  name: string;
+  date: string;
+  start: string;
+  end: string;
+  department: string;
+  reason: "sameHours" | "housekeeping" | "cover";
+  coverName: string;
+};
+type WeekSuggestion = { title: string; body: string; proposals?: ShiftProposal[] };
+
+function proposalReason(item: ShiftProposal, t: T) {
+  if (item.reason === "cover") return fill(t.proposalCover, { name: item.coverName, department: item.department || t.noDepartment });
+  if (item.reason === "housekeeping") return t.proposalHousekeeping;
+  return t.proposalSameHours;
+}
+
+function ProposalList({ proposals, t, locale }: { proposals: ShiftProposal[]; t: T; locale: string }) {
+  if (!proposals.length) return null;
+  return <div className="no-print" style={{ marginTop: 10, padding: "12px 16px", background: "#fff", border: "1px solid #FDE68A", borderRadius: 8 }}>
+    <strong style={{ display: "block", marginBottom: 8, fontSize: 13 }}>{t.proposalTitle}</strong>
+    <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 6 }}>
+      {proposals.map((item) => <li key={`${item.userId}-${item.date}`} style={{ fontSize: 13, color: "var(--text)" }}>
+        <b>{item.name}</b>
+        {item.department ? ` · ${item.department}` : ""}
+        {` · ${formatDayHeader(item.date, locale === "de" || locale === "it" ? locale : "en")} · ${item.start}–${item.end} · ${proposalReason(item, t)}`}
+      </li>)}
+    </ul>
+  </div>;
+}
+
 function useT() {
   const { locale } = useI18n();
   return getScheduleMessages(locale);
@@ -130,7 +162,7 @@ export function SchedulePlanPage() {
   const [copyTarget, setCopyTarget] = useState(() => addDaysIso(weekStartIso, 7));
   const [copying, setCopying] = useState(false);
   const [selectedDay, setSelectedDay] = useState(0);
-  const [suggestion, setSuggestion] = useState<{ title: string; body: string } | null>(null);
+  const [suggestion, setSuggestion] = useState<WeekSuggestion | null>(null);
   const [suggesting, setSuggesting] = useState(false);
   const visible = employees.filter((emp) => deptFilter === "all" || (deptFilter === "none" ? emp.departmentIds.length === 0 : emp.departmentIds.includes(deptFilter)));
   const scheduledHours = weekWorkHours(visible);
@@ -144,8 +176,8 @@ export function SchedulePlanPage() {
   useEffect(() => {
     let active = true;
     fetch(`/api/schedule/suggestion?weekStart=${weekStartIso}&locale=${locale}`, { cache: "no-store" })
-      .then(async (response) => response.ok ? response.json() as Promise<{ suggestion?: { title: string; body: string } | null }> : { suggestion: null })
-      .then((data) => { if (active) setSuggestion(data.suggestion?.title ? data.suggestion : null); })
+      .then(async (response) => response.ok ? response.json() as Promise<{ suggestion?: WeekSuggestion | null }> : { suggestion: null })
+      .then((data) => { if (active) setSuggestion(data.suggestion && (data.suggestion.title || data.suggestion.proposals?.length) ? data.suggestion : null); })
       .catch(() => { if (active) setSuggestion(null); });
     return () => { active = false; };
   }, [locale, weekStartIso]);
@@ -159,8 +191,8 @@ export function SchedulePlanPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ weekStart: weekStartIso, locale }),
       });
-      const data = await response.json().catch(() => null) as { suggestion?: { title: string; body: string } | null } | null;
-      if (!response.ok || !data?.suggestion?.title) {
+      const data = await response.json().catch(() => null) as { suggestion?: WeekSuggestion | null } | null;
+      if (!response.ok || !data?.suggestion || (!data.suggestion.title && !data.suggestion.proposals?.length)) {
         toast({ message: t.suggestionFailed, tone: "error" });
         return;
       }
@@ -346,6 +378,7 @@ export function SchedulePlanPage() {
         <div>{suggestion ? <><strong>{suggestion.title}</strong><span> {suggestion.body}</span></> : <span>{t.suggestionEmpty}</span>}</div>
         <button type="button" className="btn" disabled={suggesting} onClick={() => void askSuggestion()}>{suggesting ? t.suggestionWorking : t.aiSuggest}</button>
       </div>
+      <ProposalList proposals={suggestion?.proposals ?? []} t={t} locale={locale} />
 
       <section className="card schedule-day-card">
         <div className="ch"><div className="ct">📅 {dayLabels[selectedDay]}</div><span className="schedule-day-count">{visible.length}</span></div>
@@ -366,6 +399,7 @@ export function SchedulePlanPage() {
       ⚠️ {suggestion ? <><strong>{suggestion.title}</strong> {suggestion.body}</> : <span>{t.suggestionEmpty}</span>}
       <button type="button" className="btn" style={{ marginLeft: "auto", background: "var(--amber)", color: "#fff", fontSize: 12, padding: "5px 12px" }} disabled={suggesting} onClick={() => void askSuggestion()}>{suggesting ? t.suggestionWorking : t.aiSuggest}</button>
     </div>
+    <ProposalList proposals={suggestion?.proposals ?? []} t={t} locale={locale} />
     </div>
   </Shell>;
 }
