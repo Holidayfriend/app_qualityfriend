@@ -80,6 +80,7 @@ type Store = {
   absences: Absence[];
   templates: Template[];
   draftCount: number;
+  sevenDay: SevenDayWarning[];
   setEmployees: (employees: Employee[] | ((current: Employee[]) => Employee[])) => void;
   saveShift: (input: ShiftInput) => Promise<number | string[] | null>;
   deleteShift: (empKey: string, day: number) => Promise<boolean>;
@@ -91,6 +92,20 @@ type Store = {
   saveTemplate: (id: string | undefined, input: TemplateInput) => Promise<string | null>;
   deleteTemplate: (id: string) => Promise<boolean>;
 };
+
+type SevenDayWarning = { userId: string; from: string; to: string; days: number };
+
+function asSevenDay(value: unknown): SevenDayWarning[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const row = item as Partial<SevenDayWarning>;
+    if (typeof row.userId !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(row.from ?? "") || !/^\d{4}-\d{2}-\d{2}$/.test(row.to ?? "")) return [];
+    const days = typeof row.days === "number" ? row.days : Number(row.days);
+    if (!Number.isInteger(days) || days < 7) return [];
+    return [{ userId: row.userId, from: row.from as string, to: row.to as string, days }];
+  });
+}
 
 type StaffPayload = {
   currentUserId?: string;
@@ -224,6 +239,7 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
   const [absences, setAbsences] = useState<Absence[]>(INITIAL_ABSENCES);
   const [templates, setTemplates] = useState<Template[]>(INITIAL_TEMPLATES);
   const [draftCount, setDraftCount] = useState(0);
+  const [sevenDay, setSevenDay] = useState<SevenDayWarning[]>([]);
   const weekDates = useMemo(() => weekIsoDates(weekStartIso), [weekStartIso]);
 
   useEffect(() => {
@@ -281,13 +297,15 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
 
   const reloadWeekShifts = useCallback(async (signal?: AbortSignal) => {
     setShiftsReady(false);
+    setSevenDay([]);
     try {
       const response = await fetch(`/api/schedule/shifts?weekStart=${weekStartIso}&locale=${locale}`, { cache: "no-store", signal });
       if (!response.ok) return;
-      const body = await response.json() as { shifts?: unknown; draftCount?: unknown };
+      const body = await response.json() as { shifts?: unknown; draftCount?: unknown; sevenDay?: unknown };
       const shifts = asShifts(body.shifts);
       setEmployees((current) => mergeWeekShifts(current, weekDates, shifts));
       setDraftCount(typeof body.draftCount === "number" ? body.draftCount : 0);
+      setSevenDay(asSevenDay(body.sevenDay));
     } finally {
       if (!signal?.aborted) setShiftsReady(true);
     }
@@ -442,9 +460,9 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
     goToPrevWeek: () => setWeekStartIso((current) => addDaysIso(current, -7)),
     goToNextWeek: () => setWeekStartIso((current) => addDaysIso(current, 7)),
     goToWeek,
-    departments, employees, absences, templates, draftCount,
+    departments, employees, absences, templates, draftCount, sevenDay,
     setEmployees, saveShift, deleteShift, deleteAbsence, publishWeek, copyWeekTo, saveAbsence, decideAbsence, saveTemplate, deleteTemplate,
-  }), [absences, copyWeekTo, currentUserId, decideAbsence, deleteAbsence, deleteShift, deleteTemplate, departments, draftCount, employees, fullName, goToWeek, isPlanner, publishWeek, ready, role, saveAbsence, saveShift, saveTemplate, shiftsReady, templates, weekDates, weekStartIso]);
+  }), [absences, copyWeekTo, currentUserId, decideAbsence, deleteAbsence, deleteShift, deleteTemplate, departments, draftCount, employees, fullName, goToWeek, isPlanner, publishWeek, ready, role, saveAbsence, saveShift, saveTemplate, sevenDay, shiftsReady, templates, weekDates, weekStartIso]);
 
   return <ScheduleContext.Provider value={value}>{children}</ScheduleContext.Provider>;
 }

@@ -153,7 +153,7 @@ export function SchedulePlanPage() {
   const { locale } = useI18n();
   const router = useRouter();
   const toast = useToast();
-  const { isPlanner, ready, employees, departments, weekStartIso, weekDates, goToPrevWeek, goToNextWeek, publishWeek, copyWeekTo, draftCount } = useSchedule();
+  const { isPlanner, ready, employees, departments, weekStartIso, weekDates, goToPrevWeek, goToNextWeek, publishWeek, copyWeekTo, draftCount, sevenDay } = useSchedule();
   const [deptFilter, setDeptFilter] = useState("all");
   const [publishing, setPublishing] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
@@ -314,6 +314,7 @@ export function SchedulePlanPage() {
       <div className="kpi"><div className="kpi-lbl">{t.kpiHours}</div><div className="kpi-val">{formatWorkHours(scheduledHours)}<span>{t.hoursUnit}</span></div><div className="kpi-sub">{formatWeekRange(weekStartIso, locale)}</div></div>
       <div className="kpi"><div className="kpi-lbl">{t.kpiOpenShifts}</div><div className="kpi-val" style={{ color: "var(--amber)" }}>1</div><div className="kpi-sub"><span className="chip chip-a">{t.kpiOpenChip}</span></div></div>
     </div>
+    <SevenDayNotice warnings={sevenDay} employees={employees} t={t} locale={locale} />
     <div className="card schedule-week-card schedule-desktop-only" style={{ marginBottom: 18 }}>
       <div className="ch no-print" style={{ flexWrap: "wrap", gap: 8 }}>
         <div className="ct">{fill(t.weekPlan, { range: formatWeekRange(weekStartIso, locale) })}</div>
@@ -402,6 +403,21 @@ export function SchedulePlanPage() {
     <ProposalList proposals={suggestion?.proposals ?? []} t={t} locale={locale} />
     </div>
   </Shell>;
+}
+
+function SevenDayNotice({ warnings, employees, t, locale }: { warnings: { userId: string; from: string; to: string; days: number }[]; employees: Employee[]; t: T; locale: string }) {
+  if (!warnings.length) return null;
+  const names = new Map(employees.map((emp) => [emp.key, emp.name]));
+  const language = locale === "de" || locale === "it" ? locale : "en";
+  return <div style={{ marginBottom: 18, padding: "12px 16px", background: "var(--amber-bg)", border: "1px solid #FDE68A", borderRadius: 8, fontSize: 13.5, color: "var(--amber)" }}>
+    <strong>{t.sevenDayTitle}</strong>
+    {warnings.map((warning) => <p key={`${warning.userId}-${warning.from}`} style={{ margin: "4px 0 0" }}>{fill(t.sevenDayWarning, {
+      name: names.get(warning.userId) || warning.userId,
+      days: String(warning.days),
+      from: formatDayHeader(warning.from, language),
+      to: formatDayHeader(warning.to, language),
+    })}</p>)}
+  </div>;
 }
 
 function EmployeeRow({ emp, t }: { emp: Employee; t: T }) {
@@ -635,7 +651,7 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
   const { locale } = useI18n();
   const router = useRouter();
   const toast = useToast();
-  const { ready, shiftsReady, isPlanner, employees, templates, saveShift, deleteShift, weekDates } = useSchedule();
+  const { ready, shiftsReady, isPlanner, employees, templates, saveShift, deleteShift, weekDates, sevenDay } = useSchedule();
   const emp = employees.find((item) => item.key === employee);
   const dayLabel = weekDates[day] ? formatDayHeader(weekDates[day], locale) : t.days[day] ?? t.days[0];
   const [form, setForm] = useState({
@@ -775,6 +791,8 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
     splitStart: form.split ? form.splitStart : "",
     splitEnd: form.split ? form.splitEnd : "",
   });
+  const streaks = sevenDay.filter((row) => row.userId === emp?.key);
+  const language = locale === "de" || locale === "it" ? locale : "en";
   const countedBreak = breakMinutesForSave(form.pause, !isLeave) ?? 0;
   const countedSplitBreak = form.split ? (breakMinutesForSave(form.splitPause, true) ?? 0) : 0;
   const countedHours = !isLeave ? formatWorkHours(shiftWorkHours({ kind: "work", start: form.start, end: form.end, breakMins: countedBreak, splitStart: form.split ? form.splitStart : "", splitEnd: form.split ? form.splitEnd : "", splitBreakMins: countedSplitBreak })) : "";
@@ -855,7 +873,8 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
             {REPEAT_WEEKS.map((weeks) => <option key={weeks} value={String(weeks)}>{repeatLabels[weeks]}</option>)}
           </select>
         </div>
-        {warnings.length ? <div style={{ padding: "10px 12px", background: "var(--amber-bg)", border: "1px solid #FDE68A", borderRadius: 8, fontSize: 13, color: "var(--amber)" }}>
+        {warnings.length || streaks.length ? <div style={{ padding: "10px 12px", background: "var(--amber-bg)", border: "1px solid #FDE68A", borderRadius: 8, fontSize: 13, color: "var(--amber)" }}>
+          {streaks.map((warning) => <p key={`${warning.from}-${warning.to}`} style={{ margin: "0 0 4px" }}>{fill(t.sevenDayWarning, { name: emp.name, days: String(warning.days), from: formatDayHeader(warning.from, language), to: formatDayHeader(warning.to, language) })}</p>)}
           {warnings.map((warning) => <p key={warning.code} style={{ margin: "0 0 4px" }}>{warning.code === "long" ? fill(t.longShiftWarning, { hours: String(warning.hours ?? "") }) : warning.code === "splitLong" ? fill(t.splitLongWarning, { hours: String(warning.hours ?? "") }) : t.splitOverlapWarning}</p>)}
         </div> : null}
         {!isLeave && form.start && form.end ? <p style={{ fontSize: 12, color: "var(--text3)", margin: 0 }}>{fill(t.countedHours, { hours: countedHours })}</p> : null}

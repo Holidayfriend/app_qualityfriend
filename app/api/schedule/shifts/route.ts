@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { scheduleEditor, scheduleViewer } from "../../../../lib/schedule/access";
-import { countShiftDrafts, deleteShiftDay, listWeekShifts, saveShiftAssignment } from "../../../../lib/schedule/shifts";
+import { countShiftDrafts, deleteShiftDay, listSevenDayWarnings, listWeekShifts, saveShiftAssignment } from "../../../../lib/schedule/shifts";
 import { supportedLocales } from "../../../../lib/i18n/dictionaries";
 
 function localeOf(request: Request) {
@@ -13,8 +13,11 @@ export async function GET(request: Request) {
   if (!actor) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   const weekStart = new URL(request.url).searchParams.get("weekStart") ?? "";
   const shifts = await listWeekShifts(actor, weekStart, localeOf(request));
-  const draftCount = await countShiftDrafts(actor);
-  return NextResponse.json({ shifts, draftCount }, { headers: { "Cache-Control": "no-store" } });
+  const [draftCount, sevenDay] = await Promise.all([
+    countShiftDrafts(actor),
+    listSevenDayWarnings(actor, weekStart),
+  ]);
+  return NextResponse.json({ shifts, draftCount, sevenDay }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function DELETE(request: Request) {

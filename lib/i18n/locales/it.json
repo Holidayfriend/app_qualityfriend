@@ -1278,6 +1278,8 @@
     "longShiftWarning": "Questo blocco dura {hours} ore. Puoi comunque salvarlo.",
     "splitLongWarning": "Il secondo blocco dura {hours} ore. Puoi comunque salvarlo.",
     "splitOverlapWarning": "I due blocchi si sovrappongono. Puoi comunque salvarli.",
+    "sevenDayTitle": "7 giorni di fila",
+    "sevenDayWarning": "{name} è in turno {days} giorni di fila ({from} – {to}).",
     "countedHours": "Ore conteggiate: {hours}",
     "deleteShift": "Elimina",
     "deleteShiftConfirm": "Rimuovere questo turno o questa assenza dal piano?",

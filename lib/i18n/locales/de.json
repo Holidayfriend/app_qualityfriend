@@ -1278,6 +1278,8 @@
     "longShiftWarning": "Dieser Block dauert {hours} Stunden. Speichern ist trotzdem möglich.",
     "splitLongWarning": "Der zweite Block dauert {hours} Stunden. Speichern ist trotzdem möglich.",
     "splitOverlapWarning": "Die beiden Blöcke überschneiden sich. Speichern ist trotzdem möglich.",
+    "sevenDayTitle": "7 Tage hintereinander",
+    "sevenDayWarning": "{name} ist {days} Tage hintereinander eingeteilt ({from} – {to}).",
     "countedHours": "Gezählte Stunden: {hours}",
     "deleteShift": "Löschen",
     "deleteShiftConfirm": "Diese Schicht oder Abwesenheit aus dem Plan entfernen?",

@@ -1280,6 +1280,8 @@
     "longShiftWarning": "This block is {hours} hours. You can still save it.",
     "splitLongWarning": "The second block is {hours} hours. You can still save it.",
     "splitOverlapWarning": "The two blocks overlap. You can still save them.",
+    "sevenDayTitle": "7 days in a row",
+    "sevenDayWarning": "{name} is scheduled {days} days in a row ({from} – {to}).",
     "countedHours": "Counted hours: {hours}",
     "deleteShift": "Delete",
     "deleteShiftConfirm": "Remove this shift or absence from the plan?",

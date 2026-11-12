@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { hoursForHomeDepartment, shiftWorkHours } from "../lib/schedule/hours";
-import { breakMinutesForSave, conflictingWorkDates, shiftWarnings } from "../lib/schedule/shift-rules";
+import { breakMinutesForSave, conflictingWorkDates, sevenDayWorkWarnings, shiftWarnings } from "../lib/schedule/shift-rules";
+import { addDaysIso, weekIsoDates } from "../lib/schedule/week";
 
 test("an empty break deducts 30 minutes and an explicit 0 does not", () => {
   assert.equal(breakMinutesForSave("", true), 30);
@@ -31,6 +32,20 @@ test("statistics count a multi-department person once", () => {
   assert.equal(totals.get("kitchen"), 7.5);
   assert.equal(totals.get("service"), 7.5);
   assert.equal([...totals.values()].reduce((sum, hours) => sum + hours, 0), 15);
+});
+
+test("seven work days in a row warn, including a streak that crosses into this week", () => {
+  const week = weekIsoDates("2026-11-09");
+  const days = (from: string, count: number) => Array.from({ length: count }, (_, index) => addDaysIso(from, index));
+  const max = days("2026-11-09", 7).map((date) => ({ userId: "max", date }));
+  const sabine = days("2026-11-09", 6).map((date) => ({ userId: "sabine", date }));
+  const llk = days("2026-11-08", 7).map((date) => ({ userId: "llk", date }));
+  const earlier = days("2026-11-01", 7).map((date) => ({ userId: "earlier", date }));
+  const warnings = sevenDayWorkWarnings([...max, ...sabine, ...llk, ...earlier], week);
+  assert.deepEqual(warnings.map((row) => row.userId), ["llk", "max"]);
+  assert.equal(warnings.find((row) => row.userId === "llk")?.days, 7);
+  assert.equal(warnings.find((row) => row.userId === "max")?.from, "2026-11-09");
+  assert.equal(warnings.find((row) => row.userId === "max")?.to, "2026-11-15");
 });
 
 test("sick leave conflicts only with the work shift the planner sees", () => {

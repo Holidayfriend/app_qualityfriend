@@ -8,7 +8,7 @@ import { addDaysIso, datesFromThroughWeeks, mondayOfIso, weekIsoDates } from "./
 import { translateShiftNote } from "./translate";
 import { notifySchedulePublished } from "./notify";
 import { shouldCopyWeekShift } from "./copy-policy";
-import { breakMinutesForSave, conflictingWorkDates } from "./shift-rules";
+import { breakMinutesForSave, conflictingWorkDates, sevenDayWorkWarnings } from "./shift-rules";
 import { Prisma } from "../../app/generated/prisma/client";
 import type { ScheduleActor } from "./access";
 import {
@@ -389,6 +389,17 @@ export async function countShiftDrafts(actor: ScheduleActor) {
 export async function listWeekShifts(actor: ScheduleActor, weekStart: string, locale: string) {
   if (!DATE.test(weekStart)) return [];
   return listShiftsInRange(actor, weekStart, addDaysIso(weekStart, 6), locale);
+}
+
+/** Work streaks of 7 or more days that touch this week, using the same draft-over-published view as the grid. */
+export async function listSevenDayWarnings(actor: ScheduleActor, weekStart: string) {
+  if (!DATE.test(weekStart)) return [];
+  const monday = mondayOfIso(weekStart);
+  const shifts = await listShiftsInRange(actor, addDaysIso(monday, -6), addDaysIso(monday, 12), "en");
+  return sevenDayWorkWarnings(
+    shifts.filter((shift) => shift.kind === "work").map((shift) => ({ userId: shift.userId, date: shift.date })),
+    weekIsoDates(monday),
+  );
 }
 
 export async function listShiftsInRange(actor: ScheduleActor, fromIso: string, toIso: string, locale: string) {
