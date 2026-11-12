@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { awayUserIds, coverageGaps } from "../lib/housekeeping/away-staff";
 import { cleaningPlan, linenDueToday, permanentCleaner, preferenceOnWorkDate } from "../lib/housekeeping/daily-plan";
 import { isActiveHousekeeper } from "../lib/housekeeping/active-housekeepers";
 
@@ -96,6 +97,33 @@ test("permanent work is copied only for someone who is still an active housekeep
   assert.deepEqual(permanentCleaner("keeper", active), { assignedToId: "keeper", origin: "PERMANENT" });
   assert.deepEqual(permanentCleaner("former", active), { assignedToId: null, origin: "PERMANENT" });
   assert.deepEqual(permanentCleaner(null, active), { assignedToId: null, origin: "TODAY_ONLY" });
+});
+
+test("vacation or time off leaves today's permanent rooms open", () => {
+  const active = new Set(["keeper"]);
+  const away = new Set(["keeper"]);
+  assert.deepEqual(permanentCleaner("keeper", active, away), { assignedToId: null, origin: "PERMANENT" });
+  assert.deepEqual(permanentCleaner("keeper", active, new Set()), { assignedToId: "keeper", origin: "PERMANENT" });
+});
+
+test("only a published vacation or time off takes the person off today's rooms", () => {
+  assert.equal(awayUserIds([{ userId: "llk", kind: "VACATION" }]).has("llk"), true);
+  assert.equal(awayUserIds([{ userId: "llk", kind: "OFF" }]).has("llk"), true);
+  assert.equal(awayUserIds([{ userId: "talha", kind: "WORK" }]).has("talha"), false);
+  assert.equal(awayUserIds([]).has("llk"), false);
+});
+
+test("coverage notice lists only rooms still held by the person who is away", () => {
+  const away = new Set(["llk"]);
+  const gaps = coverageGaps([
+    { number: "233", permanentUserId: "llk", assignedToId: "llk" },
+    { number: "23", permanentUserId: "llk", assignedToId: null },
+    { number: "3838", permanentUserId: "llk", assignedToId: "llk" },
+    { number: "10", permanentUserId: "llk", assignedToId: "talha" },
+    { number: "11", permanentUserId: "llk", assignedToId: "llk", completed: true },
+    { number: "12", permanentUserId: "talha", assignedToId: "talha" },
+  ], away);
+  assert.deepEqual(gaps, [{ userId: "llk", rooms: ["23", "233", "3838"] }]);
 });
 
 test("housekeeper access follows the role, and inactive or removed users are excluded", () => {

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { PrismaClient } from "../../app/generated/prisma/client";
 import { hotelTimeZone } from "../hotel/clock";
 import { cleaningPlan, hotelLocalDate } from "./daily-plan";
+import { loadAwayUserIds } from "./away-staff";
 import { completeHotelChatJson } from "../ai/complete";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -71,7 +72,7 @@ async function collectFacts(prisma: PrismaClient, hotelTenantId: string, date: s
   const day = asDate(date);
   const yesterday = shiftDate(date, -1);
   const tomorrow = shiftDate(date, 1);
-  const [employees, extras, weather, stays, assignments, extraAssignments, states] = await Promise.all([
+  const [staff, extras, weather, stays, assignments, extraAssignments, states, away] = await Promise.all([
     housekeepingUsers(prisma, hotelTenantId),
     prisma.extraJob.findMany({ where: { hotelTenantId }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] }),
     prisma.hotelWeather.findUnique({
@@ -117,7 +118,9 @@ async function collectFacts(prisma: PrismaClient, hotelTenantId: string, date: s
       where: { hotelTenantId },
       select: { roomId: true, cleanliness: true, breakfastInRoom: true, doNotDisturb: true, noService: true, isExpress: true, guestCleaningPreference: true },
     }),
+    loadAwayUserIds(prisma, hotelTenantId, date),
   ]);
+  const employees = staff.filter((employee) => !away.has(employee.id));
   const stateByRoom = new Map(states.map((row) => [row.roomId, row]));
   const assignmentByRoom = new Map(assignments.map((row) => [row.roomId, row]));
   const todayStays = stays.filter((stay) => dateOnly(stay.arrivalDate) <= date && dateOnly(stay.departureDate) >= date);
@@ -156,7 +159,7 @@ async function collectFacts(prisma: PrismaClient, hotelTenantId: string, date: s
       noService: state?.noService ?? false,
       breakfastInRoom: state?.breakfastInRoom ?? false,
       cleanliness: state?.cleanliness ?? "UNKNOWN",
-      assignedToId: assignment?.assignedToId ?? null,
+      assignedToId: assignment?.assignedToId && !away.has(assignment.assignedToId) ? assignment.assignedToId : null,
       completed: Boolean(assignment?.completedAt),
     };
   }).filter((room) => room.cleaningType !== "NONE");

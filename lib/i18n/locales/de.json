@@ -825,6 +825,8 @@
     "expressPriority": "Express-Priorität",
     "dueAt": "Fällig bis 14:00",
     "roomOverview": "Zimmerübersicht",
+    "awayAssignOne": "{name} ist im Urlaub oder frei. Zimmer {rooms} muss einer anderen Person zugewiesen werden.",
+    "awayAssignMany": "{name} ist im Urlaub oder frei. Die Zimmer {rooms} müssen einer anderen Person zugewiesen werden.",
     "print": "Drucken",
     "refresh": "Aktualisieren",
     "dirty": "Schmutzig",

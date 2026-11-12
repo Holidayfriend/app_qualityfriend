@@ -825,6 +825,8 @@
     "expressPriority": "Priorità express",
     "dueAt": "Entro le 14:00",
     "roomOverview": "Panoramica camere",
+    "awayAssignOne": "{name} è in ferie o in permesso. Bisogna assegnare la camera {rooms} a un'altra persona.",
+    "awayAssignMany": "{name} è in ferie o in permesso. Bisogna assegnare le camere {rooms} a un'altra persona.",
     "print": "Stampa",
     "refresh": "Aggiorna",
     "dirty": "Sporca",

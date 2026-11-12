@@ -3,6 +3,7 @@ import { getSessionUserId } from "../../../../../lib/auth/session";
 import { hotelTimeZone } from "../../../../../lib/hotel/clock";
 import { housekeepingAccess } from "../../../../../lib/housekeeping/access";
 import { activeHousekeeperIds } from "../../../../../lib/housekeeping/active-housekeepers";
+import { loadAwayUserIds } from "../../../../../lib/housekeeping/away-staff";
 import { ensureExtraJobComment } from "../../../../../lib/housekeeping/ensure-extra-comment";
 import { prisma } from "../../../../../lib/prisma";
 
@@ -42,7 +43,7 @@ export async function GET(request: Request) {
   try { date = hotelDate(hotelTimeZone(user.hotelTenant.timeZone)); } catch { return Response.json({ error: "INVALID_HOTEL_TIME_ZONE" }, { status: 500 }); }
 
   await ensureExtraJobComment();
-  const [assignments, housekeepers] = await Promise.all([
+  const [assignments, housekeepers, away] = await Promise.all([
     prisma.housekeepingExtraJobAssignment.findMany({
     where: { hotelTenantId: user.hotelTenantId, workDate: new Date(`${date}T00:00:00.000Z`) },
     orderBy: [{ descriptionSnapshot: "asc" }, { id: "asc" }],
@@ -66,8 +67,9 @@ export async function GET(request: Request) {
     },
   }),
     activeHousekeeperIds(prisma, user.hotelTenantId),
+    loadAwayUserIds(prisma, user.hotelTenantId, date),
   ]);
-  const visible = assignments.filter((assignment) => housekeepers.has(assignment.assignedToId));
+  const visible = assignments.filter((assignment) => housekeepers.has(assignment.assignedToId) && !away.has(assignment.assignedToId));
 
   const mapJob = (assignment: (typeof visible)[number]) => ({
     assignmentId: assignment.id,

@@ -827,6 +827,8 @@
     "expressPriority": "Express priority",
     "dueAt": "Due by 14:00",
     "roomOverview": "Room overview",
+    "awayAssignOne": "{name} is on vacation or leave. We need to assign room {rooms} to another person.",
+    "awayAssignMany": "{name} is on vacation or leave. We need to assign rooms {rooms} to another person.",
     "print": "Print",
     "refresh": "Refresh",
     "dirty": "Dirty",

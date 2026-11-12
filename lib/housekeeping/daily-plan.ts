@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto"; // Node helper to create a unique UUID for new rows
 import { Prisma, type PrismaClient } from "../../app/generated/prisma/client"; // Type of the Prisma client passed in from the script
 import { activeHousekeeperIds } from "./active-housekeepers";
+import { loadAwayUserIds } from "./away-staff";
 
 /**
  * Stay selection and upserts stay as SQL: Postgres DISTINCT ON, FOR UPDATE, and
@@ -57,10 +58,11 @@ export function linenDueToday(stay: Pick<StayRow, "arrival_date" | "departure_da
     || stay.linen_frequency === "ON_REQUEST" && (stay.linen_weekdays ?? []).includes(isoWeekday(date));
 }
 
-// Keep the permanent link when a cleaner was saved, but hand today's work only to someone who is still an active housekeeper.
-export function permanentCleaner(assignedToId: string | null, activeIds: ReadonlySet<string>) {
+// Keep the permanent link when a cleaner was saved, but hand today's work only to someone who is still an active housekeeper and is not on vacation or time off that day.
+export function permanentCleaner(assignedToId: string | null, activeIds: ReadonlySet<string>, awayIds: ReadonlySet<string> = new Set()) {
+  const available = Boolean(assignedToId && activeIds.has(assignedToId) && !awayIds.has(assignedToId));
   return {
-    assignedToId: assignedToId && activeIds.has(assignedToId) ? assignedToId : null,
+    assignedToId: available ? assignedToId : null,
     origin: assignedToId ? "PERMANENT" as const : "TODAY_ONLY" as const,
   };
 }
@@ -76,7 +78,10 @@ export function preferenceOnWorkDate(preference: string | null | undefined, depa
 export async function generateHotelDailyPlan(prisma: PrismaClient, hotelTenantId: string, workDate: string) {
   const runId = randomUUID(); // id for the housekeeping_daily_runs row we are about to write
   try {
-    const housekeepers = await activeHousekeeperIds(prisma, hotelTenantId);
+    const [housekeepers, away] = await Promise.all([
+      activeHousekeeperIds(prisma, hotelTenantId),
+      loadAwayUserIds(prisma, hotelTenantId, workDate),
+    ]);
     // All reads/writes below succeed together or roll back together. 120s max for a large hotel.
     return await prisma.$transaction(async (tx) => {
       // Lock this hotel+date run row so two cron starts cannot generate the same day at once
@@ -147,8 +152,8 @@ export async function generateHotelDailyPlan(prisma: PrismaClient, hotelTenantId
         }
         // Insert today's room assignment, or update stay/type/minutes if it already exists.
         // If origin is PERMANENT, also refresh the cleaner; if TODAY_ONLY, keep the person already assigned.
-        // A saved cleaner who is no longer an active housekeeper stays on the permanent row, but today's room is left open.
-        const cleaner = permanentCleaner(stay.assigned_to_id, housekeepers);
+        // A saved cleaner who is no longer an active housekeeper, or who is on vacation or time off today, stays on the permanent row, but today's room is left open.
+        const cleaner = permanentCleaner(stay.assigned_to_id, housekeepers, away);
         await tx.$executeRaw`
           INSERT INTO housekeeping_room_assignments
             (id,hotel_tenant_id,work_date,room_id,assigned_to_id,reservation_stay_id,cleaning_type,assignment_origin,planned_minutes,updated_at)
@@ -197,7 +202,7 @@ export async function generateHotelDailyPlan(prisma: PrismaClient, hotelTenantId
 
       let extrasGenerated = 0;
       for (const extra of extras) {
-        if (!housekeepers.has(extra.assigned_to_id)) continue;
+        if (!housekeepers.has(extra.assigned_to_id) || away.has(extra.assigned_to_id)) continue;
         extrasGenerated++;
         // Copy each permanent extra onto today's plan; update minutes/description if the row already exists
         await tx.$executeRaw`
@@ -217,6 +222,9 @@ export async function generateHotelDailyPlan(prisma: PrismaClient, hotelTenantId
       // Drop open work already copied to someone who is no longer an active housekeeper.
       // Finished rows stay so the report still shows work that was actually done.
       await clearInactiveAssignments(tx, hotelTenantId, workDate, [...housekeepers]);
+      // Open work already copied onto someone who is now on vacation or time off goes back to unassigned.
+      // Finished rows stay so the report still shows work that was actually done. The permanent link is unchanged.
+      await clearAwayAssignments(tx, hotelTenantId, workDate, [...away]);
 
       // Mark this hotel+date run finished and store how many rooms/extras were generated
       await tx.$executeRaw`
@@ -230,6 +238,20 @@ export async function generateHotelDailyPlan(prisma: PrismaClient, hotelTenantId
     await recordFailure(prisma, hotelTenantId, workDate, error); // write FAILED outside the rolled-back transaction
     throw error; // let the script print the error and exit non-zero
   }
+}
+
+async function clearAwayAssignments(tx: Pick<PrismaClient, "$executeRaw">, hotelTenantId: string, workDate: string, awayIds: string[]) {
+  if (awayIds.length === 0) return;
+  const ids = Prisma.join(awayIds.map((id) => Prisma.sql`${id}::uuid`));
+  await tx.$executeRaw`
+    UPDATE housekeeping_room_assignments
+    SET assigned_to_id=NULL, updated_at=NOW()
+    WHERE hotel_tenant_id=${hotelTenantId}::uuid AND work_date=${workDate}::date AND completed_at IS NULL
+      AND assigned_to_id IN (${ids})`;
+  await tx.$executeRaw`
+    DELETE FROM housekeeping_extra_job_assignments
+    WHERE hotel_tenant_id=${hotelTenantId}::uuid AND work_date=${workDate}::date AND completed_at IS NULL
+      AND assigned_to_id IN (${ids})`;
 }
 
 async function clearInactiveAssignments(tx: Pick<PrismaClient, "$executeRaw">, hotelTenantId: string, workDate: string, activeIds: string[]) {

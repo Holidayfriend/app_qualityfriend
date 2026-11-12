@@ -5,6 +5,7 @@ import { housekeepingAccess } from "../../../../lib/housekeeping/access";
 import { getSessionUserId } from "../../../../lib/auth/session";
 import { prisma } from "../../../../lib/prisma";
 import { cleaningPlan } from "../../../../lib/housekeeping/daily-plan";
+import { loadAwayUserIds } from "../../../../lib/housekeeping/away-staff";
 
 type Locale = "en" | "de" | "it";
 type AssignmentRow = { id: string; assigned_to_id: string | null; item_id: string; planned_minutes: number; completed_at: Date | null };
@@ -38,7 +39,7 @@ export async function GET(request: Request) {
   let date: string;
   try { date = hotelDate(timeZone); } catch { return Response.json({ error: "INVALID_HOTEL_TIME_ZONE" }, { status: 500 }); }
   const day = asDate(date);
-  const [eligibleUsers, rooms, extras, roomAssignments, extraAssignments] = await Promise.all([
+  const [eligibleUsers, rooms, extras, roomAssignments, extraAssignments, away] = await Promise.all([
     housekeepingUsers(user.hotelTenantId),
     prisma.room.findMany({
       where: { hotelTenantId: user.hotelTenantId, isActive: true, archivedAt: null, reservationRoomStayRecords: { some: { arrivalDate: { lte: day }, departureDate: { gte: day }, reservation: { sourcePresent: true, status: { notIn: ["CANCELLED", "NO_SHOW"] } } } } },
@@ -47,10 +48,11 @@ export async function GET(request: Request) {
     prisma.extraJob.findMany({ where: { hotelTenantId: user.hotelTenantId }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] }),
     prisma.$queryRaw<AssignmentRow[]>`SELECT id,assigned_to_id,item_id,planned_minutes,completed_at FROM (SELECT id,assigned_to_id,room_id AS item_id,planned_minutes,completed_at FROM housekeeping_room_assignments WHERE hotel_tenant_id=${user.hotelTenantId}::uuid AND work_date=${date}::date) assignments`,
     prisma.$queryRaw<AssignmentRow[]>`SELECT id,assigned_to_id,item_id,planned_minutes,completed_at FROM (SELECT id,assigned_to_id,extra_job_id AS item_id,planned_minutes,completed_at FROM housekeeping_extra_job_assignments WHERE hotel_tenant_id=${user.hotelTenantId}::uuid AND work_date=${date}::date) assignments`,
+    loadAwayUserIds(prisma, user.hotelTenantId, date),
   ]);
   const activeIds = new Set(eligibleUsers.map((employee) => employee.id));
-  const visibleRoomAssignments = roomAssignments.map((assignment) => assignment.assigned_to_id && activeIds.has(assignment.assigned_to_id) ? assignment : { ...assignment, assigned_to_id: null });
-  const visibleExtraAssignments = extraAssignments.filter((assignment) => assignment.assigned_to_id && activeIds.has(assignment.assigned_to_id));
+  const visibleRoomAssignments = roomAssignments.map((assignment) => assignment.assigned_to_id && activeIds.has(assignment.assigned_to_id) && !away.has(assignment.assigned_to_id) ? assignment : { ...assignment, assigned_to_id: null });
+  const visibleExtraAssignments = extraAssignments.filter((assignment) => assignment.assigned_to_id && activeIds.has(assignment.assigned_to_id) && !away.has(assignment.assigned_to_id));
   const employeeWorkload = eligibleUsers.map((employee) => {
     const assignedRooms = visibleRoomAssignments.filter((assignment) => assignment.assigned_to_id === employee.id);
     const assignedExtras = visibleExtraAssignments.filter((assignment) => assignment.assigned_to_id === employee.id);
@@ -77,6 +79,7 @@ export async function PUT(request: Request) {
   if (!(await housekeepingUsers(user.hotelTenantId)).some((employee) => employee.id === employeeId)) return Response.json({ error: "INVALID_EMPLOYEE" }, { status: 400 });
   let date: string;
   try { date = hotelDate(hotelTimeZone(user.hotelTenant.timeZone)); } catch { return Response.json({ error: "INVALID_HOTEL_TIME_ZONE" }, { status: 500 }); }
+  if (body.assigned && (await loadAwayUserIds(prisma, user.hotelTenantId, date)).has(employeeId)) return Response.json({ error: "EMPLOYEE_AWAY" }, { status: 409 });
   const day = asDate(date);
   try {
     if (itemType === "room") {

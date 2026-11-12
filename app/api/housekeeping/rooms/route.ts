@@ -4,6 +4,7 @@ import { roomAuditSnapshot } from "../../../../lib/housekeeping/settings-audit";
 import { hotelTimeZone } from "../../../../lib/hotel/clock";
 import { housekeepingAccess } from "../../../../lib/housekeeping/access";
 import { activeHousekeeperIds } from "../../../../lib/housekeeping/active-housekeepers";
+import { coverageGaps, loadAwayUserIds } from "../../../../lib/housekeeping/away-staff";
 import { getSessionUserId } from "../../../../lib/auth/session";
 import { prisma } from "../../../../lib/prisma";
 
@@ -99,7 +100,7 @@ export async function GET(request: Request) {
     const arrivalChecks = activeLocale === "de" ? strings(checklist?.arrivalChecksDe) : activeLocale === "it" ? strings(checklist?.arrivalChecksIt) : strings(checklist?.arrivalChecksEn);
     const state = room.roomOperationalStateRecords[0];
     const status = ({ UNKNOWN: "unassigned", DIRTY: "dirty", CLEANING: "cleaning", CLEAN: "clean", INSPECTED: "inspected" } as const)[state?.cleanliness ?? "UNKNOWN"];
-    const [cleaners, assignment, completedChecks, housekeepers] = await Promise.all([
+    const [cleaners, assignment, completedChecks, housekeepers, away] = await Promise.all([
       access.admin ? housekeepingUsers(user.hotelTenantId) : Promise.resolve([]),
       prisma.housekeepingRoomAssignment.findFirst({
         where: { hotelTenantId: user.hotelTenantId, roomId: room.id, workDate: day },
@@ -107,8 +108,9 @@ export async function GET(request: Request) {
       }),
       prisma.$queryRaw<Array<{ checklist_type: "ROOM" | "ARRIVAL"; check_index: number }>>`SELECT checklist_type,check_index FROM housekeeping_checklist_completions WHERE hotel_tenant_id=${user.hotelTenantId}::uuid AND room_id=${room.id}::uuid AND work_date=${date}::date`,
       activeHousekeeperIds(prisma, user.hotelTenantId),
+      loadAwayUserIds(prisma, user.hotelTenantId, date),
     ]);
-    const assignedCleaner = assignment?.assignedToId && housekeepers.has(assignment.assignedToId) ? assignment : null;
+    const assignedCleaner = assignment?.assignedToId && housekeepers.has(assignment.assignedToId) && !away.has(assignment.assignedToId) ? assignment : null;
     const completed = new Set(completedChecks.map((check) => `${check.checklist_type}:${check.check_index}`));
     return Response.json({ room: {
       id: room.id, number: room.number, name: translatedName(room, activeLocale),
@@ -132,7 +134,7 @@ export async function GET(request: Request) {
     let date: string;
     try { date = localDate(configuredZone); } catch { return Response.json({ error: "INVALID_HOTEL_TIME_ZONE" }, { status: 500 }); }
     const day = utcDate(date);
-    const [floors, housekeepers] = await Promise.all([
+    const [floors, housekeepers, away, permanents] = await Promise.all([
       prisma.floor.findMany({
       where: { hotelTenantId: user.hotelTenantId, isActive: true, archivedAt: null },
       orderBy: [{ sortOrder: "asc" }, { code: "asc" }],
@@ -143,7 +145,7 @@ export async function GET(request: Request) {
         } } }, orderBy: { number: "asc" }, select: {
           id: true, number: true,
           roomOperationalStateRecords: { take: 1, select: { cleanliness: true, breakfastInRoom: true, doNotDisturb: true, noService: true, isExpress: true, linenChange: true } },
-          housekeepingScheduleAssignmentRecords: { where: { workDate: day }, take: 1, select: { cleaningType: true, assignedToId: true, assignedTo: { select: { firstName: true, lastName: true } } } },
+          housekeepingScheduleAssignmentRecords: { where: { workDate: day }, take: 1, select: { cleaningType: true, assignedToId: true, completedAt: true, assignedTo: { select: { firstName: true, lastName: true } } } },
           reservationRoomStayRecords: { where: {
             arrivalDate: { lte: day }, departureDate: { gte: day },
             reservation: { sourcePresent: true, status: { notIn: ["CANCELLED", "NO_SHOW"] } },
@@ -156,8 +158,28 @@ export async function GET(request: Request) {
       } },
     }),
       activeHousekeeperIds(prisma, user.hotelTenantId),
+      loadAwayUserIds(prisma, user.hotelTenantId, date),
+      prisma.housekeepingPermanentRoomAssignment.findMany({
+        where: { hotelTenantId: user.hotelTenantId },
+        select: { roomId: true, assignedToId: true, assignedTo: { select: { firstName: true, lastName: true } } },
+      }),
     ]);
-    return Response.json({ date, timeZone: configuredZone, floors: floors.map((floor) => ({
+    const permanentByRoom = new Map(permanents.map((row) => [row.roomId, row]));
+    const nameById = new Map(permanents.map((row) => [row.assignedToId, `${row.assignedTo.firstName} ${row.assignedTo.lastName}`.trim()]));
+    const openRooms = floors.flatMap((floor) => floor.roomRecords.map((room) => {
+      const assignment = room.housekeepingScheduleAssignmentRecords[0];
+      return {
+        number: room.number,
+        permanentUserId: permanentByRoom.get(room.id)?.assignedToId ?? null,
+        assignedToId: assignment?.assignedToId ?? null,
+        completed: Boolean(assignment?.completedAt),
+      };
+    }));
+    const coverage = coverageGaps(openRooms, away).flatMap((gap) => {
+      const name = nameById.get(gap.userId);
+      return name ? [{ id: gap.userId, name, rooms: gap.rooms }] : [];
+    }).sort((left, right) => left.name.localeCompare(right.name) || left.id.localeCompare(right.id));
+    return Response.json({ date, timeZone: configuredZone, coverageGaps: coverage, floors: floors.map((floor) => ({
       id: floor.id, code: floor.code, name: translatedName(floor, activeLocale) || floor.code,
       rooms: floor.roomRecords.map((room) => {
         const stays = room.reservationRoomStayRecords;
@@ -166,7 +188,7 @@ export async function GET(request: Request) {
         const departureStay = stays.find((stay) => stay.departureDate.getTime() === day.getTime());
         const state = room.roomOperationalStateRecords[0];
         const assignment = room.housekeepingScheduleAssignmentRecords[0];
-        const activeAssignee = assignment?.assignedToId && housekeepers.has(assignment.assignedToId) ? assignment.assignedTo : null;
+        const activeAssignee = assignment?.assignedToId && housekeepers.has(assignment.assignedToId) && !away.has(assignment.assignedToId) ? assignment.assignedTo : null;
         const status = state?.noService ? "noCleaningDesired" as const : ({ UNKNOWN: "unassigned", DIRTY: "dirty", CLEANING: "cleaning", CLEAN: "clean", INSPECTED: "inspected" } as const)[state?.cleanliness ?? "UNKNOWN"];
         const isExpress = Boolean(state?.isExpress) || assignment?.cleaningType === "EXPRESS";
         return { id: room.id, number: room.number, status, isExpress,
