@@ -1685,7 +1685,7 @@
     "done": "FATTO",
     "open": "APERTO",
     "planned": "PIANIFICATO",
-    "periodic": "📋 Controlli periodici (questa settimana)",
+    "periodic": "📋 Controlli periodici (ultimi 7 giorni)",
     "weekCard": "📊 Questa settimana",
     "weekDone": "Completati",
     "aiCreate": "✨ Crea checklist IA",

@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useI18n } from "../i18n/i18n-provider";
 import { hotelLocalIso, readHotelTimeZone } from "../../lib/hotel/clock";
+import { periodicLastSevenDays } from "../../lib/tasks/periodic-week";
 import {
   type HotelDept,
   type HotelUser,
@@ -260,7 +261,7 @@ export function TasksProvider({ children }: { children: ReactNode }) {
   const dueToday = open.filter((item) => item.dueIso === today);
   const dueWeek = open.filter((item) => item.dueIso && item.dueIso >= today && item.dueIso < week);
   const doneWeek = tasks.filter((item) => item.status === "done").length;
-  const periodic = checklists.filter((item) => item.kind === "checklist" && item.status === "active" && !item.completedAt && (item.origin === "run" || (item.origin === "original" && Boolean(item.nextDueIso) && item.nextDueIso < week)));
+  const periodic = periodicLastSevenDays(checklists, today);
 
   const value = useMemo<Ctx>(() => ({
     tasks, checklists, templates, departments, users, canManage, ready,

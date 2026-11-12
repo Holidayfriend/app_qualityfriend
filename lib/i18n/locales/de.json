@@ -1685,7 +1685,7 @@
     "done": "ERLEDIGT",
     "open": "OFFEN",
     "planned": "GEPLANT",
-    "periodic": "📋 Periodische Kontrollen (diese Woche)",
+    "periodic": "📋 Periodische Kontrollen (letzte 7 Tage)",
     "weekCard": "📊 Diese Woche",
     "weekDone": "Erledigt",
     "aiCreate": "✨ KI-Checkliste erstellen",
