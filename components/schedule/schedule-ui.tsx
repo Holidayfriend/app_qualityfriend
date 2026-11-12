@@ -125,7 +125,7 @@ function Shell({ title, children, tabs }: { title: string; children?: ReactNode;
   ];
   return <AppShell activeItem="schedule" pageTitle={title}>
     <main className="qf-dashboard schedule-shell pb-24 lg:pb-[24px]">
-      {tabs ? <nav className="hk-tabs schedule-tabs" aria-label={title}>{items.map(([href, label, id]) => <Link key={id} href={href} className={`hk-tab${tab === id ? " active" : ""}`} aria-current={tab === id ? "page" : undefined}>{label}</Link>)}</nav> : null}
+      {tabs ? <nav className="hk-tabs schedule-tabs" aria-label={title}>{items.map(([href, label, id]) => <Link key={id} href={href} prefetch={false} className={`hk-tab${tab === id ? " active" : ""}`} aria-current={tab === id ? "page" : undefined}>{label}</Link>)}</nav> : null}
       {children}
     </main>
   </AppShell>;
@@ -387,7 +387,7 @@ export function SchedulePlanPage() {
           {visible.length ? visible.map((emp) => {
             const shift = emp.shifts[selectedDay];
             const meta = shiftMeta(shift, t);
-            return <Link key={emp.key} href={`/schedule/shift?employee=${emp.key}&day=${selectedDay}`} className="schedule-shift-card">
+            return <Link key={emp.key} href={`/schedule/shift?employee=${emp.key}&day=${selectedDay}`} prefetch={false} className="schedule-shift-card">
               <span className="schedule-shift-avatar">{employeeInitials(emp.name)}</span>
               <span className="schedule-shift-person"><strong>{emp.name}</strong><small>{deptLines(emp, t).join(" · ")}</small></span>
               <span className={`schedule-shift-time ${meta.cls}${shift?.draft ? " dp-draft" : ""}`}>{meta.label}{meta.sub ? <small>{meta.sub}</small> : null}</span>
@@ -425,7 +425,7 @@ function EmployeeRow({ emp, t }: { emp: Employee; t: T }) {
     <div className="dp-name">{emp.name}<div className="dp-dept">{deptLines(emp, t).map((name, index) => <span key={`${emp.key}-${index}`}>{name}</span>)}</div></div>
     {emp.shifts.map((shift, index) => {
       const meta = shiftMeta(shift, t);
-      return <Link key={`${emp.key}-${index}`} href={`/schedule/shift?employee=${emp.key}&day=${index}`} className="dp-cell"><div className={`dp-shift ${meta.cls}${shift.draft ? " dp-draft" : ""}`}>{meta.label}{meta.sub ? <span style={{ display: "block", fontSize: 9, fontWeight: 500, marginTop: 1 }}>{meta.sub}</span> : null}</div></Link>;
+      return <Link key={`${emp.key}-${index}`} href={`/schedule/shift?employee=${emp.key}&day=${index}`} prefetch={false} className="dp-cell"><div className={`dp-shift ${meta.cls}${shift.draft ? " dp-draft" : ""}`}>{meta.label}{meta.sub ? <span style={{ display: "block", fontSize: 9, fontWeight: 500, marginTop: 1 }}>{meta.sub}</span> : null}</div></Link>;
     })}
   </>;
 }

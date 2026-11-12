@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "../../components/dashboard/app-shell";
 import { DashboardKpis } from "../../components/dashboard/dashboard-kpis";
@@ -27,13 +28,22 @@ export default function DashboardPage() {
   const { dictionary, locale } = useI18n();
   const briefing = useAiRecommendation("DASHBOARD");
   const d = dictionary.dashboard;
+  const [analysisWhen, setAnalysisWhen] = useState("");
+
+  useEffect(() => {
+    setAnalysisWhen(analysisDate(locale));
+  }, [locale]);
+
+  const analysisTitle = analysisWhen
+    ? d.analysisTitle.replace("{date}", analysisWhen)
+    : d.analysisTitle.replace("{date}", "").replace(/\s*·\s*$/, "");
 
   return <AppShell activeItem="dashboard">
     <div className="qf-dashboard" id="p-dashboard">
     <div className="ai-banner">
       <div className="ai-mark">✨</div>
       <div className="ai-copy">
-        <div className="ai-title">{d.analysisTitle.replace("{date}", analysisDate(locale))}</div>
+        <div className="ai-title">{analysisTitle}</div>
         <div className="ai-body">{briefing.ready ? (briefing.body || d.analysisEmpty) : ""}</div>
       </div>
       <button className="ai-btn" onClick={() => router.push("/ai-assistant")}>{d.discuss} →</button>

@@ -72,7 +72,7 @@ export function HandoversDashboardPage() {
       <div>
         <div className="section-title">{t.current}</div>
         {current.length ? current.map((item) => (
-          <Link key={item.id} href={`/handovers/${item.id}`} className="hov-card">
+          <Link key={item.id} href={`/handovers/${item.id}`} prefetch={false} className="hov-card">
             <div className="hov-header">
               <span style={{ display: "flex", alignItems: "center", gap: 8 }}><AttachmentIndicator attachments={item.attachments} /><span className="hov-shift-badge">{item.title}</span></span>
               <div className="hov-from" style={{ marginLeft: "auto" }}>{item.creator} · {item.date}</div>
@@ -91,10 +91,10 @@ export function HandoversDashboardPage() {
           </div>
         </div> : null}
         <div className="card">
-          <div className="ch"><div className="ct">{t.history}</div><Link href="/handovers/list" className="ca">{t.allArrow}</Link></div>
+          <div className="ch"><div className="ct">{t.history}</div><Link href="/handovers/list" prefetch={false} className="ca">{t.allArrow}</Link></div>
           <div className="cb">
             {history.length ? history.map((item) => (
-              <Link key={item.id} href={`/handovers/${item.id}`} className="al" style={{ textDecoration: "none" }}>
+              <Link key={item.id} href={`/handovers/${item.id}`} prefetch={false} className="al" style={{ textDecoration: "none" }}>
                 <div className={`al-ic ${item.status === "erledigt" ? "g" : "b"}`}>{item.status === "erledigt" ? "✓" : "📋"}</div>
                 <div>
                   <div className="al-t" style={{ display: "flex", alignItems: "center", gap: 8 }}><AttachmentIndicator attachments={item.attachments} />{item.title}</div>
@@ -105,7 +105,7 @@ export function HandoversDashboardPage() {
             )) : <div style={{ fontSize: 12.5, color: "var(--text3)" }}>{t.empty}</div>}
           </div>
         </div>
-        <Link href="/handovers/list" className="btn btn-ghost" style={{ width: "100%", justifyContent: "center" }}>{t.manageAll}</Link>
+        <Link href="/handovers/list" prefetch={false} className="btn btn-ghost" style={{ width: "100%", justifyContent: "center" }}>{t.manageAll}</Link>
       </div>
     </div>
   </Shell>;
@@ -137,7 +137,7 @@ export function HandoversListPage() {
     <div className="handovers-list-mobile">
       {rows.length ? rows.map((item) => (
         <article key={item.id} className="handovers-list-card">
-          <Link href={`/handovers/${item.id}`} className="handovers-list-card-main">
+          <Link href={`/handovers/${item.id}`} prefetch={false} className="handovers-list-card-main">
             <div className="handovers-list-card-heading">
               <strong>{item.pinned ? <span aria-label={t.pin}>📌</span> : null}<AttachmentIndicator attachments={item.attachments} /><span>{item.title}</span></strong>
               <span className={`chip ${item.status === "erledigt" ? "chip-g" : item.status === "draft" ? "chip-a" : "chip-b"}`}>{statusLabel(item.status, t)}</span>
@@ -150,7 +150,7 @@ export function HandoversListPage() {
               <div style={{ gridColumn: "1 / -1" }}><dt>{t.colRead}</dt><dd><ReadStatus item={item} t={t} /></dd></div>
             </dl>
           </Link>
-          {canManage ? <div className="handovers-list-card-actions"><Link href={`/handovers/${item.id}/edit`} className="icon-btn" aria-label={t.edit} title={t.edit}>✏️</Link></div> : null}
+          {canManage ? <div className="handovers-list-card-actions"><Link href={`/handovers/${item.id}/edit`} prefetch={false} className="icon-btn" aria-label={t.edit} title={t.edit}>✏️</Link></div> : null}
         </article>
       )) : <div className="handovers-list-empty">{t.empty}</div>}
     </div>
@@ -167,7 +167,7 @@ export function HandoversListPage() {
             <td><span className={`chip ${item.status === "erledigt" ? "chip-g" : item.status === "draft" ? "chip-a" : "chip-b"}`}>{statusLabel(item.status, t)}</span></td>
             <td><ReadStatus item={item} t={t} /></td>
             <td>{item.date}</td>
-            {canManage ? <td style={{ textAlign: "right" }}><Link href={`/handovers/${item.id}/edit`} className="icon-btn" onClick={(event) => event.stopPropagation()}>✏️</Link></td> : null}
+            {canManage ? <td style={{ textAlign: "right" }}><Link href={`/handovers/${item.id}/edit`} prefetch={false} className="icon-btn" onClick={(event) => event.stopPropagation()}>✏️</Link></td> : null}
           </tr>) : <tr><td colSpan={canManage ? 9 : 8} style={{ fontSize: 12.5, color: "var(--text3)" }}>{t.empty}</td></tr>}
         </tbody>
       </table>

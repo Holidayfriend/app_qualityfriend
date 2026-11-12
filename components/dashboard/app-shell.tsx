@@ -145,6 +145,7 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
   useEffect(() => {
     let active = true;
     async function refreshChatStatus() {
+      if (document.visibilityState !== "visible") return;
       try {
         const response = await fetch("/api/chat/status", { cache: "no-store" });
         if (!response.ok || !active) return;
@@ -154,7 +155,7 @@ export function AppShell({ activeItem, children, pageTitle }: AppShellProps) {
       } catch { /* The normal authentication flow handles disconnected sessions. */ }
     }
     void refreshChatStatus();
-    const timer = window.setInterval(refreshChatStatus, 15000);
+    const timer = window.setInterval(refreshChatStatus, 30_000);
     return () => { active = false; window.clearInterval(timer); };
   }, []);
 

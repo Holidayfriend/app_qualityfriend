@@ -24,7 +24,7 @@ export function DashboardModules() {
   const router = useRouter();
   const { dictionary } = useI18n();
   const tiles = dictionary.dashboard.tiles;
-  const [user, setUser] = useState<ShellUser | null>(readUser);
+  const [user, setUser] = useState<ShellUser | null>(null);
 
   useEffect(() => {
     const read = () => setUser(readUser());

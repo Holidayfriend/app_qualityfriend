@@ -41,7 +41,7 @@ export function NotificationDropdown({ fullPage = false }: { fullPage?: boolean 
       finally{if(active)setLoading(false)}
     }
     void load();
-    const timer=window.setInterval(()=>{if(document.visibilityState==="visible")void load()},5000);
+    const timer=window.setInterval(()=>{if(document.visibilityState==="visible")void load()},30_000);
     return()=>{active=false;controller.abort();window.clearInterval(timer)};
   },[locale,open,fullPage,page]);
 
