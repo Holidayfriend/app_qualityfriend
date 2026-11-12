@@ -1436,10 +1436,8 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
     setItem(data.application as Applicant);
     setApplicants(applicants.map((row) => row.id === id ? data.application as Applicant : row));
     if (stage === "offer" || stage === "rejected") {
-      const message = stage === "offer"
-        ? fill(data.emailSent ? t.offerSent : t.offerStatusUpdated, { name: item.name })
-        : fill(data.emailSent ? t.rejectSent : t.rejectStatusUpdated, { name: item.name });
-      showToast({ message: data.emailAuto && !data.emailSent ? t.actionEmailFailed : message, tone: data.emailAuto && !data.emailSent ? "error" : "success" });
+      const message = stage === "offer" ? t.offerStatusUpdated : t.rejectStatusUpdated;
+      showToast({ message: fill(message, { name: item.name }), tone: "success" });
     } else {
       const message = stage === "invited" ? t.invitedStatusUpdated : stage === "archived" ? t.archivedApp : t.unarchivedApp;
       showToast({ message: fill(message, { name: item.name }), tone: "success" });
@@ -1656,11 +1654,11 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
     <dialog ref={confirmationRef} className="job-apply-dialog recruiting-confirm-dialog" aria-labelledby="application-confirm-title" onCancel={(event) => { event.preventDefault(); if (!actionBusy) setConfirmation(null); }}>
       {confirmation ? <>
         <h3 id="application-confirm-title">{t.actionConfirmTitle}: {confirmation.stage === "offer" ? t.stageOffer : t.stageRejected}</h3>
-        <p>{confirmation.preview.willSend ? t.actionWillEmail : t.actionNoEmail}</p>
+        <p>{t.actionNoEmail}</p>
         <div className="field-lbl">{t.actionRecipient}: {confirmation.preview.to || "\u2013"}</div>
         <div className="field-lbl">{t.subject}: {confirmation.preview.subject}</div>
         <iframe title={t.actionEmailPreview} sandbox="" referrerPolicy="no-referrer" srcDoc={confirmation.preview.html} style={{ width: "100%", height: 280, border: "1px solid #ddd", background: "white", margin: "12px 0" }} />
-        {confirmation.stage === "offer" ? <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
           <a
             className="btn btn-ghost"
             href={recruitingMailUrl({ ...confirmation.preview, phone: item.phone })}
@@ -1673,10 +1671,10 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
             target="_blank"
             rel="noreferrer"
           >{t.openWhatsApp}</a> : <button type="button" className="btn btn-ghost" disabled title={t.whatsAppPhoneMissing}>{t.openWhatsApp}</button>}
-        </div> : null}
+        </div>
         <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: 8 }}>
           <button type="button" className="btn btn-ghost" disabled={actionBusy} onClick={() => setConfirmation(null)}>{t.cancel}</button>
-          <button type="button" className="btn btn-primary" disabled={actionBusy} onClick={() => void setStage(confirmation.stage, confirmation.token)}>{confirmation.preview.willSend ? t.actionConfirmSend : t.actionConfirmOnly}</button>
+          <button type="button" className="btn btn-primary" disabled={actionBusy} onClick={() => void setStage(confirmation.stage, confirmation.token)}>{t.actionConfirmOnly}</button>
         </div>
       </> : null}
     </dialog>

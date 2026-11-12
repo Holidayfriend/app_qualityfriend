@@ -58,6 +58,11 @@ test("preview never sends; sending uses preview; changes invalidate confirmation
   assert.equal(sent.length, 1);
 });
 
+test("offer and reject confirmation does not send email", () => {
+  const source = fs.readFileSync("app/api/recruiting/applications/[id]/route.ts", "utf8");
+  assert.equal(source.includes("sendPreparedRecruitingEmail"), false);
+});
+
 test("status API rejects missing or stale confirmation before mutation", async () => {
   const exports = {} as typeof import("../app/api/recruiting/applications/[id]/route");
   let mutations = 0;

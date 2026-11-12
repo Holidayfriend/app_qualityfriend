@@ -6,7 +6,7 @@ import { recordAuditLog } from "../../../../../lib/audit/audit-service";
 import { hotelTimeZoneFor } from "../../../../../lib/hotel/context";
 import { recruitingActor } from "../../../../../lib/recruiting/access";
 import { isUuid, notesPayload, parseApplicationNotes, toDbStage, toPublicApplicant } from "../../../../../lib/recruiting/application-fields";
-import { prepareRecruitingTemplateEmail, recruitingConfirmationToken, sendPreparedRecruitingEmail, type RecruitingEmailPreview } from "../../../../../lib/recruiting/send-recruiting-email";
+import { prepareRecruitingTemplateEmail, recruitingConfirmationToken, type RecruitingEmailPreview } from "../../../../../lib/recruiting/send-recruiting-email";
 import type { Applicant } from "../../../../../lib/recruiting/preview-data";
 
 type Context = { params: Promise<{ id: string }> };
@@ -140,17 +140,9 @@ export async function PATCH(request: Request, context: Context) {
   if (!updated) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
   if ("conflict" in updated) return Response.json({ error: "INVALID_STAGE" }, { status: 409 });
 
-  let emailSent = false;
-  let emailAuto = false;
-  if (preparedEmail) {
-    const mail = await sendPreparedRecruitingEmail(preparedEmail);
-    emailSent = mail.sent;
-    emailAuto = mail.auto;
-  }
-
   return Response.json({
     application: toPublicApplicant(updated.after, updated.after.job, locale, { timeZone: await hotelTimeZoneFor(actor.hotel_tenant_id) }),
-    emailSent,
-    emailAuto,
+    emailSent: false,
+    emailAuto: false,
   });
 }
