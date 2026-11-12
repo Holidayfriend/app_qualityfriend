@@ -1091,7 +1091,7 @@ const messages = {
     addedApp: "{name} wurde als Bewerbung hinzugefügt.",
     recommended: "✨ Empfohlen",
     possible: "Möglich",
-    needsReview: "Needs Review",
+    needsReview: "Zu prüfen",
     notAFit: "Nicht passend",
     notAssessable: "Nicht bewertbar",
     notAssessableHint: "Kein Score, weil der Lebenslauf fehlt oder der Text nicht gelesen werden konnte.",

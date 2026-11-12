@@ -7,7 +7,7 @@ import { AppShell } from "../dashboard/app-shell";
 import { useI18n } from "../i18n/i18n-provider";
 import { useToast } from "../ui/toast-provider";
 import { BrandLoader } from "../ui/brand-loader";
-import { housekeepingMessages, housekeepingRefreshMessages, requestMessages } from "../../lib/i18n/dictionaries";
+import { housekeepingMessages, housekeepingRefreshMessages, requestMessages, type HousekeepingMessages } from "../../lib/i18n/dictionaries";
 import { categories, extraJobs, rooms, type RoomStatus } from "../../lib/housekeeping/preview-data";
 import { housekeeperRoomStatuses, isHousekeeperRoomStatus } from "../../lib/housekeeping/room-access-policy";
 import { noServiceAfterSave } from "../../lib/housekeeping/room-flags";
@@ -18,6 +18,23 @@ const button="inline-flex min-h-9 cursor-pointer items-center justify-center gap
 const statusColor:Record<RoomStatus,string>={dirty:"#dc2626",cleaning:"#d97706",clean:"#16a34a",inspected:"#2563eb",unassigned:"#ca8a04",inspectionInProgress:"#60a5fa",noCleaningDesired:"#000000"};
 const roomTileStyle:Record<RoomStatus,{background:string;color:string;borderColor:string}>={dirty:{background:"#FEE2E2",color:"#DC2626",borderColor:"#FECACA"},cleaning:{background:"#FEF3C7",color:"#D97706",borderColor:"#FDE68A"},clean:{background:"#DCFCE7",color:"#16A34A",borderColor:"#BBF7D0"},inspected:{background:"#DBEAFE",color:"#2563EB",borderColor:"#BFDBFE"},unassigned:{background:"#FEF3C7",color:"#CA8A04",borderColor:"#FDE68A"},inspectionInProgress:{background:"#E0F2FE",color:"#0284C7",borderColor:"#BAE6FD"},noCleaningDesired:{background:"#F1F5F9",color:"#475569",borderColor:"#CBD5E1"}};
 const roomStatuses:RoomStatus[]=["dirty","cleaning","clean","inspected","inspectionInProgress","noCleaningDesired"];
+
+function cleaningLabel(t: HousekeepingMessages, type: string) {
+  if (type === "REGULAR") return t.cleaningRegular;
+  if (type === "EXPRESS") return t.cleaningExpress;
+  if (type === "DEPARTURE") return t.cleaningDeparture;
+  if (type === "NONE") return t.cleaningNone;
+  return type;
+}
+
+function stayStatusLabel(t: HousekeepingMessages, status: string | null) {
+  const key = (status || "").toLowerCase();
+  if (key === "occupied") return t.statusOccupied;
+  if (key === "reserved" || key === "roomfixed") return t.statusReserved;
+  if (key === "departed") return t.statusDeparted;
+  if (key === "cancelled" || key === "canceled") return t.statusCancelled;
+  return status || "—";
+}
 
 export function HousekeepingUI({view,roomId=""}:{view:HousekeepingView;roomId?:string}){
   const {locale}=useI18n(); const t=housekeepingMessages[locale];
@@ -248,8 +265,8 @@ function Report({t}:{t:T}){
     </section>
     <ReportList title={`✅ ${t.extrasCompleted}`} empty={t.noRecords} rows={data.extrasCompleted.map(item=>({id:item.id,title:item.description,meta:`${item.minutes} ${t.minutes} · ${t.assignedTo} ${item.employeeName} · ${formatTime(item.completedAt)}`,comments:item.comments.map(row=>`${row.author} · ${formatTime(row.createdAt)} · ${row.text}`)}))}/>
     <ReportList title={`❗ ${t.extrasMissing}`} empty={t.noRecords} rows={data.extrasMissing.map(item=>({id:item.id,title:item.description,meta:`${item.minutes} ${t.minutes} · ${t.assignedTo} ${item.employeeName} · ${t.notCompleted}`,comments:item.comments.map(row=>`${row.author} · ${formatTime(row.createdAt)} · ${row.text}`)}))}/>
-    <ReportList title={`✅ ${t.roomsClean}`} empty={t.noRecords} rows={data.roomsClean.map(item=>({id:item.id,title:`${t.room} ${item.number}`,meta:`${item.cleaningType} · ${item.minutes} ${t.minutes} · ${item.employeeName?`${t.assignedTo} ${item.employeeName}`:t.unassigned} · ${formatTime(item.completedAt)}`}))}/>
-    <ReportList title={`❗ ${t.roomsMissing}`} empty={t.noRecords} rows={data.roomsMissing.map(item=>({id:item.id,title:`${t.room} ${item.number}`,meta:`${item.cleaningType} · ${item.minutes} ${t.minutes} · ${item.employeeName?`${t.assignedTo} ${item.employeeName}`:t.unassigned} · ${t.notCompleted}`}))}/>
+    <ReportList title={`✅ ${t.roomsClean}`} empty={t.noRecords} rows={data.roomsClean.map(item=>({id:item.id,title:`${t.room} ${item.number}`,meta:`${cleaningLabel(t, item.cleaningType)} · ${item.minutes} ${t.minutes} · ${item.employeeName?`${t.assignedTo} ${item.employeeName}`:t.unassigned} · ${formatTime(item.completedAt)}`}))}/>
+    <ReportList title={`❗ ${t.roomsMissing}`} empty={t.noRecords} rows={data.roomsMissing.map(item=>({id:item.id,title:`${t.room} ${item.number}`,meta:`${cleaningLabel(t, item.cleaningType)} · ${item.minutes} ${t.minutes} · ${item.employeeName?`${t.assignedTo} ${item.employeeName}`:t.unassigned} · ${t.notCompleted}`}))}/>
   </div>;
 }
 function ReportList({title,empty,rows}:{title:string;empty:string;rows:Array<{id:string;title:string;meta:string;comments?:string[]}>}){
@@ -358,7 +375,7 @@ function RoomDetail({t,id}:{t:T;id:string}) {
         <button disabled={saving} className={`${button} border-[var(--qf-accent)] bg-[var(--qf-accent)] text-white disabled:cursor-wait disabled:opacity-60`}>{t.save}</button>
       </form>
     </section>
-    <aside className="space-y-4">{reservation?<><DetailCard title={t.stay} meta={t.fromAsa} rows={[[t.arrival,formatDate(reservation.arrival)],[t.departure,formatDate(reservation.departure)],[t.days,String(reservation.days)],[t.status,reservation.sourceStatus||"—"],[t.people,peopleSummary(locale,reservation.adults,reservation.children)],["0-3",String(reservation.childK1??0)],["3-8",String(reservation.childK2??0)],["8-14",String(reservation.childK3??0)],[t.dailyMovements,t.dailyMovementsTime]]}/><DetailCard title={t.guest} meta={t.fromAsa} rows={[[t.guestName,guest?.name||"—"],[t.language,guest?.language||"—"],[t.vip,guest?.vip===null||guest?.vip===undefined?"—":guest.vip?t.yes:t.no],[t.previousStays,value(guest?.previousStays)],[t.bookingGroup,reservation.bookingGroup||"—"],[t.boardBasis,reservation.board||"—"],[t.offer,reservation.offer||"—"],[t.remark,reservation.note||"—"]]}/><section className={card}><Head>{t.birthdays}</Head>{reservation.birthdays.length?<div className="divide-y divide-[var(--qf-border)] px-4">{reservation.birthdays.map(person=><p key={`${person.name}-${person.dateOfBirth}`} className="py-2.5 text-[12px]">🎂 {person.name} · {formatDate(person.dateOfBirth)}</p>)}</div>:<p className="p-4 text-[11.5px] text-[var(--qf-text-muted)]">{t.noBirthdays}</p>}</section></>:<section className={card}><Head>{t.stay}</Head><p className="p-4 text-[11.5px] text-[var(--qf-text-muted)]">{t.noReservation}</p></section>}</aside>
+    <aside className="space-y-4">{reservation?<><DetailCard title={t.stay} meta={t.fromAsa} rows={[[t.arrival,formatDate(reservation.arrival)],[t.departure,formatDate(reservation.departure)],[t.days,String(reservation.days)],[t.status,stayStatusLabel(t, reservation.sourceStatus)],[t.people,peopleSummary(locale,reservation.adults,reservation.children)],["0-3",String(reservation.childK1??0)],["3-8",String(reservation.childK2??0)],["8-14",String(reservation.childK3??0)],[t.dailyMovements,t.dailyMovementsTime]]}/><DetailCard title={t.guest} meta={t.fromAsa} rows={[[t.guestName,guest?.name||"—"],[t.language,guest?.language||"—"],[t.vip,guest?.vip===null||guest?.vip===undefined?"—":guest.vip?t.yes:t.no],[t.previousStays,value(guest?.previousStays)],[t.bookingGroup,reservation.bookingGroup||"—"],[t.boardBasis,reservation.board||"—"],[t.offer,reservation.offer||"—"],[t.remark,reservation.note||"—"]]}/><section className={card}><Head>{t.birthdays}</Head>{reservation.birthdays.length?<div className="divide-y divide-[var(--qf-border)] px-4">{reservation.birthdays.map(person=><p key={`${person.name}-${person.dateOfBirth}`} className="py-2.5 text-[12px]">🎂 {person.name} · {formatDate(person.dateOfBirth)}</p>)}</div>:<p className="p-4 text-[11.5px] text-[var(--qf-text-muted)]">{t.noBirthdays}</p>}</section></>:<section className={card}><Head>{t.stay}</Head><p className="p-4 text-[11.5px] text-[var(--qf-text-muted)]">{t.noReservation}</p></section>}</aside>
     {room.departureReservation?<section className="space-y-4 lg:col-span-2" aria-label={t.departureToday}><h2 className="text-[14px] font-bold">{t.departureToday}</h2><DepartureDetails reservation={room.departureReservation} t={t}/></section>:null}
   </div>
 }
@@ -371,5 +388,5 @@ function DepartureDetails({reservation,t}:{reservation:NonNullable<RoomDetailDat
   const {locale}=useI18n();
   const guest=reservation.guests[0];
   const formatDate=(value:string)=>new Intl.DateTimeFormat(locale,{dateStyle:"medium",timeZone:"UTC"}).format(new Date(`${value}T00:00:00.000Z`));
-  return <div className="grid gap-4 lg:grid-cols-2"><DetailCard title={t.stay} meta={t.fromAsa} rows={[[t.arrival,formatDate(reservation.arrival)],[t.departure,formatDate(reservation.departure)],[t.days,String(reservation.days)],[t.status,reservation.sourceStatus||"—"],[t.people,peopleSummary(locale,reservation.adults,reservation.children)],["0-3",String(reservation.childK1??0)],["3-8",String(reservation.childK2??0)],["8-14",String(reservation.childK3??0)],[t.dailyMovements,t.dailyMovementsTime]]}/><DetailCard title={t.guest} meta={t.fromAsa} rows={[[t.guestName,guest?.name||"—"],[t.language,guest?.language||"—"],[t.vip,guest?.vip===null||guest?.vip===undefined?"—":guest.vip?t.yes:t.no],[t.previousStays,value(guest?.previousStays)],[t.bookingGroup,reservation.bookingGroup||"—"],[t.boardBasis,reservation.board||"—"],[t.offer,reservation.offer||"—"],[t.remark,reservation.note||"—"]]}/></div>;
+  return <div className="grid gap-4 lg:grid-cols-2"><DetailCard title={t.stay} meta={t.fromAsa} rows={[[t.arrival,formatDate(reservation.arrival)],[t.departure,formatDate(reservation.departure)],[t.days,String(reservation.days)],[t.status,stayStatusLabel(t, reservation.sourceStatus)],[t.people,peopleSummary(locale,reservation.adults,reservation.children)],["0-3",String(reservation.childK1??0)],["3-8",String(reservation.childK2??0)],["8-14",String(reservation.childK3??0)],[t.dailyMovements,t.dailyMovementsTime]]}/><DetailCard title={t.guest} meta={t.fromAsa} rows={[[t.guestName,guest?.name||"—"],[t.language,guest?.language||"—"],[t.vip,guest?.vip===null||guest?.vip===undefined?"—":guest.vip?t.yes:t.no],[t.previousStays,value(guest?.previousStays)],[t.bookingGroup,reservation.bookingGroup||"—"],[t.boardBasis,reservation.board||"—"],[t.offer,reservation.offer||"—"],[t.remark,reservation.note||"—"]]}/></div>;
 }

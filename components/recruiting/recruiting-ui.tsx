@@ -1610,7 +1610,7 @@ function ApplicationDetail({ t, locale, id }: { t: T; locale: Locale; id: string
         </div>
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="ch"><div className="ct">{t.aiSummary}</div></div>
-          <div className="cb" style={{ fontSize: 13.5, lineHeight: 1.6, whiteSpace: "pre-line" }}>{item.aiSummary?.trim() ? item.aiSummary : item.aiStatus === "FAILED" ? t.scoreFailed : t.scoringAi}</div>
+          <div className="cb" style={{ fontSize: 13.5, lineHeight: 1.6, whiteSpace: "pre-line" }}>{item.aiSummary?.trim() ? readableRecommendation(t, item.aiSummary) : item.aiStatus === "FAILED" ? t.scoreFailed : t.scoringAi}</div>
         </div>
         <div className="card">
           <div className="ch"><div className="ct">{t.notesTags}</div><div style={{ fontSize: 11.5, color: "var(--text2)", fontWeight: 400 }}>{t.notesHint}</div></div>
@@ -2457,6 +2457,10 @@ function suggestClass(suggestion: Applicant["suggestion"]) {
   if (suggestion === "notAFit") return "chip-r";
   if (suggestion === "notAssessable" || suggestion === "manualAdded" || suggestion === "archived" || suggestion === "pending") return "chip-n";
   return "chip-a";
+}
+
+function readableRecommendation(t: T, text: string) {
+  return text.replaceAll("Needs Review", t.needsReview).replaceAll("needsReview", t.needsReview).replaceAll("notAFit", t.notAFit);
 }
 
 function suggestLabel(t: T, suggestion: Applicant["suggestion"]) {
