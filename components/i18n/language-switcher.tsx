@@ -32,7 +32,7 @@ export function LanguageSwitcher({ iconOnly = false, locales, locale: controlled
         }
         i18n.setLocale(nextLocale);
         fetch("/api/me", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ language: nextLocale }) }).catch(() => undefined);
-      }} className="h-9 rounded-lg border border-[var(--qf-border)] bg-white px-3 text-[13px] text-[var(--qf-text)] outline-none focus:border-[var(--qf-accent)]">
+      }} className={`${iconOnly ? "h-11 min-h-11 lg:h-9 lg:min-h-9" : "h-9"} rounded-lg border border-[var(--qf-border)] bg-white px-3 text-[13px] text-[var(--qf-text)] outline-none focus:border-[var(--qf-accent)]`}>
         {options.map((language) => <option key={language.value} value={language.value}>{language.label}</option>)}
       </select>
     </label>

@@ -8,7 +8,7 @@ type ShellUser = { role: string; allowed_modules: string[]; tasks_open?: number;
 
 const CACHE_KEY = "qf-shell-user";
 
-type TileId = "housekeeping" | "tasks" | "handovers" | "schedule" | "repairs" | "budget" | "notes" | "more";
+type TileId = "housekeeping" | "tasks" | "handovers" | "schedule" | "repairs" | "notes" | "more";
 
 function readUser(): ShellUser | null {
   if (typeof window === "undefined") return null;
@@ -40,7 +40,6 @@ export function DashboardModules() {
     if (id === "notes" || id === "repairs" || id === "handovers" || id === "tasks" || id === "schedule") return true;
     const modules = user.allowed_modules ?? [];
     if (id === "housekeeping") return modules.includes("housekeeping") || modules.includes("housekeeper");
-    if (id === "budget") return modules.includes("revenue");
     return false;
   }
 
@@ -69,7 +68,6 @@ export function DashboardModules() {
     ["handovers", "🤝"],
     ["schedule", "📅"],
     ["repairs", "🔧"],
-    ["budget", "📊"],
     ["notes", "📝"],
     ["more", "⋯"],
   ];

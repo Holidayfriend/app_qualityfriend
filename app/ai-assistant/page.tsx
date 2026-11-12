@@ -24,7 +24,7 @@ const copy = {
     demo: "(Demo-Antwort) Ich habe deine Anfrage erhalten: „{text}“. Im echten System würde hier die KI-Antwort basierend auf euren Betriebsdaten erscheinen.",
     assistants: [
       ["✨", "Allgemeiner Assistent", "Fragen, Analysen, Ideen", "general"],
-      ["📊", "Budget-Analyse", "Zahlen erklären & forecasen", "budget"],
+      ["📊", "AI Revenue Forecast", "Zahlen erklären & forecasen", "budget"],
       ["🔍", "Recruiting-Hilfe", "Stellenanzeigen & Interviews", "recruiting"],
       ["📖", "Handbücher", "Dokumente & Abläufe", "manuals"],
       ["📅", "Dienstplan optimieren", "Schichten & Urlaubsplanung", "schedule"],
@@ -48,7 +48,7 @@ const copy = {
     demo: "(Demo response) I received your request: “{text}”. In the real system, the AI response based on your operational data would appear here.",
     assistants: [
       ["✨", "General Assistant", "Questions, analyses, ideas", "general"],
-      ["📊", "Budget analysis", "Explain numbers & forecast", "budget"],
+      ["📊", "AI Revenue Forecast", "Explain numbers & forecast", "budget"],
       ["🔍", "Recruiting help", "Job ads & interviews", "recruiting"],
       ["📖", "Manuals", "Documents & procedures", "manuals"],
       ["📅", "Optimize schedule", "Shifts & vacation planning", "schedule"],
@@ -72,7 +72,7 @@ const copy = {
     demo: "(Risposta demo) Ho ricevuto la richiesta: “{text}”. Nel sistema reale apparirebbe qui la risposta IA basata sui dati operativi.",
     assistants: [
       ["✨", "Assistente generale", "Domande, analisi, idee", "general"],
-      ["📊", "Analisi budget", "Spiega dati e previsioni", "budget"],
+      ["📊", "Previsioni ricavi IA", "Spiega dati e previsioni", "budget"],
       ["🔍", "Aiuto recruiting", "Annunci e colloqui", "recruiting"],
       ["📖", "Manuali", "Documenti e procedure", "manuals"],
       ["📅", "Ottimizza turni", "Turni e ferie", "schedule"],

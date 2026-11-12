@@ -120,7 +120,7 @@ export function NotificationDropdown({ fullPage = false }: { fullPage?: boolean 
         if (triggerBottom !== undefined) setMobilePanelTop(Math.round(triggerBottom + 8));
       }
       setOpen(!open);
-    }} className="relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--qf-border)] bg-white" style={{ fontSize: 16 }}>
+    }} className="relative flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-[var(--qf-border)] bg-white lg:h-9 lg:w-9" style={{ fontSize: 16 }}>
       🔔{unreadCount>0?<span className="absolute right-[5px] top-[5px] h-2 w-2 rounded-full border-2 border-white bg-[var(--qf-danger)]" />:null}
     </button>
     {open && <section id={panelId} aria-label={t.title} className="fixed left-3 right-3 top-[var(--notification-panel-top)] z-[100] flex max-h-[var(--notification-panel-max-height)] flex-col overflow-hidden rounded-[10px] border border-[var(--qf-border)] bg-white text-[var(--qf-text)] shadow-[0_12px_32px_rgba(0,0,0,.15)] sm:absolute sm:left-auto sm:right-0 sm:top-[44px] sm:block sm:max-h-none sm:w-[320px] sm:max-w-[calc(100vw-32px)]" style={{ lineHeight: "normal", "--notification-panel-top": `${mobilePanelTop}px`, "--notification-panel-max-height": `calc(100dvh - ${mobilePanelTop}px - 76px - env(safe-area-inset-bottom))` } as CSSProperties}>
