@@ -2,7 +2,7 @@ import { buildApplicantAiSummary } from "./ai-summary";
 import type { PrismaClient } from "../../app/generated/prisma/client";
 import { parseQuizAnswers } from "./application-fields";
 import { cvReadState, NOT_ASSESSABLE, notAssessableSummaries, type CvReadState } from "./cv-read";
-import { fileMime, readRecruitingCv, readRecruitingExtraFile, unpackCvRef, writeRecruitingCvText, writeRecruitingExtraText } from "./cv-storage";
+import { fileMime, readRecruitingCv, readRecruitingCvText, readRecruitingExtraFile, unpackCvRef, writeRecruitingCvText, writeRecruitingExtraText } from "./cv-storage";
 import { extractRecruitingDocumentText } from "./extract-document";
 import { completeHotelChatJson } from "../ai/complete";
 
@@ -64,11 +64,12 @@ async function loadCvEvidence(application: ApplicationRow) {
   const extracted = buffer
     ? await extractRecruitingDocumentText(buffer, fileMime(cv.storageKey), cv.displayName || cv.storageKey)
     : "";
+  const text = extracted || await readRecruitingCvText(cv.storageKey);
   if (extracted) await writeRecruitingCvText(cv.storageKey, extracted);
   return {
-    state: cvReadState(true, extracted),
+    state: cvReadState(true, text),
     displayName: cv.displayName || "CV",
-    text: extracted,
+    text,
   };
 }
 

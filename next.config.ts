@@ -8,7 +8,7 @@ const nextConfig: NextConfig = {
       ],
     };
   },
-  serverExternalPackages: ["pg-boss"],
+  serverExternalPackages: ["pg-boss", "pdf-parse"],
   experimental: {
     serverActions: {
       bodySizeLimit: "21mb",
