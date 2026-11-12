@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { averageAmount, fallbackRate, recommendationStatus, splitHotelRates, weekDates } from "../lib/revenue/daily-recommendations";
 
-test("revenue week is today and the next six days", () => {
+test("revenue week is today and the next 13 days", () => {
   assert.deepEqual(weekDates("2026-11-09"), [
     "2026-11-09",
     "2026-11-10",
@@ -11,6 +11,13 @@ test("revenue week is today and the next six days", () => {
     "2026-11-13",
     "2026-11-14",
     "2026-11-15",
+    "2026-11-16",
+    "2026-11-17",
+    "2026-11-18",
+    "2026-11-19",
+    "2026-11-20",
+    "2026-11-21",
+    "2026-11-22",
   ]);
 });
 

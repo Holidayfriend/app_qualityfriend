@@ -5,7 +5,7 @@ import { hotelLocalIso } from "../hotel/clock";
 import { occupancyPercent } from "../housekeeping/dashboard-summary";
 import { addDaysIso } from "../schedule/week";
 
-export const REVENUE_WEEK_DAYS = 7;
+export const REVENUE_WEEK_DAYS = 14;
 export const OWN_HOTEL_PREFIX = "[OWN HOTEL] ";
 
 const closedReservationStatuses: ReservationStatus[] = ["CANCELLED", "NO_SHOW"];
