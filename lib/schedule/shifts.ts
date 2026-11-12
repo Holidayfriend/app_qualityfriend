@@ -391,13 +391,19 @@ export async function listWeekShifts(actor: ScheduleActor, weekStart: string, lo
   return listShiftsInRange(actor, weekStart, addDaysIso(weekStart, 6), locale);
 }
 
-/** Work streaks of 7 or more days that touch this week, using the same draft-over-published view as the grid. */
+/** Work streaks of 7 or more published days that touch this week. Unpublished drafts are ignored. */
 export async function listSevenDayWarnings(actor: ScheduleActor, weekStart: string) {
   if (!DATE.test(weekStart)) return [];
   const monday = mondayOfIso(weekStart);
-  const shifts = await listShiftsInRange(actor, addDaysIso(monday, -6), addDaysIso(monday, 12), "en");
+  await ensureShiftTable();
+  const from = new Date(`${addDaysIso(monday, -6)}T00:00:00.000Z`);
+  const to = new Date(`${addDaysIso(monday, 12)}T00:00:00.000Z`);
+  const published = await prisma.hotelShift.findMany({
+    where: { hotelTenantId: actor.hotel_tenant_id, workDate: { gte: from, lte: to }, kind: "WORK" },
+    select: { userId: true, workDate: true },
+  });
   return sevenDayWorkWarnings(
-    shifts.filter((shift) => shift.kind === "work").map((shift) => ({ userId: shift.userId, date: shift.date })),
+    published.map((row) => ({ userId: row.userId, date: isoDay(row.workDate) })),
     weekIsoDates(monday),
   );
 }
