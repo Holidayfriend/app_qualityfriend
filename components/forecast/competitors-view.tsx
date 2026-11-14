@@ -20,9 +20,15 @@ type Hotel = {
   fetchedAt: string;
 };
 
-function adrText(value: number | null) {
+function moneyText(value: number | null) {
   if (value === null) return "–";
   return `${value.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+}
+
+function rangeText(min: number | null, max: number | null) {
+  if (min === null && max === null) return "–";
+  if (min === null || max === null || min === max) return moneyText(min ?? max);
+  return `${moneyText(min)} – ${moneyText(max)}`;
 }
 
 function starText(count: number | null) {
@@ -82,13 +88,16 @@ export function CompetitorsView() {
     const km = maxKm === "" ? null : Number(maxKm);
     return hotels.filter((hotel) => {
       if (query && !hotel.name.toLowerCase().includes(query.toLowerCase())) return false;
-      const price = hotel.adr;
-      if (min !== null && (price === null || price < min)) return false;
-      if (max !== null && (price === null || price > max)) return false;
+      const low = hotel.minPrice ?? hotel.maxPrice;
+      const high = hotel.maxPrice ?? hotel.minPrice;
+      if (min !== null && (high === null || high < min)) return false;
+      if (max !== null && (low === null || low > max)) return false;
       if (km !== null && (hotel.distanceKm === null || hotel.distanceKm > km)) return false;
       return true;
     });
   }, [hotels, maxKm, maxPrice, minPrice, query]);
+
+  const tracked = useMemo(() => visible.filter((hotel) => !hotel.own), [visible]);
 
   function openNew() {
     setEditor("new");
@@ -163,7 +172,7 @@ export function CompetitorsView() {
               <b>{hotel.rating ?? "–"}</b>
               <span className="text-[12px] text-[var(--qf-text-muted)]">{hotel.reviewCount ?? 0} {t.reviews}</span>
             </div>
-            <p className="text-[13px] text-[var(--qf-text-muted)]">{adrText(hotel.adr)}</p>
+            <p className="text-[13px] text-[var(--qf-text-muted)]">{rangeText(hotel.minPrice, hotel.maxPrice)}</p>
             <p className="mt-1 text-[12px] text-[var(--qf-text-muted)]">{hotel.distanceKm === null ? "–" : `${hotel.distanceKm.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} km`}</p>
           </article>
         ))}
@@ -177,11 +186,13 @@ export function CompetitorsView() {
         <button type="button" onClick={openNew} className="cursor-pointer rounded-[7px] bg-[var(--qf-accent)] px-3.5 py-[7px] text-[13px] font-semibold text-white">{t.addHotel}</button>
       </div>
       <Card title={t.tracked} flush>
-        <DataTable headers={[{ label: t.hotel }, { label: t.adr }, { label: t.distanceCol }, { label: t.ratingLead }, { label: t.actions, align: "right" }]}>
-          {visible.length === 0 ? <tr><td colSpan={5} className="px-3 py-4 text-[13px] text-[var(--qf-text-muted)]">{t.empty}</td></tr> : visible.map((hotel) => (
+        <DataTable headers={[{ label: t.hotel }, { label: t.minPrice }, { label: t.maxPrice }, { label: t.adr }, { label: t.distanceCol }, { label: t.ratingLead }, { label: t.actions, align: "right" }]}>
+          {tracked.length === 0 ? <tr><td colSpan={7} className="px-3 py-4 text-[13px] text-[var(--qf-text-muted)]">{t.empty}</td></tr> : tracked.map((hotel) => (
             <tr key={hotel.id} className="group">
-              <Td strong={hotel.own}>{hotel.name}</Td>
-              <Td muted={hotel.adr === null}>{adrText(hotel.adr)}</Td>
+              <Td>{hotel.name}</Td>
+              <Td muted={hotel.minPrice === null}>{moneyText(hotel.minPrice)}</Td>
+              <Td muted={hotel.maxPrice === null}>{moneyText(hotel.maxPrice)}</Td>
+              <Td muted={hotel.adr === null}>{moneyText(hotel.adr)}</Td>
               <Td>{hotel.distanceKm === null ? "–" : `${hotel.distanceKm.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} km`}</Td>
               <Td>{hotel.rating ?? "–"}</Td>
               <Td align="right">
