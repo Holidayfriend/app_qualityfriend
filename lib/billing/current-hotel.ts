@@ -16,6 +16,7 @@ export async function currentBillingHotel(requireAdmin = false) {
         select: {
           companyName: true,
           subscriptionStatus: true,
+          creationSource: true,
           paypalSubscriptionId: true,
           paypalPlanId: true,
           subscriptionStartedAt: true,

@@ -499,6 +499,13 @@ enum SubscriptionStatus {
   COMPED
 }
 
+// PUBLIC hotels register on the hotel app and bill through PayPal.
+// ADMIN hotels are created in the super-admin portal and never subscribe.
+enum HotelCreationSource {
+  PUBLIC
+  ADMIN
+}
+
 enum PaymentProvider {
   PAYPAL
 }
@@ -568,6 +575,7 @@ model HotelTenant {
   mcpUserPassword                                String?                                   @map("mcp_user_password") @db.VarChar(255)
   mcpUserDepartment                              String?                                   @map("mcp_user_department") @db.VarChar(128)
   subscriptionStatus                             SubscriptionStatus                        @default(PENDING) @map("subscription_status")
+  creationSource                                 HotelCreationSource                       @default(PUBLIC) @map("creation_source")
   paypalSubscriptionId                           String?                                   @unique @map("paypal_subscription_id") @db.VarChar(128)
   paypalPlanId                                   String?                                   @map("paypal_plan_id") @db.VarChar(128)
   subscriptionStartedAt                          DateTime?                                 @map("subscription_started_at") @db.Timestamptz(3)

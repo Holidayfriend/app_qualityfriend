@@ -9,6 +9,7 @@ export async function GET() {
   const configuration = await paypalConfiguration();
   return NextResponse.json({
     status: hotel.subscriptionStatus,
+    creationSource: hotel.creationSource,
     subscriptionId: hotel.paypalSubscriptionId,
     planId: hotel.paypalPlanId,
     startedAt: hotel.subscriptionStartedAt,

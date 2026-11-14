@@ -8,6 +8,7 @@ import { prisma } from "../../../../../lib/prisma";
 export async function POST(request: Request) {
   const user = await currentBillingHotel(true);
   if (!user) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  if (user.hotelTenant.creationSource === "ADMIN") return NextResponse.json({ error: "NO_SUBSCRIPTION" }, { status: 409 });
   if (["ACTIVE","COMPED"].includes(user.hotelTenant.subscriptionStatus)) return NextResponse.json({ error: "ALREADY_ACTIVE" }, { status: 409 });
   try {
     const body=await request.json().catch(()=>null),couponCode=typeof body?.couponCode==="string"?body.couponCode:"",coupon=couponCode?await validCoupon(couponCode):null,configuration=await paypalConfiguration();
