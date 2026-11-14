@@ -11,7 +11,9 @@ function isEmailConflict(error: unknown) {
   return error instanceof Error && /email already registered/i.test(error.message);
 }
 
-export async function loginSyncedMcpUser(userId: string, email: string, password: string) {
+export async function loginSyncedMcpUser(userId: string, email: string, password: string, mcpEmail?: string | null) {
+  const stored = mcpEmail?.trim();
+  if (stored) return loginMcpUser(stored, password);
   try { return await loginMcpUser(fallbackMcpUserEmail(userId), password); }
   catch (error) {
     try { return await loginMcpUser(email, password); }
@@ -57,7 +59,7 @@ export async function createRemoteUser(context: McpUserContext, data: { id: stri
   }
   const allowed = data.isActive && await roleHasMcpAccess((await prisma.hotelTenant.findFirstOrThrow({ where: { mcpHotelId: context.hotelId }, select: { id: true } })).id, data.role);
   if (!allowed) await updateMcpUser(context.token, id, { hotelId: context.hotelId, email: remoteEmail, role: mcpRole(data.role), isActive: false, departmentId });
-  return { id, password };
+  return { id, password, email: remoteEmail };
 }
 
 export async function updateRemoteUser(context: McpUserContext, local: { id: string; hotelTenantId: string; mcpUserId: string; email: string; role: string; isActive: boolean; departmentId: string | null; mcpDepartmentId?: string | null }) {
@@ -88,16 +90,17 @@ export async function setRemoteUserAccess(context: McpUserContext, local: { id: 
   try { await updateMcpUser(context.token, id, data); }
   catch (error) {
     if (!isEmailConflict(error)) throw error;
-    await updateMcpUser(context.token, id, { ...data, email: fallbackMcpUserEmail(local.id) });
+    remoteEmail = fallbackMcpUserEmail(local.id);
+    await updateMcpUser(context.token, id, { ...data, email: remoteEmail });
   }
-  return { id, password };
+  return { id, password, email: remoteEmail };
 }
 
 export async function syncMissingMcpUsers(hotelTenantId: string, context: McpUserContext) {
   const users = await prisma.user.findMany({ where: { hotelTenantId, isDeleted: false, mcpUserId: null }, select: { id: true, email: true, role: true, isActive: true, departmentId: true } });
   for (const user of users) {
     const remote = await createRemoteUser(context, user);
-    await prisma.user.update({ where: { id: user.id }, data: { mcpUserId: remote.id, mcpUserPassword: remote.password } });
+    await prisma.user.update({ where: { id: user.id }, data: { mcpUserId: remote.id, mcpUserEmail: remote.email, mcpUserPassword: remote.password } });
   }
 }
 
@@ -111,21 +114,22 @@ export async function ensureMcpUser(userId: string, context: McpUserContext) {
       isActive: true,
       departmentId: true,
       mcpUserId: true,
+      mcpUserEmail: true,
       mcpUserPassword: true,
     },
   });
   if (!user) throw new Error("The QualityFriend user could not be found.");
   if (user.mcpUserId && user.mcpUserPassword) {
-    return { id: user.mcpUserId, email: user.email, password: user.mcpUserPassword };
+    return { id: user.mcpUserId, email: user.mcpUserEmail || user.email, password: user.mcpUserPassword };
   }
   if (user.mcpUserId || user.mcpUserPassword) {
     throw new Error("The MCP user credentials are incomplete.");
   }
 
-  const remote = await createRemoteUser(context, user);
+  const remote = await createRemoteUser(context, { ...user, email: user.mcpUserEmail || user.email });
   await prisma.user.update({
     where: { id: user.id },
-    data: { mcpUserId: remote.id, mcpUserPassword: remote.password },
+    data: { mcpUserId: remote.id, mcpUserEmail: remote.email, mcpUserPassword: remote.password },
   });
   return { id: remote.id, email: user.email, password: remote.password };
 }

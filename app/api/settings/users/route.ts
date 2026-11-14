@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     const mcp = await getMcpUserContext(current.hotelTenantId);
     if (mcp) {
       const remote = await createRemoteUser(mcp, { id: userId, email, role: role, isActive, departmentId, mcpDepartmentId: await oneMcpDepartmentId(departmentIds, mcp.defaultDepartmentId), password });
-      await prisma.user.update({ where: { id: userId }, data: { mcpUserId: remote.id, mcpUserPassword: remote.password } });
+      await prisma.user.update({ where: { id: userId }, data: { mcpUserId: remote.id, mcpUserEmail: remote.email, mcpUserPassword: remote.password } });
     }
   } catch (error) { console.error("User MCP sync failed", error); warning = "MCP_SYNC_FAILED"; }
   const hotel = await prisma.hotelTenant.findUnique({ where: { id: current.hotelTenantId }, select: { hotelLanguage: true, hotelNameEn: true, hotelNameDe: true, hotelNameIt: true } });

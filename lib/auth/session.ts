@@ -37,11 +37,11 @@ export async function getMcpSessionToken() {
 export async function setPersonalMcpSessionToken(userId: string) {
   const user = await prisma.user.findFirst({
     where: { id: userId, isActive: true, isDeleted: false },
-    select: { id: true, email: true, mcpUserId: true, mcpUserPassword: true },
+    select: { id: true, email: true, mcpUserId: true, mcpUserEmail: true, mcpUserPassword: true },
   });
   if (!user?.mcpUserId || !user.mcpUserPassword) return null;
   const { loginSyncedMcpUser } = await import("../mcp/user-sync");
-  const token = await loginSyncedMcpUser(user.id, user.email, user.mcpUserPassword);
+  const token = await loginSyncedMcpUser(user.id, user.email, user.mcpUserPassword, user.mcpUserEmail);
   await setMcpSessionToken(token);
   return token;
 }

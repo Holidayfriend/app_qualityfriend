@@ -35,7 +35,7 @@ export async function PATCH(request: Request) {
     const users = await prisma.user.findMany({ where: { hotelTenantId: current.hotelTenantId, role, isDeleted: false }, select: { id: true, mcpUserId: true, email: true, role: true, isActive: true, departmentId: true } });
     for (const user of users) {
       const remote = await setRemoteUserAccess(mcp, user, canView);
-      if (!user.mcpUserId) await prisma.user.update({ where: { id: user.id }, data: { mcpUserId: remote.id, mcpUserPassword: remote.password } });
+      if (!user.mcpUserId) await prisma.user.update({ where: { id: user.id }, data: { mcpUserId: remote.id, mcpUserEmail: remote.email, mcpUserPassword: remote.password } });
     }
     return NextResponse.json({ success: true });
   } catch (error) {
