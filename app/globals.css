@@ -409,6 +409,8 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 .qf-dashboard .job-summernote .note-editing-area .note-editable { background:var(--surface);color:var(--text);font-family:inherit }
 .settings-policy-editor .job-summernote .note-editor.note-frame { border:1px solid var(--qf-border);border-radius:7px;background:#fff }
 .settings-policy-editor .job-summernote .note-editor.note-frame.note-focus { border-color:var(--qf-accent) }
+.settings-policy-editor .job-summernote.is-invalid .note-editor.note-frame,.settings-policy-editor .job-summernote.is-invalid .note-editor.note-frame.note-focus { border-color:#dc2626 }
+.account-settings-form [aria-invalid="true"] { scroll-margin-top:96px;scroll-margin-bottom:80px }
 .settings-policy-editor .job-summernote .note-toolbar { background:var(--qf-background);border-bottom:1px solid var(--qf-border) }
 .settings-policy-editor .job-summernote .note-editing-area .note-editable { background:#fff;color:var(--qf-text);font-family:inherit }
 .qf-dashboard .job-desc-preview ul,.qf-dashboard .job-desc-preview ol { padding-left:1.25em;margin:.4em 0 }

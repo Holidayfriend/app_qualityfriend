@@ -64,7 +64,7 @@ export function HotelSettingsForm<T extends HotelSettingsValues>({ hotel, setHot
       <Group title={t.profileGroup} help={t.profileGroupHelp}>
         <Input id="hotel-name" label={t.hotelName} requiredMark error={errors[key]} value={hotel[key]} onChange={(event) => update({ [key]: event.target.value })} />
         <Input label={t.logo} value={hotel.logoUrl} onChange={(event) => update({ logoUrl: event.target.value })} />
-        <SelectField label={t.hotelLanguage} value={hotel.hotelLanguage} onChange={(hotelLanguage) => update({ hotelLanguage })}>
+        <SelectField id="hotel-language" label={t.hotelLanguage} error={errors.hotelLanguage} value={hotel.hotelLanguage} onChange={(hotelLanguage) => update({ hotelLanguage })}>
           <option value="EN">English</option>
           <option value="DE">Deutsch</option>
           <option value="IT">Italiano</option>
@@ -72,8 +72,8 @@ export function HotelSettingsForm<T extends HotelSettingsValues>({ hotel, setHot
         <SelectField label={t.timeZone} value={hotel.timeZone || DEFAULT_HOTEL_TIME_ZONE} onChange={(timeZone) => update({ timeZone })}>
           {zones.map((zone) => <option key={zone} value={zone}>{zone}</option>)}
         </SelectField>
-        <Input label={t.rooms} type="number" min={0} value={hotel.roomCount} onChange={(event) => update({ roomCount: event.target.value })} />
-        <SelectField label={t.stars} value={hotel.starRating} onChange={(starRating) => update({ starRating })}>
+        <Input id="hotel-rooms" label={t.rooms} type="number" min={0} error={errors.roomCount} value={hotel.roomCount} onChange={(event) => update({ roomCount: event.target.value })} />
+        <SelectField id="hotel-stars" label={t.stars} error={errors.starRating} value={hotel.starRating} onChange={(starRating) => update({ starRating })}>
           <option value="">{t.starsPlaceholder}</option>
           {starCategories.map((code) => {
             const label = { "1": t.star1, "2": t.star2, "3": t.star3, "3S": t.star3s, "4": t.star4, "4S": t.star4s, "5": t.star5, "5S": t.star5s }[code];
@@ -103,20 +103,20 @@ export function HotelSettingsForm<T extends HotelSettingsValues>({ hotel, setHot
         <Input id="hotel-street" label={t.street} requiredMark error={errors.streetAddress} value={hotel.streetAddress} onChange={(event) => update({ streetAddress: event.target.value })} />
         <Input id="hotel-postal-code" label={t.zip} requiredMark error={errors.postalCode} value={hotel.postalCode} onChange={(event) => update({ postalCode: event.target.value })} />
         <Input label={t.vat} value={hotel.vatId} onChange={(event) => update({ vatId: event.target.value })} />
-        <SelectField label={t.legalForm} value={hotel.legalForm} onChange={(legalForm) => update({ legalForm })}>
+        <SelectField id="hotel-legal-form" label={t.legalForm} error={errors.legalForm} value={hotel.legalForm} onChange={(legalForm) => update({ legalForm })}>
           <option value="">{t.legalFormPlaceholder}</option>
           {legalForms.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           {hotel.legalForm && !legalForms.some(([value]) => value === hotel.legalForm) ? <option value={hotel.legalForm}>{hotel.legalForm}</option> : null}
         </SelectField>
       </Group>
       <Group title={t.invoicingGroup} help={t.invoicingHelp}>
-        <Input type="email" label={t.invoiceEmail} value={hotel.invoiceEmail} placeholder="billing@hotel.com" onChange={(event) => update({ invoiceEmail: event.target.value })} />
-        <Input type="email" label={t.pec} value={hotel.pecAddress} placeholder="name@pec.it" onChange={(event) => update({ pecAddress: event.target.value })} />
-        <Input label={t.sdi} value={hotel.sdiCode} maxLength={7} placeholder="ABC1234" onChange={(event) => update({ sdiCode: event.target.value.toUpperCase() })} />
+        <Input id="hotel-invoice-email" type="email" label={t.invoiceEmail} error={errors.invoiceEmail} value={hotel.invoiceEmail} placeholder="billing@hotel.com" onChange={(event) => update({ invoiceEmail: event.target.value })} />
+        <Input id="hotel-pec" type="email" label={t.pec} error={errors.pecAddress} value={hotel.pecAddress} placeholder="name@pec.it" onChange={(event) => update({ pecAddress: event.target.value })} />
+        <Input id="hotel-sdi" label={t.sdi} error={errors.sdiCode} value={hotel.sdiCode} maxLength={7} placeholder="ABC1234" onChange={(event) => update({ sdiCode: event.target.value.toUpperCase() })} />
       </Group>
       <Group title={t.stayGroup} help={t.stayHelp}>
-        <Input label={t.checkIn} type="time" value={hotel.checkInTime} onChange={(event) => update({ checkInTime: event.target.value })} />
-        <Input label={t.checkOut} type="time" value={hotel.checkOutTime} onChange={(event) => update({ checkOutTime: event.target.value })} />
+        <Input id="hotel-check-in" label={t.checkIn} type="time" error={errors.checkInTime} value={hotel.checkInTime} onChange={(event) => update({ checkInTime: event.target.value })} />
+        <Input id="hotel-check-out" label={t.checkOut} type="time" error={errors.checkOutTime} value={hotel.checkOutTime} onChange={(event) => update({ checkOutTime: event.target.value })} />
         <SelectField label={t.seasonal} value={hotel.seasonal ? "yes" : "no"} onChange={(value) => update({ seasonal: value === "yes", openingPeriod: value === "yes" ? hotel.openingPeriod : "", closurePeriod: value === "yes" ? hotel.closurePeriod : "" })}>
           <option value="no">{t.no}</option>
           <option value="yes">{t.yes}</option>
@@ -129,14 +129,14 @@ export function HotelSettingsForm<T extends HotelSettingsValues>({ hotel, setHot
         ) : null}
       </Group>
       <Group title={t.systemsGroup} help={t.systemsHelp}>
-        <SelectField label={t.pms} value={pmsChoice} onChange={(value) => update({ pmsName: value === "ASA" ? "ASA" : value === "OTHER" ? (hotel.pmsName === "ASA" ? "" : hotel.pmsName) : "" })}>
+        <SelectField id="hotel-pms" label={t.pms} error={pmsChoice === "OTHER" ? undefined : errors.pmsName} value={pmsChoice} onChange={(value) => update({ pmsName: value === "ASA" ? "ASA" : value === "OTHER" ? (hotel.pmsName === "ASA" ? "" : hotel.pmsName) : "" })}>
           <option value="">{t.pmsPlaceholder}</option>
           <option value="ASA">ASA</option>
           <option value="OTHER">{t.pmsOtherOption}</option>
         </SelectField>
-        {pmsChoice === "OTHER" ? <Input label={t.pmsOther} value={hotel.pmsName} onChange={(event) => update({ pmsName: event.target.value })} /> : null}
-        <Input label={t.asaXmlName} value={hotel.asaXmlName} maxLength={255} placeholder="hotel" onChange={(event) => update({ asaXmlName: event.target.value })} />
-        <Input label={t.forecastXmlName} value={hotel.forecastXmlName} maxLength={255} placeholder="Forecast_qualityfriend" onChange={(event) => update({ forecastXmlName: event.target.value })} />
+        {pmsChoice === "OTHER" ? <Input id="hotel-pms-name" label={t.pmsOther} error={errors.pmsName} value={hotel.pmsName} onChange={(event) => update({ pmsName: event.target.value })} /> : null}
+        <Input id="hotel-asa-xml" label={t.asaXmlName} error={errors.asaXmlName} value={hotel.asaXmlName} maxLength={255} placeholder="hotel" onChange={(event) => update({ asaXmlName: event.target.value })} />
+        <Input id="hotel-forecast-xml" label={t.forecastXmlName} error={errors.forecastXmlName} value={hotel.forecastXmlName} maxLength={255} placeholder="Forecast_qualityfriend" onChange={(event) => update({ forecastXmlName: event.target.value })} />
         <Input label={t.tripadvisor} value={hotel.tripadvisorId} onChange={(event) => update({ tripadvisorId: event.target.value })} />
       </Group>
     </>
