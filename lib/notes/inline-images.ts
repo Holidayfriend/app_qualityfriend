@@ -1,7 +1,9 @@
+import { stripBrokenDataImages } from "./note-html";
 import { saveInlineNoteImage } from "./storage";
 
+export { stripBrokenDataImages } from "./note-html";
+
 const DATA_IMAGE = /<img\b[^>]*?\ssrc\s*=\s*(["'])data:image\/(png|jpe?g|gif|webp);base64,([^"']+)\1/gi;
-const BROKEN_DATA_IMAGE = /<img\b[^>]*\ssrc\s*=\s*["']data:image\/[^"']*$/gi;
 const MAX_BASE64 = Math.ceil((8 * 1024 * 1024) / 3) * 4;
 
 type ImageExt = "png" | "jpg" | "gif" | "webp";
@@ -12,10 +14,6 @@ function imageExt(value: string): ImageExt {
   if (ext === "gif") return "gif";
   if (ext === "webp") return "webp";
   return "png";
-}
-
-export function stripBrokenDataImages(html: string) {
-  return html.replace(BROKEN_DATA_IMAGE, "");
 }
 
 export async function materializeNoteImages(

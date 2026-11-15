@@ -10,7 +10,8 @@ import { hotelTimeZoneFor } from "../hotel/context";
 import { prisma } from "../prisma";
 import { departmentIdsOf, usersInDepartments } from "../users/memberships";
 import type { NotesActor } from "./access";
-import { materializeHotelNoteImages, stripBrokenDataImages } from "./inline-images";
+import { materializeHotelNoteImages } from "./inline-images";
+import { stripBrokenDataImages } from "./note-html";
 import { deleteNoteFile, isNoteUpload, saveNoteFile } from "./storage";
 
 export const MAX_NOTE_FILES = 10;

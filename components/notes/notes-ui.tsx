@@ -9,6 +9,7 @@ import { BrandLoader } from "../ui/brand-loader";
 import { useToast } from "../ui/toast-provider";
 import { getNotesMessages, type NotesMessages } from "../../lib/i18n/notes-messages";
 import { noteColorFor, type Note, type NoteDept, type NoteFile, type NoteVisibility } from "../../lib/notes/demo-data";
+import { stripBrokenDataImages } from "../../lib/notes/note-html";
 import { htmlToPlain, RichTextEditor, richTextHtml, sanitizeJobHtml, type RichTextEditorHandle } from "../recruiting/rich-text-editor";
 import { useNotes, type HotelDept, type HotelUser } from "./notes-provider";
 
@@ -105,6 +106,7 @@ export function NotesFormPage({ id }: { id?: string }) {
   const [hydrated, setHydrated] = useState(!id);
   const fileInput = useRef<HTMLInputElement>(null);
   const descRef = useRef<RichTextEditorHandle>(null);
+  const filledId = useRef("");
 
   async function uploadNoteImage(file: File) {
     setImagesPending((count) => count + 1);
@@ -127,17 +129,20 @@ export function NotesFormPage({ id }: { id?: string }) {
   }
 
   useEffect(() => {
-    if (!id || loading) return;
+    if (!id || loading || filledId.current === id) return;
     const note = notes.find((item) => item.id === id);
-    if (note) {
-      setTitle(note.title);
-      setDesc(richTextHtml(note.desc));
-      setVisibility(note.visibility);
-      setDepts(note.depts);
-      setUserIds(note.userIds);
-      setTags(note.tags);
-      setKept(note.attachments);
+    if (!note) {
+      setHydrated(true);
+      return;
     }
+    setTitle(note.title);
+    setDesc(richTextHtml(stripBrokenDataImages(note.desc)));
+    setVisibility(note.visibility);
+    setDepts(note.depts);
+    setUserIds(note.userIds);
+    setTags(note.tags);
+    setKept(note.attachments);
+    filledId.current = id;
     setHydrated(true);
   }, [id, notes, loading]);
 
@@ -146,7 +151,7 @@ export function NotesFormPage({ id }: { id?: string }) {
     const selected = templates.find((item) => item.id === value);
     if (!selected) return;
     setTitle(selected.title);
-    setDesc(richTextHtml(selected.desc));
+    setDesc(richTextHtml(stripBrokenDataImages(selected.desc)));
     setTags(selected.tags);
   }
 
