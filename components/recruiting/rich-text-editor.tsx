@@ -58,6 +58,26 @@ function jquery(): JQueryLike | undefined {
   return (window as Window & { jQuery?: JQueryLike }).jQuery;
 }
 
+function editableOf(editor: HTMLElement) {
+  const frame = editor.nextElementSibling;
+  if (!frame?.classList.contains("note-editor")) return null;
+  return frame.querySelector<HTMLElement>(".note-editable");
+}
+
+function placeEditorImage(editor: HTMLElement, url: string) {
+  const editable = editableOf(editor);
+  if (!editable) return "";
+  const image = document.createElement("img");
+  image.src = url;
+  image.alt = "";
+  editable.appendChild(image);
+  document.querySelectorAll("body > img").forEach((node) => {
+    const src = node.getAttribute("src") || "";
+    if (src === url || src.startsWith("data:image/")) node.remove();
+  });
+  return editable.innerHTML;
+}
+
 function hasSummernote() {
   const jq = (window as Window & { jQuery?: { fn?: { summernote?: unknown } } }).jQuery;
   return typeof jq?.fn?.summernote === "function";
@@ -171,7 +191,12 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, {
               if (!upload) return;
               Array.from(files).forEach((file) => {
                 void upload(file).then((url) => {
-                  if (!destroyed && url) $(editor).summernote("insertImage", url, () => undefined);
+                  if (destroyed || !url) return;
+                  const html = placeEditorImage(editor, url);
+                  if (!html) return;
+                  fromEditor.current = true;
+                  try { $(editor).summernote("code", html); } catch { /* the picture is already in the editor */ }
+                  onChangeRef.current(html);
                 });
               });
             },
