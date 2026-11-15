@@ -49,6 +49,49 @@ export function hotelDayStart(timeZone?: string | null, now = new Date()) {
   return first === offset(utc) ? utc : new Date(guess.getTime() - offset(utc));
 }
 
+export function hotelLocalDateTimeInput(value: Date, timeZone?: string | null) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: hotelTimeZone(timeZone),
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(value);
+  const part = Object.fromEntries(parts.map((item) => [item.type, item.value]));
+  return `${part.year}-${part.month}-${part.day}T${part.hour}:${part.minute}`;
+}
+
+export function hotelLocalDateTimeToUtc(value: string, timeZone?: string | null) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const zone = hotelTimeZone(timeZone);
+  const guess = new Date(Date.UTC(year, month - 1, day, hour, minute));
+  const offset = (date: Date) => {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: zone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(date);
+    const num = (type: string) => Number(parts.find((item) => item.type === type)?.value);
+    return Date.UTC(num("year"), num("month") - 1, num("day"), num("hour") % 24, num("minute"), num("second")) - date.getTime();
+  };
+  const first = offset(guess);
+  const utc = new Date(guess.getTime() - first);
+  return first === offset(utc) ? utc : new Date(guess.getTime() - offset(utc));
+}
+
 export function hotelLocalHour(timeZone?: string | null, now = new Date()) {
   return Number(new Intl.DateTimeFormat("en-GB", {
     timeZone: hotelTimeZone(timeZone),

@@ -10,6 +10,7 @@ export type Note = {
   title: string;
   creator: string;
   date: string;
+  createdLocal?: string;
   status: NoteStatus;
   visibility: NoteVisibility;
   depts: NoteDept[];

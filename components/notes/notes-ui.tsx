@@ -49,13 +49,58 @@ function NoteCardImage({ src }: { src: string }) {
   return <img className="note-preview-image" src={src} alt="" onError={() => setHidden(true)} />;
 }
 
+function NoteStampEditor({ note, onSaved }: { note: Note; onSaved: () => Promise<void> }) {
+  const t = useT();
+  const { locale } = useI18n();
+  const toast = useToast();
+  const [when, setWhen] = useState(note.createdLocal ?? "");
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => { setWhen(note.createdLocal ?? ""); }, [note.createdLocal, note.id]);
+
+  async function save() {
+    if (busy) return;
+    const body: { createdAt?: string; email?: string } = {};
+    if (when) body.createdAt = when;
+    if (email.trim()) body.email = email.trim();
+    if (!body.createdAt && !body.email) return;
+    setBusy(true);
+    try {
+      const response = await fetch(`/api/notes/${note.id}?locale=${locale}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await response.json().catch(() => null) as { error?: string } | null;
+      if (!response.ok) {
+        toast({ message: data?.error === "USER_NOT_FOUND" ? t.stampUserMissing : t.saveFailed, tone: "error" });
+        return;
+      }
+      setEmail("");
+      toast({ message: t.stampSaved, tone: "success" });
+      await onSaved();
+    } catch {
+      toast({ message: t.saveFailed, tone: "error" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return <div className="note-stamp" onClick={(event) => event.preventDefault()}>
+    <input className="field-input" type="datetime-local" value={when} onChange={(event) => setWhen(event.target.value)} />
+    <input className="field-input" type="email" placeholder={t.stampEmail} value={email} onChange={(event) => setEmail(event.target.value)} />
+    <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void save()}>{t.stampSave}</button>
+  </div>;
+}
+
 function Shell({ title, children }: { title: string; children: ReactNode }) {
   return <AppShell activeItem="notes" pageTitle={title}><main className="qf-dashboard qf-notes pb-24 lg:pb-[24px]">{children}</main></AppShell>;
 }
 
 export function NotesListPage() {
   const t = useT();
-  const { notes, loading, canManage } = useNotes();
+  const { notes, loading, canManage, reload } = useNotes();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("alle");
   const rows = notes.filter((note) => {
@@ -78,13 +123,16 @@ export function NotesListPage() {
     <div className="note-grid">
       {rows.length ? rows.map((note) => {
         const preview = notePreviewImage(note.desc);
-        return <Link key={note.id} href={`/notes/${note.id}`} className="note-card" style={{ background: noteColorFor(note), opacity: note.status === "inaktiv" ? 0.55 : 1 }}>
-        {note.visibility === "privat" ? <div style={{ position: "absolute", top: 10, right: 12, fontSize: 14 }}>🔒</div> : null}
-        <div className="note-title">{note.title}</div>
-        {preview ? <NoteCardImage src={preview} /> : null}
-        <div className="note-body">{htmlToPlain(note.desc).slice(0, 140)}</div>
-        <div className="note-meta">{note.creator} · {note.date}</div>
-      </Link>;
+        return <article key={note.id} className="note-card" style={{ background: noteColorFor(note), opacity: note.status === "inaktiv" ? 0.55 : 1 }}>
+        <Link href={`/notes/${note.id}`} className="note-card-link">
+          {note.visibility === "privat" ? <div style={{ position: "absolute", top: 10, right: 12, fontSize: 14 }}>🔒</div> : null}
+          <div className="note-title">{note.title}</div>
+          {preview ? <NoteCardImage src={preview} /> : null}
+          <div className="note-body">{htmlToPlain(note.desc).slice(0, 140)}</div>
+          <div className="note-meta">{note.creator} · {note.date}</div>
+        </Link>
+        {canManage ? <NoteStampEditor note={note} onSaved={reload} /> : null}
+      </article>;
       }) : <div style={{ fontSize: 12.5, color: "var(--text3)", gridColumn: "1 / -1" }}>{t.empty}</div>}
     </div>
   </Shell>;

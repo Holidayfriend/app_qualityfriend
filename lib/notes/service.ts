@@ -5,7 +5,7 @@ import type { Prisma } from "../../app/generated/prisma/client";
 import type { HotelNoteKind, HotelNoteStatus, HotelNoteVisibility } from "../../app/generated/prisma/client";
 import { recordAuditLog } from "../audit/audit-service";
 import { pickLocalized, sanitizeJobHtml } from "../recruiting/job-fields";
-import { formatHotelDate } from "../hotel/clock";
+import { formatHotelDate, hotelLocalDateTimeInput, hotelLocalDateTimeToUtc } from "../hotel/clock";
 import { hotelTimeZoneFor } from "../hotel/context";
 import { prisma } from "../prisma";
 import { departmentIdsOf, usersInDepartments } from "../users/memberships";
@@ -71,6 +71,7 @@ export function toPublicNote(row: NoteRow, locale: string, timeZone?: string | n
     desc: stripBrokenDataImages(pickLocalized(row.description, row.descriptionDe, row.descriptionIt, locale)),
     creator: `${row.createdBy.firstName} ${row.createdBy.lastName}`.trim(),
     date: formatHotelDate(row.createdAt, locale, timeZone),
+    createdLocal: hotelLocalDateTimeInput(row.createdAt, timeZone),
     status,
     visibility,
     depts: row.departments.map((item) => item.departmentId),
@@ -424,6 +425,31 @@ export async function updateNote(actor: NotesActor, id: string, form: FormData, 
   });
   for (const file of removed) await deleteNoteFile(file.storageKey);
   return { note: toPublicNote(updated, locale, timeZone) };
+}
+
+export async function updateNoteStamp(actor: NotesActor, id: string, input: { createdAt?: string; email?: string }, locale: string) {
+  if (!actor.canManage) return { error: "FORBIDDEN" as const };
+  const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
+  const existing = await prisma.hotelNote.findFirst({ where: { id, hotelTenantId: actor.hotel_tenant_id, kind: "NOTE" }, select: { id: true } });
+  if (!existing) return { error: "NOT_FOUND" as const };
+  const data: { createdAt?: Date; createdById?: string } = {};
+  if (input.createdAt) {
+    const createdAt = hotelLocalDateTimeToUtc(input.createdAt, timeZone);
+    if (!createdAt || Number.isNaN(createdAt.getTime())) return { error: "INVALID" as const };
+    data.createdAt = createdAt;
+  }
+  const email = input.email?.trim().toLowerCase() ?? "";
+  if (email) {
+    const user = await prisma.user.findFirst({
+      where: { hotelTenantId: actor.hotel_tenant_id, isDeleted: false, email: { equals: email, mode: "insensitive" } },
+      select: { id: true },
+    });
+    if (!user) return { error: "USER_NOT_FOUND" as const };
+    data.createdById = user.id;
+  }
+  if (!data.createdAt && !data.createdById) return { error: "INVALID" as const };
+  const row = await prisma.hotelNote.update({ where: { id }, data, include });
+  return { note: toPublicNote(row, locale, timeZone) };
 }
 
 export async function updateNoteStatus(actor: NotesActor, id: string, status: HotelNoteStatus, locale: string) {
