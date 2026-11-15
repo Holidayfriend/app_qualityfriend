@@ -8,6 +8,7 @@ import { useI18n } from "../i18n/i18n-provider";
 import { BrandLoader } from "../ui/brand-loader";
 import { AttachmentField, AttachmentGallery, AttachmentIndicator, type AttachmentItem } from "../ui/attachment-field";
 import { useToast } from "../ui/toast-provider";
+import { stripBrokenDataImages } from "../../lib/notes/note-html";
 import { RichTextEditor, richTextHtml, sanitizeJobHtml, type RichTextEditorHandle } from "../recruiting/rich-text-editor";
 import { useAiRecommendation } from "../ai/use-ai-recommendation";
 import { getHandoversMessages, type HandoversMessages } from "../../lib/i18n/handovers-messages";
@@ -43,11 +44,11 @@ function ReadStatus({ item, t }: { item: PublicHandover; t: T }) {
 }
 
 function HandoverBody({ desc }: { desc: string }) {
-  return <div className="hov-text job-desc-preview" dangerouslySetInnerHTML={{ __html: richTextHtml(desc) }} />;
+  return <div className="hov-text job-desc-preview" dangerouslySetInnerHTML={{ __html: richTextHtml(stripBrokenDataImages(desc)) }} />;
 }
 
 function Shell({ title, children }: { title: string; children: ReactNode }) {
-  return <AppShell activeItem="handovers" pageTitle={title}><main className="qf-dashboard pb-24 lg:pb-[24px]">{children}</main></AppShell>;
+  return <AppShell activeItem="handovers" pageTitle={title}><main className="qf-dashboard qf-handovers pb-24 lg:pb-[24px]">{children}</main></AppShell>;
 }
 
 async function patchHandover(id: string, locale: string, body: Record<string, unknown>) {
@@ -312,7 +313,7 @@ export function HandoversFormPage({ id, aiDraft = false }: { id?: string; aiDraf
     {busy ? <BrandLoader label={t.translating} overlay /> : null}
     <Link href="/handovers/list" className="back-link">{t.back}</Link>
     <form className="g2" onSubmit={(event: FormEvent) => { event.preventDefault(); void persist("handover"); }}>
-      <div>
+      <div className="note-form-main">
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="ch">
             <div className="ct">{t.content}</div>
@@ -326,7 +327,7 @@ export function HandoversFormPage({ id, aiDraft = false }: { id?: string; aiDraf
             <input className="field-input" style={{ marginBottom: 14 }} placeholder={t.titlePlaceholder} value={title} onChange={(event) => setTitle(event.target.value)} />
             <label className="field-lbl">{t.description}</label>
             {phone ? <button type="button" className="btn btn-ghost handover-format-toggle" onClick={() => setFormatOpen((open) => !open)}>{formatOpen ? t.hideFormat : t.showFormat}</button> : null}
-            <div className={`handover-editor${phone && !formatOpen ? " is-collapsed" : ""}`}>
+            <div className={`handover-editor note-rich${phone && !formatOpen ? " is-collapsed" : ""}`}>
               <RichTextEditor ref={descRef} value={desc} onChange={setDesc} placeholder={t.descPlaceholder} locale={locale} height={phone ? 140 : 280} compact={phone} />
             </div>
             <div style={{ fontSize: 11.5, color: "var(--text3)", margin: "6px 0 0" }}>{t.autoTranslate}</div>
@@ -402,7 +403,7 @@ export function HandoversDetailPage({ id }: { id: string }) {
         <span className={`chip ${item.status === "erledigt" ? "chip-g" : item.status === "draft" ? "chip-a" : "chip-b"}`}>{statusLabel(item.status, t)}</span>
       </div>
       <div className="cb">
-        {item.desc ? <div className="job-desc-preview" style={{ fontSize: 13.5, lineHeight: 1.7, marginBottom: 14 }} dangerouslySetInnerHTML={{ __html: richTextHtml(item.desc) }} /> : null}
+        {item.desc ? <div className="job-desc-preview" style={{ fontSize: 13.5, lineHeight: 1.7, marginBottom: 14 }} dangerouslySetInnerHTML={{ __html: richTextHtml(stripBrokenDataImages(item.desc)) }} /> : null}
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
           {item.depts.length ? item.depts.map((dept) => <span key={dept} className="chip chip-n">{deptName(dept, departments)}</span>) : <span className="chip chip-n">{visLabel(item.visibility, t)}</span>}
         </div>

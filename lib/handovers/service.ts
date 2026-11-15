@@ -11,6 +11,7 @@ import { departmentIdsOf, usersInDepartments } from "../users/memberships";
 import { copyAttachmentFile, deleteAttachmentFile, isAttachmentUpload, saveAttachmentFile } from "../attachments/storage";
 import type { HandoversActor } from "./access";
 import { ensureHandoverReads } from "./ensure-reads";
+import { stripBrokenDataImages } from "../notes/note-html";
 import { translateHandoverFields } from "./translate";
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -81,7 +82,7 @@ export function toPublicHandover(row: Row, locale: string, timeZone: string | nu
     id: row.id,
     kind: row.kind === "TEMPLATE" ? "template" : "handover",
     title: pickLocalized(row.title, row.titleDe, row.titleIt, locale),
-    desc: pickLocalized(row.description, row.descriptionDe, row.descriptionIt, locale),
+    desc: stripBrokenDataImages(pickLocalized(row.description, row.descriptionDe, row.descriptionIt, locale)),
     tags: locale === "de" ? row.tagsDe : locale === "it" ? row.tagsIt : row.tags,
     creator: nameOf(row.createdBy),
     creatorId: row.createdById,
@@ -273,7 +274,7 @@ export async function createHandover(actor: HandoversActor, form: FormData, loca
   const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   if (!actor.canManage) return { error: "FORBIDDEN" as const };
   const title = formValue(form, "title").trim().slice(0, 180);
-  const description = sanitizeJobHtml(formValue(form, "description")).trim().slice(0, 20000);
+  const description = stripBrokenDataImages(sanitizeJobHtml(formValue(form, "description")).trim().slice(0, 20000));
   if (!title) return { error: "TITLE_REQUIRED" as const };
   const kind = kindOf(formValue(form, "kind") || "handover");
   const draft = formValue(form, "status") === "draft";
@@ -336,7 +337,7 @@ export async function updateHandover(actor: HandoversActor, id: string, form: Fo
   const existing = await prisma.handover.findFirst({ where: { id, ...visibleWhere(actor, "HANDOVER") }, include });
   if (!existing) return { error: "NOT_FOUND" as const };
   const title = formValue(form, "title").trim().slice(0, 180);
-  const description = sanitizeJobHtml(formValue(form, "description")).trim().slice(0, 20000);
+  const description = stripBrokenDataImages(sanitizeJobHtml(formValue(form, "description")).trim().slice(0, 20000));
   if (!title) return { error: "TITLE_REQUIRED" as const };
   const draft = formValue(form, "status") === "draft";
   const status: HandoverStatus = draft ? "DRAFT" : existing.status === "DONE" ? "DONE" : "OPEN";
