@@ -1125,7 +1125,7 @@
     "tabSwap": "⇄ Schichttausch",
     "tabStats": "📊 Statistiken",
     "kpiStaffWeek": "Mitarbeiter diese Woche",
-    "kpiStaffSub": "1 im Urlaub",
+    "kpiStaffSub": "{n} im Urlaub",
     "kpiHours": "Planungsstunden",
     "hoursUnit": "h",
     "kpiHoursChip": "+ Budget",

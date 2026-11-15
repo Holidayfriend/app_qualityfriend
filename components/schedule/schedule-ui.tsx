@@ -165,6 +165,7 @@ export function SchedulePlanPage() {
   const [suggestion, setSuggestion] = useState<WeekSuggestion | null>(null);
   const [suggesting, setSuggesting] = useState(false);
   const visible = employees.filter((emp) => deptFilter === "all" || (deptFilter === "none" ? emp.departmentIds.length === 0 : emp.departmentIds.includes(deptFilter)));
+  const onVacation = employees.filter((emp) => emp.shifts.some((shift) => shift.kind === "vac")).length;
   const scheduledHours = weekWorkHours(visible);
   const dayLabels = weekDates.map((iso) => formatDayHeader(iso, locale));
 
@@ -310,7 +311,7 @@ export function SchedulePlanPage() {
     </div> : null}
     <div className="schedule-print-root schedule-plan">
     <div className="kpi-row no-print" style={{ gridTemplateColumns: "repeat(3,1fr)", marginBottom: 18 }}>
-      <div className="kpi"><div className="kpi-lbl">{t.kpiStaffWeek}</div><div className="kpi-val">{employees.length}</div><div className="kpi-sub">{t.kpiStaffSub}</div></div>
+      <div className="kpi"><div className="kpi-lbl">{t.kpiStaffWeek}</div><div className="kpi-val">{employees.length}</div><div className="kpi-sub">{fill(t.kpiStaffSub, { n: String(onVacation) })}</div></div>
       <div className="kpi"><div className="kpi-lbl">{t.kpiHours}</div><div className="kpi-val">{formatWorkHours(scheduledHours)}<span>{t.hoursUnit}</span></div><div className="kpi-sub">{formatWeekRange(weekStartIso, locale)}</div></div>
       <div className="kpi"><div className="kpi-lbl">{t.kpiOpenShifts}</div><div className="kpi-val" style={{ color: "var(--amber)" }}>1</div><div className="kpi-sub"><span className="chip chip-a">{t.kpiOpenChip}</span></div></div>
     </div>

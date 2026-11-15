@@ -1127,7 +1127,7 @@
     "tabSwap": "⇄ Shift swaps",
     "tabStats": "📊 Statistics",
     "kpiStaffWeek": "Staff this week",
-    "kpiStaffSub": "1 on vacation",
+    "kpiStaffSub": "{n} on vacation",
     "kpiHours": "Scheduled hours",
     "hoursUnit": "h",
     "kpiHoursChip": "+ Budget",
