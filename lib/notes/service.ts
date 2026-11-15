@@ -10,6 +10,7 @@ import { hotelTimeZoneFor } from "../hotel/context";
 import { prisma } from "../prisma";
 import { departmentIdsOf, usersInDepartments } from "../users/memberships";
 import type { NotesActor } from "./access";
+import { materializeHotelNoteImages, stripBrokenDataImages } from "./inline-images";
 import { deleteNoteFile, isNoteUpload, saveNoteFile } from "./storage";
 
 export const MAX_NOTE_FILES = 10;
@@ -66,7 +67,7 @@ export function toPublicNote(row: NoteRow, locale: string, timeZone?: string | n
     createdById: row.createdById,
     kind: row.kind === "TEMPLATE" ? "template" : "note",
     title: pickLocalized(row.title, row.titleDe, row.titleIt, locale),
-    desc: pickLocalized(row.description, row.descriptionDe, row.descriptionIt, locale),
+    desc: stripBrokenDataImages(pickLocalized(row.description, row.descriptionDe, row.descriptionIt, locale)),
     creator: `${row.createdBy.firstName} ${row.createdBy.lastName}`.trim(),
     date: formatHotelDate(row.createdAt, locale, timeZone),
     status,
@@ -288,7 +289,7 @@ export async function getOwnedNote(actor: NotesActor, id: string) {
 export async function createNote(actor: NotesActor, form: FormData, locale: string) {
   const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   const title = String(form.get("title") ?? "").trim().slice(0, 180);
-  const description = sanitizeJobHtml(String(form.get("description") ?? "")).trim().slice(0, 20000);
+  const description = (await materializeHotelNoteImages(actor.hotel_tenant_id, sanitizeJobHtml(String(form.get("description") ?? "")))).trim().slice(0, 20000);
   if (!title) return { error: "TITLE_REQUIRED" as const };
   const kind = kindOf(String(form.get("kind") ?? "note"));
   const status = statusOf(String(form.get("status") ?? "aktiv"), kind === "TEMPLATE" ? "ACTIVE" : "ACTIVE");
@@ -359,7 +360,7 @@ export async function updateNote(actor: NotesActor, id: string, form: FormData, 
   if (!actor.canManage) return { error: "FORBIDDEN" as const };
   if (existing.kind === "TEMPLATE") return { error: "NOT_FOUND" as const };
   const title = String(form.get("title") ?? "").trim().slice(0, 180);
-  const description = sanitizeJobHtml(String(form.get("description") ?? "")).trim().slice(0, 20000);
+  const description = (await materializeHotelNoteImages(actor.hotel_tenant_id, sanitizeJobHtml(String(form.get("description") ?? "")))).trim().slice(0, 20000);
   if (!title) return { error: "TITLE_REQUIRED" as const };
   const visibility = visibilityOf(String(form.get("visibility") ?? "alle"));
   const tags = parseJsonList(form.get("tags")).slice(0, 40);

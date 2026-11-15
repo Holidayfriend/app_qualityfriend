@@ -8,6 +8,7 @@ type SummernoteApi = {
   (method: "code"): string;
   (method: "code", html: string): unknown;
   (method: "destroy"): unknown;
+  (method: "insertImage", url: string): unknown;
 };
 
 type JQueryLike = (el: HTMLElement) => { summernote: SummernoteApi };
@@ -104,13 +105,16 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, {
   invalid?: boolean;
   height?: number;
   compact?: boolean;
-}>(function RichTextEditor({ value, onChange, placeholder, locale, invalid = false, height = 350, compact = false }, ref) {
+  uploadImage?: (file: File) => Promise<string | null>;
+}>(function RichTextEditor({ value, onChange, placeholder, locale, invalid = false, height = 350, compact = false, uploadImage }, ref) {
   const holderRef = useRef<HTMLDivElement>(null);
   const targetRef = useRef<HTMLElement | null>(null);
   const valueRef = useRef(value);
   const onChangeRef = useRef(onChange);
+  const uploadRef = useRef(uploadImage);
   valueRef.current = value;
   onChangeRef.current = onChange;
+  uploadRef.current = uploadImage;
 
   useImperativeHandle(ref, () => ({
     getHtml: () => {
@@ -158,6 +162,17 @@ export const RichTextEditor = forwardRef<RichTextEditorHandle, {
               if (typeof html === "string") onChangeRef.current(html);
             } catch { /* editor not ready */ }
           },
+          ...(uploadRef.current ? {
+            onImageUpload: (files: File[]) => {
+              const upload = uploadRef.current;
+              if (!upload) return;
+              Array.from(files).forEach((file) => {
+                void upload(file).then((url) => {
+                  if (!destroyed && url) $(editor).summernote("insertImage", url);
+                });
+              });
+            },
+          } : {}),
         },
       });
       $(editor).summernote("code", valueRef.current);

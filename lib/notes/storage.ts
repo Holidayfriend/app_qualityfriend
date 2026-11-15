@@ -78,3 +78,40 @@ export async function deleteNoteFile(storageKey: string) {
   if (!target.startsWith(root + path.sep)) return;
   await unlink(target).catch(() => undefined);
 }
+
+const HOTEL_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const IMAGE_KEY = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpe?g|webp|gif)$/i;
+const inlineRoot = () => path.join(process.cwd(), "storage", "notes-inline");
+
+export function noteImageExtension(type: string, name = "") {
+  if (type === "image/png") return "png";
+  if (type === "image/jpeg") return "jpg";
+  if (type === "image/webp") return "webp";
+  if (type === "image/gif") return "gif";
+  const match = /\.(png|jpe?g|webp|gif)$/i.exec(name);
+  if (!match) return null;
+  return match[1].toLowerCase() === "jpeg" ? "jpg" : match[1].toLowerCase();
+}
+
+export async function saveInlineNoteImage(hotelTenantId: string, bytes: Buffer, ext: string) {
+  const safeExt = ext === "jpeg" ? "jpg" : ext;
+  if (!HOTEL_ID.test(hotelTenantId) || !["png", "jpg", "gif", "webp"].includes(safeExt)) return null;
+  if (bytes.length <= 0 || bytes.length > MAX_BYTES) return null;
+  const storageKey = `${randomUUID()}.${safeExt}`;
+  const dir = path.join(inlineRoot(), hotelTenantId);
+  await mkdir(dir, { recursive: true });
+  await writeFile(path.join(dir, storageKey), bytes);
+  return `/api/notes/images/${storageKey}`;
+}
+
+export async function readInlineNoteImage(hotelTenantId: string, storageKey: string) {
+  if (!HOTEL_ID.test(hotelTenantId) || !IMAGE_KEY.test(storageKey)) return null;
+  const root = path.resolve(inlineRoot(), hotelTenantId);
+  const target = path.resolve(root, storageKey);
+  if (!target.startsWith(root + path.sep)) return null;
+  try {
+    return await readFile(target);
+  } catch {
+    return null;
+  }
+}

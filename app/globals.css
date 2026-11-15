@@ -416,6 +416,8 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 .qf-dashboard .job-desc-preview ul,.qf-dashboard .job-desc-preview ol { padding-left:1.25em;margin:.4em 0 }
 .qf-dashboard .job-desc-preview p { margin:.4em 0 }
 .qf-dashboard .job-desc-preview a { color:var(--accent) }
+.qf-dashboard .job-desc-preview img,.qf-dashboard .job-summernote .note-editable img { max-width:100%;height:auto }
+.qf-dashboard .note-preview-image { display:block;width:100%;max-height:140px;object-fit:cover;border-radius:8px;margin:0 0 8px }
 .qf-dashboard .field-row { display:grid;grid-template-columns:1fr 1fr;gap:12px }
 .qf-dashboard .kb-card { background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;box-shadow:var(--sh);cursor:pointer;text-align:left;font:inherit;color:inherit }
 .qf-dashboard .kb-card:hover { border-color:var(--accent) }

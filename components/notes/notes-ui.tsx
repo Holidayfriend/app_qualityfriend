@@ -35,6 +35,13 @@ function userLabel(id: string, users: HotelUser[]) {
   return users.find((item) => item.id === id)?.name ?? id;
 }
 
+function notePreviewImage(html: string) {
+  const match = html.match(/<img\b[^>]*\ssrc=(["'])([^"']+)\1/i);
+  const src = match?.[2] ?? "";
+  if (!src || src.startsWith("data:") || /^\s*javascript:/i.test(src)) return "";
+  return src;
+}
+
 function Shell({ title, children }: { title: string; children: ReactNode }) {
   return <AppShell activeItem="notes" pageTitle={title}><main className="qf-dashboard pb-24 lg:pb-[24px]">{children}</main></AppShell>;
 }
@@ -62,12 +69,16 @@ export function NotesListPage() {
       </div> : null}
     </div>
     <div className="note-grid">
-      {rows.length ? rows.map((note) => <Link key={note.id} href={`/notes/${note.id}`} className="note-card" style={{ background: noteColorFor(note), opacity: note.status === "inaktiv" ? 0.55 : 1 }}>
+      {rows.length ? rows.map((note) => {
+        const preview = notePreviewImage(note.desc);
+        return <Link key={note.id} href={`/notes/${note.id}`} className="note-card" style={{ background: noteColorFor(note), opacity: note.status === "inaktiv" ? 0.55 : 1 }}>
         {note.visibility === "privat" ? <div style={{ position: "absolute", top: 10, right: 12, fontSize: 14 }}>🔒</div> : null}
         <div className="note-title">{note.title}</div>
+        {preview ? <img className="note-preview-image" src={preview} alt="" /> : null}
         <div className="note-body">{htmlToPlain(note.desc).slice(0, 140)}</div>
         <div className="note-meta">{note.creator} · {note.date}</div>
-      </Link>) : <div style={{ fontSize: 12.5, color: "var(--text3)", gridColumn: "1 / -1" }}>{t.empty}</div>}
+      </Link>;
+      }) : <div style={{ fontSize: 12.5, color: "var(--text3)", gridColumn: "1 / -1" }}>{t.empty}</div>}
     </div>
   </Shell>;
 }
@@ -90,9 +101,30 @@ export function NotesFormPage({ id }: { id?: string }) {
   const [kept, setKept] = useState<NoteFile[]>([]);
   const [uploads, setUploads] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
+  const [imagesPending, setImagesPending] = useState(0);
   const [hydrated, setHydrated] = useState(!id);
   const fileInput = useRef<HTMLInputElement>(null);
   const descRef = useRef<RichTextEditorHandle>(null);
+
+  async function uploadNoteImage(file: File) {
+    setImagesPending((count) => count + 1);
+    try {
+      const body = new FormData();
+      body.set("file", file);
+      const response = await fetch("/api/notes/images", { method: "POST", body });
+      const data = await response.json().catch(() => null) as { url?: string } | null;
+      if (!response.ok || !data?.url) {
+        toast({ message: t.saveFailed, tone: "error" });
+        return null;
+      }
+      return data.url;
+    } catch {
+      toast({ message: t.saveFailed, tone: "error" });
+      return null;
+    } finally {
+      setImagesPending((count) => count - 1);
+    }
+  }
 
   useEffect(() => {
     if (!id || loading) return;
@@ -150,7 +182,7 @@ export function NotesFormPage({ id }: { id?: string }) {
       toast({ message: t.titleRequired, tone: "error" });
       return;
     }
-    if (busy) return;
+    if (busy || imagesPending) return;
     setBusy(true);
     try {
       const form = new FormData();
@@ -213,7 +245,7 @@ export function NotesFormPage({ id }: { id?: string }) {
             <input className="field-input" style={{ marginBottom: 14 }} placeholder={t.titlePlaceholder} value={title} onChange={(event) => setTitle(event.target.value)} />
             <label className="field-lbl">{t.description}</label>
             <div style={{ marginBottom: 6 }}>
-              <RichTextEditor ref={descRef} value={desc} onChange={setDesc} placeholder={t.descPlaceholder} locale={locale} height={280} />
+              <RichTextEditor ref={descRef} value={desc} onChange={setDesc} placeholder={t.descPlaceholder} locale={locale} height={280} uploadImage={uploadNoteImage} />
             </div>
             <div style={{ fontSize: 11.5, color: "var(--text3)", margin: "6px 0 16px" }}>{t.autoTranslate}</div>
             <label className="field-lbl">{t.attachment}</label>
@@ -275,9 +307,9 @@ export function NotesFormPage({ id }: { id?: string }) {
         </div>
         <div className="card">
           <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <button type="button" className="btn btn-primary" onClick={() => void submit("note")}>{t.save}</button>
-            {!id ? <button type="button" className="btn btn-ghost" onClick={() => void submit("draft")}>{t.saveDraft}</button> : null}
-            <button type="button" className="btn btn-ghost" onClick={() => void submit("template")}>{t.saveTemplate}</button>
+            <button type="button" className="btn btn-primary" disabled={busy || imagesPending > 0} onClick={() => void submit("note")}>{t.save}</button>
+            {!id ? <button type="button" className="btn btn-ghost" disabled={busy || imagesPending > 0} onClick={() => void submit("draft")}>{t.saveDraft}</button> : null}
+            <button type="button" className="btn btn-ghost" disabled={busy || imagesPending > 0} onClick={() => void submit("template")}>{t.saveTemplate}</button>
           </div>
         </div>
       </div>
