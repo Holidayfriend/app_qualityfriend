@@ -1129,8 +1129,6 @@
     "kpiHours": "Planungsstunden",
     "hoursUnit": "h",
     "kpiHoursChip": "+ Budget",
-    "kpiOpenShifts": "Offene Schichten",
-    "kpiOpenChip": "Frühstück Mo",
     "weekPlan": "📅 Wochenplan · {range}",
     "prevWeek": "‹ Vorwoche",
     "nextWeek": "Nächste Woche ›",

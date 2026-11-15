@@ -1129,8 +1129,6 @@
     "kpiHours": "Ore pianificate",
     "hoursUnit": "h",
     "kpiHoursChip": "+ Budget",
-    "kpiOpenShifts": "Turni aperti",
-    "kpiOpenChip": "Colazione lun",
     "weekPlan": "📅 Piano settimanale · {range}",
     "prevWeek": "‹ Settimana precedente",
     "nextWeek": "Settimana successiva ›",

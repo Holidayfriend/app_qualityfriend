@@ -1131,8 +1131,6 @@
     "kpiHours": "Scheduled hours",
     "hoursUnit": "h",
     "kpiHoursChip": "+ Budget",
-    "kpiOpenShifts": "Open shifts",
-    "kpiOpenChip": "Breakfast Mon",
     "weekPlan": "📅 Weekly plan · {range}",
     "prevWeek": "‹ Previous week",
     "nextWeek": "Next week ›",

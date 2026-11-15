@@ -310,10 +310,9 @@ export function SchedulePlanPage() {
       </div>
     </div> : null}
     <div className="schedule-print-root schedule-plan">
-    <div className="kpi-row no-print" style={{ gridTemplateColumns: "repeat(3,1fr)", marginBottom: 18 }}>
+    <div className="kpi-row no-print" style={{ gridTemplateColumns: "repeat(2,1fr)", marginBottom: 18 }}>
       <div className="kpi"><div className="kpi-lbl">{t.kpiStaffWeek}</div><div className="kpi-val">{employees.length}</div><div className="kpi-sub">{fill(t.kpiStaffSub, { n: String(onVacation) })}</div></div>
       <div className="kpi"><div className="kpi-lbl">{t.kpiHours}</div><div className="kpi-val">{formatWorkHours(scheduledHours)}<span>{t.hoursUnit}</span></div><div className="kpi-sub">{formatWeekRange(weekStartIso, locale)}</div></div>
-      <div className="kpi"><div className="kpi-lbl">{t.kpiOpenShifts}</div><div className="kpi-val" style={{ color: "var(--amber)" }}>1</div><div className="kpi-sub"><span className="chip chip-a">{t.kpiOpenChip}</span></div></div>
     </div>
     <SevenDayNotice warnings={sevenDay} employees={employees} t={t} locale={locale} />
     <div className="card schedule-week-card schedule-desktop-only" style={{ marginBottom: 18 }}>
