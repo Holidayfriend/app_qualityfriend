@@ -9,6 +9,7 @@ import { BrandLoader } from "../ui/brand-loader";
 import { useToast } from "../ui/toast-provider";
 import { getNotesMessages, type NotesMessages } from "../../lib/i18n/notes-messages";
 import { noteColorFor, type Note, type NoteDept, type NoteFile, type NoteVisibility } from "../../lib/notes/demo-data";
+import { htmlToPlain, RichTextEditor, richTextHtml, sanitizeJobHtml, type RichTextEditorHandle } from "../recruiting/rich-text-editor";
 import { useNotes, type HotelDept, type HotelUser } from "./notes-provider";
 
 type T = NotesMessages;
@@ -45,7 +46,7 @@ export function NotesListPage() {
   const [filter, setFilter] = useState<Filter>("alle");
   const rows = notes.filter((note) => {
     const statusOk = filter === "alle" || note.status === filter;
-    const textOk = !query || `${note.title}${note.desc}`.toLowerCase().includes(query.toLowerCase());
+    const textOk = !query || `${note.title} ${htmlToPlain(note.desc)}`.toLowerCase().includes(query.toLowerCase());
     return statusOk && textOk;
   });
 
@@ -64,7 +65,7 @@ export function NotesListPage() {
       {rows.length ? rows.map((note) => <Link key={note.id} href={`/notes/${note.id}`} className="note-card" style={{ background: noteColorFor(note), opacity: note.status === "inaktiv" ? 0.55 : 1 }}>
         {note.visibility === "privat" ? <div style={{ position: "absolute", top: 10, right: 12, fontSize: 14 }}>🔒</div> : null}
         <div className="note-title">{note.title}</div>
-        <div className="note-body">{note.desc.split("\n")[0].slice(0, 140)}</div>
+        <div className="note-body">{htmlToPlain(note.desc).slice(0, 140)}</div>
         <div className="note-meta">{note.creator} · {note.date}</div>
       </Link>) : <div style={{ fontSize: 12.5, color: "var(--text3)", gridColumn: "1 / -1" }}>{t.empty}</div>}
     </div>
@@ -91,13 +92,14 @@ export function NotesFormPage({ id }: { id?: string }) {
   const [busy, setBusy] = useState(false);
   const [hydrated, setHydrated] = useState(!id);
   const fileInput = useRef<HTMLInputElement>(null);
+  const descRef = useRef<RichTextEditorHandle>(null);
 
   useEffect(() => {
     if (!id || loading) return;
     const note = notes.find((item) => item.id === id);
     if (note) {
       setTitle(note.title);
-      setDesc(note.desc);
+      setDesc(richTextHtml(note.desc));
       setVisibility(note.visibility);
       setDepts(note.depts);
       setUserIds(note.userIds);
@@ -112,7 +114,7 @@ export function NotesFormPage({ id }: { id?: string }) {
     const selected = templates.find((item) => item.id === value);
     if (!selected) return;
     setTitle(selected.title);
-    setDesc(selected.desc);
+    setDesc(richTextHtml(selected.desc));
     setTags(selected.tags);
   }
 
@@ -153,7 +155,7 @@ export function NotesFormPage({ id }: { id?: string }) {
     try {
       const form = new FormData();
       form.set("title", title.trim());
-      form.set("description", desc);
+      form.set("description", sanitizeJobHtml(descRef.current?.getHtml() ?? desc));
       form.set("tags", JSON.stringify(tags));
       form.set("visibility", visibility);
       form.set("departmentIds", JSON.stringify(depts));
@@ -188,7 +190,7 @@ export function NotesFormPage({ id }: { id?: string }) {
     }
   }
 
-  if (loading || (id && !hydrated && !existing)) return <Shell title={t.pageTitle}><BrandLoader label={t.loading} /></Shell>;
+  if (loading || (id && !hydrated)) return <Shell title={t.pageTitle}><BrandLoader label={t.loading} /></Shell>;
   if (id && !existing && hydrated && !notes.some((item) => item.id === id) && !loading) {
     return <Shell title={t.pageTitle}><Link href="/notes" className="back-link">{t.back}</Link><p style={{ fontSize: 12.5, color: "var(--text3)" }}>{t.empty}</p></Shell>;
   }
@@ -210,7 +212,9 @@ export function NotesFormPage({ id }: { id?: string }) {
             <label className="field-lbl">{t.title}</label>
             <input className="field-input" style={{ marginBottom: 14 }} placeholder={t.titlePlaceholder} value={title} onChange={(event) => setTitle(event.target.value)} />
             <label className="field-lbl">{t.description}</label>
-            <textarea className="field-input" style={{ minHeight: 160, resize: "vertical", lineHeight: 1.6 }} placeholder={t.descPlaceholder} value={desc} onChange={(event) => setDesc(event.target.value)} />
+            <div style={{ marginBottom: 6 }}>
+              <RichTextEditor ref={descRef} value={desc} onChange={setDesc} placeholder={t.descPlaceholder} locale={locale} height={280} />
+            </div>
             <div style={{ fontSize: 11.5, color: "var(--text3)", margin: "6px 0 16px" }}>{t.autoTranslate}</div>
             <label className="field-lbl">{t.attachment}</label>
             <input ref={fileInput} type="file" multiple hidden accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp,.gif,application/pdf,image/*" onChange={(event) => { if (event.target.files) addFiles(event.target.files); event.target.value = ""; }} />
@@ -373,7 +377,7 @@ export function NotesDetailPage({ id }: { id: string }) {
           <span>{fill(t.translatedFrom, { lang: langName })}</span>
           <button type="button" style={{ color: "var(--accent)", cursor: "pointer", fontWeight: 600, background: "none", border: 0, font: "inherit" }} onClick={() => setShowOriginal((value) => !value)}>{showOriginal ? t.showTranslation : t.showOriginal}</button>
         </div> : null}
-        <div style={{ fontSize: 13.5, lineHeight: 1.7, whiteSpace: "pre-line", marginBottom: 14 }}>{note.desc}</div>
+        {note.desc ? <div className="job-desc-preview" style={{ fontSize: 13.5, lineHeight: 1.7, marginBottom: 14 }} dangerouslySetInnerHTML={{ __html: richTextHtml(note.desc) }} /> : null}
         <div style={{ marginBottom: 14 }}>
           {note.attachments.map((file) => <a key={file.id ?? file.name} href={file.url} target="_blank" rel="noreferrer" className="doc-row"><div className="doc-ic">📎</div><div className="doc-name">{file.name}</div></a>)}
         </div>

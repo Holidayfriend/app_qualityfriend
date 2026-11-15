@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import type { Prisma } from "../../app/generated/prisma/client";
 import type { HotelNoteKind, HotelNoteStatus, HotelNoteVisibility } from "../../app/generated/prisma/client";
 import { recordAuditLog } from "../audit/audit-service";
-import { pickLocalized } from "../recruiting/job-fields";
+import { pickLocalized, sanitizeJobHtml } from "../recruiting/job-fields";
 import { formatHotelDate } from "../hotel/clock";
 import { hotelTimeZoneFor } from "../hotel/context";
 import { prisma } from "../prisma";
@@ -288,7 +288,7 @@ export async function getOwnedNote(actor: NotesActor, id: string) {
 export async function createNote(actor: NotesActor, form: FormData, locale: string) {
   const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   const title = String(form.get("title") ?? "").trim().slice(0, 180);
-  const description = String(form.get("description") ?? "").trim().slice(0, 20000);
+  const description = sanitizeJobHtml(String(form.get("description") ?? "")).trim().slice(0, 20000);
   if (!title) return { error: "TITLE_REQUIRED" as const };
   const kind = kindOf(String(form.get("kind") ?? "note"));
   const status = statusOf(String(form.get("status") ?? "aktiv"), kind === "TEMPLATE" ? "ACTIVE" : "ACTIVE");
@@ -359,7 +359,7 @@ export async function updateNote(actor: NotesActor, id: string, form: FormData, 
   if (!actor.canManage) return { error: "FORBIDDEN" as const };
   if (existing.kind === "TEMPLATE") return { error: "NOT_FOUND" as const };
   const title = String(form.get("title") ?? "").trim().slice(0, 180);
-  const description = String(form.get("description") ?? "").trim().slice(0, 20000);
+  const description = sanitizeJobHtml(String(form.get("description") ?? "")).trim().slice(0, 20000);
   if (!title) return { error: "TITLE_REQUIRED" as const };
   const visibility = visibilityOf(String(form.get("visibility") ?? "alle"));
   const tags = parseJsonList(form.get("tags")).slice(0, 40);
