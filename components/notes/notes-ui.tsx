@@ -43,6 +43,12 @@ function notePreviewImage(html: string) {
   return src;
 }
 
+function NoteCardImage({ src }: { src: string }) {
+  const [hidden, setHidden] = useState(false);
+  if (hidden) return null;
+  return <img className="note-preview-image" src={src} alt="" onError={() => setHidden(true)} />;
+}
+
 function Shell({ title, children }: { title: string; children: ReactNode }) {
   return <AppShell activeItem="notes" pageTitle={title}><main className="qf-dashboard qf-notes pb-24 lg:pb-[24px]">{children}</main></AppShell>;
 }
@@ -75,7 +81,7 @@ export function NotesListPage() {
         return <Link key={note.id} href={`/notes/${note.id}`} className="note-card" style={{ background: noteColorFor(note), opacity: note.status === "inaktiv" ? 0.55 : 1 }}>
         {note.visibility === "privat" ? <div style={{ position: "absolute", top: 10, right: 12, fontSize: 14 }}>🔒</div> : null}
         <div className="note-title">{note.title}</div>
-        {preview ? <img className="note-preview-image" src={preview} alt="" /> : null}
+        {preview ? <NoteCardImage src={preview} /> : null}
         <div className="note-body">{htmlToPlain(note.desc).slice(0, 140)}</div>
         <div className="note-meta">{note.creator} · {note.date}</div>
       </Link>;

@@ -1253,6 +1253,16 @@ model ManualFileBlob {
   @@map("manual_file_blobs")
 }
 
+model NoteInlineImage {
+  hotelTenantId String   @map("hotel_tenant_id") @db.Uuid
+  storageKey    String   @map("storage_key") @db.VarChar(80)
+  bytes         Bytes
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@id([hotelTenantId, storageKey])
+  @@map("note_inline_images")
+}
+
 model ManualChunk {
   id            String         @id @default(uuid()) @db.Uuid
   hotelTenantId String         @map("hotel_tenant_id") @db.Uuid

@@ -93,24 +93,67 @@ export function noteImageExtension(type: string, name = "") {
   return match[1].toLowerCase() === "jpeg" ? "jpg" : match[1].toLowerCase();
 }
 
+let inlineTableReady: Promise<void> | null = null;
+
+async function ensureInlineTable() {
+  inlineTableReady ??= import("../prisma").then(({ prisma }) => prisma.$executeRawUnsafe(`
+    CREATE TABLE IF NOT EXISTS "note_inline_images" (
+      "hotel_tenant_id" UUID NOT NULL,
+      "storage_key" VARCHAR(80) NOT NULL,
+      "bytes" BYTEA NOT NULL,
+      "created_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "note_inline_images_pkey" PRIMARY KEY ("hotel_tenant_id", "storage_key")
+    )
+  `).then(() => undefined));
+  return inlineTableReady;
+}
+
+async function writeInlineDatabase(hotelTenantId: string, storageKey: string, bytes: Buffer) {
+  await ensureInlineTable();
+  const { prisma } = await import("../prisma");
+  const payload = new Uint8Array(bytes.byteLength);
+  payload.set(bytes);
+  await prisma.$executeRaw`
+    INSERT INTO "note_inline_images" ("hotel_tenant_id", "storage_key", "bytes")
+    VALUES (${hotelTenantId}::uuid, ${storageKey}, ${payload})
+    ON CONFLICT ("hotel_tenant_id", "storage_key") DO UPDATE SET "bytes" = EXCLUDED."bytes"
+  `;
+}
+
+async function readInlineDatabase(hotelTenantId: string, storageKey: string) {
+  await ensureInlineTable();
+  const { prisma } = await import("../prisma");
+  const rows = await prisma.$queryRaw<Array<{ bytes: Uint8Array }>>`
+    SELECT "bytes" FROM "note_inline_images"
+    WHERE "hotel_tenant_id" = ${hotelTenantId}::uuid AND "storage_key" = ${storageKey}
+  `;
+  const bytes = rows[0]?.bytes;
+  return bytes?.byteLength ? Buffer.from(bytes) : null;
+}
+
 export async function saveInlineNoteImage(hotelTenantId: string, bytes: Buffer, ext: string) {
   const safeExt = ext === "jpeg" ? "jpg" : ext;
   if (!HOTEL_ID.test(hotelTenantId) || !["png", "jpg", "gif", "webp"].includes(safeExt)) return null;
   if (bytes.length <= 0 || bytes.length > MAX_BYTES) return null;
   const storageKey = `${randomUUID()}.${safeExt}`;
+  await writeInlineDatabase(hotelTenantId, storageKey, bytes);
   const dir = path.join(inlineRoot(), hotelTenantId);
-  await mkdir(dir, { recursive: true });
-  await writeFile(path.join(dir, storageKey), bytes);
+  await mkdir(dir, { recursive: true }).catch(() => undefined);
+  await writeFile(path.join(dir, storageKey), bytes).catch(() => undefined);
   return `/api/notes/images/${storageKey}`;
 }
 
 export async function readInlineNoteImage(hotelTenantId: string, storageKey: string) {
   if (!HOTEL_ID.test(hotelTenantId) || !IMAGE_KEY.test(storageKey)) return null;
+  const stored = await readInlineDatabase(hotelTenantId, storageKey).catch(() => null);
+  if (stored) return stored;
   const root = path.resolve(inlineRoot(), hotelTenantId);
   const target = path.resolve(root, storageKey);
   if (!target.startsWith(root + path.sep)) return null;
   try {
-    return await readFile(target);
+    const bytes = await readFile(target);
+    await writeInlineDatabase(hotelTenantId, storageKey, bytes).catch(() => undefined);
+    return bytes;
   } catch {
     return null;
   }
