@@ -261,12 +261,13 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 .qf-dashboard .todo-t { flex:1;font-size:13.5px;text-decoration:none;color:inherit }
 .qf-dashboard .todo-t.done { text-decoration:line-through;color:var(--text3) }
 .qf-dashboard .todo-dept { font-size:11px;color:var(--text3);min-width:80px }
-.qf-dashboard .note-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px }
-.qf-dashboard .note-card { border-radius:8px;padding:14px;cursor:pointer;min-height:120px;position:relative;border:0;text-align:left;font:inherit;color:inherit;width:100%;display:flex;flex-direction:column;align-items:stretch }
+.qf-dashboard.qf-notes { overflow-x:hidden }
+.qf-dashboard .note-grid { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:18px;align-items:stretch }
+.qf-dashboard .note-card { border-radius:8px;padding:14px;cursor:pointer;min-height:160px;height:100%;min-width:0;overflow:hidden;position:relative;border:0;text-align:left;font:inherit;color:inherit;width:100%;display:flex;flex-direction:column;align-items:stretch }
 .qf-dashboard .note-card:hover { opacity:.9 }
-.qf-dashboard .note-title { font-size:13.5px;font-weight:700;margin-bottom:6px }
-.qf-dashboard .note-body { font-size:12.5px;line-height:1.5;opacity:.85 }
-.qf-dashboard .note-meta { font-size:11px;opacity:.6;margin-top:auto;padding-top:10px }
+.qf-dashboard .note-title { font-size:13.5px;font-weight:700;margin-bottom:6px;overflow-wrap:anywhere;word-break:break-word;padding-right:22px }
+.qf-dashboard .note-body { font-size:12.5px;line-height:1.5;opacity:.85;min-height:0;overflow:hidden;overflow-wrap:anywhere;word-break:break-word;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4 }
+.qf-dashboard .note-meta { font-size:11px;opacity:.6;margin-top:auto;padding-top:10px;overflow-wrap:anywhere }
 .qf-dashboard .hb-intro { font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.5 }
 .qf-dashboard .hb-toolbar { display:flex;gap:10px;margin-bottom:18px;align-items:center }
 .qf-dashboard .hb-search { flex:1;padding:8px 14px;border:1px solid var(--border);border-radius:7px;font-size:13.5px;outline:none;font-family:inherit;background:var(--surface);color:var(--text) }
@@ -407,6 +408,14 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
   .qf-dashboard form.g2 { padding-bottom:188px }
 }
 .qf-dashboard .job-summernote .note-editing-area .note-editable { background:var(--surface);color:var(--text);font-family:inherit }
+.qf-dashboard .note-form-main { min-width:0 }
+.qf-dashboard .note-rich { min-width:0;max-width:100% }
+.qf-dashboard .note-rich .note-editor.note-frame,
+.qf-dashboard .note-rich .note-editing-area,
+.qf-dashboard .note-rich .note-editable { width:100%;max-width:100%;box-sizing:border-box }
+.qf-dashboard .note-rich .note-editable,
+.qf-dashboard .note-rich .note-editable * { overflow-x:hidden;overflow-wrap:anywhere !important;word-break:break-word !important;white-space:pre-wrap !important;max-width:100% }
+.qf-dashboard .job-desc-preview { overflow-wrap:anywhere;word-break:break-word }
 .settings-policy-editor .job-summernote .note-editor.note-frame { border:1px solid var(--qf-border);border-radius:7px;background:#fff }
 .settings-policy-editor .job-summernote .note-editor.note-frame.note-focus { border-color:var(--qf-accent) }
 .settings-policy-editor .job-summernote.is-invalid .note-editor.note-frame,.settings-policy-editor .job-summernote.is-invalid .note-editor.note-frame.note-focus { border-color:#dc2626 }
@@ -417,7 +426,7 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 .qf-dashboard .job-desc-preview p { margin:.4em 0 }
 .qf-dashboard .job-desc-preview a { color:var(--accent) }
 .qf-dashboard .job-desc-preview img,.qf-dashboard .job-summernote .note-editable img { max-width:100%;height:auto }
-.qf-dashboard .note-preview-image { display:block;width:100%;max-height:140px;object-fit:cover;border-radius:8px;margin:0 0 8px }
+.qf-dashboard .note-preview-image { display:block;width:100%;height:120px;max-width:100%;object-fit:cover;object-position:top;border-radius:8px;margin:0 0 8px;flex-shrink:0 }
 .qf-dashboard .field-row { display:grid;grid-template-columns:1fr 1fr;gap:12px }
 .qf-dashboard .kb-card { background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;box-shadow:var(--sh);cursor:pointer;text-align:left;font:inherit;color:inherit }
 .qf-dashboard .kb-card:hover { border-color:var(--accent) }

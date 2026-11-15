@@ -44,7 +44,7 @@ function notePreviewImage(html: string) {
 }
 
 function Shell({ title, children }: { title: string; children: ReactNode }) {
-  return <AppShell activeItem="notes" pageTitle={title}><main className="qf-dashboard pb-24 lg:pb-[24px]">{children}</main></AppShell>;
+  return <AppShell activeItem="notes" pageTitle={title}><main className="qf-dashboard qf-notes pb-24 lg:pb-[24px]">{children}</main></AppShell>;
 }
 
 export function NotesListPage() {
@@ -236,7 +236,7 @@ export function NotesFormPage({ id }: { id?: string }) {
     {busy ? <BrandLoader label={t.loading} overlay /> : null}
     <Link href="/notes" className="back-link">{t.back}</Link>
     <div className="g2">
-      <div>
+      <div className="note-form-main">
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="ch">
             <div className="ct">{t.content}</div>
@@ -249,7 +249,7 @@ export function NotesFormPage({ id }: { id?: string }) {
             <label className="field-lbl">{t.title}</label>
             <input className="field-input" style={{ marginBottom: 14 }} placeholder={t.titlePlaceholder} value={title} onChange={(event) => setTitle(event.target.value)} />
             <label className="field-lbl">{t.description}</label>
-            <div style={{ marginBottom: 6 }}>
+            <div className="note-rich" style={{ marginBottom: 6 }}>
               <RichTextEditor ref={descRef} value={desc} onChange={setDesc} placeholder={t.descPlaceholder} locale={locale} height={280} uploadImage={uploadNoteImage} />
             </div>
             <div style={{ fontSize: 11.5, color: "var(--text3)", margin: "6px 0 16px" }}>{t.autoTranslate}</div>
