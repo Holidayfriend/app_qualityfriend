@@ -430,7 +430,9 @@
       "team": "Team",
       "user": "Benutzer",
       "manual": "Handbuch",
-      "handover": "Übergabe"
+      "handover": "Übergabe",
+      "task": "Aufgabe",
+      "checklist": "Checkliste"
     }
   },
   "hotelLanguageMessages": {
@@ -1760,6 +1762,12 @@
     "completedMeta": "Erledigt {when} von {name}",
     "reopen": "Wieder öffnen",
     "edit": "✏️ Bearbeiten",
+    "delete": "Löschen",
+    "deleteConfirm": "Diese Aufgabe löschen?",
+    "deleteChecklistConfirm": "Diese Checkliste löschen?",
+    "deleteMessage": "{title} wird in den Papierkorb verschoben. Sie verschwindet aus der Aufgabenliste, bis Sie sie wiederherstellen.",
+    "deleteChecklistMessage": "{title} wird in den Papierkorb verschoben. Sie verschwindet aus der Checklistenliste, bis Sie sie wiederherstellen.",
+    "cancel": "Abbrechen",
     "statusOpen": "Offen",
     "statusDone": "Erledigt",
     "listTitle": "Checklisten",
@@ -1784,7 +1792,7 @@
     "dueCard": "Fälligkeit",
     "once": "Einmalig",
     "recurring": "Wiederkehrend",
-    "rhythm": "Rhythmus",
+    "rhythm": "Frequenz",
     "daily": "Täglich",
     "weekly": "Wöchentlich",
     "monthly": "Monatlich",

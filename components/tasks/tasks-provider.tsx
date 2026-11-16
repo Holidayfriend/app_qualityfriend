@@ -78,6 +78,7 @@ type Ctx = {
   updateItem: (checklistId: string, itemId: string, input: ChecklistItemInput) => Promise<string | null>;
   reorderItems: (checklistId: string, itemIds: string[]) => Promise<boolean>;
   completeChecklist: (id: string, comment: string) => Promise<string | null>;
+  reload: () => Promise<void>;
 };
 
 const TasksContext = createContext<Ctx | null>(null);
@@ -272,8 +273,8 @@ export function TasksProvider({ children }: { children: ReactNode }) {
     doneWeek,
     totalWeek: doneWeek + open.length,
     periodic,
-    saveTask, toggleTask, saveChecklist, setChecklistStatus, updateItem, reorderItems, completeChecklist,
-  }), [canManage, checklists, completeChecklist, departments, doneWeek, dueToday.length, dueWeek.length, open.length, overdue.length, periodic, ready, reorderItems, saveChecklist, saveTask, setChecklistStatus, tasks, templates, toggleTask, updateItem, users]);
+    saveTask, toggleTask, saveChecklist, setChecklistStatus, updateItem, reorderItems, completeChecklist, reload,
+  }), [canManage, checklists, completeChecklist, departments, doneWeek, dueToday.length, dueWeek.length, open.length, overdue.length, periodic, ready, reload, reorderItems, saveChecklist, saveTask, setChecklistStatus, tasks, templates, toggleTask, updateItem, users]);
 
   return <TasksContext.Provider value={value}>{children}</TasksContext.Provider>;
 }

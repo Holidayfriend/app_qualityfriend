@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, type DragEvent, type FormEvent, type Keybo
 import { AppShell } from "../dashboard/app-shell";
 import { useI18n } from "../i18n/i18n-provider";
 import { BrandLoader } from "../ui/brand-loader";
+import { ConfirmDialog } from "../ui/confirm-dialog";
 import { AttachmentField, AttachmentGallery, AttachmentIndicator, type AttachmentItem } from "../ui/attachment-field";
 import { useToast } from "../ui/toast-provider";
 import { useAiRecommendation } from "../ai/use-ai-recommendation";
@@ -197,11 +198,27 @@ export function TasksDashboardPage() {
 export function TasksListPage() {
   const t = useT();
   const router = useRouter();
-  const { tasks, canManage, ready } = useTasks();
+  const toast = useToast();
+  const { tasks, canManage, ready, reload } = useTasks();
   const [filter, setFilter] = useState<"all" | "open" | "done">("all");
+  const [pendingDelete, setPendingDelete] = useState<PublicTask | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  async function remove() {
+    if (!pendingDelete || deleting) return;
+    setDeleting(true);
+    const response = await fetch(`/api/tasks/${pendingDelete.id}`, { method: "DELETE" });
+    setDeleting(false);
+    if (!response.ok) { toast({ message: t.saveFailed, tone: "error" }); return; }
+    setPendingDelete(null);
+    await reload();
+  }
+
   if (!ready) return <Shell title={t.pageTitle}><BrandLoader label={t.loading} /></Shell>;
   const rows = tasks.filter((item) => filter === "all" || item.status === filter);
-  return <Shell title={t.pageTitle}>
+  const dialog = pendingDelete ? <ConfirmDialog open title={t.deleteConfirm} message={t.deleteMessage.replace("{title}", pendingDelete.title)} confirmLabel={t.delete} cancelLabel={t.cancel} pending={deleting} onConfirm={() => void remove()} onCancel={() => { if (!deleting) setPendingDelete(null); }} /> : null;
+  return <>
+  <Shell title={t.pageTitle}>
     <div className="filter-row" style={{ marginBottom: 18 }}>
       <Link href="/tasks" className="filter-btn" style={{ padding: "8px 16px", fontSize: 13 }}>{t.tabToday}</Link>
       <Link href="/tasks/list" className="filter-btn active" style={{ padding: "8px 16px", fontSize: 13 }}>{t.tabTasks}</Link>
@@ -228,7 +245,10 @@ export function TasksListPage() {
               <div><dt>{t.colDue}</dt><dd>{item.due || "–"}</dd></div>
             </dl>
           </Link>
-          {canManage ? <div className="tasks-list-card-actions"><Link href={`/tasks/${item.id}/edit`} className="icon-btn" aria-label={`${t.editTask}: ${item.title}`} title={t.editTask}>✏️</Link></div> : null}
+          {canManage ? <div className="tasks-list-card-actions">
+            <Link href={`/tasks/${item.id}/edit`} className="icon-btn" aria-label={`${t.editTask}: ${item.title}`} title={t.editTask}>✏️</Link>
+            <button type="button" className="icon-btn danger" aria-label={t.delete} title={t.delete} onClick={() => setPendingDelete(item)}>🗑️</button>
+          </div> : null}
         </article>
       )) : <div className="tasks-list-empty">{t.emptyTasks}</div>}
     </div>
@@ -242,13 +262,15 @@ export function TasksListPage() {
               <td>{item.assignee}</td>
               <td>{item.due || "–"}</td>
               <td><span className={`chip ${item.status === "done" ? "chip-g" : "chip-a"}`}>{item.status === "done" ? t.statusDone : t.statusOpen}</span></td>
-              {canManage ? <td style={{ textAlign: "right" }}><Link href={`/tasks/${item.id}/edit`} className="icon-btn" onClick={(event) => event.stopPropagation()}>✏️</Link></td> : null}
+              {canManage ? <td style={{ textAlign: "right" }}><div style={{ display: "inline-flex", gap: 4 }} onClick={(event) => event.stopPropagation()}><Link href={`/tasks/${item.id}/edit`} className="icon-btn" aria-label={t.editTask} title={t.editTask}>✏️</Link><button type="button" className="icon-btn danger" aria-label={t.delete} title={t.delete} onClick={() => setPendingDelete(item)}>🗑️</button></div></td> : null}
             </tr>
           )) : <tr><td colSpan={canManage ? 5 : 4} style={{ fontSize: 12.5, color: "var(--text3)" }}>{t.emptyTasks}</td></tr>}
         </tbody>
       </table>
     </div>
-  </Shell>;
+  </Shell>
+  {dialog}
+  </>;
 }
 
 export function TaskFormPage({ id }: { id?: string }) {
@@ -370,9 +392,23 @@ export function TaskDetailPage({ id }: { id: string }) {
 export function ChecklistsListPage() {
   const t = useT();
   const router = useRouter();
-  const { checklists, canManage, ready, setChecklistStatus } = useTasks();
+  const toast = useToast();
+  const { checklists, canManage, ready, setChecklistStatus, reload } = useTasks();
   const [filter, setFilter] = useState<"all" | "active" | "originals" | "draft" | "archived">("all");
   const [query, setQuery] = useState("");
+  const [pendingDelete, setPendingDelete] = useState<PublicChecklist | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  async function remove() {
+    if (!pendingDelete || deleting) return;
+    setDeleting(true);
+    const response = await fetch(`/api/checklists/${pendingDelete.id}`, { method: "DELETE" });
+    setDeleting(false);
+    if (!response.ok) { toast({ message: t.checklistSaveFailed, tone: "error" }); return; }
+    setPendingDelete(null);
+    await reload();
+  }
+
   if (!ready) return <Shell title={t.listTitle}><BrandLoader label={t.loading} /></Shell>;
   const rows = checklists.filter((item) => {
     if (item.kind !== "checklist") return false;
@@ -385,7 +421,9 @@ export function ChecklistsListPage() {
   function openRow(item: PublicChecklist) {
     router.push(`/tasks/checklists/${item.id}`);
   }
-  return <Shell title={t.listTitle}>
+  const dialog = pendingDelete ? <ConfirmDialog open title={t.deleteChecklistConfirm} message={t.deleteChecklistMessage.replace("{title}", pendingDelete.title)} confirmLabel={t.delete} cancelLabel={t.cancel} pending={deleting} onConfirm={() => void remove()} onCancel={() => { if (!deleting) setPendingDelete(null); }} /> : null;
+  return <>
+  <Shell title={t.listTitle}>
     <Link href="/tasks" className="back-link">{t.backTasks}</Link>
     <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
       <div className="filter-row" style={{ marginBottom: 0 }}>
@@ -410,15 +448,18 @@ export function ChecklistsListPage() {
               <div><dt>{t.colNext}</dt><dd>{dueWithTime(item.nextDue, item.dueTime ?? "")}</dd></div>
             </dl>
           </Link>
-          {canManage && item.origin === "original" ? <div className="checklists-list-card-actions">
-            <button
-              type="button"
-              className="icon-btn"
-              aria-label={item.status === "active" ? t.setArchived : t.setActive}
-              title={item.status === "active" ? t.setArchived : t.setActive}
-              onClick={() => void setChecklistStatus(item.id, item.status === "active" ? "archived" : "active")}
-            >{item.status === "active" ? "🗄️" : "↩️"}</button>
-            <Link href={`/tasks/checklists/${item.id}/edit`} className="icon-btn" aria-label={t.edit} title={t.edit}>✏️</Link>
+          {canManage ? <div className="checklists-list-card-actions">
+            {item.origin === "original" ? <>
+              <button
+                type="button"
+                className="icon-btn"
+                aria-label={item.status === "active" ? t.setArchived : t.setActive}
+                title={item.status === "active" ? t.setArchived : t.setActive}
+                onClick={() => void setChecklistStatus(item.id, item.status === "active" ? "archived" : "active")}
+              >{item.status === "active" ? "🗄️" : "↩️"}</button>
+              <Link href={`/tasks/checklists/${item.id}/edit`} className="icon-btn" aria-label={t.edit} title={t.edit}>✏️</Link>
+            </> : null}
+            <button type="button" className="icon-btn danger" aria-label={t.delete} title={t.delete} onClick={() => setPendingDelete(item)}>🗑️</button>
           </div> : null}
         </article>
       )) : <div className="checklists-list-empty">{t.emptyChecklists}</div>}
@@ -443,14 +484,17 @@ export function ChecklistsListPage() {
                     onClick={() => void setChecklistStatus(item.id, item.status === "active" ? "archived" : "active")}
                   >{item.status === "active" ? "🗄️" : "↩️"}</button>
                   <Link href={`/tasks/checklists/${item.id}/edit`} className="icon-btn" style={{ marginLeft: 6 }}>✏️</Link>
-                </> : null}
+                  <button type="button" className="icon-btn danger" aria-label={t.delete} title={t.delete} style={{ marginLeft: 6 }} onClick={() => setPendingDelete(item)}>🗑️</button>
+                </> : <button type="button" className="icon-btn danger" aria-label={t.delete} title={t.delete} onClick={() => setPendingDelete(item)}>🗑️</button>}
               </td> : null}
             </tr>
           )) : <tr><td colSpan={canManage ? 6 : 5} style={{ fontSize: 12.5, color: "var(--text3)" }}>{t.emptyChecklists}</td></tr>}
         </tbody>
       </table>
     </div>
-  </Shell>;
+  </Shell>
+  {dialog}
+  </>;
 }
 
 export function ChecklistFormPage({ id }: { id?: string }) {

@@ -430,7 +430,9 @@
       "team": "Team",
       "user": "Utente",
       "manual": "Manuale",
-      "handover": "Consegna"
+      "handover": "Consegna",
+      "task": "Compito",
+      "checklist": "Checklist"
     }
   },
   "hotelLanguageMessages": {
@@ -1760,6 +1762,12 @@
     "completedMeta": "Completato {when} da {name}",
     "reopen": "Riapri",
     "edit": "✏️ Modifica",
+    "delete": "Elimina",
+    "deleteConfirm": "Eliminare questo compito?",
+    "deleteChecklistConfirm": "Eliminare questa checklist?",
+    "deleteMessage": "{title} verrà spostato nel cestino. Resta fuori dall’elenco dei compiti finché non lo ripristini.",
+    "deleteChecklistMessage": "{title} verrà spostata nel cestino. Resta fuori dall’elenco delle checklist finché non la ripristini.",
+    "cancel": "Annulla",
     "statusOpen": "Aperto",
     "statusDone": "Completato",
     "listTitle": "Checklist",

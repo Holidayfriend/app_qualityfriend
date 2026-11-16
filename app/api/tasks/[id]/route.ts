@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { tasksEditor, tasksViewer } from "../../../../lib/tasks/access";
-import { getTask, readTaskRequest, updateTask, updateTaskStatus } from "../../../../lib/tasks/service";
+import { getTask, readTaskRequest, removeTask, updateTask, updateTaskStatus } from "../../../../lib/tasks/service";
 import { supportedLocales } from "../../../../lib/i18n/dictionaries";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -41,4 +41,13 @@ export async function PATCH(request: Request, ctx: Ctx) {
     console.error("Update task failed", error);
     return NextResponse.json({ error: "SAVE_FAILED" }, { status: 500 });
   }
+}
+
+export async function DELETE(_request: Request, ctx: Ctx) {
+  const actor = await tasksEditor();
+  if (!actor) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+  const { id } = await ctx.params;
+  const result = await removeTask(actor, id);
+  if ("error" in result) return NextResponse.json(result, { status: result.error === "NOT_FOUND" ? 404 : 403 });
+  return NextResponse.json(result);
 }

@@ -207,9 +207,10 @@ async function notify(tx: Prisma.TransactionClient, input: {
 }
 
 export function visibleTaskWhere(actor: { id: string; hotel_tenant_id: string; departmentId: string | null; departmentIds?: string[]; canManage: boolean }): Prisma.HotelTaskWhereInput {
-  if (actor.canManage) return { hotelTenantId: actor.hotel_tenant_id };
+  if (actor.canManage) return { hotelTenantId: actor.hotel_tenant_id, isDeleted: false };
   return {
     hotelTenantId: actor.hotel_tenant_id,
+    isDeleted: false,
     OR: [
       { assigneeId: actor.id },
       ...(departmentIdsOf(actor).length ? [{
@@ -387,7 +388,7 @@ export async function createTask(actor: TasksActor, body: Record<string, unknown
 export async function updateTask(actor: TasksActor, id: string, body: Record<string, unknown>, locale: string, form?: FormData | null) {
   const timeZone = await hotelTimeZoneFor(actor.hotel_tenant_id);
   if (!isUuid(id)) return { error: "NOT_FOUND" as const };
-  const existing = await prisma.hotelTask.findFirst({ where: { id, hotelTenantId: actor.hotel_tenant_id }, include: { attachments: true } });
+  const existing = await prisma.hotelTask.findFirst({ where: { id, hotelTenantId: actor.hotel_tenant_id, isDeleted: false }, include: { attachments: true } });
   if (!existing) return { error: "NOT_FOUND" as const };
   const parsed = await parsedBody(actor, body, locale);
   if ("error" in parsed) return parsed;
@@ -488,4 +489,25 @@ export async function updateTaskStatus(actor: TasksActor, id: string, status: st
     if (files) await discardUploads(files.saved);
     throw error;
   }
+}
+
+export async function removeTask(actor: TasksActor, id: string) {
+  if (!actor.canManage || !isUuid(id)) return { error: "FORBIDDEN" as const };
+  const existing = await prisma.hotelTask.findFirst({
+    where: { id, hotelTenantId: actor.hotel_tenant_id, isDeleted: false },
+    select: { id: true, title: true, titleDe: true, titleIt: true },
+  });
+  if (!existing) return { error: "NOT_FOUND" as const };
+  await prisma.$transaction(async (tx) => {
+    await tx.hotelTask.update({ where: { id }, data: { isDeleted: true, deletedAt: new Date() } });
+    await recordAuditLog(tx, { module: "tasks",
+      hotelTenantId: actor.hotel_tenant_id,
+      actorId: actor.id,
+      action: "DELETE",
+      entityType: "TASK",
+      entityId: id,
+      changes: { before: { en: existing.title, de: existing.titleDe, it: existing.titleIt } },
+    });
+  });
+  return { ok: true as const };
 }

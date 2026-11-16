@@ -158,7 +158,7 @@ export async function spawnAllHotelChecklists(prisma: PrismaClient, hotelTenantI
   for (const hotel of hotels) {
     const dayIso = hotelTodayIso(hotel.timeZone);
     const originals = await prisma.hotelChecklist.findMany({
-      where: { hotelTenantId: hotel.id, kind: "CHECKLIST", origin: "ORIGINAL", status: "ACTIVE", dueType: "RECURRING" },
+      where: { hotelTenantId: hotel.id, kind: "CHECKLIST", origin: "ORIGINAL", status: "ACTIVE", dueType: "RECURRING", isDeleted: false },
       include,
     });
     let spawned = 0;

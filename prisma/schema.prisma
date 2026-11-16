@@ -2021,6 +2021,8 @@ model HotelTask {
   originalLocale String                @default("en") @map("original_locale") @db.VarChar(8)
   completedAt    DateTime?             @map("completed_at") @db.Timestamptz(3)
   completedById  String?               @map("completed_by_id") @db.Uuid
+  isDeleted      Boolean               @default(false) @map("is_deleted")
+  deletedAt      DateTime?             @map("deleted_at") @db.Timestamptz(3)
   createdAt      DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
   hotelTenant    HotelTenant           @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
@@ -2032,6 +2034,7 @@ model HotelTask {
   attachments    HotelTaskAttachment[]
 
   @@index([hotelTenantId, status, dueAt])
+  @@index([hotelTenantId, isDeleted])
   @@index([createdById])
   @@index([assigneeId])
   @@index([completedById])
@@ -2134,6 +2137,8 @@ model HotelChecklist {
   dueTime        String                     @default("") @map("due_time") @db.VarChar(5)
   originalLocale String                     @default("en") @map("original_locale") @db.VarChar(8)
   completedAt    DateTime?                  @map("completed_at") @db.Timestamptz(3)
+  isDeleted      Boolean                    @default(false) @map("is_deleted")
+  deletedAt      DateTime?                  @map("deleted_at") @db.Timestamptz(3)
   createdAt      DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(3)
   hotelTenant    HotelTenant                @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
@@ -2150,6 +2155,7 @@ model HotelChecklist {
 
   @@unique([originalId, dueAt])
   @@index([hotelTenantId, kind, status])
+  @@index([hotelTenantId, isDeleted])
   @@index([hotelTenantId, origin, completedAt])
   @@index([createdById])
   @@index([assigneeId])

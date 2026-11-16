@@ -80,13 +80,27 @@ function assignedWhere(actor: TasksActor): Prisma.HotelChecklistWhereInput[] {
   ];
 }
 
+function liveChecklistWhere(): Prisma.HotelChecklistWhereInput {
+  return {
+    isDeleted: false,
+    OR: [
+      { origin: "ORIGINAL" },
+      { original: { isDeleted: false } },
+    ],
+  };
+}
+
 export function visibleChecklistWhere(actor: TasksActor): Prisma.HotelChecklistWhereInput {
-  if (actor.canManage) return { hotelTenantId: actor.hotel_tenant_id };
+  if (actor.canManage) return { hotelTenantId: actor.hotel_tenant_id, ...liveChecklistWhere() };
   return {
     hotelTenantId: actor.hotel_tenant_id,
+    isDeleted: false,
     kind: "CHECKLIST",
     status: "ACTIVE",
-    OR: assignedWhere(actor),
+    AND: [
+      { OR: [{ origin: "ORIGINAL" }, { original: { isDeleted: false } }] },
+      { OR: assignedWhere(actor) },
+    ],
   };
 }
 
@@ -369,7 +383,7 @@ export async function createChecklist(actor: TasksActor, form: FormData, locale:
 export async function updateChecklist(actor: TasksActor, id: string, form: FormData, locale: string) {
   if (!isUuid(id)) return { error: "NOT_FOUND" as const };
   await ensureChecklistDueTime();
-  const existing = await prisma.hotelChecklist.findFirst({ where: { id, hotelTenantId: actor.hotel_tenant_id, origin: "ORIGINAL" }, include: { attachments: true } });
+  const existing = await prisma.hotelChecklist.findFirst({ where: { id, hotelTenantId: actor.hotel_tenant_id, origin: "ORIGINAL", isDeleted: false }, include: { attachments: true } });
   if (!existing) return { error: "NOT_FOUND" as const };
   const body = checklistBody(form);
   const parsed = await parsedBody(actor, body, locale);
@@ -419,7 +433,7 @@ export async function updateChecklistStatus(actor: TasksActor, id: string, statu
   if (!isUuid(id)) return { error: "NOT_FOUND" as const };
   const next: HotelChecklistStatus | null = status === "active" ? "ACTIVE" : status === "archived" ? "ARCHIVED" : status === "draft" ? "DRAFT" : null;
   if (!next) return { error: "INVALID" as const };
-  const existing = await prisma.hotelChecklist.findFirst({ where: { id, hotelTenantId: actor.hotel_tenant_id, origin: "ORIGINAL" } });
+  const existing = await prisma.hotelChecklist.findFirst({ where: { id, hotelTenantId: actor.hotel_tenant_id, origin: "ORIGINAL", isDeleted: false } });
   if (!existing) return { error: "NOT_FOUND" as const };
   const { today, timeZone } = await hotelToday(actor);
   const row = await prisma.$transaction(async (tx) => {
@@ -487,7 +501,7 @@ export async function updateChecklistItem(actor: TasksActor, id: string, itemId:
 export async function reorderChecklistItems(actor: TasksActor, id: string, itemIds: unknown, locale: string) {
   if (!isUuid(id) || !actor.canManage) return { error: "NOT_FOUND" as const };
   await ensureChecklistDueTime();
-  const existing = await prisma.hotelChecklist.findFirst({ where: { id, hotelTenantId: actor.hotel_tenant_id }, include });
+  const existing = await prisma.hotelChecklist.findFirst({ where: { id, hotelTenantId: actor.hotel_tenant_id, isDeleted: false }, include });
   if (!existing || existing.completedAt) return { error: "NOT_FOUND" as const };
   const known = new Set(existing.items.map((item) => item.id));
   const requested = Array.isArray(itemIds) ? itemIds.map((item) => String(item)) : [];
@@ -566,4 +580,25 @@ export async function completeChecklist(actor: TasksActor, id: string, comment: 
     return tx.hotelChecklist.findFirstOrThrow({ where: { id }, include });
   });
   return { checklist: toPublicChecklist(row, locale, today, timeZone) };
+}
+
+export async function removeChecklist(actor: TasksActor, id: string) {
+  if (!actor.canManage || !isUuid(id)) return { error: "FORBIDDEN" as const };
+  const existing = await prisma.hotelChecklist.findFirst({
+    where: { id, hotelTenantId: actor.hotel_tenant_id, kind: "CHECKLIST", isDeleted: false },
+    select: { id: true, title: true, titleDe: true, titleIt: true },
+  });
+  if (!existing) return { error: "NOT_FOUND" as const };
+  await prisma.$transaction(async (tx) => {
+    await tx.hotelChecklist.update({ where: { id }, data: { isDeleted: true, deletedAt: new Date() } });
+    await recordAuditLog(tx, { module: "tasks",
+      hotelTenantId: actor.hotel_tenant_id,
+      actorId: actor.id,
+      action: "DELETE",
+      entityType: "CHECKLIST",
+      entityId: id,
+      changes: { before: { en: existing.title, de: existing.titleDe, it: existing.titleIt } },
+    });
+  });
+  return { ok: true as const };
 }

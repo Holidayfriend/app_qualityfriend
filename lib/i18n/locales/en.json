@@ -432,7 +432,9 @@
       "team": "Team",
       "user": "User",
       "manual": "Manual",
-      "handover": "Handover"
+      "handover": "Handover",
+      "task": "Task",
+      "checklist": "Checklist"
     }
   },
   "hotelLanguageMessages": {
@@ -1762,6 +1764,12 @@
     "completedMeta": "Completed {when} by {name}",
     "reopen": "Reopen",
     "edit": "✏️ Edit",
+    "delete": "Delete",
+    "deleteConfirm": "Delete this task?",
+    "deleteChecklistConfirm": "Delete this checklist?",
+    "deleteMessage": "{title} will move to the recycle bin. It leaves the task list until you restore it.",
+    "deleteChecklistMessage": "{title} will move to the recycle bin. It leaves the checklist list until you restore it.",
+    "cancel": "Cancel",
     "statusOpen": "Open",
     "statusDone": "Done",
     "listTitle": "Checklists",
@@ -1786,7 +1794,7 @@
     "dueCard": "Due date",
     "once": "One-time",
     "recurring": "Recurring",
-    "rhythm": "Rhythm",
+    "rhythm": "Frequency",
     "daily": "Daily",
     "weekly": "Weekly",
     "monthly": "Monthly",

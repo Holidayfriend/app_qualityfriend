@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { tasksEditor, tasksViewer } from "../../../../lib/tasks/access";
-import { completeChecklist, getChecklist, reorderChecklistItems, updateChecklist, updateChecklistItem, updateChecklistStatus } from "../../../../lib/checklists/service";
+import { completeChecklist, getChecklist, removeChecklist, reorderChecklistItems, updateChecklist, updateChecklistItem, updateChecklistStatus } from "../../../../lib/checklists/service";
 import { supportedLocales } from "../../../../lib/i18n/dictionaries";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -78,4 +78,13 @@ export async function PATCH(request: Request, ctx: Ctx) {
     console.error("Update checklist failed", error);
     return NextResponse.json({ error: "SAVE_FAILED" }, { status: 500 });
   }
+}
+
+export async function DELETE(_request: Request, ctx: Ctx) {
+  const actor = await tasksEditor();
+  if (!actor) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+  const { id } = await ctx.params;
+  const result = await removeChecklist(actor, id);
+  if ("error" in result) return NextResponse.json(result, { status: result.error === "NOT_FOUND" ? 404 : 403 });
+  return NextResponse.json(result);
 }

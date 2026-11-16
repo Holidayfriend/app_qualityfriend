@@ -90,7 +90,7 @@ export async function collectOpsFacts(prisma: PrismaClient, hotelTenantId: strin
       take: 8,
     }),
     prisma.hotelTask.findMany({
-      where: { hotelTenantId, status: "OPEN" },
+      where: { hotelTenantId, status: "OPEN", isDeleted: false },
       select: {
         title: true,
         dueAt: true,
