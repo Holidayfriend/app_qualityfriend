@@ -1489,7 +1489,17 @@
     "videoRemove": "Entfernen",
     "invalidVideo": "Ein Video konnte nicht gespeichert werden. Bitte MP4, WEBM oder MOV unter 50 MB verwenden.",
     "tooManyVideos": "Sie können höchstens 6 Videos anhängen.",
-    "uploadingVideo": "Video {current} von {total} wird hochgeladen…"
+    "uploadingVideo": "Video {current} von {total} wird hochgeladen…",
+    "indexTitle": "KI-Assistent",
+    "indexReady": "Indexiert. Der KI-Assistent kann aus diesem Dokument antworten.",
+    "indexPending": "Noch nicht indexiert. Es wartet darauf, gelesen zu werden.",
+    "indexRunning": "Wird gerade indexiert. Der Assistent kann es nutzen, sobald das fertig ist.",
+    "indexFailed": "Nicht indexiert. Der Assistent kann dieses Dokument nicht verwenden.",
+    "indexDeleted": "Für den Assistenten nicht verfügbar, solange dieses Dokument im Papierkorb liegt.",
+    "indexHint": "Nur das Dokument wird indexiert. Videos liest der Assistent nicht.",
+    "reindex": "Neu indexieren",
+    "reindexStarted": "Neuindexierung gestartet. Der Assistent kann das Dokument nutzen, sobald sie fertig ist.",
+    "reindexFailed": "Die Neuindexierung konnte nicht gestartet werden."
   },
   "repairsMessages": {
     "pageTitle": "Reparaturen",

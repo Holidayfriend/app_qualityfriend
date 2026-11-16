@@ -304,6 +304,9 @@ export function ManualsEditPage({ id }: { id: string }) {
   const [existingVideos, setExistingVideos] = useState<Video[]>([]);
   const [videos, setVideos] = useState<File[]>([]);
   const [deleted, setDeleted] = useState(false);
+  const [indexStatus, setIndexStatus] = useState("PENDING");
+  const [indexError, setIndexError] = useState("");
+  const [reindexing, setReindexing] = useState(false);
   const [ready, setReady] = useState(false);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState("");
@@ -315,7 +318,7 @@ export function ManualsEditPage({ id }: { id: string }) {
       fetch(`/api/manuals/${id}`, { cache: "no-store" }).then(async (response) => {
         const data = await response.json();
         if (!response.ok) throw new Error();
-        return data.document as { title: string; departmentId: string | null; departmentIds?: string[]; isDeleted: boolean; videos?: Video[] };
+        return data.document as { title: string; departmentId: string | null; departmentIds?: string[]; isDeleted: boolean; videos?: Video[]; indexStatus?: string; indexError?: string | null };
       }),
     ]).then(([departmentRows, document]) => {
       setDepartments(departmentRows);
@@ -323,10 +326,48 @@ export function ManualsEditPage({ id }: { id: string }) {
       setDepartmentIds(docDepartmentIds(document));
       setExistingVideos(document.videos ?? []);
       setDeleted(document.isDeleted);
+      setIndexStatus(document.indexStatus || "PENDING");
+      setIndexError(document.indexError || "");
       setReady(true);
       if (videoFailed) setNotice(t.invalidVideo);
     }).catch(() => setNotice(t.failed));
   }, [id, locale, t.failed, t.invalidVideo]);
+
+  useEffect(() => {
+    if (!ready || deleted || (indexStatus !== "PENDING" && indexStatus !== "RUNNING")) return;
+    const timer = window.setInterval(() => {
+      fetch(`/api/manuals/${id}`, { cache: "no-store" }).then(async (response) => {
+        if (!response.ok) return;
+        const data = await response.json() as { document?: { indexStatus?: string; indexError?: string | null } };
+        if (!data.document) return;
+        setIndexStatus(data.document.indexStatus || "PENDING");
+        setIndexError(data.document.indexError || "");
+      }).catch(() => undefined);
+    }, 4000);
+    return () => window.clearInterval(timer);
+  }, [deleted, id, indexStatus, ready]);
+
+  async function reindex() {
+    setReindexing(true);
+    setNotice("");
+    const response = await fetch(`/api/manuals/${id}/reindex`, { method: "POST" });
+    const data = await response.json().catch(() => ({})) as { indexStatus?: string; indexError?: string | null };
+    setReindexing(false);
+    if (!response.ok) { setNotice(t.reindexFailed); return; }
+    setIndexStatus(data.indexStatus || "PENDING");
+    setIndexError(data.indexError || "");
+    setNotice(t.reindexStarted);
+  }
+
+  const indexMessage = deleted
+    ? t.indexDeleted
+    : indexStatus === "READY"
+      ? t.indexReady
+      : indexStatus === "RUNNING"
+        ? t.indexRunning
+        : indexStatus === "FAILED"
+          ? t.indexFailed
+          : t.indexPending;
 
   function chooseVideos(picked: File[]) {
     setVideos((current) => {
@@ -386,6 +427,13 @@ export function ManualsEditPage({ id }: { id: string }) {
             <input className="field-input" name="title" value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t.titlePlaceholder} />
           </label>
           <VideoField label={t.videos} hint={t.videoFormats} removeLabel={t.videoRemove} files={videos} existing={existingVideos} onAdd={chooseVideos} onRemoveFile={(index) => setVideos((current) => current.filter((_, item) => item !== index))} onRemoveExisting={(videoId) => void removeExisting(videoId)} />
+          <div style={{ borderTop: "1px solid var(--border)", paddingTop: 16, display: "grid", gap: 8 }}>
+            <div className="field-lbl">{t.indexTitle}</div>
+            <p style={{ fontSize: 12.5, color: indexStatus === "FAILED" && !deleted ? "var(--red)" : "var(--text2)" }}>{indexMessage}</p>
+            {indexStatus === "FAILED" && indexError && !deleted ? <p style={{ fontSize: 12, color: "var(--text3)" }}>{indexError}</p> : null}
+            <p style={{ fontSize: 12, color: "var(--text3)" }}>{t.indexHint}</p>
+            {deleted ? null : <div><button type="button" className="btn btn-ghost" disabled={reindexing || !ready} onClick={() => void reindex()}>{t.reindex}</button></div>}
+          </div>
           {notice ? <p role="status" style={{ fontSize: 12 }}>{notice}</p> : null}
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
             <Link href={deleted ? "/settings/recycle-bin" : "/manuals"} className="btn btn-ghost">{t.cancel}</Link>

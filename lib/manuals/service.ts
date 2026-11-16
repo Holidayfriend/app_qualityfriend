@@ -285,8 +285,38 @@ export async function getManualForEdit(actor: ManualsActor, id: string) {
     departmentIds: departments.map((department) => department.id),
     hotelWide: departments.length === 0,
     isDeleted: document.isDeleted,
+    indexStatus: document.indexStatus,
+    indexError: document.indexError,
     videos: document.videos,
   };
+}
+
+export async function reindexManual(actor: ManualsActor, id: string) {
+  const existing = await prisma.manualDocument.findFirst({
+    where: { id, hotelTenantId: actor.hotel_tenant_id },
+    select: { id: true, isDeleted: true, title: true },
+  });
+  if (!existing) return { error: "NOT_FOUND" as const };
+  if (existing.isDeleted) return { error: "DELETED" as const };
+  await prisma.$transaction(async (tx) => {
+    await tx.manualDocument.update({ where: { id }, data: { indexStatus: "PENDING", indexError: null } });
+    await recordAuditLog(tx, { module: "manuals",
+      hotelTenantId: actor.hotel_tenant_id,
+      actorId: actor.id,
+      action: "UPDATE",
+      entityType: "MANUAL",
+      entityId: id,
+      changes: { after: `${existing.title} reindex` },
+    });
+  });
+  try {
+    await dispatchManualIndex(actor.hotel_tenant_id, id);
+  } catch (error) {
+    const indexError = error instanceof Error ? error.message.slice(0, 500) : "Index failed";
+    await prisma.manualDocument.update({ where: { id }, data: { indexStatus: "FAILED", indexError } });
+    return { error: "INDEX_FAILED" as const, indexStatus: "FAILED", indexError };
+  }
+  return { ok: true as const, indexStatus: "PENDING" as const, indexError: null };
 }
 
 export async function updateManual(actor: ManualsActor, id: string, input: { title?: unknown; scope?: unknown; departmentId?: unknown; departmentIds?: unknown }) {

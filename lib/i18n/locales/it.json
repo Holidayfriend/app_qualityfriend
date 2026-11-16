@@ -1489,7 +1489,17 @@
     "videoRemove": "Rimuovi",
     "invalidVideo": "Un video non è stato salvato. Usa MP4, WEBM o MOV sotto 50 MB.",
     "tooManyVideos": "Puoi allegare al massimo 6 video.",
-    "uploadingVideo": "Caricamento video {current} di {total}…"
+    "uploadingVideo": "Caricamento video {current} di {total}…",
+    "indexTitle": "Assistente IA",
+    "indexReady": "Indicizzato. L’assistente IA può rispondere da questo documento.",
+    "indexPending": "Non ancora indicizzato. È in attesa di essere letto.",
+    "indexRunning": "Indicizzazione in corso. L’assistente potrà usarlo al termine.",
+    "indexFailed": "Non indicizzato. L’assistente non può usare questo documento.",
+    "indexDeleted": "Non disponibile per l’assistente finché il documento è nel cestino.",
+    "indexHint": "Viene indicizzato solo il documento. I video non vengono letti dall’assistente.",
+    "reindex": "Reindicizza",
+    "reindexStarted": "Reindicizzazione avviata. L’assistente potrà usare il documento al termine.",
+    "reindexFailed": "Impossibile avviare la reindicizzazione."
   },
   "repairsMessages": {
     "pageTitle": "Riparazioni",

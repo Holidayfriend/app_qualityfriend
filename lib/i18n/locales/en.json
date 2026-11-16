@@ -1491,7 +1491,17 @@
     "videoRemove": "Remove",
     "invalidVideo": "A video could not be saved. Use MP4, WEBM or MOV under 50 MB.",
     "tooManyVideos": "You can attach up to 6 videos.",
-    "uploadingVideo": "Uploading video {current} of {total}…"
+    "uploadingVideo": "Uploading video {current} of {total}…",
+    "indexTitle": "AI assistant",
+    "indexReady": "Indexed. The AI assistant can answer from this document.",
+    "indexPending": "Not indexed yet. It is waiting to be read.",
+    "indexRunning": "Indexing now. The assistant can use it when this finishes.",
+    "indexFailed": "Not indexed. The assistant cannot use this document.",
+    "indexDeleted": "Not available to the assistant while this document is in the recycle bin.",
+    "indexHint": "Only the document is indexed. Videos are not read by the assistant.",
+    "reindex": "Reindex",
+    "reindexStarted": "Reindex started. The assistant can use this document when indexing finishes.",
+    "reindexFailed": "Reindex could not be started."
   },
   "repairsMessages": {
     "pageTitle": "Repairs",
