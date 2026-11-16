@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { repairsEditor, repairsViewer } from "../../../../lib/repairs/access";
-import { addRepairComment, getRepair, updateRepair, updateRepairAssignee, updateRepairStatus } from "../../../../lib/repairs/service";
+import { addRepairComment, getRepair, removeRepair, updateRepair, updateRepairAssignee, updateRepairStatus } from "../../../../lib/repairs/service";
 import { supportedLocales } from "../../../../lib/i18n/dictionaries";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -57,5 +57,14 @@ export async function PATCH(request: Request, ctx: Ctx) {
         ? await addRepairComment(actor, id, String(body.text ?? ""), locale)
         : { error: "INVALID" as const };
   if ("error" in result && result.error) return NextResponse.json(result, { status: repairErrorStatus(result.error) });
+  return NextResponse.json(result);
+}
+
+export async function DELETE(_request: Request, ctx: Ctx) {
+  const actor = await repairsEditor();
+  if (!actor) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+  const { id } = await ctx.params;
+  const result = await removeRepair(actor, id);
+  if ("error" in result) return NextResponse.json(result, { status: result.error === "NOT_FOUND" ? 404 : 403 });
   return NextResponse.json(result);
 }

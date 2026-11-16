@@ -432,7 +432,8 @@
       "manual": "Manuale",
       "handover": "Consegna",
       "task": "Compito",
-      "checklist": "Checklist"
+      "checklist": "Checklist",
+      "repair": "Riparazione"
     }
   },
   "hotelLanguageMessages": {
@@ -1597,6 +1598,10 @@
     "saveFailed": "Impossibile salvare la riparazione. Riprova.",
     "saved": "Riparazione salvata.",
     "savedEdit": "Riparazione salvata – lo stato esistente è stato mantenuto.",
+    "delete": "Elimina",
+    "deleteConfirm": "Eliminare questa riparazione?",
+    "deleteMessage": "{title} verrà spostata nel cestino. Resta fuori dall’elenco delle riparazioni finché non la ripristini.",
+    "cancel": "Annulla",
     "comments": "Commenti",
     "noComments": "Nessun commento.",
     "commentPlaceholder": "Aggiungi un commento...",

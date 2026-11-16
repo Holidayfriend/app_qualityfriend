@@ -125,11 +125,14 @@ export function HandoversListPage() {
   async function remove() {
     if (!pendingDelete || deleting) return;
     setDeleting(true);
-    const response = await fetch(`/api/handovers/${pendingDelete.id}`, { method: "DELETE" });
-    setDeleting(false);
-    if (!response.ok) return;
-    setPendingDelete(null);
-    await reload();
+    try {
+      const response = await fetch(`/api/handovers/${pendingDelete.id}`, { method: "DELETE" });
+      if (!response.ok) return;
+      await reload();
+      setPendingDelete(null);
+    } finally {
+      setDeleting(false);
+    }
   }
 
   if (!ready) return <Shell title={t.listTitle}><BrandLoader label={t.loading} /></Shell>;

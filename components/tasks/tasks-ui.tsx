@@ -207,11 +207,14 @@ export function TasksListPage() {
   async function remove() {
     if (!pendingDelete || deleting) return;
     setDeleting(true);
-    const response = await fetch(`/api/tasks/${pendingDelete.id}`, { method: "DELETE" });
-    setDeleting(false);
-    if (!response.ok) { toast({ message: t.saveFailed, tone: "error" }); return; }
-    setPendingDelete(null);
-    await reload();
+    try {
+      const response = await fetch(`/api/tasks/${pendingDelete.id}`, { method: "DELETE" });
+      if (!response.ok) { toast({ message: t.saveFailed, tone: "error" }); return; }
+      await reload();
+      setPendingDelete(null);
+    } finally {
+      setDeleting(false);
+    }
   }
 
   if (!ready) return <Shell title={t.pageTitle}><BrandLoader label={t.loading} /></Shell>;
@@ -402,11 +405,14 @@ export function ChecklistsListPage() {
   async function remove() {
     if (!pendingDelete || deleting) return;
     setDeleting(true);
-    const response = await fetch(`/api/checklists/${pendingDelete.id}`, { method: "DELETE" });
-    setDeleting(false);
-    if (!response.ok) { toast({ message: t.checklistSaveFailed, tone: "error" }); return; }
-    setPendingDelete(null);
-    await reload();
+    try {
+      const response = await fetch(`/api/checklists/${pendingDelete.id}`, { method: "DELETE" });
+      if (!response.ok) { toast({ message: t.checklistSaveFailed, tone: "error" }); return; }
+      await reload();
+      setPendingDelete(null);
+    } finally {
+      setDeleting(false);
+    }
   }
 
   if (!ready) return <Shell title={t.listTitle}><BrandLoader label={t.loading} /></Shell>;

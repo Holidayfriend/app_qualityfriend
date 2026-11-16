@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { BrandLoader } from "./brand-loader";
 import { Button } from "./button";
 
 export function ConfirmDialog({ open, title, message, confirmLabel, cancelLabel, pending = false, onConfirm, onCancel }: {
@@ -40,6 +41,7 @@ export function ConfirmDialog({ open, title, message, confirmLabel, cancelLabel,
         <Button ref={cancelRef} type="button" variant="secondary" onClick={onCancel} disabled={pending}>{cancelLabel}</Button>
         <Button type="button" variant="danger" onClick={onConfirm} disabled={pending}>{confirmLabel}</Button>
       </footer>
+      {pending ? <BrandLoader overlay /> : null}
     </div>
   </div>;
 }

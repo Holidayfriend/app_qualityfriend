@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type R
 import { AppShell } from "../dashboard/app-shell";
 import { useI18n } from "../i18n/i18n-provider";
 import { BrandLoader } from "../ui/brand-loader";
+import { ConfirmDialog } from "../ui/confirm-dialog";
 import { AttachmentField, AttachmentIndicator } from "../ui/attachment-field";
 import { useToast } from "../ui/toast-provider";
 import { getRepairsMessages, type RepairsMessages } from "../../lib/i18n/repairs-messages";
@@ -149,9 +150,26 @@ export function RepairsDashboardPage() {
 export function RepairsListPage() {
   const t = useT();
   const router = useRouter();
-  const { repairs, departments, canManage, ready } = useRepairs();
+  const toast = useToast();
+  const { repairs, departments, canManage, ready, reload } = useRepairs();
   const [filter, setFilter] = useState<Filter>("alle");
   const [query, setQuery] = useState("");
+  const [pendingDelete, setPendingDelete] = useState<PublicRepair | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  async function remove() {
+    if (!pendingDelete || deleting) return;
+    setDeleting(true);
+    try {
+      const response = await fetch(`/api/repairs/${pendingDelete.id}`, { method: "DELETE" });
+      if (!response.ok) { toast({ message: t.saveFailed, tone: "error" }); return; }
+      await reload();
+      setPendingDelete(null);
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   if (!ready) return <Shell title={t.listTitle}><BrandLoader label={t.loading} /></Shell>;
   const rows = repairs.filter((item) => {
     const statusOk = filter === "alle" || item.status === filter;
@@ -159,8 +177,10 @@ export function RepairsListPage() {
     return statusOk && (!query || text.includes(query.toLowerCase()));
   });
   const filters: [Filter, string][] = [["alle", t.filterAll], ["neu", t.statusNeu], ["uebernommen", t.statusUebernommen], ["in_arbeit", t.statusInArbeit], ["wartet", t.statusWartet], ["erledigt", t.statusErledigt], ...(canManage ? [["draft", t.statusDraft] as [Filter, string]] : [])];
+  const dialog = pendingDelete ? <ConfirmDialog open title={t.deleteConfirm} message={t.deleteMessage.replace("{title}", pendingDelete.title)} confirmLabel={t.delete} cancelLabel={t.cancel} pending={deleting} onConfirm={() => void remove()} onCancel={() => { if (!deleting) setPendingDelete(null); }} /> : null;
 
-  return <Shell title={t.listTitle}>
+  return <>
+  <Shell title={t.listTitle}>
     <Link href="/repairs" className="back-link">{t.back}</Link>
     <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
       <div className="filter-row" style={{ marginBottom: 0 }}>
@@ -185,7 +205,10 @@ export function RepairsListPage() {
               <div className="repairs-list-card-depts"><dt>{t.colDepts}</dt><dd>{item.depts.length ? item.depts.map((d) => <span key={d} className="chip chip-n">{deptName(d, departments, t)}</span>) : <span className="chip chip-n">{t.allChip}</span>}</dd></div>
             </dl>
           </Link>
-          {canManage ? <div className="repairs-list-card-actions"><Link href={`/repairs/${item.id}/edit`} className="icon-btn" aria-label={`${t.colActions}: ${item.title}`} title={t.colActions}>✏️</Link></div> : null}
+          {canManage ? <div className="repairs-list-card-actions">
+            <Link href={`/repairs/${item.id}/edit`} className="icon-btn" aria-label={`${t.colActions}: ${item.title}`} title={t.colActions}>✏️</Link>
+            <button type="button" className="icon-btn danger" aria-label={t.delete} title={t.delete} onClick={() => setPendingDelete(item)}>🗑️</button>
+          </div> : null}
         </article>
       )) : <div className="repairs-list-empty">{t.empty}</div>}
     </div>
@@ -201,12 +224,14 @@ export function RepairsListPage() {
             <td>{item.depts.length ? item.depts.map((d) => <span key={d} className="chip chip-n" style={{ marginRight: 4 }}>{deptName(d, departments, t)}</span>) : <span className="chip chip-n">{t.allChip}</span>}</td>
             <td><span className={`chip ${STATUS_CHIP[asStatus(item.status)]}`}>{statusLabel(item.status, t)}</span></td>
             <td>{item.date}</td>
-            {canManage ? <td style={{ textAlign: "right" }}><Link href={`/repairs/${item.id}/edit`} className="icon-btn" onClick={(event) => event.stopPropagation()}>✏️</Link></td> : null}
+            {canManage ? <td style={{ textAlign: "right" }}><div style={{ display: "inline-flex", gap: 4 }} onClick={(event) => event.stopPropagation()}><Link href={`/repairs/${item.id}/edit`} className="icon-btn" aria-label={t.colActions} title={t.colActions}>✏️</Link><button type="button" className="icon-btn danger" aria-label={t.delete} title={t.delete} onClick={() => setPendingDelete(item)}>🗑️</button></div></td> : null}
           </tr>) : <tr><td colSpan={canManage ? 8 : 7} style={{ fontSize: 12.5, color: "var(--text3)" }}>{t.empty}</td></tr>}
         </tbody>
       </table>
     </div>
-  </Shell>;
+  </Shell>
+  {dialog}
+  </>;
 }
 
 export function RepairsFormPage({ id }: { id?: string }) {

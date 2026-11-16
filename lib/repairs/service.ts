@@ -60,7 +60,7 @@ function dateTimeOf(value: Date, locale: string, timeZone?: string | null) {
 
 export function visibleWhere(actor: { id: string; hotel_tenant_id: string; departmentId: string | null; departmentIds?: string[]; canManage?: boolean }, kind: RepairKind): Prisma.RepairWhereInput {
   if (kind === "TEMPLATE") {
-    return { hotelTenantId: actor.hotel_tenant_id, kind: "TEMPLATE" };
+    return { hotelTenantId: actor.hotel_tenant_id, kind: "TEMPLATE", isDeleted: false };
   }
   const published: Prisma.RepairWhereInput[] = [
     { visibility: "ALL" },
@@ -73,6 +73,7 @@ export function visibleWhere(actor: { id: string; hotel_tenant_id: string; depar
   return {
     hotelTenantId: actor.hotel_tenant_id,
     kind: "REPAIR",
+    isDeleted: false,
     OR: [
       { AND: [{ status: { not: "DRAFT" } }, { OR: published }] },
       ...(actor.canManage ? [{ status: "DRAFT" as const }] : []),
@@ -663,4 +664,25 @@ export async function addRepairComment(actor: RepairsActor, id: string, text: st
     return tx.repair.findFirstOrThrow({ where: { id }, include });
   });
   return { repair: toPublicRepair(row, locale, timeZone) };
+}
+
+export async function removeRepair(actor: RepairsActor, id: string) {
+  if (!actor.canManage || !isUuid(id)) return { error: "FORBIDDEN" as const };
+  const existing = await prisma.repair.findFirst({
+    where: { id, hotelTenantId: actor.hotel_tenant_id, kind: "REPAIR", isDeleted: false },
+    select: { id: true, title: true, titleDe: true, titleIt: true },
+  });
+  if (!existing) return { error: "NOT_FOUND" as const };
+  await prisma.$transaction(async (tx) => {
+    await tx.repair.update({ where: { id }, data: { isDeleted: true, deletedAt: new Date() } });
+    await recordAuditLog(tx, { module: "repairs",
+      hotelTenantId: actor.hotel_tenant_id,
+      actorId: actor.id,
+      action: "DELETE",
+      entityType: "REPAIR",
+      entityId: id,
+      changes: { before: { en: existing.title, de: existing.titleDe, it: existing.titleIt } },
+    });
+  });
+  return { ok: true as const };
 }

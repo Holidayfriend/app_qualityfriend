@@ -432,7 +432,8 @@
       "manual": "Handbuch",
       "handover": "Übergabe",
       "task": "Aufgabe",
-      "checklist": "Checkliste"
+      "checklist": "Checkliste",
+      "repair": "Reparatur"
     }
   },
   "hotelLanguageMessages": {
@@ -1597,6 +1598,10 @@
     "saveFailed": "Die Reparatur konnte nicht gespeichert werden. Bitte erneut versuchen.",
     "saved": "Reparatur gespeichert.",
     "savedEdit": "Reparatur gespeichert – bestehender Status wurde beibehalten.",
+    "delete": "Löschen",
+    "deleteConfirm": "Diese Reparatur löschen?",
+    "deleteMessage": "{title} wird in den Papierkorb verschoben. Sie verschwindet aus der Reparaturliste, bis Sie sie wiederherstellen.",
+    "cancel": "Abbrechen",
     "comments": "Kommentare",
     "noComments": "Noch keine Kommentare.",
     "commentPlaceholder": "Kommentar hinzufügen...",

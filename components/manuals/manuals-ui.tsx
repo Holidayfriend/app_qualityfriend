@@ -164,11 +164,14 @@ export function ManualsPage() {
   async function remove() {
     if (!pendingDelete || deleting) return;
     setDeleting(true);
-    const response = await fetch(`/api/manuals?id=${encodeURIComponent(pendingDelete.id)}`, { method: "DELETE" });
-    setDeleting(false);
-    if (!response.ok) { setNotice(t.failed); return; }
-    setDocuments((items) => items.filter((item) => item.id !== pendingDelete.id));
-    setPendingDelete(null);
+    try {
+      const response = await fetch(`/api/manuals?id=${encodeURIComponent(pendingDelete.id)}`, { method: "DELETE" });
+      if (!response.ok) { setNotice(t.failed); return; }
+      setDocuments((items) => items.filter((item) => item.id !== pendingDelete.id));
+      setPendingDelete(null);
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return <AppShell activeItem="manuals" pageTitle={t.pageTitle}>

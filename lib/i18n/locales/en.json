@@ -434,7 +434,8 @@
       "manual": "Manual",
       "handover": "Handover",
       "task": "Task",
-      "checklist": "Checklist"
+      "checklist": "Checklist",
+      "repair": "Repair"
     }
   },
   "hotelLanguageMessages": {
@@ -1599,6 +1600,10 @@
     "saveFailed": "Could not save the repair. Please try again.",
     "saved": "Repair saved.",
     "savedEdit": "Repair saved – existing status was kept.",
+    "delete": "Delete",
+    "deleteConfirm": "Delete this repair?",
+    "deleteMessage": "{title} will move to the recycle bin. It leaves the repair list until you restore it.",
+    "cancel": "Cancel",
     "comments": "Comments",
     "noComments": "No comments yet.",
     "commentPlaceholder": "Add a comment...",
