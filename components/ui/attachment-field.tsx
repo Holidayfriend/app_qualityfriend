@@ -151,7 +151,7 @@ function StoredThumbnail({ item }: { item: AttachmentItem }) {
   return <span aria-hidden style={{ fontSize: 22 }}>{item.type === "video" ? "🎥" : item.type === "voice" ? "🎤" : "📎"}</span>;
 }
 
-export function AttachmentField({
+export function AttachmentField<T extends AttachmentItem>({
   existing,
   files,
   onExistingChange,
@@ -162,9 +162,9 @@ export function AttachmentField({
   maxFiles = 10,
   label,
 }: {
-  existing: AttachmentItem[];
+  existing: T[];
   files: File[];
-  onExistingChange: (items: AttachmentItem[]) => void;
+  onExistingChange: (items: T[]) => void;
   onFilesChange: (files: File[]) => void;
   onProcessingChange?: (processing: boolean) => void;
   allowMedia?: boolean;
