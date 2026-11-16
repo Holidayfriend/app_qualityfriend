@@ -2,8 +2,8 @@ import "server-only";
 
 import { prisma } from "../prisma";
 import { completeHotelChat } from "../ai/complete";
-import { departmentIdsOf } from "../users/memberships";
 import type { ManualsActor } from "./access";
+import { manualAudienceWhere } from "./visibility";
 
 export type ChatTurn = { role: "user" | "assistant"; content: string };
 type ChatLocale = "en" | "de" | "it";
@@ -44,13 +44,9 @@ function scoreChunk(title: string, content: string, queryTokens: string[]) {
 }
 
 function visibleDocuments(actor: ManualsActor) {
-  if (actor.canManage) return { hotelTenantId: actor.hotel_tenant_id, isDeleted: false, indexStatus: "READY" };
-  return {
-    hotelTenantId: actor.hotel_tenant_id,
-    isDeleted: false,
-    indexStatus: "READY",
-    OR: [{ departmentId: null }, ...(departmentIdsOf(actor).length ? [{ departmentId: { in: departmentIdsOf(actor) } }] : [])],
-  };
+  const ready = { hotelTenantId: actor.hotel_tenant_id, isDeleted: false, indexStatus: "READY" };
+  if (actor.canManage) return ready;
+  return { AND: [ready, manualAudienceWhere(actor)] };
 }
 
 function parseLocale(value: unknown): ChatLocale {

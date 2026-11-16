@@ -1,6 +1,6 @@
 import type { PrismaClient } from "../../app/generated/prisma/client";
 
-const KEY = /^[0-9a-f-]{36}\.(pdf|doc|docx|txt)$/i;
+const KEY = /^[0-9a-f-]{36}\.(pdf|doc|docx|txt|mp4|webm|mov)$/i;
 
 type BlobDb = Pick<PrismaClient, "manualFileBlob">;
 

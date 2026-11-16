@@ -1209,6 +1209,7 @@ model Department {
   hotelChecklists           HotelChecklist[]
   hotelChecklistAssignments HotelChecklistDepartment[]
   manuals                   ManualDocument[]
+  manualShares              ManualDocumentDepartment[]
 
   @@unique([hotelTenantId, nameEn])
   @@index([hotelTenantId, isDeleted])
@@ -1234,16 +1235,45 @@ model ManualDocument {
   indexError    String?       @map("index_error") @db.Text
   isDeleted     Boolean       @default(false) @map("is_deleted")
   deletedAt     DateTime?     @map("deleted_at") @db.Timestamptz(3)
-  hotelTenant   HotelTenant   @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
-  department    Department?   @relation(fields: [departmentId], references: [id], onDelete: SetNull)
-  createdBy     User          @relation("ManualDocumentAuthor", fields: [createdById], references: [id], onDelete: Restrict)
+  hotelTenant   HotelTenant                @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+  department    Department?                @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  createdBy     User                       @relation("ManualDocumentAuthor", fields: [createdById], references: [id], onDelete: Restrict)
   chunks        ManualChunk[]
+  departments   ManualDocumentDepartment[]
+  videos        ManualVideo[]
 
   @@index([hotelTenantId, createdAt])
   @@index([hotelTenantId, isDeleted])
   @@index([hotelTenantId, departmentId])
   @@index([createdById])
   @@map("manual_documents")
+}
+
+model ManualDocumentDepartment {
+  documentId   String         @map("document_id") @db.Uuid
+  departmentId String         @map("department_id") @db.Uuid
+  document     ManualDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  department   Department     @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@id([documentId, departmentId])
+  @@index([departmentId])
+  @@map("manual_document_departments")
+}
+
+model ManualVideo {
+  id            String         @id @default(uuid()) @db.Uuid
+  documentId    String         @map("document_id") @db.Uuid
+  hotelTenantId String         @map("hotel_tenant_id") @db.Uuid
+  originalName  String         @map("original_name") @db.VarChar(180)
+  storageKey    String         @map("storage_key") @db.VarChar(80)
+  mimeType      String         @map("mime_type") @db.VarChar(160)
+  byteSize      Int            @map("byte_size")
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  document      ManualDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([hotelTenantId])
+  @@map("manual_videos")
 }
 
 model ManualFileBlob {

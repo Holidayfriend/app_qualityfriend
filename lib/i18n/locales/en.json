@@ -1484,7 +1484,14 @@
     "current": "Current",
     "review": "Review",
     "outdated": "Outdated",
-    "download": "Download"
+    "download": "Download",
+    "scopeHint": "Choose hotel-wide, or select one or more departments.",
+    "videos": "Videos",
+    "videoFormats": "MP4, WEBM or MOV · max. 50 MB each. Optional, shown below the document. The AI assistant still reads the document above.",
+    "videoRemove": "Remove",
+    "invalidVideo": "A video could not be saved. Use MP4, WEBM or MOV under 50 MB.",
+    "tooManyVideos": "You can attach up to 6 videos.",
+    "uploadingVideo": "Uploading video {current} of {total}…"
   },
   "repairsMessages": {
     "pageTitle": "Repairs",

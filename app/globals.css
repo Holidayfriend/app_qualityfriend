@@ -272,7 +272,7 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 .qf-dashboard .hb-toolbar { display:flex;gap:10px;margin-bottom:18px;align-items:center }
 .qf-dashboard .hb-search { flex:1;padding:8px 14px;border:1px solid var(--border);border-radius:7px;font-size:13.5px;outline:none;font-family:inherit;background:var(--surface);color:var(--text) }
 .qf-dashboard .hb-cat { display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px }
-.qf-dashboard .hb-cat-btn { padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text2);display:flex;align-items:center;gap:6px;font-family:inherit }
+.qf-dashboard .hb-cat-btn { padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--text2);display:flex;align-items:center;gap:6px;font-family:inherit;appearance:none }
 .qf-dashboard .hb-cat-btn.active { background:var(--accent-light);color:var(--accent);border-color:#E8D5A0 }
 .qf-dashboard .hb-item { display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:8px }
 .qf-dashboard .hb-item:hover { border-color:var(--accent);background:var(--accent-light) }
@@ -281,8 +281,12 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
 .qf-dashboard .hb-t { font-size:13.5px;font-weight:600;color:var(--text) }
 .qf-dashboard .hb-m { font-size:12px;color:var(--text2);margin-top:2px }
 .qf-dashboard .hb-item .hb-actions { margin-left:auto;display:flex;align-items:center;gap:4px;flex-shrink:0 }
-.qf-dashboard.hb-view { padding:0;display:flex;flex-direction:column;min-height:calc(100vh - 56px);overflow:hidden }
-.qf-dashboard .hb-view-frame { flex:1;width:100%;border:0;min-height:calc(100vh - 56px);background:#525659 }
+.qf-dashboard.hb-view { padding:0;display:flex;flex-direction:column;min-height:calc(100vh - 56px);overflow:auto }
+.qf-dashboard .hb-view-frame { flex:1;width:100%;border:0;min-height:72vh;background:#525659 }
+.qf-dashboard .hb-videos { display:grid;gap:14px;padding:16px 20px 32px;background:var(--surface) }
+.qf-dashboard .hb-videos h2 { margin:0;font-size:14px;font-weight:700 }
+.qf-dashboard .hb-videos video { width:100%;max-height:520px;background:#111;border-radius:8px }
+.qf-dashboard .hb-video-name { font-size:12.5px;color:var(--text2);margin-bottom:6px }
 .qf-dashboard .rep { display:flex;align-items:flex-start;gap:12px;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:10px;cursor:pointer;width:100%;text-align:left;font:inherit;color:inherit }
 .qf-dashboard .rep:hover { border-color:var(--accent) }
 .qf-dashboard .rep-prio { width:4px;border-radius:2px;align-self:stretch;flex-shrink:0 }

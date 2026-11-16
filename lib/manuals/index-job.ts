@@ -24,7 +24,7 @@ export async function indexManualDocument(data: ManualIndexJob) {
     const text = await extractManualBuffer(bytes, document.mimeType, document.storageKey);
     const chunks = splitManualText(text);
     await prisma.$transaction(async (tx) => {
-      const current = await tx.manualDocument.findFirst({ where: { id: document.id }, select: { isDeleted: true } });
+      const current = await tx.manualDocument.findFirst({ where: { id: document.id }, select: { isDeleted: true, departmentId: true } });
       if (current?.isDeleted) {
         await tx.manualChunk.deleteMany({ where: { documentId: document.id } });
         return;
@@ -36,7 +36,7 @@ export async function indexManualDocument(data: ManualIndexJob) {
             id: chunk.id,
             hotelTenantId: document.hotelTenantId,
             documentId: document.id,
-            departmentId: document.departmentId,
+            departmentId: current?.departmentId ?? document.departmentId,
             chunkIndex: chunk.chunkIndex,
             content: chunk.content,
           })),

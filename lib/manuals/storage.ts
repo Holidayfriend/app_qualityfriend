@@ -3,13 +3,20 @@ import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const MAX_BYTES = 20 * 1024 * 1024;
+export const MAX_MANUAL_VIDEOS = 6;
+export const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
 const TYPES = new Map([
   ["application/pdf", "pdf"],
   ["application/msword", "doc"],
   ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "docx"],
   ["text/plain", "txt"],
 ]);
-const KEY = /^[0-9a-f-]{36}\.(pdf|doc|docx|txt)$/i;
+const VIDEO_TYPES = new Map([
+  ["video/mp4", "mp4"],
+  ["video/webm", "webm"],
+  ["video/quicktime", "mov"],
+]);
+const KEY = /^[0-9a-f-]{36}\.(pdf|doc|docx|txt|mp4|webm|mov)$/i;
 const storageRoot = () => path.join(process.cwd(), "storage", "manuals");
 
 type UploadLike = { name: string; type: string; size: number; arrayBuffer: () => Promise<ArrayBuffer> };
@@ -43,12 +50,40 @@ export async function saveManualFile(file: UploadLike) {
   };
 }
 
+function videoExtension(file: UploadLike) {
+  const fromType = VIDEO_TYPES.get(file.type);
+  if (fromType) return fromType;
+  const match = /\.(mp4|webm|mov)$/i.exec(file.name);
+  return match ? match[1].toLowerCase() : null;
+}
+
+export async function saveManualVideo(file: UploadLike) {
+  if (!file || typeof file.arrayBuffer !== "function" || file.size <= 0 || file.size > MAX_VIDEO_BYTES) return null;
+  const ext = videoExtension(file);
+  if (!ext) return null;
+  const storageKey = `${randomUUID()}.${ext}`;
+  const root = storageRoot();
+  await mkdir(root, { recursive: true });
+  const bytes = Buffer.from(await file.arrayBuffer());
+  await writeFile(path.join(root, storageKey), bytes);
+  return {
+    storageKey,
+    originalName: String(file.name || "").trim().slice(0, 180) || storageKey,
+    mimeType: VIDEO_TYPES.has(file.type) ? file.type : mimeFor(storageKey),
+    byteSize: bytes.byteLength,
+    bytes,
+  };
+}
+
 export function mimeFor(storageKey: string) {
   const ext = storageKey.split(".").pop()?.toLowerCase();
   if (ext === "pdf") return "application/pdf";
   if (ext === "doc") return "application/msword";
   if (ext === "docx") return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
   if (ext === "txt") return "text/plain";
+  if (ext === "mp4") return "video/mp4";
+  if (ext === "webm") return "video/webm";
+  if (ext === "mov") return "video/quicktime";
   return "application/octet-stream";
 }
 

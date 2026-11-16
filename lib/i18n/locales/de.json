@@ -1482,7 +1482,14 @@
     "current": "Aktuell",
     "review": "Prüfen",
     "outdated": "Veraltet",
-    "download": "Herunterladen"
+    "download": "Herunterladen",
+    "scopeHint": "Hotelweit wählen oder eine oder mehrere Abteilungen markieren.",
+    "videos": "Videos",
+    "videoFormats": "MP4, WEBM oder MOV · max. 50 MB pro Datei. Optional, unter dem Dokument. Der KI-Assistent liest weiterhin das Dokument darüber.",
+    "videoRemove": "Entfernen",
+    "invalidVideo": "Ein Video konnte nicht gespeichert werden. Bitte MP4, WEBM oder MOV unter 50 MB verwenden.",
+    "tooManyVideos": "Sie können höchstens 6 Videos anhängen.",
+    "uploadingVideo": "Video {current} von {total} wird hochgeladen…"
   },
   "repairsMessages": {
     "pageTitle": "Reparaturen",

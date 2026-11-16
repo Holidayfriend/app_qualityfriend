@@ -1482,7 +1482,14 @@
     "current": "Aggiornato",
     "review": "Da verificare",
     "outdated": "Obsoleto",
-    "download": "Scarica"
+    "download": "Scarica",
+    "scopeHint": "Scegli tutto l’hotel, oppure uno o più reparti.",
+    "videos": "Video",
+    "videoFormats": "MP4, WEBM o MOV · max. 50 MB ciascuno. Facoltativo, sotto il documento. L’assistente IA continua a leggere il documento sopra.",
+    "videoRemove": "Rimuovi",
+    "invalidVideo": "Un video non è stato salvato. Usa MP4, WEBM o MOV sotto 50 MB.",
+    "tooManyVideos": "Puoi allegare al massimo 6 video.",
+    "uploadingVideo": "Caricamento video {current} di {total}…"
   },
   "repairsMessages": {
     "pageTitle": "Riparazioni",
