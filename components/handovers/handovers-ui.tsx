@@ -133,6 +133,7 @@ export function HandoversListPage() {
   }
 
   if (!ready) return <Shell title={t.listTitle}><BrandLoader label={t.loading} /></Shell>;
+  const dialog = pendingDelete ? <ConfirmDialog open title={t.deleteConfirm} message={t.deleteMessage.replace("{title}", pendingDelete.title)} confirmLabel={t.delete} cancelLabel={t.cancel} pending={deleting} onConfirm={() => void remove()} onCancel={() => { if (!deleting) setPendingDelete(null); }} /> : null;
   const rows = handovers.filter((item) => {
     const statusOk = filter === "alle" || item.status === filter;
     const text = `${item.title}${item.creator}${item.tags.join("")}`.toLowerCase();
@@ -140,7 +141,8 @@ export function HandoversListPage() {
   });
   const filters: [Filter, string][] = [["alle", t.filterAll], ["offen", t.statusOpen], ["erledigt", t.statusDone], ...(canManage ? [["draft", t.statusDraft] as [Filter, string]] : [])];
 
-  return <Shell title={t.listTitle}>
+  return <AppShell activeItem="handovers" pageTitle={t.listTitle}>
+    <main className="qf-dashboard qf-handovers pb-24 lg:pb-[24px]">
     <Link href="/handovers" className="back-link">{t.back}</Link>
     <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
       <div className="filter-row" style={{ marginBottom: 0 }}>
@@ -190,8 +192,9 @@ export function HandoversListPage() {
         </tbody>
       </table>
     </div>
-    {pendingDelete ? <ConfirmDialog open title={t.deleteConfirm} message={t.deleteMessage.replace("{title}", pendingDelete.title)} confirmLabel={t.delete} cancelLabel={t.cancel} pending={deleting} onConfirm={() => void remove()} onCancel={() => { if (!deleting) setPendingDelete(null); }} /> : null}
-  </Shell>;
+    </main>
+    {dialog}
+  </AppShell>;
 }
 
 export function HandoversFormPage({ id, aiDraft = false }: { id?: string; aiDraft?: boolean }) {
