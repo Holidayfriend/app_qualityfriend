@@ -429,7 +429,8 @@
       "department": "Reparto",
       "team": "Team",
       "user": "Utente",
-      "manual": "Manuale"
+      "manual": "Manuale",
+      "handover": "Consegna"
     }
   },
   "hotelLanguageMessages": {
@@ -1685,6 +1686,10 @@
     "markDone": "✓ Segna come completata",
     "reopen": "Riapri",
     "edit": "✏️ Modifica",
+    "delete": "Elimina",
+    "deleteConfirm": "Eliminare questa consegna?",
+    "deleteMessage": "{title} verrà spostata nel cestino. Resta fuori dall’elenco finché non la ripristini.",
+    "cancel": "Annulla",
     "pin": "📌 Fissa",
     "completedMeta": "Completata {when} da {name}"
   },

@@ -875,7 +875,7 @@ button[data-chat-button="true"][data-unread]:not([data-unread=""])::after {
   .qf-dashboard .handovers-list-card-meta dt { color:var(--text3);font-size:9.5px;font-weight:700;letter-spacing:.35px;text-transform:uppercase }
   .qf-dashboard .handovers-list-card-meta dd { margin-top:4px;font-size:12px;overflow-wrap:anywhere }
   .qf-dashboard .handovers-list-card-chips { display:flex;flex-wrap:wrap;gap:4px }
-  .qf-dashboard .handovers-list-card-actions { display:flex;justify-content:flex-end;padding:0 14px 12px }
+  .qf-dashboard .handovers-list-card-actions { display:flex;justify-content:flex-end;gap:6px;padding:0 14px 12px }
   .qf-dashboard .handovers-list-card-actions .icon-btn { width:40px;height:40px;flex:0 0 40px }
   .qf-dashboard .handovers-list-empty { padding:24px 16px;border:1px solid var(--border);border-radius:14px;background:var(--surface);color:var(--text3);font-size:12.5px;text-align:center }
   .qf-dashboard .repairs-list-desktop { display:none }

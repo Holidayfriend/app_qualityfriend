@@ -431,7 +431,8 @@
       "department": "Department",
       "team": "Team",
       "user": "User",
-      "manual": "Manual"
+      "manual": "Manual",
+      "handover": "Handover"
     }
   },
   "hotelLanguageMessages": {
@@ -1687,6 +1688,10 @@
     "markDone": "✓ Mark as completed",
     "reopen": "Reopen",
     "edit": "✏️ Edit",
+    "delete": "Delete",
+    "deleteConfirm": "Delete this handover?",
+    "deleteMessage": "{title} will move to the recycle bin. It leaves the handover list until you restore it.",
+    "cancel": "Cancel",
     "pin": "📌 Pin",
     "completedMeta": "Completed {when} by {name}"
   },

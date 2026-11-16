@@ -57,7 +57,7 @@ function dateTimeOf(value: Date, locale: string, timeZone?: string | null) {
 }
 
 export function visibleWhere(actor: HandoversActor, kind: HandoverKind): Prisma.HandoverWhereInput {
-  if (kind === "TEMPLATE") return { hotelTenantId: actor.hotel_tenant_id, kind: "TEMPLATE" };
+  if (kind === "TEMPLATE") return { hotelTenantId: actor.hotel_tenant_id, kind: "TEMPLATE", isDeleted: false };
   const published: Prisma.HandoverWhereInput[] = [
     { visibility: "ALL" },
     { visibility: "PRIVATE", createdById: actor.id },
@@ -66,6 +66,7 @@ export function visibleWhere(actor: HandoversActor, kind: HandoverKind): Prisma.
   return {
     hotelTenantId: actor.hotel_tenant_id,
     kind: "HANDOVER",
+    isDeleted: false,
     OR: [
       { createdById: actor.id },
       { AND: [{ status: { not: "DRAFT" } }, { OR: published }] },
@@ -261,7 +262,7 @@ export async function getHandover(actor: HandoversActor, id: string, locale: str
       id,
       OR: [
         visibleWhere(actor, "HANDOVER"),
-        ...(actor.canManage ? [{ hotelTenantId: actor.hotel_tenant_id, kind: "TEMPLATE" as const }] : []),
+        ...(actor.canManage ? [{ hotelTenantId: actor.hotel_tenant_id, kind: "TEMPLATE" as const, isDeleted: false }] : []),
       ],
     },
     include,
@@ -459,4 +460,25 @@ export async function updateHandoverPin(actor: HandoversActor, id: string, pinne
     });
   });
   return { handover: toPublicHandover(row, locale, timeZone, actor.id) };
+}
+
+export async function removeHandover(actor: HandoversActor, id: string) {
+  if (!actor.canManage || !isUuid(id)) return { error: "FORBIDDEN" as const };
+  const existing = await prisma.handover.findFirst({
+    where: { id, hotelTenantId: actor.hotel_tenant_id, isDeleted: false },
+    select: { id: true, title: true, titleDe: true, titleIt: true },
+  });
+  if (!existing) return { error: "NOT_FOUND" as const };
+  await prisma.$transaction(async (tx) => {
+    await tx.handover.update({ where: { id }, data: { isDeleted: true, deletedAt: new Date(), pinned: false } });
+    await recordAuditLog(tx, { module: "handovers",
+      hotelTenantId: actor.hotel_tenant_id,
+      actorId: actor.id,
+      action: "DELETE",
+      entityType: "HANDOVER",
+      entityId: id,
+      changes: { before: { en: existing.title, de: existing.titleDe, it: existing.titleIt } },
+    });
+  });
+  return { ok: true as const };
 }

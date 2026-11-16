@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { handoversEditor, handoversViewer } from "../../../../lib/handovers/access";
-import { getHandover, markHandoverRead, updateHandover, updateHandoverPin, updateHandoverStatus } from "../../../../lib/handovers/service";
+import { getHandover, markHandoverRead, removeHandover, updateHandover, updateHandoverPin, updateHandoverStatus } from "../../../../lib/handovers/service";
 import { supportedLocales } from "../../../../lib/i18n/dictionaries";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -45,5 +45,14 @@ export async function PATCH(request: Request, ctx: Ctx) {
         ? await markHandoverRead(actor, id, locale)
         : { error: "INVALID" as const };
   if ("error" in result) return NextResponse.json(result, { status: result.error === "NOT_FOUND" ? 404 : 400 });
+  return NextResponse.json(result);
+}
+
+export async function DELETE(_request: Request, ctx: Ctx) {
+  const actor = await handoversEditor();
+  if (!actor) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+  const { id } = await ctx.params;
+  const result = await removeHandover(actor, id);
+  if ("error" in result) return NextResponse.json(result, { status: result.error === "NOT_FOUND" ? 404 : 403 });
   return NextResponse.json(result);
 }

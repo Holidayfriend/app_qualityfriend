@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type R
 import { AppShell } from "../dashboard/app-shell";
 import { useI18n } from "../i18n/i18n-provider";
 import { BrandLoader } from "../ui/brand-loader";
+import { ConfirmDialog } from "../ui/confirm-dialog";
 import { AttachmentField, AttachmentGallery, AttachmentIndicator, type AttachmentItem } from "../ui/attachment-field";
 import { useToast } from "../ui/toast-provider";
 import { stripBrokenDataImages } from "../../lib/notes/note-html";
@@ -115,9 +116,22 @@ export function HandoversDashboardPage() {
 export function HandoversListPage() {
   const t = useT();
   const router = useRouter();
-  const { handovers, departments, canManage, ready } = useHandovers();
+  const { handovers, departments, canManage, ready, reload } = useHandovers();
   const [filter, setFilter] = useState<Filter>("alle");
   const [query, setQuery] = useState("");
+  const [pendingDelete, setPendingDelete] = useState<PublicHandover | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  async function remove() {
+    if (!pendingDelete || deleting) return;
+    setDeleting(true);
+    const response = await fetch(`/api/handovers/${pendingDelete.id}`, { method: "DELETE" });
+    setDeleting(false);
+    if (!response.ok) return;
+    setPendingDelete(null);
+    await reload();
+  }
+
   if (!ready) return <Shell title={t.listTitle}><BrandLoader label={t.loading} /></Shell>;
   const rows = handovers.filter((item) => {
     const statusOk = filter === "alle" || item.status === filter;
@@ -151,7 +165,10 @@ export function HandoversListPage() {
               <div style={{ gridColumn: "1 / -1" }}><dt>{t.colRead}</dt><dd><ReadStatus item={item} t={t} /></dd></div>
             </dl>
           </Link>
-          {canManage ? <div className="handovers-list-card-actions"><Link href={`/handovers/${item.id}/edit`} prefetch={false} className="icon-btn" aria-label={t.edit} title={t.edit}>✏️</Link></div> : null}
+          {canManage ? <div className="handovers-list-card-actions">
+            <Link href={`/handovers/${item.id}/edit`} prefetch={false} className="icon-btn" aria-label={t.edit} title={t.edit}>✏️</Link>
+            <button type="button" className="icon-btn danger" aria-label={t.delete} title={t.delete} onClick={() => setPendingDelete(item)}>🗑️</button>
+          </div> : null}
         </article>
       )) : <div className="handovers-list-empty">{t.empty}</div>}
     </div>
@@ -168,11 +185,12 @@ export function HandoversListPage() {
             <td><span className={`chip ${item.status === "erledigt" ? "chip-g" : item.status === "draft" ? "chip-a" : "chip-b"}`}>{statusLabel(item.status, t)}</span></td>
             <td><ReadStatus item={item} t={t} /></td>
             <td>{item.date}</td>
-            {canManage ? <td style={{ textAlign: "right" }}><Link href={`/handovers/${item.id}/edit`} prefetch={false} className="icon-btn" onClick={(event) => event.stopPropagation()}>✏️</Link></td> : null}
+            {canManage ? <td style={{ textAlign: "right" }}><div style={{ display: "inline-flex", gap: 4 }} onClick={(event) => event.stopPropagation()}><Link href={`/handovers/${item.id}/edit`} prefetch={false} className="icon-btn" aria-label={t.edit} title={t.edit}>✏️</Link><button type="button" className="icon-btn danger" aria-label={t.delete} title={t.delete} onClick={() => setPendingDelete(item)}>🗑️</button></div></td> : null}
           </tr>) : <tr><td colSpan={canManage ? 9 : 8} style={{ fontSize: 12.5, color: "var(--text3)" }}>{t.empty}</td></tr>}
         </tbody>
       </table>
     </div>
+    {pendingDelete ? <ConfirmDialog open title={t.deleteConfirm} message={t.deleteMessage.replace("{title}", pendingDelete.title)} confirmLabel={t.delete} cancelLabel={t.cancel} pending={deleting} onConfirm={() => void remove()} onCancel={() => { if (!deleting) setPendingDelete(null); }} /> : null}
   </Shell>;
 }
 

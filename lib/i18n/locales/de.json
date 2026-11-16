@@ -429,7 +429,8 @@
       "department": "Abteilung",
       "team": "Team",
       "user": "Benutzer",
-      "manual": "Handbuch"
+      "manual": "Handbuch",
+      "handover": "Übergabe"
     }
   },
   "hotelLanguageMessages": {
@@ -1685,6 +1686,10 @@
     "markDone": "✓ Als erledigt markieren",
     "reopen": "Wieder öffnen",
     "edit": "✏️ Bearbeiten",
+    "delete": "Löschen",
+    "deleteConfirm": "Diese Übergabe löschen?",
+    "deleteMessage": "{title} wird in den Papierkorb verschoben. Sie verschwindet aus der Liste, bis Sie sie wiederherstellen.",
+    "cancel": "Abbrechen",
     "pin": "📌 Anpinnen",
     "completedMeta": "Erledigt {when} von {name}"
   },
