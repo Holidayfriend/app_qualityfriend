@@ -11,10 +11,14 @@ const TYPES = new Map([
   ["image/jpeg", "jpg"],
   ["image/webp", "webp"],
   ["image/gif", "gif"],
+  ["image/x-icon", "ico"],
+  ["image/vnd.microsoft.icon", "ico"],
+  ["application/zip", "zip"],
+  ["application/x-zip-compressed", "zip"],
 ]);
 
 const storageRoot = () => path.join(process.cwd(), "storage", "notes");
-const KEY = /^[0-9a-f-]{36}\.(pdf|doc|docx|png|jpe?g|webp|gif)$/i;
+const KEY = /^[0-9a-f-]{36}\.(pdf|doc|docx|png|jpe?g|webp|gif|ico|zip)$/i;
 
 type UploadLike = { name: string; type: string; size: number; arrayBuffer: () => Promise<ArrayBuffer> };
 
@@ -25,7 +29,7 @@ export function isNoteUpload(value: FormDataEntryValue | null): value is File {
 function extensionFor(file: UploadLike) {
   const fromType = TYPES.get(file.type);
   if (fromType) return fromType;
-  const match = /\.(pdf|doc|docx|png|jpe?g|webp|gif)$/i.exec(file.name);
+  const match = /\.(pdf|doc|docx|png|jpe?g|webp|gif|ico|zip)$/i.exec(file.name);
   if (!match) return null;
   const ext = match[1].toLowerCase();
   return ext === "jpeg" ? "jpg" : ext;
@@ -56,6 +60,8 @@ export function mimeFor(storageKey: string) {
   if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
   if (ext === "webp") return "image/webp";
   if (ext === "gif") return "image/gif";
+  if (ext === "ico") return "image/x-icon";
+  if (ext === "zip") return "application/zip";
   return "application/octet-stream";
 }
 

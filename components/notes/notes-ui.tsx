@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type DragEvent, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { AppShell } from "../dashboard/app-shell";
 import { useI18n } from "../i18n/i18n-provider";
+import { AttachmentField, type AttachmentItem } from "../ui/attachment-field";
 import { BrandLoader } from "../ui/brand-loader";
 import { ConfirmDialog } from "../ui/confirm-dialog";
 import { useToast } from "../ui/toast-provider";
@@ -16,7 +17,10 @@ import { useNotes, type HotelDept, type HotelUser } from "./notes-provider";
 
 type T = NotesMessages;
 type Filter = "alle" | "aktiv" | "inaktiv";
-const MAX_FILES = 10;
+
+function toAttachment(file: NoteFile): AttachmentItem {
+  return { id: file.id, name: file.name, url: file.url, type: /\.(png|jpe?g|webp|gif)$/i.test(file.name) ? "photo" : "file" };
+}
 
 function useT() {
   const { locale } = useI18n();
@@ -106,12 +110,12 @@ export function NotesFormPage({ id }: { id?: string }) {
   const [userIds, setUserIds] = useState<string[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
-  const [kept, setKept] = useState<NoteFile[]>([]);
+  const [kept, setKept] = useState<AttachmentItem[]>([]);
   const [uploads, setUploads] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
+  const [attachmentsBusy, setAttachmentsBusy] = useState(false);
   const [imagesPending, setImagesPending] = useState(0);
   const [hydrated, setHydrated] = useState(!id);
-  const fileInput = useRef<HTMLInputElement>(null);
   const descRef = useRef<RichTextEditorHandle>(null);
   const filledId = useRef("");
 
@@ -148,7 +152,7 @@ export function NotesFormPage({ id }: { id?: string }) {
     setDepts(note.depts);
     setUserIds(note.userIds);
     setTags(note.tags);
-    setKept(note.attachments);
+    setKept(note.attachments.map(toAttachment));
     filledId.current = id;
     setHydrated(true);
   }, [id, notes, loading]);
@@ -169,32 +173,12 @@ export function NotesFormPage({ id }: { id?: string }) {
     setTagInput("");
   }
 
-  function addFiles(list: FileList | File[]) {
-    const incoming = Array.from(list);
-    setUploads((current) => {
-      const next = [...current];
-      for (const file of incoming) {
-        if (kept.length + next.length >= MAX_FILES) {
-          toast({ message: t.maxFiles, tone: "error" });
-          break;
-        }
-        next.push(file);
-      }
-      return next;
-    });
-  }
-
-  function onDrop(event: DragEvent<HTMLButtonElement>) {
-    event.preventDefault();
-    if (event.dataTransfer.files?.length) addFiles(event.dataTransfer.files);
-  }
-
   async function submit(kind: "note" | "template" | "draft") {
     if (!title.trim()) {
       toast({ message: t.titleRequired, tone: "error" });
       return;
     }
-    if (busy || imagesPending) return;
+    if (busy || imagesPending || attachmentsBusy) return;
     setBusy(true);
     try {
       const form = new FormData();
@@ -260,22 +244,7 @@ export function NotesFormPage({ id }: { id?: string }) {
               <RichTextEditor ref={descRef} value={desc} onChange={setDesc} placeholder={t.descPlaceholder} locale={locale} height={280} uploadImage={uploadNoteImage} />
             </div>
             <div style={{ fontSize: 11.5, color: "var(--text3)", margin: "6px 0 16px" }}>{t.autoTranslate}</div>
-            <label className="field-lbl">{t.attachment}</label>
-            <input ref={fileInput} type="file" multiple hidden accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.webp,.gif,application/pdf,image/*" onChange={(event) => { if (event.target.files) addFiles(event.target.files); event.target.value = ""; }} />
-            <button type="button" className="dropzone" style={{ marginBottom: 0 }} onClick={() => fileInput.current?.click()} onDragOver={(event) => event.preventDefault()} onDrop={onDrop}>{t.dropzone}<br /><span style={{ fontSize: 11 }}>{t.dropHint}</span></button>
-            <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 6 }}>{t.fileTypes}</div>
-            <div style={{ marginTop: 10 }}>
-              {kept.map((file) => <div key={file.id ?? file.name} className="doc-row">
-                <div className="doc-ic">📎</div>
-                <div className="doc-name">{file.name}</div>
-                <button type="button" className="icon-btn danger" onClick={() => setKept((current) => current.filter((item) => item !== file))}>🗑️</button>
-              </div>)}
-              {uploads.map((file, index) => <div key={`${file.name}-${index}`} className="doc-row">
-                <div className="doc-ic">📎</div>
-                <div className="doc-name">{file.name}</div>
-                <button type="button" className="icon-btn danger" onClick={() => setUploads((current) => current.filter((_, i) => i !== index))}>🗑️</button>
-              </div>)}
-            </div>
+            <AttachmentField existing={kept} files={uploads} onExistingChange={setKept} onFilesChange={setUploads} onProcessingChange={setAttachmentsBusy} allowDocuments label={t.attachment} />
           </div>
         </div>
       </div>
@@ -319,9 +288,9 @@ export function NotesFormPage({ id }: { id?: string }) {
         </div>
         <div className="card">
           <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <button type="button" className="btn btn-primary" disabled={busy || imagesPending > 0} onClick={() => void submit("note")}>{t.save}</button>
-            {!id ? <button type="button" className="btn btn-ghost" disabled={busy || imagesPending > 0} onClick={() => void submit("draft")}>{t.saveDraft}</button> : null}
-            <button type="button" className="btn btn-ghost" disabled={busy || imagesPending > 0} onClick={() => void submit("template")}>{t.saveTemplate}</button>
+            <button type="button" className="btn btn-primary" disabled={busy || attachmentsBusy || imagesPending > 0} onClick={() => void submit("note")}>{t.save}</button>
+            {!id ? <button type="button" className="btn btn-ghost" disabled={busy || attachmentsBusy || imagesPending > 0} onClick={() => void submit("draft")}>{t.saveDraft}</button> : null}
+            <button type="button" className="btn btn-ghost" disabled={busy || attachmentsBusy || imagesPending > 0} onClick={() => void submit("template")}>{t.saveTemplate}</button>
           </div>
         </div>
       </div>
