@@ -2092,6 +2092,7 @@ enum HotelChecklistRecurrence {
   WEEKLY
   MONTHLY
   QUARTERLY
+  HALF_YEARLY
   YEARLY
 }
 

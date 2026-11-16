@@ -41,7 +41,7 @@ export type PublicChecklist = {
   departmentId: string;
   departmentIds?: string[];
   dueType: "once" | "recurring";
-  recurrence: "once" | "daily" | "weekly" | "monthly" | "quarterly" | "yearly";
+  recurrence: "once" | "daily" | "weekly" | "monthly" | "quarterly" | "half_yearly" | "yearly";
   weekdays: string[];
   dueIso: string;
   dueTime?: string;

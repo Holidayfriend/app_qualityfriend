@@ -119,7 +119,7 @@ export function toPublicChecklist(row: Row, locale: string, today: string, timeZ
     departmentId: departmentIds[0] || "",
     departmentIds,
     dueType: row.dueType === "RECURRING" ? "recurring" : "once",
-    recurrence: row.recurrence.toLowerCase() as "once" | "daily" | "weekly" | "monthly" | "quarterly" | "yearly",
+    recurrence: row.recurrence.toLowerCase() as "once" | "daily" | "weekly" | "monthly" | "quarterly" | "half_yearly" | "yearly",
     weekdays: row.weekdays,
     dueIso: isoDate(row.dueAt),
     dueTime: row.dueTime || "",
@@ -249,7 +249,7 @@ async function parsedBody(actor: TasksActor, body: Record<string, unknown>, loca
   const assignType: HotelChecklistAssignType = String(body.assignType) === "person" ? "PERSON" : String(body.assignType) === "dept" ? "DEPT" : "ALL";
   const dueType: HotelChecklistDueType = String(body.dueType) === "recurring" ? "RECURRING" : "ONCE";
   const recurrenceMap: Record<string, HotelChecklistRecurrence> = {
-    daily: "DAILY", weekly: "WEEKLY", monthly: "MONTHLY", quarterly: "QUARTERLY", yearly: "YEARLY", once: "ONCE",
+    daily: "DAILY", weekly: "WEEKLY", monthly: "MONTHLY", quarterly: "QUARTERLY", half_yearly: "HALF_YEARLY", yearly: "YEARLY", once: "ONCE",
   };
   const recurrence = dueType === "ONCE" ? "ONCE" : (recurrenceMap[String(body.recurrence)] ?? "WEEKLY");
   const requestedDepartmentIds = Array.isArray(body.departmentIds) && body.departmentIds.length

@@ -60,7 +60,7 @@ function weekdayLabel(key: string, t: T) {
 
 function recurrenceLabel(item: PublicChecklist, t: T) {
   if (item.dueType === "once") return t.repeatOnce;
-  return { once: t.repeatOnce, daily: t.daily, weekly: t.weekly, monthly: t.monthly, quarterly: t.quarterly, yearly: t.yearly }[item.recurrence] ?? t.weekly;
+  return { once: t.repeatOnce, daily: t.daily, weekly: t.weekly, monthly: t.monthly, quarterly: t.quarterly, half_yearly: t.halfYearly, yearly: t.yearly }[item.recurrence] ?? t.weekly;
 }
 
 function statusChip(status: PublicChecklist["status"]) {
@@ -647,6 +647,7 @@ export function ChecklistFormPage({ id }: { id?: string }) {
                 <option value="weekly">{t.weekly}</option>
                 <option value="monthly">{t.monthly}</option>
                 <option value="quarterly">{t.quarterly}</option>
+                <option value="half_yearly">{t.halfYearly}</option>
                 <option value="yearly">{t.yearly}</option>
               </select>
               {recurrence === "weekly" ? <div style={{ marginBottom: 10 }}>

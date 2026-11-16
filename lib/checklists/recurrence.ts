@@ -21,9 +21,11 @@ export function weekdayOf(iso: string) {
   return WEEKDAYS[date.getUTCDay()];
 }
 
+export type ChecklistRecurrence = "ONCE" | "DAILY" | "WEEKLY" | "MONTHLY" | "QUARTERLY" | "HALF_YEARLY" | "YEARLY";
+
 export function isDueOn(input: {
   dueType: "ONCE" | "RECURRING";
-  recurrence: "ONCE" | "DAILY" | "WEEKLY" | "MONTHLY" | "QUARTERLY" | "YEARLY";
+  recurrence: ChecklistRecurrence;
   weekdays: string[];
   startAt: Date | null;
   endAt: Date | null;
@@ -46,13 +48,17 @@ export function isDueOn(input: {
     const months = (day.getUTCFullYear() - start.getUTCFullYear()) * 12 + (day.getUTCMonth() - start.getUTCMonth());
     return months >= 0 && months % 3 === 0 && day.getUTCDate() === start.getUTCDate();
   }
+  if (input.recurrence === "HALF_YEARLY") {
+    const months = (day.getUTCFullYear() - start.getUTCFullYear()) * 12 + (day.getUTCMonth() - start.getUTCMonth());
+    return months >= 0 && months % 6 === 0 && day.getUTCDate() === start.getUTCDate();
+  }
   if (input.recurrence === "YEARLY") return day.getUTCMonth() === start.getUTCMonth() && day.getUTCDate() === start.getUTCDate();
   return false;
 }
 
 export function nextDueIso(input: {
   dueType: "ONCE" | "RECURRING";
-  recurrence: "ONCE" | "DAILY" | "WEEKLY" | "MONTHLY" | "QUARTERLY" | "YEARLY";
+  recurrence: ChecklistRecurrence;
   weekdays: string[];
   startAt: Date | null;
   endAt: Date | null;

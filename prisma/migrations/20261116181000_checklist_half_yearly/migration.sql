@@ -1,0 +1,1 @@
+ALTER TYPE "HotelChecklistRecurrence" ADD VALUE IF NOT EXISTS 'HALF_YEARLY';
