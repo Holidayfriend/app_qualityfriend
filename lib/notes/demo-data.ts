@@ -1,5 +1,5 @@
 export type NoteDept = string;
-export type NoteVisibility = "alle" | "dept" | "user" | "privat";
+export type NoteVisibility = "alle" | "dept" | "user" | "both" | "privat";
 export type NoteStatus = "aktiv" | "inaktiv";
 export type NoteComment = { id?: string; text: string; author: string; date: string };
 export type NoteFile = { id?: string; name: string; url?: string };
@@ -26,11 +26,13 @@ export const NOTE_COLORS: Record<string, string> = {
   privat: "#F3F4F6",
   user: "#E0F2FE",
   dept: "#DBEAFE",
+  both: "#EDE9FE",
 };
 
 export function noteColorFor(note: Note) {
   if (note.visibility === "dept") return NOTE_COLORS.dept;
   if (note.visibility === "user") return NOTE_COLORS.user;
+  if (note.visibility === "both") return NOTE_COLORS.both;
   if (note.visibility === "privat") return NOTE_COLORS.privat;
   return NOTE_COLORS.alle;
 }

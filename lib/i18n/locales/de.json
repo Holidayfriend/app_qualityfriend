@@ -1398,6 +1398,8 @@
     "visAll": "Alle (hotelweit)",
     "visDept": "Bestimmte Abteilungen",
     "visUser": "Bestimmter Benutzer",
+    "visBoth": "Bestimmte Abteilungen und Benutzer",
+    "visBothHint": "Nur Personen in den gewählten Abteilungen und die gewählten Benutzer sehen diese Notiz. Wer schon in einer gewählten Abteilung ist, wird nur einmal benachrichtigt.",
     "visPrivate": "🔒 Nur ich",
     "visPrivateHint": "Für sensible Inhalte (z. B. Gehaltsnotizen, private Screenshots). Niemand sonst sieht diese Notiz – auch die KI zieht sie nicht als Wissensquelle heran.",
     "addDept": "+ Abteilung hinzufügen...",

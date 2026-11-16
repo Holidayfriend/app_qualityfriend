@@ -1398,6 +1398,8 @@
     "visAll": "Tutti (tutto l'hotel)",
     "visDept": "Reparti specifici",
     "visUser": "Utente specifico",
+    "visBoth": "Reparti e utenti specifici",
+    "visBothHint": "Solo le persone dei reparti selezionati e gli utenti selezionati vedono questa nota. Chi è già in un reparto selezionato riceve una sola notifica.",
     "visPrivate": "🔒 Solo io",
     "visPrivateHint": "Per contenuti sensibili (es. note sullo stipendio, screenshot privati). Nessun altro vede questa nota – nemmeno l'IA la usa come fonte.",
     "addDept": "+ Aggiungi reparto...",

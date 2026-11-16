@@ -255,9 +255,11 @@ export function NotesFormPage({ id }: { id?: string }) {
             <label style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}><input type="radio" name="note-vis" checked={visibility === "alle"} onChange={() => setVisibility("alle")} /> {t.visAll}</label>
             <label style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}><input type="radio" name="note-vis" checked={visibility === "dept"} onChange={() => setVisibility("dept")} /> {t.visDept}</label>
             <label style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}><input type="radio" name="note-vis" checked={visibility === "user"} onChange={() => setVisibility("user")} /> {t.visUser}</label>
+            <label style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}><input type="radio" name="note-vis" checked={visibility === "both"} onChange={() => setVisibility("both")} /> {t.visBoth}</label>
+            {visibility === "both" ? <div style={{ fontSize: 11, color: "var(--text3)", marginLeft: 24, marginTop: -4 }}>{t.visBothHint}</div> : null}
             <label style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}><input type="radio" name="note-vis" checked={visibility === "privat"} onChange={() => setVisibility("privat")} /> {t.visPrivate}</label>
             <div style={{ fontSize: 11, color: "var(--text3)", marginLeft: 24, marginTop: -4 }}>{t.visPrivateHint}</div>
-            {visibility === "dept" ? <div style={{ marginTop: 6 }}>
+            {visibility === "dept" || visibility === "both" ? <div style={{ marginTop: 6 }}>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
                 {depts.map((dept, index) => <span key={dept} className="chip chip-n">{deptLabel(dept, departments, t)} <span style={{ cursor: "pointer", marginLeft: 4 }} onClick={() => setDepts((current) => current.filter((_, i) => i !== index))}>✕</span></span>)}
               </div>
@@ -266,7 +268,7 @@ export function NotesFormPage({ id }: { id?: string }) {
                 {departments.filter((dept) => !depts.includes(dept.id)).map((dept) => <option key={dept.id} value={dept.id}>{dept.name}</option>)}
               </select>
             </div> : null}
-            {visibility === "user" ? <div style={{ marginTop: 6 }}>
+            {visibility === "user" || visibility === "both" ? <div style={{ marginTop: 6 }}>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
                 {userIds.map((userId, index) => <span key={userId} className="chip chip-n">{userLabel(userId, users)} <span style={{ cursor: "pointer", marginLeft: 4 }} onClick={() => setUserIds((current) => current.filter((_, i) => i !== index))}>✕</span></span>)}
               </div>
@@ -415,10 +417,12 @@ export function NotesDetailPage({ id }: { id: string }) {
           {note.attachments.map((file) => <a key={file.id ?? file.name} href={file.url} target="_blank" rel="noreferrer" className="doc-row"><div className="doc-ic">📎</div><div className="doc-name">{file.name}</div></a>)}
         </div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
-          {note.visibility === "user" && note.userIds.length ? note.userIds.map((userId) => <span key={userId} className="chip chip-n">{userLabel(userId, users)}</span>)
-            : note.depts.length ? note.depts.map((dept) => <span key={dept} className="chip chip-n">{deptLabel(dept, departments, t)}</span>)
-            : note.visibility === "privat" ? <span className="chip chip-r">{t.privateChip}</span>
-            : <span className="chip chip-n">{t.visibleAll}</span>}
+          {note.visibility === "privat" ? <span className="chip chip-r">{t.privateChip}</span>
+            : note.visibility === "alle" ? <span className="chip chip-n">{t.visibleAll}</span>
+            : <>
+              {(note.visibility === "dept" || note.visibility === "both") ? note.depts.map((dept) => <span key={dept} className="chip chip-n">{deptLabel(dept, departments, t)}</span>) : null}
+              {(note.visibility === "user" || note.visibility === "both") ? note.userIds.map((userId) => <span key={userId} className="chip chip-n">{userLabel(userId, users)}</span>) : null}
+            </>}
         </div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {note.tags.map((tag) => <span key={tag} className="chip chip-b">{tag}</span>)}

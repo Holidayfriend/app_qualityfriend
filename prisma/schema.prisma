@@ -1123,6 +1123,7 @@ enum HotelNoteVisibility {
   ALL
   DEPARTMENT
   USER
+  BOTH
   PRIVATE
 }
 

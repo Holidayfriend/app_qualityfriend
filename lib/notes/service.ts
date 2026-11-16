@@ -10,6 +10,7 @@ import { hotelTimeZoneFor } from "../hotel/context";
 import { prisma } from "../prisma";
 import { departmentIdsOf, usersInDepartments } from "../users/memberships";
 import type { NotesActor } from "./access";
+import { uniqueRecipientIds } from "./recipients";
 import { materializeHotelNoteImages } from "./inline-images";
 import { stripBrokenDataImages } from "./note-html";
 import { deleteNoteFile, isNoteUpload, saveNoteFile } from "./storage";
@@ -38,12 +39,15 @@ export function visibleWhere(actor: NotesActor, kind: HotelNoteKind): Prisma.Hot
   if (kind === "TEMPLATE") {
     return { hotelTenantId: actor.hotel_tenant_id, kind: "TEMPLATE", isDeleted: false };
   }
+  const departmentIds = departmentIdsOf(actor);
   const shared: Prisma.HotelNoteWhereInput[] = [
     { visibility: "ALL" },
     { visibility: "USER", users: { some: { userId: actor.id } } },
+    { visibility: "BOTH", users: { some: { userId: actor.id } } },
   ];
-  if (departmentIdsOf(actor).length) {
-    shared.push({ visibility: "DEPARTMENT", departments: { some: { departmentId: { in: departmentIdsOf(actor) } } } });
+  if (departmentIds.length) {
+    shared.push({ visibility: "DEPARTMENT", departments: { some: { departmentId: { in: departmentIds } } } });
+    shared.push({ visibility: "BOTH", departments: { some: { departmentId: { in: departmentIds } } } });
   }
   return {
     hotelTenantId: actor.hotel_tenant_id,
@@ -62,7 +66,7 @@ export function visibleWhere(actor: NotesActor, kind: HotelNoteKind): Prisma.Hot
 }
 
 export function toPublicNote(row: NoteRow, locale: string, timeZone?: string | null) {
-  const visibility = row.visibility === "DEPARTMENT" ? "dept" : row.visibility === "USER" ? "user" : row.visibility === "PRIVATE" ? "privat" : "alle";
+  const visibility = row.visibility === "DEPARTMENT" ? "dept" : row.visibility === "USER" ? "user" : row.visibility === "BOTH" ? "both" : row.visibility === "PRIVATE" ? "privat" : "alle";
   const status = row.status === "INACTIVE" ? "inaktiv" : "aktiv";
   return {
     id: row.id,
@@ -107,6 +111,7 @@ function visibilityOf(value: string): HotelNoteVisibility {
   const key = value.trim().toLowerCase();
   if (key === "dept" || key === "department") return "DEPARTMENT";
   if (key === "user") return "USER";
+  if (key === "both" || key === "dept-user" || key === "department-user") return "BOTH";
   if (key === "privat" || key === "private" || key === "onlyme" || key === "only-me") return "PRIVATE";
   return "ALL";
 }
@@ -129,6 +134,13 @@ async function validDepartmentIds(hotelTenantId: string, ids: string[]) {
     select: { id: true },
   });
   return rows.map((row) => row.id);
+}
+
+function sharesAudience(visibility: HotelNoteVisibility) {
+  return {
+    departments: visibility === "DEPARTMENT" || visibility === "BOTH",
+    users: visibility === "USER" || visibility === "BOTH",
+  };
 }
 
 async function validUserIds(hotelTenantId: string, ids: string[]) {
@@ -170,19 +182,21 @@ async function assignedUserIds(
     id: { not: input.excludeId },
   };
   if (input.visibility === "PRIVATE") return [] as string[];
-  if (input.visibility === "DEPARTMENT") {
-    if (!input.departmentIds.length) return [];
-    const rows = await tx.user.findMany({ where: { ...base, ...usersInDepartments(input.departmentIds) }, select: { id: true } });
+  if (input.visibility === "ALL") {
+    const rows = await tx.user.findMany({ where: base, select: { id: true } });
     return rows.map((row) => row.id);
   }
-  if (input.visibility === "USER") {
-    const ids = input.userIds.filter((id) => id !== input.excludeId);
-    if (!ids.length) return [];
-    const rows = await tx.user.findMany({ where: { ...base, id: { in: ids } }, select: { id: true } });
-    return rows.map((row) => row.id);
-  }
-  const rows = await tx.user.findMany({ where: base, select: { id: true } });
-  return rows.map((row) => row.id);
+  const departmentMembers = input.visibility === "DEPARTMENT" || input.visibility === "BOTH"
+    ? input.departmentIds.length
+      ? (await tx.user.findMany({ where: { ...base, ...usersInDepartments(input.departmentIds) }, select: { id: true } })).map((row) => row.id)
+      : []
+    : [];
+  const namedUsers = input.visibility === "USER" || input.visibility === "BOTH"
+    ? input.userIds.length
+      ? (await tx.user.findMany({ where: { ...base, id: { in: input.userIds } }, select: { id: true } })).map((row) => row.id)
+      : []
+    : [];
+  return uniqueRecipientIds([departmentMembers, namedUsers], input.excludeId);
 }
 
 async function notifyRecipients(
@@ -297,8 +311,9 @@ export async function createNote(actor: NotesActor, form: FormData, locale: stri
   const status = statusOf(String(form.get("status") ?? "aktiv"), kind === "TEMPLATE" ? "ACTIVE" : "ACTIVE");
   const visibility = kind === "TEMPLATE" ? "PRIVATE" : visibilityOf(String(form.get("visibility") ?? "alle"));
   const tags = parseJsonList(form.get("tags")).slice(0, 40);
-  const departmentIds = visibility === "DEPARTMENT" ? await validDepartmentIds(actor.hotel_tenant_id, parseJsonList(form.get("departmentIds"))) : [];
-  const userIds = visibility === "USER" ? await validUserIds(actor.hotel_tenant_id, parseJsonList(form.get("userIds"))) : [];
+  const audience = sharesAudience(visibility);
+  const departmentIds = audience.departments ? await validDepartmentIds(actor.hotel_tenant_id, parseJsonList(form.get("departmentIds"))) : [];
+  const userIds = audience.users ? await validUserIds(actor.hotel_tenant_id, parseJsonList(form.get("userIds"))) : [];
   const files = form.getAll("files").filter(isNoteUpload).slice(0, MAX_NOTE_FILES);
   const saved = await saveUploads(files);
   const noteStatus = kind === "TEMPLATE" ? "ACTIVE" : status;
@@ -366,8 +381,9 @@ export async function updateNote(actor: NotesActor, id: string, form: FormData, 
   if (!title) return { error: "TITLE_REQUIRED" as const };
   const visibility = visibilityOf(String(form.get("visibility") ?? "alle"));
   const tags = parseJsonList(form.get("tags")).slice(0, 40);
-  const departmentIds = visibility === "DEPARTMENT" ? await validDepartmentIds(actor.hotel_tenant_id, parseJsonList(form.get("departmentIds"))) : [];
-  const userIds = visibility === "USER" ? await validUserIds(actor.hotel_tenant_id, parseJsonList(form.get("userIds"))) : [];
+  const audience = sharesAudience(visibility);
+  const departmentIds = audience.departments ? await validDepartmentIds(actor.hotel_tenant_id, parseJsonList(form.get("departmentIds"))) : [];
+  const userIds = audience.users ? await validUserIds(actor.hotel_tenant_id, parseJsonList(form.get("userIds"))) : [];
   const keepIds = parseJsonList(form.get("keepAttachmentIds")).filter(isUuid);
   const kept = existing.attachments.filter((file) => keepIds.includes(file.id));
   const incoming = form.getAll("files").filter(isNoteUpload);

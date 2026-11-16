@@ -1400,6 +1400,8 @@
     "visAll": "Everyone (hotel-wide)",
     "visDept": "Specific departments",
     "visUser": "Specific user",
+    "visBoth": "Specific departments and users",
+    "visBothHint": "Only people in the selected departments and the selected users see this note. Someone who is already in a selected department is notified once.",
     "visPrivate": "🔒 Only me",
     "visPrivateHint": "For sensitive content (e.g. salary notes, private screenshots). Nobody else sees this note – AI will not use it as a knowledge source either.",
     "addDept": "+ Add department...",

@@ -1,0 +1,1 @@
+ALTER TYPE "HotelNoteVisibility" ADD VALUE IF NOT EXISTS 'BOTH';
