@@ -435,7 +435,8 @@
       "handover": "Handover",
       "task": "Task",
       "checklist": "Checklist",
-      "repair": "Repair"
+      "repair": "Repair",
+      "note": "Note"
     }
   },
   "hotelLanguageMessages": {
@@ -1422,6 +1423,10 @@
     "markInactive": "Mark as inactive",
     "markActive": "Mark as active",
     "edit": "✏️ Edit",
+    "delete": "Delete",
+    "deleteConfirm": "Delete this note?",
+    "deleteMessage": "{title} will move to the recycle bin. It leaves the notes list until you restore it.",
+    "cancel": "Cancel",
     "statusActive": "Active",
     "statusArchived": "Archived",
     "visibleAll": "Visible to everyone",

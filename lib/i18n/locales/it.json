@@ -433,7 +433,8 @@
       "handover": "Consegna",
       "task": "Compito",
       "checklist": "Checklist",
-      "repair": "Riparazione"
+      "repair": "Riparazione",
+      "note": "Nota"
     }
   },
   "hotelLanguageMessages": {
@@ -1420,6 +1421,10 @@
     "markInactive": "Segna come inattiva",
     "markActive": "Segna come attiva",
     "edit": "✏️ Modifica",
+    "delete": "Elimina",
+    "deleteConfirm": "Eliminare questa nota?",
+    "deleteMessage": "{title} verrà spostata nel cestino. Resta fuori dall’elenco delle note finché non la ripristini.",
+    "cancel": "Annulla",
     "statusActive": "Attiva",
     "statusArchived": "Archiviata",
     "visibleAll": "Visibile a tutti",

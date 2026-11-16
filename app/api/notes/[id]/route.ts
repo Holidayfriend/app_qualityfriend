@@ -1,5 +1,5 @@
 import { notesEditor, notesViewer } from "../../../../lib/notes/access";
-import { getNote, isUuid, updateNote, updateNoteStatus } from "../../../../lib/notes/service";
+import { getNote, isUuid, removeNote, updateNote, updateNoteStatus } from "../../../../lib/notes/service";
 import { supportedLocales } from "../../../../lib/i18n/dictionaries";
 
 type Context = { params: Promise<{ id: string }> };
@@ -46,4 +46,13 @@ export async function PATCH(request: Request, context: Context) {
     console.error("Update note failed", error);
     return Response.json({ error: "SAVE_FAILED" }, { status: 500 });
   }
+}
+
+export async function DELETE(_request: Request, context: Context) {
+  const actor = await notesEditor();
+  if (!actor) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
+  const { id } = await context.params;
+  const result = await removeNote(actor, id);
+  if ("error" in result) return Response.json(result, { status: result.error === "NOT_FOUND" ? 404 : 403 });
+  return Response.json(result);
 }

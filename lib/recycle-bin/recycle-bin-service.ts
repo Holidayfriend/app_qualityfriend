@@ -9,14 +9,14 @@ import { dispatchManualIndex } from "../manuals/dispatch";
 import { ensureManualDeletedColumn } from "../manuals/ensure-deleted";
 import { prisma } from "../prisma";
 
-export type RecyclableType = "department" | "team" | "user" | "manual" | "handover" | "task" | "checklist" | "repair";
+export type RecyclableType = "department" | "team" | "user" | "manual" | "handover" | "task" | "checklist" | "repair" | "note";
 async function actor() { const id = await getSessionUserId(); if (!id) return null; return prisma.user.findFirst({ where: { id, isActive: true, isDeleted: false }, select: { id: true, hotelTenantId: true } }); }
 function item(type: RecyclableType, row: { id: string; deletedAt: Date | null; nameEn: string; nameDe: string; nameIt: string }) { return { id: row.id, type, names: { en: row.nameEn, de: row.nameDe, it: row.nameIt }, deletedAt: row.deletedAt }; }
 
 export async function listDeletedItems() {
   const current = await actor(); if (!current) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
   await ensureManualDeletedColumn();
-  const [departments, teams, users, manuals, handovers, tasks, checklists, repairs] = await Promise.all([
+  const [departments, teams, users, manuals, handovers, tasks, checklists, repairs, notes] = await Promise.all([
     prisma.department.findMany({ where: { hotelTenantId: current.hotelTenantId, isDeleted: true }, select: { id: true, nameEn: true, nameDe: true, nameIt: true, deletedAt: true } }),
     prisma.team.findMany({ where: { hotelTenantId: current.hotelTenantId, isDeleted: true }, select: { id: true, nameEn: true, nameDe: true, nameIt: true, deletedAt: true } }),
     prisma.user.findMany({ where: { hotelTenantId: current.hotelTenantId, isDeleted: true }, select: { id: true, firstName: true, lastName: true, deletedAt: true } }),
@@ -25,6 +25,7 @@ export async function listDeletedItems() {
     prisma.hotelTask.findMany({ where: { hotelTenantId: current.hotelTenantId, isDeleted: true }, select: { id: true, title: true, titleDe: true, titleIt: true, deletedAt: true } }),
     prisma.hotelChecklist.findMany({ where: { hotelTenantId: current.hotelTenantId, isDeleted: true, kind: "CHECKLIST" }, select: { id: true, title: true, titleDe: true, titleIt: true, deletedAt: true } }),
     prisma.repair.findMany({ where: { hotelTenantId: current.hotelTenantId, isDeleted: true, kind: "REPAIR" }, select: { id: true, title: true, titleDe: true, titleIt: true, deletedAt: true } }),
+    prisma.hotelNote.findMany({ where: { hotelTenantId: current.hotelTenantId, isDeleted: true, kind: "NOTE" }, select: { id: true, title: true, titleDe: true, titleIt: true, deletedAt: true } }),
   ]);
   const all = [
     ...departments.map((row) => item("department", row)),
@@ -35,6 +36,7 @@ export async function listDeletedItems() {
     ...tasks.map((row) => item("task", { id: row.id, deletedAt: row.deletedAt, nameEn: row.title, nameDe: row.titleDe, nameIt: row.titleIt })),
     ...checklists.map((row) => item("checklist", { id: row.id, deletedAt: row.deletedAt, nameEn: row.title, nameDe: row.titleDe, nameIt: row.titleIt })),
     ...repairs.map((row) => item("repair", { id: row.id, deletedAt: row.deletedAt, nameEn: row.title, nameDe: row.titleDe, nameIt: row.titleIt })),
+    ...notes.map((row) => item("note", { id: row.id, deletedAt: row.deletedAt, nameEn: row.title, nameDe: row.titleDe, nameIt: row.titleIt })),
   ];
   return NextResponse.json(all.sort((a, b) => (b.deletedAt?.getTime() ?? 0) - (a.deletedAt?.getTime() ?? 0)));
 }
@@ -76,6 +78,9 @@ export async function restoreDeletedItem(type: RecyclableType, id: string) {
       } else if (type === "repair") {
         const row = await tx.repair.findFirst({ where: { id, hotelTenantId: current.hotelTenantId, isDeleted: true, kind: "REPAIR" } });
         if (row) { names = { en: row.title, de: row.titleDe, it: row.titleIt }; await tx.repair.update({ where: { id }, data: { isDeleted: false, deletedAt: null } }); }
+      } else if (type === "note") {
+        const row = await tx.hotelNote.findFirst({ where: { id, hotelTenantId: current.hotelTenantId, isDeleted: true, kind: "NOTE" } });
+        if (row) { names = { en: row.title, de: row.titleDe, it: row.titleIt }; await tx.hotelNote.update({ where: { id }, data: { isDeleted: false, deletedAt: null } }); }
       }
       if (!names) return null;
       await recordAuditLog(tx, { module: "settings", hotelTenantId: current.hotelTenantId, actorId: current.id, action: "RESTORE", entityType: type.toUpperCase(), entityId: id, changes: { after: names } });

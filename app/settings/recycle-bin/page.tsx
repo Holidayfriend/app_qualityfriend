@@ -9,7 +9,7 @@ import { useI18n } from "../../../components/i18n/i18n-provider";
 import { formatHotelMedium, readHotelTimeZone } from "../../../lib/hotel/clock";
 import { recycleBinMessages, requestMessages } from "../../../lib/i18n/dictionaries";
 
-type Item = { id: string; type: "department" | "team" | "user" | "manual" | "handover" | "task" | "checklist" | "repair"; names: Record<"en" | "de" | "it", string>; deletedAt: string };
+type Item = { id: string; type: "department" | "team" | "user" | "manual" | "handover" | "task" | "checklist" | "repair" | "note"; names: Record<"en" | "de" | "it", string>; deletedAt: string };
 
 export default function RecycleBinPage() {
   const { dictionary, locale } = useI18n();

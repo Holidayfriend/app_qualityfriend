@@ -36,7 +36,7 @@ export function isUuid(value: string) {
 
 export function visibleWhere(actor: NotesActor, kind: HotelNoteKind): Prisma.HotelNoteWhereInput {
   if (kind === "TEMPLATE") {
-    return { hotelTenantId: actor.hotel_tenant_id, kind: "TEMPLATE" };
+    return { hotelTenantId: actor.hotel_tenant_id, kind: "TEMPLATE", isDeleted: false };
   }
   const shared: Prisma.HotelNoteWhereInput[] = [
     { visibility: "ALL" },
@@ -48,6 +48,7 @@ export function visibleWhere(actor: NotesActor, kind: HotelNoteKind): Prisma.Hot
   return {
     hotelTenantId: actor.hotel_tenant_id,
     kind: "NOTE",
+    isDeleted: false,
     status: actor.canManage ? { not: "DRAFT" } : "ACTIVE",
     AND: [
       {
@@ -279,7 +280,7 @@ export async function getNote(actor: NotesActor, id: string, locale: string) {
 export async function getOwnedNote(actor: NotesActor, id: string) {
   if (!isUuid(id)) return null;
   const row = await prisma.hotelNote.findFirst({
-    where: { id, hotelTenantId: actor.hotel_tenant_id },
+    where: { id, hotelTenantId: actor.hotel_tenant_id, isDeleted: false },
     include,
   });
   if (!row) return null;
@@ -481,4 +482,26 @@ export async function addNoteComment(actor: NotesActor, id: string, text: string
     return tx.hotelNote.findFirstOrThrow({ where: { id }, include });
   });
   return { note: toPublicNote(row, locale, timeZone) };
+}
+
+export async function removeNote(actor: NotesActor, id: string) {
+  if (!actor.canManage || !isUuid(id)) return { error: "FORBIDDEN" as const };
+  const existing = await prisma.hotelNote.findFirst({
+    where: { id, hotelTenantId: actor.hotel_tenant_id, kind: "NOTE", isDeleted: false },
+    select: { id: true, title: true, titleDe: true, titleIt: true, visibility: true, createdById: true },
+  });
+  if (!existing) return { error: "NOT_FOUND" as const };
+  if (existing.visibility === "PRIVATE" && existing.createdById !== actor.id) return { error: "FORBIDDEN" as const };
+  await prisma.$transaction(async (tx) => {
+    await tx.hotelNote.update({ where: { id }, data: { isDeleted: true, deletedAt: new Date() } });
+    await recordAuditLog(tx, { module: "notes",
+      hotelTenantId: actor.hotel_tenant_id,
+      actorId: actor.id,
+      action: "DELETE",
+      entityType: "NOTE",
+      entityId: id,
+      changes: { before: { en: existing.title, de: existing.titleDe, it: existing.titleIt } },
+    });
+  });
+  return { ok: true as const };
 }

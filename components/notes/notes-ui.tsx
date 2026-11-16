@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, type DragEvent, type FormEvent, type Keybo
 import { AppShell } from "../dashboard/app-shell";
 import { useI18n } from "../i18n/i18n-provider";
 import { BrandLoader } from "../ui/brand-loader";
+import { ConfirmDialog } from "../ui/confirm-dialog";
 import { useToast } from "../ui/toast-provider";
 import { getNotesMessages, type NotesMessages } from "../../lib/i18n/notes-messages";
 import { noteColorFor, type Note, type NoteDept, type NoteFile, type NoteVisibility } from "../../lib/notes/demo-data";
@@ -332,11 +333,14 @@ export function NotesDetailPage({ id }: { id: string }) {
   const t = useT();
   const { locale } = useI18n();
   const toast = useToast();
+  const router = useRouter();
   const { notes, departments, users, loading, reload, canManage } = useNotes();
   const [note, setNote] = useState<Note | undefined>();
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
   const [showOriginal, setShowOriginal] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const langName = note?.origLang === "it" ? t.langIt : note?.origLang === "en" ? t.langEn : t.langDe;
 
   useEffect(() => {
@@ -399,12 +403,29 @@ export function NotesDetailPage({ id }: { id: string }) {
     }
   }
 
+  async function remove() {
+    if (!note || deleting) return;
+    setDeleting(true);
+    try {
+      const response = await fetch(`/api/notes/${note.id}`, { method: "DELETE" });
+      if (!response.ok) { toast({ message: t.saveFailed, tone: "error" }); return; }
+      await reload();
+      setPendingDelete(false);
+      router.push("/notes");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   if (loading && !note) return <Shell title={t.pageTitle}><BrandLoader label={t.loading} /></Shell>;
   if (!note) {
     return <Shell title={t.pageTitle}><Link href="/notes" className="back-link">{t.back}</Link><p style={{ fontSize: 12.5, color: "var(--text3)" }}>{t.empty}</p></Shell>;
   }
 
-  return <Shell title={t.pageTitle}>
+  const dialog = pendingDelete ? <ConfirmDialog open title={t.deleteConfirm} message={t.deleteMessage.replace("{title}", note.title)} confirmLabel={t.delete} cancelLabel={t.cancel} pending={deleting} onConfirm={() => void remove()} onCancel={() => { if (!deleting) setPendingDelete(false); }} /> : null;
+
+  return <>
+  <Shell title={t.pageTitle}>
     {busy ? <BrandLoader label={t.loading} overlay /> : null}
     <Link href="/notes" className="back-link">{t.back}</Link>
     <div className="card">
@@ -450,7 +471,10 @@ export function NotesDetailPage({ id }: { id: string }) {
       {canManage ? <div className="cb" style={{ borderTop: "1px solid var(--border)", display: "flex", gap: 10 }}>
         <button type="button" className="btn btn-ghost" onClick={() => void toggleStatus()}>{note.status === "aktiv" ? t.markInactive : t.markActive}</button>
         <Link href={`/notes/${note.id}/edit`} className="btn btn-ghost">{t.edit}</Link>
+        <button type="button" className="btn btn-ghost" onClick={() => setPendingDelete(true)}>{t.delete}</button>
       </div> : null}
     </div>
-  </Shell>;
+  </Shell>
+  {dialog}
+  </>;
 }
