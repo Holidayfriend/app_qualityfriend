@@ -39,6 +39,12 @@ export function cleaningPlan(stay: Pick<StayRow, "arrival_date" | "departure_dat
   if (date === stay.departure_date) return { type: "DEPARTURE", minutes: stay.departure_minutes ?? stay.normal_minutes ?? 0 } as const;
   const stayDay = dayDifference(stay.arrival_date, date); // completed nights; arrival is zero
   if (stayDay <= 0 || date > stay.departure_date || stay.guest_cleaning_preference === "NONE") return { type: "NONE", minutes: 0 } as const;
+  // Guest "every second day" replaces the category rhythm: regular clean on mornings 1, 3, 5… and no clean on the mornings in between.
+  if (stay.guest_cleaning_preference === "EVERY_SECOND_DAY") {
+    return stayDay % 2 === 1
+      ? { type: "REGULAR", minutes: stay.normal_minutes ?? 0 } as const
+      : { type: "NONE", minutes: 0 } as const;
+  }
   // Regular (full) clean when the category schedule says so; otherwise express (short) clean
   const regular = stay.cleaning_frequency === "DAILY" // every day
     || stay.cleaning_frequency === "EVERY_SECOND_DAY" && stayDay % 2 === 0 // regular after nights 2, 4, 6, ...
@@ -51,7 +57,7 @@ export function cleaningPlan(stay: Pick<StayRow, "arrival_date" | "departure_dat
 
 export function linenDueToday(stay: Pick<StayRow, "arrival_date" | "departure_date" | "linen_frequency" | "linen_weekdays" | "guest_cleaning_preference">, date: string) {
   const stayDay = dayDifference(stay.arrival_date, date);
-  if (stayDay <= 0 || date >= stay.departure_date || stay.guest_cleaning_preference === "NONE") return false;
+  if (stayDay <= 0 || date >= stay.departure_date || stay.guest_cleaning_preference === "NONE" || stay.guest_cleaning_preference === "EVERY_SECOND_DAY" && stayDay % 2 === 0) return false;
   return stay.linen_frequency === "DAILY"
     || stay.linen_frequency === "EVERY_SECOND_DAY" && stayDay % 2 === 0
     || stay.linen_frequency === "WEEKLY" && stayDay % 7 === 0

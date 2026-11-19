@@ -39,7 +39,7 @@ export async function PATCH(request: Request, context: Context) {
   const changesGuestCleaningPreference = body !== null && Object.hasOwn(body, "guestCleaningPreference");
   if ((hasStatus && !status) || typeof body?.breakfastInRoom !== "boolean" || typeof body?.doNotDisturb !== "boolean" || typeof body?.noService !== "boolean" || (body?.isUrgent !== undefined && typeof body.isUrgent !== "boolean")) return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
   if (!canMutateRoomState({ isAdmin: access.admin, status, changesGuestCleaningPreference })) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
-  if (changesGuestCleaningPreference && (typeof body?.guestCleaningPreference !== "string" || !["DAILY", "AS_NEEDED", "NONE"].includes(body.guestCleaningPreference))) return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
+  if (changesGuestCleaningPreference && (typeof body?.guestCleaningPreference !== "string" || !["DAILY", "EVERY_SECOND_DAY", "AS_NEEDED", "NONE"].includes(body.guestCleaningPreference))) return Response.json({ error: "INVALID_FIELDS" }, { status: 400 });
   let workDate: string;
   try { workDate = hotelDate(hotelTimeZone(user.hotelTenant.timeZone)); } catch { return Response.json({ error: "INVALID_HOTEL_TIME_ZONE" }, { status: 500 }); }
   const room = await prisma.room.findFirst({

@@ -367,7 +367,7 @@ function RoomDetail({t,id}:{t:T;id:string}) {
         </Field>
         <Field label={t.guestWish}>
           <select name={room.canAdmin?"guestCleaningPreference":undefined} aria-label={t.guestWish} className="qf-field" value={preference} disabled={!room.canAdmin} aria-readonly={!room.canAdmin} onChange={(event)=>{const value=event.target.value;setPreference(value);setNoServiceChecked(value==="NONE");}}>
-            <option value="DAILY">{t.guestCleaningDaily}</option><option value="AS_NEEDED">{t.guestCleaningAsNeeded}</option><option value="NONE">{"\u26d4"} {t.guestCleaningNone}</option>
+            <option value="DAILY">{t.guestCleaningDaily}</option><option value="EVERY_SECOND_DAY">{t.everySecondDay}</option><option value="AS_NEEDED">{t.guestCleaningAsNeeded}</option><option value="NONE">{"\u26d4"} {t.guestCleaningNone}</option>
           </select>
         </Field>
         <ChecklistSection label={t.roomChecks} checks={room.roomChecks} roomId={room.id} type="ROOM"/>

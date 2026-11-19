@@ -63,9 +63,24 @@ test("selected weekdays still apply after arrival", () => {
 test("departure day resets the stay preference to Daily", () => {
   assert.equal(preferenceOnWorkDate("NONE", "2026-10-26", "2026-10-26"), "DAILY");
   assert.equal(preferenceOnWorkDate("AS_NEEDED", "2026-10-26", "2026-10-26"), "DAILY");
+  assert.equal(preferenceOnWorkDate("EVERY_SECOND_DAY", "2026-10-26", "2026-10-26"), "DAILY");
   assert.equal(preferenceOnWorkDate("DAILY", "2026-10-26", "2026-10-26"), "DAILY");
   assert.equal(preferenceOnWorkDate("NONE", "2026-10-28", "2026-10-26"), "NONE");
   assert.equal(preferenceOnWorkDate("AS_NEEDED", "2026-10-28", "2026-10-26"), "AS_NEEDED");
+  assert.equal(preferenceOnWorkDate("EVERY_SECOND_DAY", "2026-10-28", "2026-10-26"), "EVERY_SECOND_DAY");
+});
+
+test("guest every second day overrides the category and dirties alternate mornings", () => {
+  const stay = { ...base, cleaning_frequency: "DAILY", linen_frequency: "DAILY", departure_date: date(5), guest_cleaning_preference: "EVERY_SECOND_DAY" };
+  assert.equal(cleaningPlan(stay, date(0)).type, "NONE");
+  assert.deepEqual(cleaningPlan(stay, date(1)), { type: "REGULAR", minutes: 40 });
+  assert.equal(cleaningPlan(stay, date(2)).type, "NONE");
+  assert.deepEqual(cleaningPlan(stay, date(3)), { type: "REGULAR", minutes: 40 });
+  assert.equal(cleaningPlan(stay, date(4)).type, "NONE");
+  assert.deepEqual(cleaningPlan(stay, date(5)), { type: "DEPARTURE", minutes: 50 });
+  assert.equal(linenDueToday(stay, date(1)), true);
+  assert.equal(linenDueToday(stay, date(2)), false);
+  assert.equal(linenDueToday(stay, date(5)), false);
 });
 
 test("departure overrides no-cleaning preference and weekly linen due date", () => {
