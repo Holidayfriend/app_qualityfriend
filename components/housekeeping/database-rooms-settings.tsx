@@ -29,7 +29,8 @@ export function DatabaseRoomsSettings({ t, locale }: { t: HousekeepingMessages; 
   if (loadedLocale !== locale) return <BrandLoader label={requestMessages[locale].loading} />;
 
   return <>
-    <div className="mb-[10px] flex justify-end">
+    <div className="mb-[10px] flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <h2 className="text-[14px] font-bold">{t.room} ({rooms.length})</h2>
       <Link href="/housekeeping/settings/rooms/new" className="inline-flex min-h-[42px] w-full items-center justify-center rounded-[7px] bg-[var(--qf-accent)] px-[14px] text-[12px] font-semibold text-white sm:min-h-[34px] sm:w-auto">+ {t.addRoom}</Link>
     </div>
 
