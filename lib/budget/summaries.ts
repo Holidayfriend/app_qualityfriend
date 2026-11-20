@@ -35,6 +35,10 @@ export function yearOverYear(current: number, previous: number) {
   return Math.round(((current - previous) / previous) * 1000) / 10;
 }
 
+export function isOfferCategory(names: Array<string | null | undefined>) {
+  return names.some((name) => name?.trim().toLowerCase() === "angebot");
+}
+
 export function revenueShares(amounts: number[]) {
   const total = amounts.reduce((sum, amount) => sum + amount, 0);
   if (total <= 0) return amounts.map(() => 0);
@@ -184,7 +188,7 @@ export async function generateHotelBudget(prisma: PrismaClient, hotelTenantId: s
       lastYearRevenue: money(facts.months.get(`${item.year - 1}-${String(item.month).padStart(2, "0")}`)?.revenue ?? 0) ?? 0,
     };
   });
-  const categories = [...new Map(rooms.flatMap((room) => room.category && room.category.isActive && room.category.archivedAt == null ? [[room.category.id, room.category]] : [])).values()];
+  const categories = [...new Map(rooms.flatMap((room) => room.category && room.category.isActive && room.category.archivedAt == null && !isOfferCategory([room.category.nameEn, room.category.nameDe, room.category.nameIt]) ? [[room.category.id, room.category]] : [])).values()];
   const currentKey = `${current.year}-${String(current.month).padStart(2, "0")}`;
   const categoryFacts = categories.map((category) => {
     const bucket = facts.categories.get(`${currentKey}|${category.id}`);
@@ -259,10 +263,12 @@ export async function listHotelBudget(prisma: PrismaClient, hotelTenantId: strin
     const value = row.generatedAt.toISOString();
     return latest == null || value > latest ? value : latest;
   }, null);
+  const visibleCategories = categories.filter((row) => !isOfferCategory([row.nameEn, row.nameDe, row.nameIt]));
+  const shares = revenueShares(visibleCategories.map((row) => row.revenueShare));
   return {
     generatedAt,
-    year: months[0]?.year ?? categories[0]?.year ?? null,
-    currentMonth: categories[0]?.month ?? months[0]?.month ?? null,
+    year: months[0]?.year ?? visibleCategories[0]?.year ?? null,
+    currentMonth: visibleCategories[0]?.month ?? months[0]?.month ?? null,
     months: months.map((row) => ({
       year: row.year,
       month: row.month,
@@ -273,7 +279,7 @@ export async function listHotelBudget(prisma: PrismaClient, hotelTenantId: strin
       lastYearRevenue: amount(row.lastYearRevenue) ?? 0,
       vsLastYear: amount(row.vsLastYearPercent),
     })),
-    categories: categories.map((row) => ({
+    categories: visibleCategories.map((row, index) => ({
       id: row.categoryId,
       nameEn: row.nameEn,
       nameDe: row.nameDe,
@@ -282,7 +288,7 @@ export async function listHotelBudget(prisma: PrismaClient, hotelTenantId: strin
       occupancy: row.occupancyPercent,
       current: amount(row.currentAdr),
       recommended: amount(row.recommendedAdr),
-      share: row.revenueShare,
+      share: shares[index] ?? 0,
     })),
   };
 }

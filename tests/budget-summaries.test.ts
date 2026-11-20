@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { revenueShares, seasonMonths, summarizeStays, yearOverYear } from "../lib/budget/summaries";
+import { isOfferCategory, revenueShares, seasonMonths, summarizeStays, yearOverYear } from "../lib/budget/summaries";
+
+test("Angebot is the offer category kept out of the budget table", () => {
+  assert.equal(isOfferCategory(["Angebot", null, null]), true);
+  assert.equal(isOfferCategory(["Double", "Doppelzimmer", "Doppia"]), false);
+});
 
 test("rest of season runs from the current month through December", () => {
   assert.deepEqual(seasonMonths("2026-11-09"), [
