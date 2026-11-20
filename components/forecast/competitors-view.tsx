@@ -17,7 +17,6 @@ type Hotel = {
   stars: number | null;
   distanceKm: number | null;
   url: string;
-  createdAt: string;
   fetchedAt: string;
 };
 
@@ -234,8 +233,7 @@ export function CompetitorsView() {
             </div>
             <p className="text-[13px] text-[var(--qf-text-muted)]">{rangeText(hotel.minPrice, hotel.maxPrice)}</p>
             <p className="mt-1 text-[12px] text-[var(--qf-text-muted)]">{hotel.distanceKm === null ? "–" : `${hotel.distanceKm.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} km`}</p>
-            <p className="mt-2 text-[12px] text-[var(--qf-text-muted)]">{t.added}: {formatUpdated(hotel.createdAt, locale)}</p>
-            <p className="text-[12px] text-[var(--qf-text-muted)]">{t.priceUpdated}: {formatUpdated(hotel.fetchedAt, locale)}</p>
+            <p className="mt-2 text-[12px] text-[var(--qf-text-muted)]">{t.priceUpdated}: {formatUpdated(hotel.fetchedAt, locale)}</p>
           </article>
         ))}
       </section>

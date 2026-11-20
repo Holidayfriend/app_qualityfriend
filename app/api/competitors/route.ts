@@ -57,7 +57,6 @@ export async function GET() {
       accommodationType: true,
       url: true,
       rawPayload: true,
-      createdAt: true,
       lastFetchedAt: true,
     },
   });
@@ -80,7 +79,6 @@ export async function GET() {
         url: row.url ?? "",
         stars: Number.isInteger(stars) && stars > 0 ? Math.min(stars, 5) : null,
         distanceKm: distance(row.rawPayload),
-        createdAt: row.createdAt.toISOString(),
         fetchedAt: row.lastFetchedAt.toISOString(),
       };
     }),
