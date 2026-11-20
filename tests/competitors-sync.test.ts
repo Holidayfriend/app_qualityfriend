@@ -22,6 +22,9 @@ test("maps a Xotelo hotel into competitor fields", () => {
   assert.equal(record.bestValueRank, 27);
   assert.equal(record.rating, 4.7);
   assert.equal(record.reviewCount, 321);
+  assert.equal(record.minPrice, 120);
+  assert.equal(record.maxPrice, 240);
+  assert.equal(record.adr, 180);
   assert.equal(record.latitude, 46.5);
   assert.deepEqual(record.mentions, ["Family"]);
 });

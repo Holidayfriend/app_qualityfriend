@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { accessibleModules } from "../../../lib/auth/module-access";
 import { getSessionUserId } from "../../../lib/auth/session";
 import { prisma } from "../../../lib/prisma";
+import { averageAdr } from "../../../lib/competitors/scrape";
 import { listForecastNarrative } from "../../../lib/revenue/narratives";
 import { hasTrustedOrigin } from "../../../lib/security/request-origin";
 
@@ -56,6 +57,7 @@ export async function GET() {
       accommodationType: true,
       url: true,
       rawPayload: true,
+      createdAt: true,
       lastFetchedAt: true,
     },
   });
@@ -74,10 +76,11 @@ export async function GET() {
         reviewCount: row.reviewCount,
         minPrice: amount(row.minPrice),
         maxPrice: amount(row.maxPrice),
-        adr: amount(row.adr),
+        adr: averageAdr(amount(row.minPrice), amount(row.maxPrice)) ?? amount(row.adr),
         url: row.url ?? "",
         stars: Number.isInteger(stars) && stars > 0 ? Math.min(stars, 5) : null,
         distanceKm: distance(row.rawPayload),
+        createdAt: row.createdAt.toISOString(),
         fetchedAt: row.lastFetchedAt.toISOString(),
       };
     }),

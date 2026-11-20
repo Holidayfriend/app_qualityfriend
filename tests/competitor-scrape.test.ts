@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { searchKeywords, selectHotels } from "../lib/competitors/scrape";
+import { checkInDates, matchStoredCompetitor, searchKeywords, selectHotels } from "../lib/competitors/scrape";
 
 test("builds the three hotel searches from the saved city, address, and name", () => {
   assert.deepEqual(searchKeywords({
@@ -40,4 +40,42 @@ test("keeps hotels inside 6 km and checks must-include names", () => {
   assert.equal(result.hotels[0]?.title, "[OWN HOTEL] Hotel Weihrerhof");
   assert.equal(result.hotels[0]?.minPrice, 180);
   assert.equal(result.hotels[0]?.maxPrice, 240);
+  assert.equal(result.hotels[0]?.adr, 210);
+});
+
+test("uses today's quoted min and max and sets ADR to their average", () => {
+  const result = selectHotels([
+    {
+      date: "2026-11-20",
+      items: [
+        { title: "Hotel Am Hang", hotel_identifier: "hang", location: { latitude: 46.521, longitude: 11.425 }, prices: { price: 160, price_without_discount: 220 } },
+      ],
+    },
+    {
+      date: "2026-12-14",
+      items: [
+        { title: "Hotel Am Hang", hotel_identifier: "hang", prices: { price: 400 } },
+      ],
+    },
+  ], { latitude: 46.5207, longitude: 11.4248 }, "Weihrerhof", [], 6, "2026-11-20");
+
+  assert.equal(result.hotels[0]?.minPrice, 160);
+  assert.equal(result.hotels[0]?.maxPrice, 220);
+  assert.equal(result.hotels[0]?.adr, 190);
+});
+
+test("price updates match a saved competitor and ignore a new one", () => {
+  const found = [
+    { key: "hang", title: "Hotel Am Hang" },
+    { key: "new-hotel", title: "Hotel Neu" },
+  ];
+  assert.equal(matchStoredCompetitor({ externalKey: "hang", name: "Hotel Am Hang" }, found)?.key, "hang");
+  assert.equal(matchStoredCompetitor({ externalKey: "manual-1", name: "[OWN HOTEL] Hotel Weihrerhof" }, [{ key: "own", title: "[OWN HOTEL] Hotel Weihrerhof" }])?.key, "own");
+  assert.equal(matchStoredCompetitor({ externalKey: "old", name: "Hotel Alt" }, found), null);
+});
+
+test("check-in dates start with today", () => {
+  const dates = checkInDates(new Date("2026-11-20T12:00:00Z"));
+  assert.equal(dates[0]?.checkIn, "2026-11-20");
+  assert.equal(dates[0]?.checkOut, "2026-11-21");
 });

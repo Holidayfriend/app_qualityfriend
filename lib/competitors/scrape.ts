@@ -1,7 +1,7 @@
 import { LocationLookupError } from "./location";
 
 const SEARCH_URL = "https://api.dataforseo.com/v3/business_data/google/hotel_searches";
-export const DAYS_AHEAD = [10, 24, 45, 90];
+export const DAYS_AHEAD = [0, 10, 24, 45, 90];
 export const NIGHTS = 1;
 export const RADIUS_KM = 6;
 
@@ -18,6 +18,7 @@ export type SearchHotel = {
   image: string | null;
   minPrice: number | null;
   maxPrice: number | null;
+  adr: number | null;
   prices: Record<string, number>;
   raw: Record<string, unknown>;
 };
@@ -29,8 +30,25 @@ type HotelItem = {
   location?: { latitude?: number; longitude?: number };
   reviews?: { value?: number; votes_count?: number };
   overview_images?: string[];
-  prices?: { price?: number };
+  prices?: { price?: number; price_without_discount?: number | null };
 };
+
+type DayRange = { min: number; max: number };
+
+export function competitorNameKey(name: string) {
+  return name.replace(/^\[OWN HOTEL\]\s*/i, "").trim().toLowerCase();
+}
+
+export function matchStoredCompetitor<T extends { key: string; title: string }>(row: { externalKey: string; name: string }, found: T[]) {
+  return found.find((item) => item.key === row.externalKey) ?? found.find((item) => competitorNameKey(item.title) === competitorNameKey(row.name)) ?? null;
+}
+
+export function averageAdr(minPrice: number | null, maxPrice: number | null) {
+  const low = minPrice ?? maxPrice;
+  const high = maxPrice ?? minPrice;
+  if (low === null || high === null) return null;
+  return Math.round(((low + high) / 2) * 100) / 100;
+}
 
 type TaskMeta = { date: string };
 
@@ -62,16 +80,17 @@ export function selectHotels(
   hotelName: string,
   mustInclude: string[],
   radiusKm = RADIUS_KM,
+  stayDate?: string,
 ) {
-  const merged = new Map<string, { item: HotelItem; prices: Record<string, number> }>();
+  const merged = new Map<string, { item: HotelItem; prices: Record<string, number>; ranges: Record<string, DayRange> }>();
   for (const batch of batches) {
     for (const item of batch.items) {
       const title = item.title?.trim();
       if (!title) continue;
       const key = (item.hotel_identifier || title).slice(0, 120);
-      const current = merged.get(key) ?? { item: { ...item, title }, prices: {} };
-      const price = typeof item.prices?.price === "number" ? item.prices.price : 0;
-      if (price > 0 && (current.prices[batch.date] === undefined || price < current.prices[batch.date])) current.prices[batch.date] = price;
+      const current = merged.get(key) ?? { item: { ...item, title }, prices: {}, ranges: {} };
+      for (const amount of quotedPrices(item.prices)) current.ranges[batch.date] = widen(current.ranges[batch.date], amount);
+      if (current.ranges[batch.date]) current.prices[batch.date] = current.ranges[batch.date].min;
       merged.set(key, current);
     }
   }
@@ -87,7 +106,10 @@ export function selectHotels(
     const longitude = numberOrNull(entry.item.location?.longitude);
     const distance = latitude !== null && longitude !== null ? distanceKm(origin.latitude, origin.longitude, latitude, longitude) : null;
     if (distance !== null && distance > radiusKm) return [];
-    const amounts = Object.values(entry.prices);
+    const today = stayDate ? entry.ranges[stayDate] : undefined;
+    const spans = Object.values(entry.ranges);
+    const minPrice = today?.min ?? (spans.length ? Math.min(...spans.map((span) => span.min)) : null);
+    const maxPrice = today?.max ?? (spans.length ? Math.max(...spans.map((span) => span.max)) : null);
     const own = isOwnHotel(entry.item.title ?? "", hotelName);
     const title = own ? `[OWN HOTEL] ${entry.item.title}` : entry.item.title ?? "";
     return [{
@@ -101,8 +123,9 @@ export function selectHotels(
       longitude,
       distanceKm: distance,
       image: entry.item.overview_images?.find((image) => typeof image === "string" && image.trim()) ?? null,
-      minPrice: amounts.length ? Math.min(...amounts) : null,
-      maxPrice: amounts.length ? Math.max(...amounts) : null,
+      minPrice,
+      maxPrice,
+      adr: averageAdr(minPrice, maxPrice),
       prices: entry.prices,
       raw: { ...entry.item, title, distKm: distance, priceList: entry.prices, own },
     } satisfies SearchHotel];
@@ -171,7 +194,17 @@ export async function searchCompetitorHotels(input: {
     }
   }
 
-  return selectHotels(batches, input, input.hotelName, input.mustInclude);
+  const today = checkInDates(now, [0])[0]?.date;
+  return selectHotels(batches, input, input.hotelName, input.mustInclude, RADIUS_KM, today);
+}
+
+function quotedPrices(prices: HotelItem["prices"]) {
+  return [prices?.price, prices?.price_without_discount].filter((amount): amount is number => typeof amount === "number" && amount > 0);
+}
+
+function widen(current: DayRange | undefined, amount: number): DayRange {
+  if (!current) return { min: amount, max: amount };
+  return { min: Math.min(current.min, amount), max: Math.max(current.max, amount) };
 }
 
 function isoDate(now: Date, days: number) {

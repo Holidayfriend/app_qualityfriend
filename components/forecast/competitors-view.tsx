@@ -17,6 +17,7 @@ type Hotel = {
   stars: number | null;
   distanceKm: number | null;
   url: string;
+  createdAt: string;
   fetchedAt: string;
 };
 
@@ -34,6 +35,26 @@ function rangeText(min: number | null, max: number | null) {
 function starText(count: number | null) {
   if (!count) return "";
   return `${"★".repeat(count)}${"☆".repeat(5 - count)}`;
+}
+
+function formatUpdated(value: string, locale: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString(locale === "de" ? "de-DE" : locale === "it" ? "it-IT" : "en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function priceError(code: string | undefined, t: ReturnType<typeof useForecast>["competitors"], missing?: string[]) {
+  if (code === "INVALID_POSITION" || missing?.includes("POSITION")) return t.missingPosition;
+  if (code === "CREDENTIALS_MISSING") return t.credentialsMissing;
+  if (code === "MISSING_FIELDS" && missing?.includes("LOCATION_ID")) return t.missingLocation;
+  if (code === "MISSING_FIELDS") return t.missingAccount;
+  return t.scrapeFailed;
 }
 
 type Summary = { en: string; de: string; it: string };
@@ -55,6 +76,8 @@ export function CompetitorsView() {
   const [draftUrl, setDraftUrl] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [updateError, setUpdateError] = useState("");
 
   function reload() {
     return fetch("/api/competitors")
@@ -98,6 +121,10 @@ export function CompetitorsView() {
   }, [hotels, maxKm, maxPrice, minPrice, query]);
 
   const tracked = useMemo(() => visible.filter((hotel) => !hotel.own), [visible]);
+  const lastUpdated = useMemo(() => {
+    const times = hotels.map((hotel) => Date.parse(hotel.fetchedAt)).filter((time) => Number.isFinite(time));
+    return times.length ? new Date(Math.max(...times)).toISOString() : "";
+  }, [hotels]);
 
   function openNew() {
     setEditor("new");
@@ -152,6 +179,39 @@ export function CompetitorsView() {
     setEditor(null);
   }
 
+  async function updatePrices() {
+    setUpdating(true);
+    setUpdateError("");
+    try {
+      const settingsResponse = await fetch("/api/competitors/settings");
+      const settings = await settingsResponse.json().catch(() => null) as { latitude?: number | null; longitude?: number | null; mustInclude?: string[] } | null;
+      if (!settingsResponse.ok || !settings || settings.latitude == null || settings.longitude == null) {
+        setUpdateError(t.missingPosition);
+        return;
+      }
+      const response = await fetch("/api/competitors/scrape", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          latitude: settings.latitude,
+          longitude: settings.longitude,
+          mustInclude: settings.mustInclude ?? [],
+          pricesOnly: true,
+        }),
+      });
+      const data = await response.json().catch(() => null) as { error?: string; missing?: string[] } | null;
+      if (!response.ok || data?.error) {
+        setUpdateError(priceError(data?.error, t, data?.missing));
+        return;
+      }
+      await reload().catch(() => undefined);
+    } catch {
+      setUpdateError(t.scrapeFailed);
+    } finally {
+      setUpdating(false);
+    }
+  }
+
   async function remove(hotel: Hotel) {
     const response = await fetch(`/api/competitors/${hotel.id}`, { method: "DELETE" });
     if (!response.ok) return;
@@ -174,6 +234,8 @@ export function CompetitorsView() {
             </div>
             <p className="text-[13px] text-[var(--qf-text-muted)]">{rangeText(hotel.minPrice, hotel.maxPrice)}</p>
             <p className="mt-1 text-[12px] text-[var(--qf-text-muted)]">{hotel.distanceKm === null ? "–" : `${hotel.distanceKm.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} km`}</p>
+            <p className="mt-2 text-[12px] text-[var(--qf-text-muted)]">{t.added}: {formatUpdated(hotel.createdAt, locale)}</p>
+            <p className="text-[12px] text-[var(--qf-text-muted)]">{t.priceUpdated}: {formatUpdated(hotel.fetchedAt, locale)}</p>
           </article>
         ))}
       </section>
@@ -182,9 +244,12 @@ export function CompetitorsView() {
         <input value={minPrice} onChange={(event) => setMinPrice(event.target.value)} placeholder={t.minPrice} aria-label={t.minPrice} inputMode="decimal" className="w-full max-w-[130px] rounded-[7px] border border-[var(--qf-border)] px-3 py-[9px] text-[13.5px] outline-none focus:border-[var(--qf-accent)]" />
         <input value={maxPrice} onChange={(event) => setMaxPrice(event.target.value)} placeholder={t.maxPrice} aria-label={t.maxPrice} inputMode="decimal" className="w-full max-w-[130px] rounded-[7px] border border-[var(--qf-border)] px-3 py-[9px] text-[13.5px] outline-none focus:border-[var(--qf-accent)]" />
         <input value={maxKm} onChange={(event) => setMaxKm(event.target.value)} placeholder={t.distance} aria-label={t.distance} inputMode="decimal" className="w-full max-w-[130px] rounded-[7px] border border-[var(--qf-border)] px-3 py-[9px] text-[13.5px] outline-none focus:border-[var(--qf-accent)]" />
-        <Link href="/competitors/settings" className="ml-auto rounded-[7px] border border-[var(--qf-border)] px-3.5 py-[7px] text-[13px] font-semibold text-[var(--qf-text)]">{t.settingsTitle}</Link>
+        <span className="ml-auto text-[12.5px] text-[var(--qf-text-muted)]">{lastUpdated ? `${t.updated}: ${formatUpdated(lastUpdated, locale)}` : ""}</span>
+        <Link href="/competitors/settings" className="rounded-[7px] border border-[var(--qf-border)] px-3.5 py-[7px] text-[13px] font-semibold text-[var(--qf-text)]">{t.settingsTitle}</Link>
+        <button type="button" onClick={() => void updatePrices()} disabled={updating || loading} className="cursor-pointer rounded-[7px] border border-[var(--qf-border)] px-3.5 py-[7px] text-[13px] font-semibold text-[var(--qf-text)] disabled:cursor-not-allowed disabled:opacity-60">{updating ? t.updatingPrices : t.updatePrices}</button>
         <button type="button" onClick={openNew} className="cursor-pointer rounded-[7px] bg-[var(--qf-accent)] px-3.5 py-[7px] text-[13px] font-semibold text-white">{t.addHotel}</button>
       </div>
+      {updateError ? <p role="alert" className="mb-3.5 text-[12px] text-[#DC2626]">{updateError}</p> : null}
       <Card title={t.tracked} flush>
         <DataTable headers={[{ label: t.hotel }, { label: t.minPrice }, { label: t.maxPrice }, { label: t.adr }, { label: t.distanceCol }, { label: t.ratingLead }, { label: t.actions, align: "right" }]}>
           {tracked.length === 0 ? <tr><td colSpan={7} className="px-3 py-4 text-[13px] text-[var(--qf-text-muted)]">{t.empty}</td></tr> : tracked.map((hotel) => (

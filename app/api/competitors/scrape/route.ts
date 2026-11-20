@@ -3,7 +3,7 @@ import type { Prisma } from "../../../../app/generated/prisma/client";
 import { accessibleModules } from "../../../../lib/auth/module-access";
 import { getSessionUserId } from "../../../../lib/auth/session";
 import { LocationLookupError, parseCompetitorSettings } from "../../../../lib/competitors/location";
-import { searchCompetitorHotels } from "../../../../lib/competitors/scrape";
+import { matchStoredCompetitor, searchCompetitorHotels } from "../../../../lib/competitors/scrape";
 import { prisma } from "../../../../lib/prisma";
 import { hasTrustedOrigin } from "../../../../lib/security/request-origin";
 
@@ -27,8 +27,10 @@ export async function POST(request: Request) {
   const current = await actor();
   if ("error" in current) return NextResponse.json({ error: current.error }, { status: current.error === "FORBIDDEN" ? 403 : 401 });
 
-  const parsed = parseCompetitorSettings(await request.json().catch(() => null));
+  const body = await request.json().catch(() => null);
+  const parsed = parseCompetitorSettings(body);
   if ("error" in parsed) return NextResponse.json({ error: parsed.error }, { status: 400 });
+  const pricesOnly = Boolean(body && typeof body === "object" && (body as { pricesOnly?: unknown }).pricesOnly === true);
 
   const hotel = await prisma.hotelTenant.findFirst({
     where: { id: current.hotelTenantId, isActive: true },
@@ -65,12 +67,30 @@ export async function POST(request: Request) {
     });
     const locationKey = String(locationCode);
     const fetchedAt = new Date();
-    const previous = await prisma.competitor.findMany({
-      where: { hotelTenantId: current.hotelTenantId, locationKey },
-      select: { externalKey: true, adr: true },
-    });
-    const savedAdr = new Map(previous.map((row) => [row.externalKey, row.adr]));
-    await prisma.$transaction(async (tx) => {
+    const updated = await prisma.$transaction(async (tx) => {
+      if (pricesOnly) {
+        const existing = await tx.competitor.findMany({
+          where: { hotelTenantId: current.hotelTenantId, locationKey },
+          select: { id: true, externalKey: true, name: true },
+        });
+        let count = 0;
+        for (const row of existing) {
+          const match = matchStoredCompetitor(row, found.hotels);
+          if (!match) continue;
+          await tx.competitor.update({
+            where: { id: row.id },
+            data: {
+              minPrice: match.minPrice,
+              maxPrice: match.maxPrice,
+              adr: match.adr,
+              mentions: Object.entries(match.prices).map(([date, price]) => ({ date, price })) as Prisma.InputJsonValue,
+              lastFetchedAt: fetchedAt,
+            },
+          });
+          count += 1;
+        }
+        return count;
+      }
       await tx.competitorSettings.upsert({
         where: { hotelTenantId: current.hotelTenantId },
         create: {
@@ -99,7 +119,7 @@ export async function POST(request: Request) {
             reviewCount: item.reviewCount === null ? null : Math.max(0, Math.trunc(item.reviewCount)),
             minPrice: item.minPrice,
             maxPrice: item.maxPrice,
-            adr: savedAdr.get(item.key) ?? null,
+            adr: item.adr,
             latitude: item.latitude,
             longitude: item.longitude,
             image: item.image,
@@ -111,10 +131,11 @@ export async function POST(request: Request) {
           })),
         });
       }
+      return found.hotels.length;
     });
 
     return NextResponse.json({
-      saved: found.hotels.length,
+      saved: updated,
       mustHave: found.mustHave,
       hotels: found.hotels.map((item) => ({
         name: item.title,

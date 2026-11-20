@@ -1,4 +1,5 @@
 import type { Prisma, PrismaClient } from "../../app/generated/prisma/client";
+import { averageAdr } from "./scrape";
 
 const XOTELO_LIST_URL = "https://data.xotelo.com/api/list";
 const PAGE_SIZE = 100;
@@ -22,6 +23,7 @@ type CompetitorRecord = {
   reviewCount: number | null;
   minPrice: number | null;
   maxPrice: number | null;
+  adr: number | null;
   latitude: number | null;
   longitude: number | null;
   image: string | null;
@@ -67,6 +69,8 @@ export function mapXoteloCompetitor(value: unknown, bestValueRank = 1): Competit
   const priceRanges = object(hotel.price_ranges);
   const geo = object(hotel.geo);
   const reviewCount = number(reviewSummary?.count);
+  const minPrice = number(priceRanges?.minimum);
+  const maxPrice = number(priceRanges?.maximum);
 
   return {
     bestValueRank,
@@ -76,8 +80,9 @@ export function mapXoteloCompetitor(value: unknown, bestValueRank = 1): Competit
     url: text(hotel.url),
     rating: number(reviewSummary?.rating),
     reviewCount: reviewCount === null ? null : Math.max(0, Math.trunc(reviewCount)),
-    minPrice: number(priceRanges?.minimum),
-    maxPrice: number(priceRanges?.maximum),
+    minPrice,
+    maxPrice,
+    adr: averageAdr(minPrice, maxPrice),
     latitude: number(geo?.latitude),
     longitude: number(geo?.longitude),
     image: text(hotel.image),
@@ -167,6 +172,7 @@ export async function syncHotelCompetitors(
           reviewCount: record.reviewCount,
           minPrice: record.minPrice,
           maxPrice: record.maxPrice,
+          adr: record.adr,
           latitude: record.latitude,
           longitude: record.longitude,
           image: record.image,
