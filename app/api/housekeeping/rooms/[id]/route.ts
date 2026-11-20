@@ -51,3 +51,20 @@ export async function PATCH(request: Request, context: Context) {
   if (!updated) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
   return Response.json({ success: true });
 }
+
+export async function DELETE(_request: Request, context: Context) {
+  const user = await actor();
+  const { id } = await context.params;
+  if (!user || !uuid.test(id)) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
+  const updated = await prisma.$transaction(async tx => {
+    await tx.$queryRaw`SELECT id FROM rooms WHERE id = ${id}::uuid AND hotel_tenant_id = ${user.hotelTenantId}::uuid FOR UPDATE`;
+    const where = { id, hotelTenantId: user.hotelTenantId, isActive: true, archivedAt: null };
+    const before = await tx.room.findFirst({ where, include: { checklistTemplate: true } });
+    if (!before) return false;
+    await tx.room.update({ where, data: { isActive: false, archivedAt: new Date() } });
+    await recordAuditLog(tx, { module: "housekeeping", hotelTenantId: user.hotelTenantId, actorId: user.id, action: "DELETE", entityType: "ROOM", entityId: id, changes: { before: roomAuditSnapshot(before, before.checklistTemplate) } });
+    return true;
+  });
+  if (!updated) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
+  return Response.json({ success: true });
+}

@@ -82,6 +82,7 @@ async function collectFacts(prisma: PrismaClient, hotelTenantId: string, date: s
     prisma.reservationRoomStay.findMany({
       where: {
         hotelTenantId,
+        room: { isActive: true, archivedAt: null },
         reservation: { sourcePresent: true, status: { notIn: ["CANCELLED", "NO_SHOW"] } },
         OR: [
           { arrivalDate: { lte: day }, departureDate: { gte: day } },
@@ -107,7 +108,7 @@ async function collectFacts(prisma: PrismaClient, hotelTenantId: string, date: s
       take: 220,
     }),
     prisma.housekeepingRoomAssignment.findMany({
-      where: { hotelTenantId, workDate: day },
+      where: { hotelTenantId, workDate: day, room: { isActive: true, archivedAt: null } },
       select: { roomId: true, assignedToId: true, plannedMinutes: true, completedAt: true, reservationStayId: true },
     }),
     prisma.housekeepingExtraJobAssignment.findMany({
@@ -115,7 +116,7 @@ async function collectFacts(prisma: PrismaClient, hotelTenantId: string, date: s
       select: { extraJobId: true, assignedToId: true, plannedMinutes: true },
     }),
     prisma.roomOperationalState.findMany({
-      where: { hotelTenantId },
+      where: { hotelTenantId, room: { isActive: true, archivedAt: null } },
       select: { roomId: true, cleanliness: true, breakfastInRoom: true, doNotDisturb: true, noService: true, isExpress: true, guestCleaningPreference: true },
     }),
     loadAwayUserIds(prisma, hotelTenantId, date),

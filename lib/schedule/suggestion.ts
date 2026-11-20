@@ -83,7 +83,7 @@ export async function weekShiftProposals(actor: ScheduleActor, monday: string, l
     listWeekShifts(actor, monday, "en"),
     activeHousekeeperIds(prisma, actor.hotel_tenant_id),
     prisma.housekeepingRoomAssignment.findMany({
-      where: { hotelTenantId: actor.hotel_tenant_id, workDate: { gte: parseIsoDate(monday), lte: parseIsoDate(dates[6]) } },
+      where: { hotelTenantId: actor.hotel_tenant_id, workDate: { gte: parseIsoDate(monday), lte: parseIsoDate(dates[6]) }, room: { isActive: true, archivedAt: null } },
       select: { workDate: true, assignedToId: true },
     }),
   ]);

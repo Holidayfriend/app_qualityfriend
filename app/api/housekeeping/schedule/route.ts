@@ -46,7 +46,7 @@ export async function GET(request: Request) {
       orderBy: { number: "asc" }, select: { id: true, number: true, category: { select: { normalMinutes: true } }, floor: { select: { id: true, code: true, nameEn: true, nameDe: true, nameIt: true, sortOrder: true } } },
     }),
     prisma.extraJob.findMany({ where: { hotelTenantId: user.hotelTenantId }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] }),
-    prisma.$queryRaw<AssignmentRow[]>`SELECT id,assigned_to_id,item_id,planned_minutes,completed_at FROM (SELECT id,assigned_to_id,room_id AS item_id,planned_minutes,completed_at FROM housekeeping_room_assignments WHERE hotel_tenant_id=${user.hotelTenantId}::uuid AND work_date=${date}::date) assignments`,
+    prisma.$queryRaw<AssignmentRow[]>`SELECT a.id,a.assigned_to_id,a.room_id AS item_id,a.planned_minutes,a.completed_at FROM housekeeping_room_assignments a JOIN rooms r ON r.id=a.room_id AND r.hotel_tenant_id=a.hotel_tenant_id WHERE a.hotel_tenant_id=${user.hotelTenantId}::uuid AND a.work_date=${date}::date AND r.is_active=true AND r.archived_at IS NULL`,
     prisma.$queryRaw<AssignmentRow[]>`SELECT id,assigned_to_id,item_id,planned_minutes,completed_at FROM (SELECT id,assigned_to_id,extra_job_id AS item_id,planned_minutes,completed_at FROM housekeeping_extra_job_assignments WHERE hotel_tenant_id=${user.hotelTenantId}::uuid AND work_date=${date}::date) assignments`,
     loadAwayUserIds(prisma, user.hotelTenantId, date),
   ]);

@@ -99,7 +99,7 @@ async function housekeepingPack(hotelTenantId: string, locale: ChatLocale) {
       },
     }),
     prisma.housekeepingRoomAssignment.findMany({
-      where: { hotelTenantId, workDate: todayDate },
+      where: { hotelTenantId, workDate: todayDate, room: { isActive: true, archivedAt: null } },
       take: 120,
       select: {
         roomId: true, cleaningType: true, plannedMinutes: true, completedAt: true,
@@ -108,7 +108,7 @@ async function housekeepingPack(hotelTenantId: string, locale: ChatLocale) {
       },
     }),
     prisma.housekeepingChecklistCompletion.findMany({
-      where: { hotelTenantId, workDate: todayDate },
+      where: { hotelTenantId, workDate: todayDate, room: { isActive: true, archivedAt: null } },
       take: 800,
       select: { roomId: true, checklistType: true },
     }),
@@ -117,6 +117,7 @@ async function housekeepingPack(hotelTenantId: string, locale: ChatLocale) {
         hotelTenantId,
         arrivalDate: { lte: horizonDate },
         departureDate: { gte: todayDate },
+        room: { isActive: true, archivedAt: null },
         reservation: { sourcePresent: true, status: { notIn: ["CANCELLED", "NO_SHOW"] } },
       },
       take: 80,
