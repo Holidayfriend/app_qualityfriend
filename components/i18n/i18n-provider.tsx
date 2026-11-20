@@ -1,42 +1,40 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useSyncExternalStore, type ReactNode } from "react";
-import { dictionaries, supportedLocales, type Locale } from "../../lib/i18n/dictionaries";
+import { dictionaries, type Locale } from "../../lib/i18n/dictionaries";
+import { localeChangeEvent, localeStorageKey, publishLocale, readLocaleCookie, writeLocaleCookie } from "../../lib/i18n/locale";
 
 type I18nContextValue = { locale: Locale; setLocale: (locale: Locale) => void; dictionary: (typeof dictionaries)[Locale] };
 const I18nContext = createContext<I18nContextValue | null>(null);
-const storageKey = "qualityfriend-locale";
-const localeChangeEvent = "qualityfriend-locale-change";
 
-function isLocale(value: string | null): value is Locale {
-  return value !== null && supportedLocales.some((locale) => locale === value);
+function subscribe(onStoreChange: () => void) {
+  window.addEventListener("storage", onStoreChange);
+  window.addEventListener(localeChangeEvent, onStoreChange);
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener(localeChangeEvent, onStoreChange);
+  };
 }
 
-export function I18nProvider({ children }: { children: ReactNode }) {
-  const locale = useSyncExternalStore<Locale>(
-    (onStoreChange) => {
-      window.addEventListener("storage", onStoreChange);
-      window.addEventListener(localeChangeEvent, onStoreChange);
-      return () => {
-        window.removeEventListener("storage", onStoreChange);
-        window.removeEventListener(localeChangeEvent, onStoreChange);
-      };
-    },
-    () => {
-    const saved = window.localStorage.getItem(storageKey);
-    const browserLocale = window.navigator.language.slice(0, 2);
-      return isLocale(saved) ? saved : isLocale(browserLocale) ? browserLocale : "en";
-    },
-    () => "en",
+export function I18nProvider({ initialLocale, children }: { initialLocale: Locale; children: ReactNode }) {
+  // Keep the server render and the first browser render on the same locale.
+  // A hardcoded English server snapshot made every page fetch twice.
+  const locale = useSyncExternalStore(
+    subscribe,
+    () => readLocaleCookie() ?? initialLocale,
+    () => initialLocale,
   );
 
-  const setLocale = useCallback((nextLocale: Locale) => {
-    window.localStorage.setItem(storageKey, nextLocale);
-    window.dispatchEvent(new Event(localeChangeEvent));
-    document.documentElement.lang = nextLocale;
-  }, []);
+  const setLocale = useCallback((nextLocale: Locale) => { publishLocale(nextLocale); }, []);
 
-  useEffect(() => { document.documentElement.lang = locale; }, [locale]);
+  useEffect(() => {
+    document.documentElement.lang = locale;
+    try {
+      if (localStorage.getItem(localeStorageKey) !== locale) localStorage.setItem(localeStorageKey, locale);
+    } catch { /* Private mode can block storage. */ }
+    if (readLocaleCookie() !== locale) writeLocaleCookie(locale);
+  }, [locale]);
+
   const value = useMemo(() => ({ locale, setLocale, dictionary: dictionaries[locale] }), [locale, setLocale]);
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
