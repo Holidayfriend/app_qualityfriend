@@ -1577,11 +1577,16 @@
     "timesThisYear": "{count}× quest’anno",
     "statEmpty": "Nessun luogo ancora. Indica il luogo quando crei una riparazione.",
     "areas": {
+      "hall-1": "Corridoio 1° piano",
       "hall-2": "Corridoio 2° piano",
       "boiler": "Locale caldaia",
       "basement": "Cantina",
       "garden": "Giardino / esterno",
+      "kitchen": "Cucina",
+      "reception": "Reception",
       "restaurant": "Ristorante",
+      "indoor-pool": "Piscina coperta",
+      "kneipp": "Ruscello Kneipp",
       "spa": "SeaSpa"
     },
     "description": "Descrizione",

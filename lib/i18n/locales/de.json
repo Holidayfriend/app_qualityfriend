@@ -1577,11 +1577,16 @@
     "timesThisYear": "{count}× dieses Jahr",
     "statEmpty": "Noch keine Orte. Beim Erstellen einer Reparatur den Ort angeben.",
     "areas": {
+      "hall-1": "Flur Etage 1",
       "hall-2": "Flur Etage 2",
       "boiler": "Heizraum",
       "basement": "Keller",
       "garden": "Garten / Außenbereich",
+      "kitchen": "Küche",
+      "reception": "Rezeption",
       "restaurant": "Restaurant",
+      "indoor-pool": "Hallenbad",
+      "kneipp": "Kneippbach",
       "spa": "SeaSpa"
     },
     "description": "Beschreibung",

@@ -1579,11 +1579,16 @@
     "timesThisYear": "{count}× this year",
     "statEmpty": "No locations yet. Add a location when you create a repair.",
     "areas": {
+      "hall-1": "1st floor hallway",
       "hall-2": "2nd floor hallway",
       "boiler": "Boiler room",
       "basement": "Basement",
       "garden": "Garden / outdoor",
+      "kitchen": "Kitchen",
+      "reception": "Reception",
       "restaurant": "Restaurant",
+      "indoor-pool": "Indoor pool",
+      "kneipp": "Kneipp stream",
       "spa": "SeaSpa"
     },
     "description": "Description",

@@ -7,11 +7,16 @@ import { sanitizeJobHtml } from "../recruiting/job-fields";
 import { REPAIR_AREA_KEYS, type RepairAreaKey } from "./demo-data";
 
 const AREA: Record<RepairAreaKey, { en: string; de: string; it: string }> = {
+  "hall-1": { en: "1st floor hallway", de: "Flur Etage 1", it: "Corridoio 1° piano" },
   "hall-2": { en: "2nd floor hallway", de: "Flur Etage 2", it: "Corridoio 2° piano" },
   boiler: { en: "Boiler room", de: "Heizraum", it: "Locale caldaia" },
   basement: { en: "Basement", de: "Keller", it: "Cantina" },
   garden: { en: "Garden / outdoor", de: "Garten / Außenbereich", it: "Giardino / esterno" },
+  kitchen: { en: "Kitchen", de: "Küche", it: "Cucina" },
+  reception: { en: "Reception", de: "Rezeption", it: "Reception" },
   restaurant: { en: "Restaurant", de: "Restaurant", it: "Ristorante" },
+  "indoor-pool": { en: "Indoor pool", de: "Hallenbad", it: "Piscina coperta" },
+  kneipp: { en: "Kneipp stream", de: "Kneippbach", it: "Ruscello Kneipp" },
   spa: { en: "SeaSpa", de: "SeaSpa", it: "SeaSpa" },
 };
 

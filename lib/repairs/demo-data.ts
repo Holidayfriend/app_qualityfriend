@@ -23,7 +23,7 @@ export type Repair = {
 export type RepairTemplate = { id: string; title: string; desc: string; visibility: RepairVisibility; depts: string[] };
 
 export const REPAIR_ASSIGNEES = ["Klaus Pichler", "Thomas Gruber", "Maria Rieder", "Sabine Moser", "Luca Bianchi"];
-export const REPAIR_AREA_KEYS = ["hall-2", "boiler", "basement", "garden", "restaurant", "spa"] as const;
+export const REPAIR_AREA_KEYS = ["hall-1", "hall-2", "boiler", "basement", "garden", "kitchen", "reception", "restaurant", "indoor-pool", "kneipp", "spa"] as const;
 export type RepairAreaKey = (typeof REPAIR_AREA_KEYS)[number];
 export const REPAIR_DEPTS: RepairDept[] = ["reception", "housekeeping", "restaurant", "kitchen", "maintenance", "seaspa", "administration"];
 export const STATUS_CHIP: Record<RepairStatus, string> = {
