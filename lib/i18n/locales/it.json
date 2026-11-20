@@ -1841,6 +1841,7 @@
     "itemAttachment": "Allegato",
     "addAttachment": "Aggiungi allegato",
     "removeAttachment": "Rimuovi allegato",
+    "itemAttachmentAdd": "Carica",
     "itemAttachmentFailed": "Impossibile aggiornare l'allegato. Riprova.",
     "history": "📋 Completamenti recenti",
     "noHistory": "Ancora nessun completamento.",
