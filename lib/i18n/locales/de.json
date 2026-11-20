@@ -1215,6 +1215,7 @@
     "proposalSameHours": "Gleiche Zeiten wie die anderen Schichten dieser Woche",
     "proposalHousekeeping": "An diesem Tag sind Housekeeping-Zimmer zugewiesen",
     "proposalCover": "{name} in {department} vertreten",
+    "proposalWeek": "Geplant nach Reservierungen, Saison und bereits freiem oder Urlaub",
     "ownWeek": "👤 {name} · Meine Woche",
     "requestBtn": "+ Urlaub/Tausch beantragen",
     "requestLeaveBtn": "+ Abwesenheiten / Urlaub",

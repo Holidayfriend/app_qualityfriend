@@ -1217,6 +1217,7 @@
     "proposalSameHours": "Same hours as their other shifts this week",
     "proposalHousekeeping": "Housekeeping rooms are assigned this day",
     "proposalCover": "Cover {name} in {department}",
+    "proposalWeek": "Planned from reservations, season, and days already off",
     "ownWeek": "👤 {name} · My week",
     "requestBtn": "+ Request leave/swap",
     "requestLeaveBtn": "+ Absences / Vacations",

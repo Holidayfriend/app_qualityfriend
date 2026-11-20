@@ -29,7 +29,7 @@ type ShiftProposal = {
   start: string;
   end: string;
   department: string;
-  reason: "sameHours" | "housekeeping" | "cover";
+  reason: "sameHours" | "housekeeping" | "cover" | "week";
   coverName: string;
 };
 type WeekSuggestion = { title: string; body: string; proposals?: ShiftProposal[] };
@@ -37,19 +37,36 @@ type WeekSuggestion = { title: string; body: string; proposals?: ShiftProposal[]
 function proposalReason(item: ShiftProposal, t: T) {
   if (item.reason === "cover") return fill(t.proposalCover, { name: item.coverName, department: item.department || t.noDepartment });
   if (item.reason === "housekeeping") return t.proposalHousekeeping;
+  if (item.reason === "week") return t.proposalWeek;
   return t.proposalSameHours;
 }
 
 function ProposalList({ proposals, t, locale }: { proposals: ShiftProposal[]; t: T; locale: string }) {
   if (!proposals.length) return null;
+  const language = locale === "de" || locale === "it" ? locale : "en";
+  const grouped = new Map<string, ShiftProposal[]>();
+  for (const item of proposals) {
+    const rows = grouped.get(item.userId) ?? [];
+    rows.push(item);
+    grouped.set(item.userId, rows);
+  }
+  const people = [...grouped.values()].map((rows) => [...rows].sort((left, right) => left.date.localeCompare(right.date))).sort((left, right) => left[0].name.localeCompare(right[0].name) || left[0].department.localeCompare(right[0].department) || left[0].userId.localeCompare(right[0].userId));
   return <div className="no-print" style={{ marginTop: 10, padding: "12px 16px", background: "#fff", border: "1px solid #FDE68A", borderRadius: 8 }}>
     <strong style={{ display: "block", marginBottom: 8, fontSize: 13 }}>{t.proposalTitle}</strong>
     <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 6 }}>
-      {proposals.map((item) => <li key={`${item.userId}-${item.date}`} style={{ fontSize: 13, color: "var(--text)" }}>
-        <b>{item.name}</b>
-        {item.department ? ` · ${item.department}` : ""}
-        {` · ${formatDayHeader(item.date, locale === "de" || locale === "it" ? locale : "en")} · ${item.start}–${item.end} · ${proposalReason(item, t)}`}
-      </li>)}
+      {people.map((days) => {
+        const person = days[0];
+        const sameHours = days.every((day) => day.start === person.start && day.end === person.end);
+        const notes = days.filter((day) => day.reason !== "week").map((day) => `${formatDayHeader(day.date, language)}: ${proposalReason(day, t)}`);
+        return <li key={person.userId} style={{ fontSize: 13, color: "var(--text)" }}>
+          <b>{person.name}</b>
+          {person.department ? ` · ${person.department}` : ""}
+          {sameHours
+            ? ` · ${days.map((day) => formatDayHeader(day.date, language)).join(", ")} · ${person.start}–${person.end}`
+            : days.map((day) => ` · ${formatDayHeader(day.date, language)} ${day.start}–${day.end}`).join("")}
+          {notes.length ? ` · ${notes.join("; ")}` : ""}
+        </li>;
+      })}
     </ul>
   </div>;
 }

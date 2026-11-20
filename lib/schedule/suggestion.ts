@@ -59,18 +59,27 @@ export async function listScheduleSuggestion(actor: ScheduleActor, weekStart: st
   const language = localeOf(locale);
   const proposals = await weekShiftProposals(actor, monday, language);
   if (!row?.titleEn && proposals.length === 0) return null;
+  const plan = proposals.length ? planReadyText(language) : null;
   return {
     weekStart: monday,
-    title: row?.titleEn ? (language === "de" ? row.titleDe || row.titleEn : language === "it" ? row.titleIt || row.titleEn : row.titleEn) : "",
-    body: row?.titleEn ? (language === "de" ? row.bodyDe || row.bodyEn : language === "it" ? row.bodyIt || row.bodyEn : row.bodyEn) : "",
+    title: plan?.title || (row?.titleEn ? (language === "de" ? row.titleDe || row.titleEn : language === "it" ? row.titleIt || row.titleEn : row.titleEn) : ""),
+    body: plan?.body || (row?.titleEn ? (language === "de" ? row.bodyDe || row.bodyEn : language === "it" ? row.bodyIt || row.bodyEn : row.bodyEn) : ""),
     generatedAt: row?.generatedAt.toISOString() ?? "",
     proposals,
   };
 }
 
+function planReadyText(locale: Locale): Text {
+  if (locale === "de") return { title: "Wochenplan", body: "Vorgeschlagene Schichten für diese Woche. Wer schon Urlaub oder frei hat, bleibt frei, und niemand bekommt alle 7 Tage." };
+  if (locale === "it") return { title: "Piano settimanale", body: "Turni proposti per questa settimana. Chi è già in ferie o libero resta libero, e nessuno riceve tutti e 7 i giorni." };
+  return { title: "Week plan", body: "Suggested shifts for this week. People already on vacation or off stay off, and nobody is given all 7 days." };
+}
+
 export async function weekShiftProposals(actor: ScheduleActor, monday: string, locale: Locale): Promise<ShiftProposal[]> {
   const dates = weekIsoDates(monday);
-  const [users, shifts, housekeepers, assignments] = await Promise.all([
+  const weekStart = parseIsoDate(monday);
+  const weekEnd = parseIsoDate(dates[6]);
+  const [users, shifts, housekeepers, assignments, stays, capacity, weather, template] = await Promise.all([
     prisma.user.findMany({
       where: { hotelTenantId: actor.hotel_tenant_id, isActive: true, isDeleted: false },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
@@ -83,10 +92,32 @@ export async function weekShiftProposals(actor: ScheduleActor, monday: string, l
     listWeekShifts(actor, monday, "en"),
     activeHousekeeperIds(prisma, actor.hotel_tenant_id),
     prisma.housekeepingRoomAssignment.findMany({
-      where: { hotelTenantId: actor.hotel_tenant_id, workDate: { gte: parseIsoDate(monday), lte: parseIsoDate(dates[6]) }, room: { isActive: true, archivedAt: null } },
+      where: { hotelTenantId: actor.hotel_tenant_id, workDate: { gte: weekStart, lte: weekEnd }, room: { isActive: true, archivedAt: null } },
       select: { workDate: true, assignedToId: true },
     }),
+    prisma.reservationRoomStay.findMany({
+      where: {
+        hotelTenantId: actor.hotel_tenant_id,
+        arrivalDate: { lte: weekEnd },
+        departureDate: { gte: weekStart },
+        room: { isActive: true, archivedAt: null },
+        reservation: { sourcePresent: true, status: { notIn: ["CANCELLED", "NO_SHOW"] } },
+      },
+      select: { arrivalDate: true, departureDate: true },
+    }),
+    prisma.room.count({ where: { hotelTenantId: actor.hotel_tenant_id, isActive: true, archivedAt: null } }),
+    prisma.hotelWeather.findUnique({ where: { hotelTenantId: actor.hotel_tenant_id }, select: { temperatureC: true } }),
+    prisma.hotelShiftTemplate.findFirst({
+      where: { hotelTenantId: actor.hotel_tenant_id },
+      orderBy: [{ startTime: "asc" }, { name: "asc" }],
+      select: { startTime: true, endTime: true },
+    }),
   ]);
+  const occupiedByDate: Record<string, number> = {};
+  for (const date of dates) {
+    const day = parseIsoDate(date).getTime();
+    occupiedByDate[date] = stays.filter((stay) => stay.arrivalDate.getTime() <= day && stay.departureDate.getTime() >= day).length;
+  }
   const roomGroups = new Map<string, number>();
   for (const row of assignments) {
     const key = `${row.assignedToId ?? ""}|${row.workDate.toISOString().slice(0, 10)}`;
@@ -108,6 +139,8 @@ export async function weekShiftProposals(actor: ScheduleActor, monday: string, l
       const split = key.indexOf("|");
       return { userId: key.slice(0, split) || null, date: key.slice(split + 1), rooms };
     }),
+    demand: { occupiedByDate, capacity, temperatureC: weather?.temperatureC ?? null },
+    defaultHours: template ? { start: template.startTime, end: template.endTime } : undefined,
   });
 }
 

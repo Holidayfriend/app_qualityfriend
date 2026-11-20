@@ -37,3 +37,42 @@ test("empty days copy the person's own hours from this week and stop before seve
     ["2026-11-14", "sameHours", "07:00", "15:00"],
   ]);
 });
+
+test("a blank week is split across the department and a vacation stays empty", () => {
+  const anna: ProposalPerson = { id: "anna", name: "Anna Test", departments: ["test s"], housekeeper: false };
+  const nico: ProposalPerson = { id: "nico", name: "Nico Test", departments: ["test s"], housekeeper: false };
+  const away: ProposalPerson = { id: "away", name: "Away Admin", departments: ["test s"], housekeeper: false };
+  const proposals = proposeShifts({
+    dates,
+    people: [anna, nico, away],
+    shifts: dates.map((date) => ({ userId: "away", date, kind: "vac" as const, start: "", end: "" })),
+    rooms: [],
+  });
+  assert.equal(proposals.some((row) => row.userId === "away"), false);
+  for (const person of ["anna", "nico"]) {
+    const days = proposals.filter((row) => row.userId === person);
+    assert.equal(days.length <= 6, true);
+    assert.equal(days.length >= 5, true);
+    assert.equal(new Set(days.map((row) => row.date)).size, days.length);
+  }
+  for (const date of dates) {
+    assert.equal(proposals.some((row) => row.date === date && row.userId !== "away"), true);
+  }
+});
+
+test("more occupied rooms put more housekeepers on a busy day, still never seven days", () => {
+  const proposals = proposeShifts({
+    dates,
+    people: [sabine, { id: "jana", name: "Jana Kurz", departments: ["Housekeeping"], housekeeper: true }],
+    shifts: [],
+    rooms: [],
+    demand: { occupiedByDate: Object.fromEntries(dates.map((date) => [date, date === dates[0] ? 40 : 0])), capacity: 40, temperatureC: 28 },
+  });
+  const monday = proposals.filter((row) => row.date === dates[0]);
+  const quiet = proposals.filter((row) => row.date === dates[3]);
+  assert.equal(monday.length, 2);
+  assert.equal(quiet.length, 1);
+  for (const person of ["sabine", "jana"]) {
+    assert.equal(proposals.filter((row) => row.userId === person).length <= 6, true);
+  }
+});

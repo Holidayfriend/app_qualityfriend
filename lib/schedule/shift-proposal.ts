@@ -19,6 +19,12 @@ export type ProposalRooms = {
   rooms: number;
 };
 
+export type WeekDemand = {
+  occupiedByDate: Record<string, number>;
+  capacity: number;
+  temperatureC: number | null;
+};
+
 export type ShiftProposal = {
   userId: string;
   name: string;
@@ -26,13 +32,14 @@ export type ShiftProposal = {
   start: string;
   end: string;
   department: string;
-  reason: "sameHours" | "housekeeping" | "cover";
+  reason: "sameHours" | "housekeeping" | "cover" | "week";
   coverName: string;
 };
 
 type Hours = { start: string; end: string };
 
 const MAX_WORK_DAYS = 6;
+const DEFAULT_HOURS: Hours = { start: "08:00", end: "16:00" };
 
 function clock(value: string) {
   const match = value.trim().match(/^(\d{1,2}):([0-5]\d)/);
@@ -57,11 +64,41 @@ function mostCommon(rows: Hours[]) {
   return [...counts.values()].sort((left, right) => right.n - left.n)[0]?.hours ?? null;
 }
 
+function monthOf(date: string) {
+  return Number(date.slice(5, 7));
+}
+
+function dayLoad(date: string, demand: WeekDemand | undefined) {
+  const occupied = demand?.occupiedByDate[date] ?? 0;
+  const capacity = demand?.capacity ?? 0;
+  const occupancy = capacity > 0 ? occupied / capacity : 0;
+  const month = monthOf(date);
+  let level = occupancy;
+  if ([1, 2, 6, 7, 8, 12].includes(month)) level += 0.2;
+  else if ([3, 5, 9, 11].includes(month)) level += 0.1;
+  const temperature = demand?.temperatureC;
+  if (temperature != null && (temperature >= 26 || temperature <= 0)) level += 0.1;
+  return { occupied, level: Math.min(1, level) };
+}
+
+function staffNeeded(available: number, occupied: number, level: number, housekeeping: boolean) {
+  if (available <= 0) return 0;
+  if (housekeeping) {
+    const byRooms = occupied <= 0 ? 1 : Math.max(1, Math.ceil(occupied / 12));
+    return Math.min(available, level >= 0.85 ? byRooms + 1 : byRooms);
+  }
+  if (available === 1) return 1;
+  if (level >= 0.75) return Math.min(available, Math.max(2, Math.ceil(available * 0.6)));
+  return Math.min(available, Math.max(1, Math.ceil(available * 0.5)));
+}
+
 export function proposeShifts(input: {
   dates: string[];
   people: ProposalPerson[];
   shifts: ProposalShift[];
   rooms: ProposalRooms[];
+  demand?: WeekDemand;
+  defaultHours?: Hours;
 }) {
   const shiftOn = new Map<string, ProposalShift>();
   for (const shift of input.shifts) shiftOn.set(`${shift.userId}|${shift.date}`, shift);
@@ -181,5 +218,48 @@ export function proposeShifts(input: {
     add(candidate, date, hours, absent ? "cover" : "housekeeping", candidate.departments[0] || "Housekeeping", absent?.name || "");
   }
 
-  return [...proposed.values()].sort((left, right) => left.date.localeCompare(right.date) || left.name.localeCompare(right.name)).slice(0, 40);
+  const fallbackHours = input.defaultHours && asHours(input.defaultHours.start, input.defaultHours.end) || DEFAULT_HOURS;
+  const groups = new Map<string, ProposalPerson[]>();
+  for (const person of input.people) {
+    const department = person.departments[0] || "";
+    const members = groups.get(department) ?? [];
+    members.push(person);
+    groups.set(department, members);
+  }
+  for (const [department, members] of groups) {
+    const ordered = [...members].sort((left, right) => left.name.localeCompare(right.name) || left.id.localeCompare(right.id));
+    const housekeeping = ordered.some((person) => person.housekeeper);
+    const hoursFor = (person: ProposalPerson) => hoursOf(person.id) || departmentHours(department) || hotelHours() || fallbackHours;
+    for (const [index, person] of ordered.entries()) {
+      const off = new Set<number>();
+      if (ordered.length > 1) {
+        off.add(index % input.dates.length);
+        off.add((index + 3) % input.dates.length);
+      } else if (input.dates.length >= 7) off.add(input.dates.length - 1);
+      const hours = hoursFor(person);
+      for (let day = 0; day < input.dates.length; day += 1) {
+        if (off.has(day)) continue;
+        add(person, input.dates[day], hours, "week", department);
+      }
+    }
+    for (let day = 0; day < input.dates.length; day += 1) {
+      const date = input.dates[day];
+      const free = ordered.filter((person) => !away(person.id, date));
+      const working = ordered.filter((person) => cell(person.id, date)?.kind === "work" || proposed.has(`${person.id}|${date}`));
+      const load = dayLoad(date, input.demand);
+      const need = staffNeeded(free.length, load.occupied, load.level, housekeeping);
+      if (working.length >= need) continue;
+      const absent = ordered.find((person) => away(person.id, date));
+      const candidates = ordered
+        .filter((person) => !cell(person.id, date) && !proposed.has(`${person.id}|${date}`) && !away(person.id, date) && (workDays.get(person.id) ?? 0) < MAX_WORK_DAYS)
+        .sort((left, right) => (workDays.get(left.id) ?? 0) - (workDays.get(right.id) ?? 0) || left.name.localeCompare(right.name));
+      let covered = working.length;
+      for (const person of candidates) {
+        if (covered >= need) break;
+        if (add(person, date, hoursFor(person), absent ? "cover" : "week", department, absent?.name || "")) covered += 1;
+      }
+    }
+  }
+
+  return [...proposed.values()].sort((left, right) => left.date.localeCompare(right.date) || left.name.localeCompare(right.name)).slice(0, 200);
 }
