@@ -30,6 +30,16 @@ export async function PATCH(request: Request, ctx: Ctx) {
     const form = await request.formData().catch(() => null);
     if (!form) return NextResponse.json({ error: "INVALID" }, { status: 400 });
     try {
+      const itemId = String(form.get("itemId") ?? "");
+      if (itemId) {
+        const result = await updateChecklistItem(actor, id, itemId, {
+          state: form.get("state"),
+          comment: form.get("comment"),
+          assigneeId: form.get("assigneeId"),
+        }, locale, form);
+        if ("error" in result) return NextResponse.json(result, { status: result.error === "NOT_FOUND" ? 404 : 400 });
+        return NextResponse.json(result);
+      }
       const result = await updateChecklist(actor, id, form, locale);
       if ("error" in result) return NextResponse.json(result, { status: result.error === "NOT_FOUND" ? 404 : 400 });
       return NextResponse.json(result);

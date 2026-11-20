@@ -14,7 +14,8 @@ export async function GET(request: Request, context: Context) {
   const checklist = await getChecklist(actor, id, "en");
   if (!checklist) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
   const allowedChecklistIds = [id, checklist.originalId].filter(Boolean);
-  const file = await prisma.hotelChecklistAttachment.findFirst({ where: { id: fileId, checklistId: { in: allowedChecklistIds } } });
+  const file = await prisma.hotelChecklistAttachment.findFirst({ where: { id: fileId, checklistId: { in: allowedChecklistIds } } })
+    ?? await prisma.hotelChecklistItemAttachment.findFirst({ where: { id: fileId, item: { checklistId: { in: allowedChecklistIds } } } });
   if (!file) return Response.json({ error: "NOT_FOUND" }, { status: 404 });
   const bytes = await readAttachmentFile("checklists", file.storageKey);
   if (!bytes) return Response.json({ error: "NOT_FOUND" }, { status: 404 });

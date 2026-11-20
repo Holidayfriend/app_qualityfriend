@@ -33,7 +33,10 @@ const include = {
   original: { select: { id: true, attachments: { orderBy: { createdAt: "asc" as const } } } },
   items: {
     orderBy: { sortOrder: "asc" as const },
-    include: { assignee: { select: { id: true, firstName: true, lastName: true } } },
+    include: {
+      assignee: { select: { id: true, firstName: true, lastName: true } },
+      attachments: { orderBy: { createdAt: "asc" as const } },
+    },
   },
   completions: {
     orderBy: { createdAt: "desc" as const },
@@ -156,6 +159,12 @@ export function toPublicChecklist(row: Row, locale: string, today: string, timeZ
       comment: item.comment,
       assigneeId: item.assigneeId || "",
       assignee: nameOf(item.assignee),
+      attachments: item.attachments.map((file) => ({
+        id: file.id,
+        name: file.fileName,
+        type: "photo" as const,
+        url: `/api/checklists/${row.id}/attachments/${file.id}`,
+      })),
     })),
     progress: `${resolved}/${row.items.length}`,
     completions: row.completions.map((item) => ({
@@ -451,16 +460,34 @@ export async function updateChecklistStatus(actor: TasksActor, id: string, statu
   return { checklist: toPublicChecklist(row, locale, today, timeZone) };
 }
 
+async function collectItemAttachments(form: FormData | undefined, existing: { id: string; storageKey: string }[]) {
+  if (!form) return { saved: [] as { fileName: string; storageKey: string; mimeType: string; byteSize: number }[], removed: [] as typeof existing };
+  const keepIds = parseJsonList(form.get("keepAttachmentIds")).filter(isUuid);
+  const kept = existing.filter((file) => keepIds.includes(file.id));
+  const removed = existing.filter((file) => !keepIds.includes(file.id));
+  const saved = await saveUploads(form.getAll("files").filter(isAttachmentUpload).slice(0, Math.max(0, MAX_CHECKLIST_FILES - kept.length)));
+  return { saved, removed };
+}
+
 export async function updateChecklistItem(actor: TasksActor, id: string, itemId: string, input: {
   state?: unknown;
   comment?: unknown;
   assigneeId?: unknown;
-}, locale: string) {
+}, locale: string, form?: FormData) {
   if (!isUuid(id) || !isUuid(itemId)) return { error: "NOT_FOUND" as const };
   const existing = await prisma.hotelChecklist.findFirst({ where: { id, ...visibleChecklistWhere(actor) }, include });
-  if (!existing || existing.kind !== "CHECKLIST" || existing.completedAt) return { error: "NOT_FOUND" as const };
+  if (!existing || existing.kind !== "CHECKLIST") return { error: "NOT_FOUND" as const };
   const item = existing.items.find((row) => row.id === itemId);
   if (!item) return { error: "NOT_FOUND" as const };
+  if (existing.completedAt) {
+    const files = await collectItemAttachments(form, item.attachments);
+    await prisma.$transaction(async (tx) => {
+      if (files.removed.length) await tx.hotelChecklistItemAttachment.deleteMany({ where: { itemId, id: { in: files.removed.map((file) => file.id) } } });
+      if (files.saved.length) await tx.hotelChecklistItemAttachment.createMany({ data: files.saved.map((file) => ({ id: randomUUID(), itemId, ...file })) });
+    });
+    for (const file of files.removed) await deleteAttachmentFile("checklists", file.storageKey);
+    return getChecklist(actor, id, locale).then((checklist) => checklist ? { checklist } : { error: "NOT_FOUND" as const });
+  }
 
   const currentState = item.state === "DONE" ? "done" : item.state === "EXCEPTION" ? "exception" : "open";
   const state = input.state === undefined ? currentState : input.state;
@@ -477,11 +504,14 @@ export async function updateChecklistItem(actor: TasksActor, id: string, itemId:
   }
 
   const next: HotelChecklistItemState = state === "done" ? "DONE" : state === "exception" ? "EXCEPTION" : "OPEN";
+  const files = await collectItemAttachments(form, item.attachments);
   await prisma.$transaction(async (tx) => {
     await tx.hotelChecklistItem.update({
       where: { id: itemId },
       data: { state: next, comment: state === "exception" ? comment : "", assigneeId },
     });
+    if (files.removed.length) await tx.hotelChecklistItemAttachment.deleteMany({ where: { itemId, id: { in: files.removed.map((file) => file.id) } } });
+    if (files.saved.length) await tx.hotelChecklistItemAttachment.createMany({ data: files.saved.map((file) => ({ id: randomUUID(), itemId, ...file })) });
     await recordAuditLog(tx, { module: "tasks",
       hotelTenantId: actor.hotel_tenant_id,
       actorId: actor.id,
@@ -491,10 +521,11 @@ export async function updateChecklistItem(actor: TasksActor, id: string, itemId:
       changes: {
         itemId,
         before: { state: item.state, comment: item.comment, assigneeId: item.assigneeId },
-        after: { state: next, comment: state === "exception" ? comment : "", assigneeId },
+        after: { state: next, comment: state === "exception" ? comment : "", assigneeId, attachmentsAdded: files.saved.length, attachmentsRemoved: files.removed.length },
       },
     });
   });
+  for (const file of files.removed) await deleteAttachmentFile("checklists", file.storageKey);
   return getChecklist(actor, id, locale).then((checklist) => checklist ? { checklist } : { error: "NOT_FOUND" as const });
 }
 

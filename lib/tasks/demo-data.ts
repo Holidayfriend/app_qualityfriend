@@ -25,6 +25,7 @@ export type PublicChecklistItem = {
   comment: string;
   assigneeId: string;
   assignee: string;
+  attachments?: { id?: string; name: string; type: "photo"; url?: string }[];
 };
 export type PublicChecklist = {
   id: string;

@@ -54,6 +54,8 @@ type ChecklistItemInput = {
   state: "open" | "done" | "exception";
   comment: string;
   assigneeId: string;
+  keepAttachmentIds: string[];
+  files: File[];
 };
 
 type Ctx = {
@@ -221,10 +223,16 @@ export function TasksProvider({ children }: { children: ReactNode }) {
   }, [locale, reload]);
 
   const updateItem = useCallback(async (checklistId: string, itemId: string, input: ChecklistItemInput) => {
+    const form = new FormData();
+    form.set("itemId", itemId);
+    form.set("state", input.state);
+    form.set("comment", input.comment);
+    form.set("assigneeId", input.assigneeId);
+    form.set("keepAttachmentIds", JSON.stringify(input.keepAttachmentIds));
+    for (const file of input.files) form.append("files", file);
     const res = await fetch(`/api/checklists/${checklistId}?locale=${locale}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ itemId, ...input }),
+      body: form,
     });
     const data = await res.json().catch(() => null) as { error?: string } | null;
     if (!res.ok) return data?.error ?? "SAVE_FAILED";

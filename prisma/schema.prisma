@@ -2208,12 +2208,27 @@ model HotelChecklistItem {
   comment     String                  @default("") @db.Text
   createdAt   DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
-  checklist   HotelChecklist          @relation(fields: [checklistId], references: [id], onDelete: Cascade)
-  assignee    User?                   @relation("HotelChecklistItemAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  checklist   HotelChecklist                 @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  assignee    User?                          @relation("HotelChecklistItemAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  attachments HotelChecklistItemAttachment[]
 
   @@index([checklistId, sortOrder])
   @@index([assigneeId])
   @@map("hotel_checklist_items")
+}
+
+model HotelChecklistItemAttachment {
+  id         String             @id @default(uuid()) @db.Uuid
+  itemId     String             @map("item_id") @db.Uuid
+  fileName   String             @map("file_name") @db.VarChar(180)
+  storageKey String             @map("storage_key") @db.VarChar(80)
+  mimeType   String             @map("mime_type") @db.VarChar(120)
+  byteSize   Int                @map("byte_size")
+  createdAt  DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  item       HotelChecklistItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId])
+  @@map("hotel_checklist_item_attachments")
 }
 
 model HotelChecklistCompletion {

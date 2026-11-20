@@ -736,18 +736,23 @@ function ChecklistItemEditor({
   row,
   users,
   editable,
+  showAttachmentBox,
   save,
 }: {
   row: PublicChecklistItem;
   users: { id: string; name: string }[];
   editable: boolean;
-  save: (input: { state: PublicChecklistItem["state"]; comment: string; assigneeId: string }) => Promise<string | null>;
+  showAttachmentBox: boolean;
+  save: (input: { state: PublicChecklistItem["state"]; comment: string; assigneeId: string; keepAttachmentIds: string[]; files: File[] }) => Promise<string | null>;
 }) {
   const t = useT();
   const toast = useToast();
   const [state, setState] = useState(row.state);
   const [comment, setComment] = useState(row.comment);
   const [assigneeId, setAssigneeId] = useState(row.assigneeId);
+  const [kept, setKept] = useState<AttachmentItem[]>(row.attachments ?? []);
+  const [uploads, setUploads] = useState<File[]>([]);
+  const [attachmentsBusy, setAttachmentsBusy] = useState(false);
   const [saving, setSaving] = useState(false);
 
   async function submit() {
@@ -756,7 +761,7 @@ function ChecklistItemEditor({
       return;
     }
     setSaving(true);
-    const error = await save({ state, comment, assigneeId });
+    const error = await save({ state, comment, assigneeId, keepAttachmentIds: kept.map((file) => file.id).filter((fileId): fileId is string => Boolean(fileId)), files: uploads });
     setSaving(false);
     if (error) {
       toast({ message: error === "EXCEPTION_COMMENT_REQUIRED" ? t.exceptionRequired : t.checklistSaveFailed, tone: "error" });
@@ -776,6 +781,10 @@ function ChecklistItemEditor({
           {row.assignee ? <span>{t.itemAssignee}: {row.assignee}</span> : null}
         </div>
         {row.state === "exception" && row.comment ? <div style={{ marginTop: 7, fontSize: 12, color: "var(--text2)" }}>{t.exceptionReason}: {row.comment}</div> : null}
+        {showAttachmentBox ? <>
+          <div style={{ marginTop: 12 }}><AttachmentField existing={kept} files={uploads} onExistingChange={setKept} onFilesChange={setUploads} onProcessingChange={setAttachmentsBusy} /></div>
+          <button type="button" className="btn btn-ghost" style={{ marginTop: 10 }} disabled={saving || attachmentsBusy} onClick={() => void submit()}>{saving ? t.loading : t.saveItem}</button>
+        </> : <AttachmentGallery attachments={row.attachments} />}
       </div>
     </div>;
   }
@@ -805,7 +814,8 @@ function ChecklistItemEditor({
         <span className="field-lbl">{t.exceptionReason}</span>
         <textarea className="field-input" style={{ minHeight: 64, resize: "vertical" }} value={comment} disabled={saving} placeholder={t.exceptionReasonPlaceholder} onChange={(event) => setComment(event.target.value)} />
       </label> : null}
-      <button type="button" className="btn btn-ghost" style={{ marginTop: 10 }} disabled={saving} onClick={() => void submit()}>{saving ? t.loading : t.saveItem}</button>
+      <div style={{ marginTop: 12 }}><AttachmentField existing={kept} files={uploads} onExistingChange={setKept} onFilesChange={setUploads} onProcessingChange={setAttachmentsBusy} /></div>
+      <button type="button" className="btn btn-ghost" style={{ marginTop: 10 }} disabled={saving || attachmentsBusy} onClick={() => void submit()}>{saving ? t.loading : t.saveItem}</button>
     </div>
   </div>;
 }
@@ -894,10 +904,11 @@ export function ChecklistDetailPage({ id }: { id: string }) {
                   >⋮⋮</span> : null}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <ChecklistItemEditor
-                      key={`${row.id}:${row.state}:${row.comment}:${row.assigneeId}`}
+                      key={`${row.id}:${row.state}:${row.comment}:${row.assigneeId}:${(row.attachments ?? []).map((file) => file.id).join(",")}`}
                       row={row}
                       users={users}
                       editable={canWorkItems}
+                      showAttachmentBox={canManage && item.kind === "checklist"}
                       save={(input) => updateItem(id, row.id, input)}
                     />
                   </div>
