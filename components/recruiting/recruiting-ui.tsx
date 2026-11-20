@@ -366,10 +366,17 @@ function Jobs({ t, locale }: { t: T; locale: Locale }) {
   useEffect(() => {
     let ignore = false;
     setLoading(true);
+    const started = performance.now();
     fetch(`/api/recruiting/jobs?locale=${locale}`)
-      .then((res) => (res.ok ? res.json() : null))
+      .then(async (res) => {
+        const clientMs = Math.round(performance.now() - started);
+        console.info("[recruiting/jobs] client", { clientMs, status: res.status, serverTiming: res.headers.get("server-timing") ?? "" });
+        return res.ok ? res.json() : null;
+      })
       .then((data) => { if (!ignore && Array.isArray(data?.jobs)) setJobs(data.jobs); })
-      .catch(() => undefined)
+      .catch((error: unknown) => {
+        console.info("[recruiting/jobs] client failed", { clientMs: Math.round(performance.now() - started), error: error instanceof Error ? error.message : "request failed" });
+      })
       .finally(() => { if (!ignore) setLoading(false); });
     return () => { ignore = true; };
   }, [locale, setJobs]);

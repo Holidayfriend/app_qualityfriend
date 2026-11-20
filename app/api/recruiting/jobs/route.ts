@@ -4,20 +4,49 @@ import { translateJobFields } from "../../../../lib/recruiting/translate-job";
 import { prisma } from "../../../../lib/prisma";
 import { recordAuditLog } from "../../../../lib/audit/audit-service";
 import { recruitingActor } from "../../../../lib/recruiting/access";
-import { jobAuditSnapshot, parseJobInput, publicApplicationCountSelect, toPublicJob, uniqueSlug } from "../../../../lib/recruiting/job-fields";
+import { jobAuditSnapshot, parseJobInput, recruitingJobListSelect, toPublicJob, toPublicJobSummary, uniqueSlug } from "../../../../lib/recruiting/job-fields";
 
 const departmentSelect = { select: { nameEn: true, nameDe: true, nameIt: true } } as const;
 
+function since(from: number) {
+  return Date.now() - from;
+}
+
 export async function GET(request: Request) {
+  const started = Date.now();
   const actor = await recruitingActor();
-  if (!actor) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
+  const authMs = since(started);
+  if (!actor) {
+    console.info("[recruiting/jobs]", JSON.stringify({ step: "forbidden", authMs }));
+    return Response.json({ error: "FORBIDDEN" }, { status: 403, headers: { "Server-Timing": `auth;dur=${authMs}` } });
+  }
   const locale = new URL(request.url).searchParams.get("locale") ?? "";
+  const queryStarted = Date.now();
   const jobs = await prisma.recruitingJob.findMany({
     where: { hotelTenantId: actor.hotel_tenant_id },
     orderBy: { createdAt: "desc" },
-    include: { _count: { select: publicApplicationCountSelect }, department: departmentSelect },
+    select: recruitingJobListSelect,
   });
-  return Response.json({ jobs: jobs.map((job) => toPublicJob(job, job._count.applications, locale, false, job.department)) }, { headers: { "Cache-Control": "no-store" } });
+  const queryMs = since(queryStarted);
+  const jsonStarted = Date.now();
+  const body = JSON.stringify({ jobs: jobs.map((job) => toPublicJobSummary(job, job._count.applications, locale)) });
+  const jsonMs = since(jsonStarted);
+  const totalMs = since(started);
+  console.info("[recruiting/jobs]", JSON.stringify({
+    authMs,
+    queryMs,
+    jsonMs,
+    totalMs,
+    jobs: jobs.length,
+    responseBytes: body.length,
+  }));
+  return new Response(body, {
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store",
+      "Server-Timing": `auth;dur=${authMs}, db;dur=${queryMs}, json;dur=${jsonMs}, total;dur=${totalMs}`,
+    },
+  });
 }
 
 export async function POST(request: Request) {

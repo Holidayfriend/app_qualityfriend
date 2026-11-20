@@ -257,6 +257,62 @@ export function localeFieldPatch(locale: string | undefined, fields: { title: st
   return { title: fields.title, description: fields.description, autoMessage: fields.autoMessage, location: fields.location };
 }
 
+export const recruitingJobListSelect = {
+  id: true,
+  slug: true,
+  format: true,
+  title: true,
+  titleDe: true,
+  titleIt: true,
+  status: true,
+  languages: true,
+  clickCount: true,
+  department: { select: { nameEn: true, nameDe: true, nameIt: true } },
+  _count: { select: publicApplicationCountSelect },
+} as const;
+
+type JobListRow = {
+  id: string;
+  slug: string;
+  format: RecruitingJobFormat | string;
+  title: string;
+  titleDe: string;
+  titleIt: string;
+  status: RecruitingJobStatus | string;
+  languages: unknown;
+  clickCount: number;
+  department: JobDepartmentNames | null;
+};
+
+export function toPublicJobSummary(job: JobListRow, apps = 0, locale?: string): PublicJob {
+  const langs = asLocales(job.languages);
+  return {
+    id: job.id,
+    slug: job.slug,
+    format: String(job.format).toLowerCase() as FormatKey,
+    title: pickLocalized(job.title, job.titleDe, job.titleIt, locale),
+    departmentId: "",
+    dept: job.department ? pickLocalized(job.department.nameEn, job.department.nameDe, job.department.nameIt, locale) : "",
+    type: "",
+    start: "",
+    notes: "",
+    description: "",
+    autoMessage: "",
+    location: "",
+    cvRequired: false,
+    whatsappEnabled: false,
+    whatsappNumber: "",
+    status: String(job.status).toLowerCase() as StatusKey,
+    langs,
+    clicks: job.clickCount,
+    apps,
+    conv: conv(job.clickCount, apps),
+    listingImage: "",
+    logoImage: "",
+    quiz: null,
+  };
+}
+
 export function toPublicJob(job: RecruitingJob, apps = 0, locale?: string, includeQuiz = true, department?: JobDepartmentNames | null): PublicJob {
   const langs = asLocales(job.languages);
   const format = job.format.toLowerCase() as FormatKey;
