@@ -50,10 +50,10 @@ export function HousekeepingUI({view,roomId=""}:{view:HousekeepingView;roomId?:s
 
 type T=(typeof housekeepingMessages)["en"];
 type BoardRoom={id:string;number:string;assignedUserName:string|null;status:RoomStatus;isExpress:boolean;linenChange:boolean;breakfastInRoom:boolean;doNotDisturb:boolean;noService:boolean;arrival:boolean;departure:boolean;checkedIn:boolean;checkedOut:boolean;fromRooms:string[];toRooms:string[];hasReservationNote:boolean;arrivalGuestNames:string[];departureGuestNames:string[]};
-type BoardData={date:string;timeZone:string;coverageGaps:Array<{id:string;name:string;rooms:string[]}>;floors:Array<{id:string;code:string;name:string;rooms:BoardRoom[]}>};
+type BoardData={date:string;today:string;timeZone:string;coverageGaps:Array<{id:string;name:string;rooms:string[]}>;floors:Array<{id:string;code:string;name:string;rooms:BoardRoom[]}>};
 type ExtraComment={id:string;text:string;author:string;createdAt:string};
 type ExtraJobToday={assignmentId:string;description:string;minutes:number;completed:boolean;comments:ExtraComment[];employeeId:string;employeeName:string};
-type ExtraJobsData={date:string;canAdmin:boolean;canHousekeeper:boolean;all:ExtraJobToday[];mine:ExtraJobToday[]};
+type ExtraJobsData={date:string;today?:string;mutable?:boolean;canAdmin:boolean;canHousekeeper:boolean;all:ExtraJobToday[];mine:ExtraJobToday[]};
 type ReportExtra={id:string;description:string;minutes:number;employeeName:string;comments:ExtraComment[];completedAt:string|null};
 type ReportRoom={id:string;number:string;cleaningType:string;minutes:number;employeeName:string|null;completedAt:string|null};
 type ReportData={today:string;date:string;availableDates:string[];extrasCompleted:ReportExtra[];extrasMissing:ReportExtra[];roomsClean:ReportRoom[];roomsMissing:ReportRoom[]};
@@ -66,6 +66,15 @@ function Head({children,action}:{children:ReactNode;action?:ReactNode}){return <
 function Field({label,children}:{label:string;children:ReactNode}){return <label className="block text-[11.5px] font-semibold"><span className="mb-1.5 block">{label}</span>{children}</label>}
 
 function fillMessage(template:string,vars:Record<string,string>){return Object.entries(vars).reduce((text,[key,value])=>text.replaceAll(`{${key}}`,value),template)}
+function shiftIsoDate(date:string,days:number){const next=new Date(`${date}T00:00:00.000Z`);next.setUTCDate(next.getUTCDate()+days);return next.toISOString().slice(0,10)}
+function DayPicker({date,today,onChange,t}:{date:string;today:string;onChange:(date:string)=>void;t:T}){
+  return <div className="flex shrink-0 flex-nowrap items-center gap-1.5">
+    <button type="button" aria-label={t.previousDay} title={t.previousDay} onClick={()=>onChange(shiftIsoDate(date,-1))} className={`${button} border-[var(--qf-border)] bg-white px-2`}>◀️</button>
+    <input type="date" value={date} onChange={(event)=>{if(event.target.value)onChange(event.target.value)}} className="h-9 w-[10.5rem] shrink-0 rounded-[7px] border border-[var(--qf-border)] bg-white px-2 text-[13px] outline-none focus:border-[var(--qf-accent)]"/>
+    <button type="button" aria-label={t.nextDay} title={t.nextDay} onClick={()=>onChange(shiftIsoDate(date,1))} className={`${button} border-[var(--qf-border)] bg-white px-2`}>▶️</button>
+    <button type="button" disabled={date===today} onClick={()=>onChange(today)} className={`${button} shrink-0 border-[var(--qf-border)] bg-white disabled:cursor-default disabled:opacity-50`}>{t.jumpToday}</button>
+  </div>;
+}
 function Board({t,canAdmin,canHousekeeper}:{t:T;canAdmin:boolean;canHousekeeper:boolean}){
   const {locale}=useI18n();
   const copy=housekeepingRefreshMessages[locale];
@@ -76,6 +85,7 @@ function Board({t,canAdmin,canHousekeeper}:{t:T;canAdmin:boolean;canHousekeeper:
   const [roomSummary,setRoomSummary]=useState<{totalRooms:number;totalFloors:number}|null>(null);
   const [boardData,setBoardData]=useState<BoardData|null>(null);
   const [extraJobs,setExtraJobs]=useState<ExtraJobsData|null>(null);
+  const [workDate,setWorkDate]=useState("");
   useEffect(()=>{
     const controller=new AbortController();
     async function loadRoomSummary(){
@@ -93,24 +103,26 @@ function Board({t,canAdmin,canHousekeeper}:{t:T;canAdmin:boolean;canHousekeeper:
   },[]);
   useEffect(()=>{
     const controller=new AbortController();
+    let first=true;
     async function loadBoard(){
+      if(first)setBoardLoading(true);
       try{
-        const response=await fetch(`/api/housekeeping/rooms?board=1&locale=${locale}`,{cache:"no-store",signal:controller.signal});
+        const response=await fetch(`/api/housekeeping/rooms?board=1&locale=${locale}${workDate?`&date=${encodeURIComponent(workDate)}`:""}`,{cache:"no-store",signal:controller.signal});
         if(!response.ok)return;
         const body=await response.json() as BoardData;
         if(!controller.signal.aborted)setBoardData(body);
       }catch{ /* Keep the latest room board on transient failures. */ }
-      finally{if(!controller.signal.aborted)setBoardLoading(false)}
+      finally{if(!controller.signal.aborted){setBoardLoading(false);first=false}}
     }
     void loadBoard();
     const interval=window.setInterval(()=>void loadBoard(),10000);
     return()=>{controller.abort();window.clearInterval(interval)};
-  },[locale]);
+  },[locale,workDate]);
   useEffect(()=>{
     const controller=new AbortController();
     async function loadExtraJobs(){
       try{
-        const response=await fetch(`/api/housekeeping/extras/today?locale=${locale}`,{cache:"no-store",signal:controller.signal});
+        const response=await fetch(`/api/housekeeping/extras/today?locale=${locale}${workDate?`&date=${encodeURIComponent(workDate)}`:""}`,{cache:"no-store",signal:controller.signal});
         if(!response.ok)return;
         const body=await response.json() as ExtraJobsData;
         if(!controller.signal.aborted)setExtraJobs(body);
@@ -119,7 +131,7 @@ function Board({t,canAdmin,canHousekeeper}:{t:T;canAdmin:boolean;canHousekeeper:
     void loadExtraJobs();
     const interval=window.setInterval(()=>void loadExtraJobs(),10000);
     return()=>{controller.abort();window.clearInterval(interval)};
-  },[locale]);
+  },[locale,workDate]);
   async function toggleExtraJob(assignmentId:string,completed:boolean){
     const response=await fetch("/api/housekeeping/extras/today",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({assignmentId,completed})});
     if(!response.ok)throw new Error();
@@ -177,14 +189,16 @@ function Board({t,canAdmin,canHousekeeper}:{t:T;canAdmin:boolean;canHousekeeper:
   const arrivals=boardRooms.filter(room=>room.arrival);
   const departures=boardRooms.filter(room=>room.departure);
   const expressRooms=boardRooms.filter(room=>room.isExpress&&room.status==="dirty");
-  if(summaryLoading||boardLoading)return <BrandLoader label={t.loading}/>;
+  const extrasForDay=extraJobs&&extraJobs.date===(workDate||extraJobs.date)?extraJobs:null;
+  const extrasMutable=Boolean(extrasForDay?.mutable);
+  if(summaryLoading||boardLoading||(workDate&&boardData&&boardData.date!==workDate))return <BrandLoader label={t.loading}/>;
   return <div className="space-y-4">
   {refreshing?<BrandLoader label={t.loading} overlay/>:null}
   <section className="grid grid-cols-2 gap-[18px]"><Kpi label={t.totalRooms} value={roomSummary?new Intl.NumberFormat(locale).format(roomSummary.totalRooms):"?"} sub={roomSummary?`${new Intl.NumberFormat(locale).format(roomSummary.totalFloors)} ${roomSummary.totalFloors===1?t.floor:t.floors}`:""}/><Kpi label={t.express} value={new Intl.NumberFormat(locale).format(expressRooms.length)} sub=""/></section>
-  <section className={card}>{boardData?.coverageGaps.length?<div className="space-y-2 border-b border-amber-200 bg-amber-50 px-5 py-3" role="status">{boardData.coverageGaps.map((gap)=><p key={gap.id} className="text-[13px] font-semibold leading-5 text-amber-950">{fillMessage(gap.rooms.length===1?t.awayAssignOne:t.awayAssignMany,{name:gap.name,rooms:gap.rooms.join(", ")})}</p>)}</div>:null}<Head action={<div className="flex flex-col items-end gap-2"><div className="flex shrink-0 items-center gap-2">{canAdmin?<button type="button" onClick={()=>void refresh()} disabled={refreshing} aria-busy={refreshing} className={`${button} border-[var(--qf-border)] bg-white disabled:cursor-wait disabled:opacity-60`} title={t.refresh} aria-label={t.refresh}><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 7v5h-5"/><path d="M4 17v-5h5"/><path d="M6.1 7a7 7 0 0 1 11.55-2.1L20 8M4 16l2.35 3.1A7 7 0 0 0 17.9 17"/></svg><span className="hidden sm:inline">{t.refresh}</span></button>:null}<button onClick={()=>window.print()} className={`${button} border-[var(--qf-border)] bg-white`} title={t.print}><span aria-hidden>🖨️</span><span className="hidden sm:inline">{t.print}</span></button></div>{lastImport!==undefined?<p className="text-right text-[11px] font-normal text-[var(--qf-text-muted)]">{copy.lastImport}: {lastImport?<time dateTime={lastImport}>{new Intl.DateTimeFormat(locale,{dateStyle:"medium",timeStyle:"short"}).format(new Date(lastImport))}</time>:copy.neverImported}</p>:null}</div>}>🧹 {t.roomOverview}{boardData?` · ${new Intl.DateTimeFormat(locale,{dateStyle:"medium",timeZone:"UTC"}).format(new Date(`${boardData.date}T00:00:00.000Z`))}`:""}</Head><div className="px-5 py-4"><Legend t={t}/>{boardData?.floors.map(floor=><div key={floor.id} className="mb-4"><h3 className="mb-2 text-[11.5px] font-semibold uppercase tracking-[.5px] text-[var(--qf-text-light)]">{floor.name}</h3><div className="max-w-full overflow-x-auto pb-1 sm:overflow-visible sm:pb-0 print:overflow-visible"><div className="grid w-max grid-cols-[repeat(5,92px)] gap-2 sm:flex sm:w-auto sm:flex-wrap print:flex print:w-auto print:flex-wrap">{floor.rooms.map(room=><RoomTile key={room.id} room={room} t={t}/>)}</div></div></div>)}<p className="mt-5 border-t border-[var(--qf-border)] pt-4 text-[13px] text-[var(--qf-text-muted)]">⚡ {expressRooms.length?`${t.express}: ${expressRooms.map(room=>room.number).join(", ")}`:t.none}</p></div></section>
+  <section className={card}>{boardData?.coverageGaps.length?<div className="space-y-2 border-b border-amber-200 bg-amber-50 px-5 py-3" role="status">{boardData.coverageGaps.map((gap)=><p key={gap.id} className="text-[13px] font-semibold leading-5 text-amber-950">{fillMessage(gap.rooms.length===1?t.awayAssignOne:t.awayAssignMany,{name:gap.name,rooms:gap.rooms.join(", ")})}</p>)}</div>:null}<header className="border-b border-[var(--qf-border)] px-5 py-[14px]"><div className="flex min-h-[51px] flex-wrap items-center justify-between gap-x-3 gap-y-2"><h2 className="text-[14px] font-bold">🧹 {t.roomOverview}{boardData?` · ${new Intl.DateTimeFormat(locale,{dateStyle:"medium",timeZone:"UTC"}).format(new Date(`${boardData.date}T00:00:00.000Z`))}`:""}</h2><div className="flex flex-wrap items-center justify-end gap-2">{boardData?<DayPicker date={boardData.date} today={boardData.today||boardData.date} onChange={setWorkDate} t={t}/>:null}{canAdmin?<button type="button" onClick={()=>void refresh()} disabled={refreshing} aria-busy={refreshing} className={`${button} border-[var(--qf-border)] bg-white disabled:cursor-wait disabled:opacity-60`} title={t.refresh} aria-label={t.refresh}><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 7v5h-5"/><path d="M4 17v-5h5"/><path d="M6.1 7a7 7 0 0 1 11.55-2.1L20 8M4 16l2.35 3.1A7 7 0 0 0 17.9 17"/></svg><span className="hidden sm:inline">{t.refresh}</span></button>:null}<button onClick={()=>window.print()} className={`${button} border-[var(--qf-border)] bg-white`} title={t.print}><span aria-hidden>🖨️</span><span className="hidden sm:inline">{t.print}</span></button></div></div>{lastImport!==undefined?<p className="mt-1 text-right text-[11px] font-normal text-[var(--qf-text-muted)]">{copy.lastImport}: {lastImport?<time dateTime={lastImport}>{new Intl.DateTimeFormat(locale,{dateStyle:"medium",timeStyle:"short"}).format(new Date(lastImport))}</time>:copy.neverImported}</p>:null}</header><div className="px-5 py-4"><Legend t={t}/>{boardData?.floors.map(floor=><div key={floor.id} className="mb-4"><h3 className="mb-2 text-[11.5px] font-semibold uppercase tracking-[.5px] text-[var(--qf-text-light)]">{floor.name}</h3><div className="max-w-full overflow-x-auto pb-1 sm:overflow-visible sm:pb-0 print:overflow-visible"><div className="grid w-max grid-cols-[repeat(5,92px)] gap-2 sm:flex sm:w-auto sm:flex-wrap print:flex print:w-auto print:flex-wrap">{floor.rooms.map(room=><RoomTile key={room.id} room={room} t={t}/>)}</div></div></div>)}<p className="mt-5 border-t border-[var(--qf-border)] pt-4 text-[13px] text-[var(--qf-text-muted)]">⚡ {expressRooms.length?`${t.express}: ${expressRooms.map(room=>room.number).join(", ")}`:t.none}</p></div></section>
   <section className={card}><Head>🛬🛫 {t.arrivalsDepartures}</Head><div className="px-5 py-3"><MovementGroup icon="🛬" label={t.arrivals}>{arrivals.length?arrivals.map(room=><Movement key={room.id} icon="🛬" tone={room.checkedIn?"green":"blue"} title={`${t.room} ${room.number}${room.arrivalGuestNames.length?` · ${room.arrivalGuestNames.join(", ")}`:""}`} meta={room.checkedIn?t.checkedIn:t.arrivalToday}/>):<EmptyMovement text={t.none}/>}</MovementGroup><MovementGroup icon="🛫" label={t.departures}>{departures.length?departures.map(room=><Movement key={room.id} icon="🛫" tone={room.checkedOut?"green":"blue"} title={`${t.room} ${room.number}${room.departureGuestNames.length?` · ${room.departureGuestNames.join(", ")}`:""}`} meta={room.checkedOut?t.checkedOut:t.departureToday}/>):<EmptyMovement text={t.none}/>}</MovementGroup></div>  </section>
-  {canAdmin&&extraJobs?<ExtraJobsSection title={t.extraToday} jobs={extraJobs.all} showEmployee canComplete={canAdmin} onToggle={toggleExtraJob} onComment={addExtraComment} locale={locale} t={t}/>:null}
-  {canHousekeeper&&extraJobs?<ExtraJobsSection title={canAdmin?t.myExtraToday:t.extraToday} jobs={extraJobs.mine} showEmployee={false} canComplete onToggle={toggleExtraJob} onComment={addExtraComment} locale={locale} t={t}/>:null}
+  {canAdmin&&extrasForDay?<ExtraJobsSection title={t.extraToday} jobs={extrasForDay.all} showEmployee canComplete={extrasMutable&&canAdmin} onToggle={toggleExtraJob} onComment={addExtraComment} locale={locale} t={t}/>:null}
+  {canHousekeeper&&extrasForDay?<ExtraJobsSection title={canAdmin?t.myExtraToday:t.extraToday} jobs={extrasForDay.mine} showEmployee={false} canComplete={extrasMutable} onToggle={toggleExtraJob} onComment={addExtraComment} locale={locale} t={t}/>:null}
   </div>}
 function Kpi({label,value,sub,danger}:{label:string;value:string;sub:string;danger?:boolean}){return <div className={`${card} px-5 py-[18px]`}><p className="mb-2 text-[11px] font-semibold uppercase tracking-[.6px] text-[var(--qf-text-light)]">{label}</p><p className={`text-[28px] font-bold leading-none ${danger?"text-red-600":""}`}>{value}</p><p className={`mt-2 w-fit text-[12px] text-[var(--qf-text-muted)] ${danger?"rounded-[5px] bg-red-100 px-2 py-0.5 font-semibold text-red-600":""}`}>{sub}</p></div>}
 function RoomTile({room:r,t}:{room:BoardRoom;t:T}){const showExpress=r.isExpress&&r.status==="dirty";const statusLabel=showExpress?`${t.dirty} · ⚡ ${t.express}`:t[r.status];const labels=[`${t.assignedTo}: ${r.assignedUserName || "N/A"}`,showExpress?t.express:null,r.linenChange?t.linenChange:null,r.checkedIn?t.occupied:null,r.arrival?t.arrivalToday:null,r.departure?t.departureToday:null,r.checkedOut?t.checkedOut:null,...r.fromRooms.map(number=>`${t.fromRoom} ${number}`),...r.toRooms.map(number=>`${t.toRoom} ${number}`),r.hasReservationNote?t.reservationNote:null].filter((value):value is string=>Boolean(value));return <Link href={`/housekeeping/rooms/${r.id}`} prefetch={false} title={`${t.room} ${r.number}: ${statusLabel}${labels.length?` · ${labels.join(" · ")}`:""}`} aria-label={`${t.room} ${r.number}: ${statusLabel}${labels.length?` · ${labels.join(" · ")}`:""}`} style={roomTileStyle[r.status]} className="relative flex min-h-[82px] w-[92px] flex-col items-center justify-center rounded-[9px] border-[1.5px] px-1 pb-1 pt-5 font-bold transition duration-100 hover:z-[1] hover:scale-[1.06] hover:shadow-[0_4px_12px_rgba(0,0,0,.15)]"><span title={`${t.assignedTo}: ${r.assignedUserName || "N/A"}`} className="absolute right-1 top-1 max-w-[80px] truncate text-right text-[9px] font-medium leading-3">{r.assignedUserName || "N/A"}</span><b className="text-[19px] font-extrabold leading-none">{r.number}</b><span className="mt-[3px] text-[13px]">{r.status==="dirty"?"!":"✓"}</span><span className="mt-1 flex max-w-[86px] flex-wrap justify-center gap-x-1 gap-y-[3px] text-[12px] leading-none">{showExpress?<span title={`${t.dirty} · ⚡ ${t.express}`}>⚡</span>:null}{r.linenChange?<span title={t.linenChange}>🧺</span>:null}{r.breakfastInRoom?<span title={t.breakfast}>🍽️</span>:null}{r.doNotDisturb?<span title={t.dnd}>🚫</span>:null}{r.noService?<span title={t.noService}>⛔</span>:null}{r.checkedIn?<span title={t.occupied}>👤</span>:null}{r.arrival?<span title={t.arrivalToday}>🛬</span>:null}{r.departure?<span title={t.departureToday}>🕐</span>:null}{r.checkedOut?<span title={t.checkedOut}>🛫</span>:null}{r.fromRooms.map(number=><span key={`from-${number}`} title={`${t.fromRoom} ${number}`}>← {number}</span>)}{r.toRooms.map(number=><span key={`to-${number}`} title={`${t.toRoom} ${number}`}>→ {number}</span>)}{r.hasReservationNote?<span title={t.reservationNote}>📝</span>:null}</span></Link>}

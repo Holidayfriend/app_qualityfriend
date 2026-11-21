@@ -5,15 +5,14 @@ import { housekeepingAccess } from "../../../../../lib/housekeeping/access";
 import { activeHousekeeperIds } from "../../../../../lib/housekeeping/active-housekeepers";
 import { loadAwayUserIds } from "../../../../../lib/housekeeping/away-staff";
 import { ensureExtraJobComment } from "../../../../../lib/housekeeping/ensure-extra-comment";
+import { hotelLocalDate, workDateOrToday } from "../../../../../lib/housekeeping/daily-plan";
 import { prisma } from "../../../../../lib/prisma";
 
 type Locale = "en" | "de" | "it";
 const locale = (value: string | null): Locale => value === "de" || value === "it" ? value : "en";
 
 function hotelDate(timeZone: string) {
-  const parts = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts();
-  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  return `${value.year}-${value.month}-${value.day}`;
+  return hotelLocalDate(timeZone);
 }
 
 function translated(activeLocale: Locale, item: { descriptionEn: string; descriptionDe: string; descriptionIt: string; descriptionSnapshot: string }) {
@@ -39,11 +38,12 @@ export async function GET(request: Request) {
   if (!current) return Response.json({ error: "FORBIDDEN" }, { status: 403 });
   const { user, access } = current;
   const activeLocale = locale(new URL(request.url).searchParams.get("locale"));
-  let date: string;
-  try { date = hotelDate(hotelTimeZone(user.hotelTenant.timeZone)); } catch { return Response.json({ error: "INVALID_HOTEL_TIME_ZONE" }, { status: 500 }); }
+  let today: string;
+  try { today = hotelDate(hotelTimeZone(user.hotelTenant.timeZone)); } catch { return Response.json({ error: "INVALID_HOTEL_TIME_ZONE" }, { status: 500 }); }
+  const date = workDateOrToday(new URL(request.url).searchParams.get("date"), today);
 
   await ensureExtraJobComment();
-  const [assignments, housekeepers, away] = await Promise.all([
+  const [stored, housekeepers, away] = await Promise.all([
     prisma.housekeepingExtraJobAssignment.findMany({
     where: { hotelTenantId: user.hotelTenantId, workDate: new Date(`${date}T00:00:00.000Z`) },
     orderBy: [{ descriptionSnapshot: "asc" }, { id: "asc" }],
@@ -69,6 +69,27 @@ export async function GET(request: Request) {
     activeHousekeeperIds(prisma, user.hotelTenantId),
     loadAwayUserIds(prisma, user.hotelTenantId, date),
   ]);
+  const assignments = stored.length === 0 && date > today
+    ? (await prisma.housekeepingPermanentExtraJobAssignment.findMany({
+        where: { hotelTenantId: user.hotelTenantId },
+        orderBy: { extraJobId: "asc" },
+        select: {
+          id: true,
+          assignedToId: true,
+          extraJob: { select: { minutes: true, descriptionEn: true, descriptionDe: true, descriptionIt: true } },
+          assignedTo: { select: { id: true, firstName: true, lastName: true } },
+        },
+      })).map((row) => ({
+        id: `preview:${row.id}`,
+        plannedMinutes: row.extraJob.minutes,
+        descriptionSnapshot: "",
+        completedAt: null,
+        assignedToId: row.assignedToId,
+        comments: [] as Array<{ id: string; text: string; createdAt: Date; author: { firstName: string; lastName: string } }>,
+        assignedTo: row.assignedTo,
+        extraJob: row.extraJob,
+      }))
+    : stored;
   const visible = assignments.filter((assignment) => housekeepers.has(assignment.assignedToId) && !away.has(assignment.assignedToId));
 
   const mapJob = (assignment: (typeof visible)[number]) => ({
@@ -91,6 +112,8 @@ export async function GET(request: Request) {
 
   return Response.json({
     date,
+    today,
+    mutable: date === today,
     canAdmin: access.admin,
     canHousekeeper: access.housekeeper,
     all,

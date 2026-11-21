@@ -1,11 +1,26 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { awayUserIds, coverageGaps } from "../lib/housekeeping/away-staff";
-import { cleaningPlan, linenDueToday, permanentCleaner, preferenceOnWorkDate } from "../lib/housekeeping/daily-plan";
+import { addIsoDays, cleaningPlan, expectedCleaningFlags, linenDueToday, permanentCleaner, preferenceOnWorkDate, workDateOrToday } from "../lib/housekeeping/daily-plan";
 import { isActiveHousekeeper } from "../lib/housekeeping/active-housekeepers";
 
 const base = { arrival_date: "2026-09-14", departure_date: "2026-10-14", normal_minutes: 40, express_minutes: 20, departure_minutes: 50, cleaning_weekdays: [] as number[], linen_weekdays: [] as number[], cleaning_frequency: "EVERY_SECOND_DAY", linen_frequency: "WEEKLY" };
 const date = (nights: number) => new Date(Date.UTC(2026, 8, 14 + nights)).toISOString().slice(0, 10);
+
+test("work dates keep a valid YYYY-MM-DD or fall back to today", () => {
+  assert.equal(workDateOrToday("2026-11-22", "2026-11-21"), "2026-11-22");
+  assert.equal(workDateOrToday("2026-02-31", "2026-11-21"), "2026-11-21");
+  assert.equal(workDateOrToday("nope", "2026-11-21"), "2026-11-21");
+  assert.equal(addIsoDays("2026-11-21", 1), "2026-11-22");
+  assert.equal(addIsoDays("2026-11-21", -1), "2026-11-20");
+});
+
+test("expected flags match the daily plan cleaning and linen rules", () => {
+  const stay = { ...base, cleaning_frequency: "DAILY", linen_frequency: "DAILY" };
+  assert.deepEqual(expectedCleaningFlags(stay, date(1)), { type: "REGULAR", isExpress: false, linenChange: true, noService: false });
+  assert.deepEqual(expectedCleaningFlags({ ...base, guest_cleaning_preference: "NONE" }, date(1)), { type: "NONE", isExpress: false, linenChange: false, noService: true });
+  assert.equal(expectedCleaningFlags(base, date(1)).isExpress, true);
+});
 
 test("one-, two- and three-night stays follow the client's examples", () => {
   for (const nights of [1, 2, 3]) {

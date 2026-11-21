@@ -7,6 +7,7 @@ import { activeHousekeeperIds } from "../../../../lib/housekeeping/active-housek
 import { coverageGaps, loadAwayUserIds } from "../../../../lib/housekeeping/away-staff";
 import { getSessionUserId } from "../../../../lib/auth/session";
 import { prisma } from "../../../../lib/prisma";
+import { expectedCleaningFlags, hotelLocalDate, workDateOrToday } from "../../../../lib/housekeeping/daily-plan";
 
 type Locale = "en" | "de" | "it";
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -15,9 +16,7 @@ function translatedName(item: { nameEn: string | null; nameDe: string | null; na
   return activeLocale === "de" ? item.nameDe || item.nameEn : activeLocale === "it" ? item.nameIt || item.nameEn : item.nameEn;
 }
 function localDate(timeZone: string) {
-  const parts = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts();
-  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  return `${value.year}-${value.month}-${value.day}`;
+  return hotelLocalDate(timeZone);
 }
 function utcDate(value: string) { return new Date(`${value}T00:00:00.000Z`); }
 function strings(value: unknown) { return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : []; }
@@ -131,8 +130,10 @@ export async function GET(request: Request) {
   }
   if (new URL(request.url).searchParams.get("board") === "1") {
     const configuredZone = hotelTimeZone(user.hotelTenant.timeZone);
-    let date: string;
-    try { date = localDate(configuredZone); } catch { return Response.json({ error: "INVALID_HOTEL_TIME_ZONE" }, { status: 500 }); }
+    let today: string;
+    try { today = localDate(configuredZone); } catch { return Response.json({ error: "INVALID_HOTEL_TIME_ZONE" }, { status: 500 }); }
+    const date = workDateOrToday(new URL(request.url).searchParams.get("date"), today);
+    const isToday = date === today;
     const day = utcDate(date);
     const [floors, housekeepers, away, permanents] = await Promise.all([
       prisma.floor.findMany({
@@ -144,7 +145,8 @@ export async function GET(request: Request) {
           reservation: { sourcePresent: true, status: { notIn: ["CANCELLED", "NO_SHOW"] } },
         } } }, orderBy: { number: "asc" }, select: {
           id: true, number: true,
-          roomOperationalStateRecords: { take: 1, select: { cleanliness: true, breakfastInRoom: true, doNotDisturb: true, noService: true, isExpress: true, linenChange: true } },
+          roomOperationalStateRecords: { take: 1, select: { cleanliness: true, breakfastInRoom: true, doNotDisturb: true, noService: true, isExpress: true, linenChange: true, guestCleaningPreference: true } },
+          category: { select: { normalMinutes: true, expressMinutes: true, departureMinutes: true, cleaningFrequency: true, cleaningWeekdays: true, linenFrequency: true, linenWeekdays: true } },
           housekeepingScheduleAssignmentRecords: { where: { workDate: day }, take: 1, select: { cleaningType: true, assignedToId: true, completedAt: true, assignedTo: { select: { firstName: true, lastName: true } } } },
           reservationRoomStayRecords: { where: {
             arrivalDate: { lte: day }, departureDate: { gte: day },
@@ -179,7 +181,7 @@ export async function GET(request: Request) {
       const name = nameById.get(gap.userId);
       return name ? [{ id: gap.userId, name, rooms: gap.rooms }] : [];
     }).sort((left, right) => left.name.localeCompare(right.name) || left.id.localeCompare(right.id));
-    return Response.json({ date, timeZone: configuredZone, coverageGaps: coverage, floors: floors.map((floor) => ({
+    return Response.json({ date, today, timeZone: configuredZone, coverageGaps: isToday ? coverage : [], floors: floors.map((floor) => ({
       id: floor.id, code: floor.code, name: translatedName(floor, activeLocale) || floor.code,
       rooms: floor.roomRecords.map((room) => {
         const stays = room.reservationRoomStayRecords;
@@ -189,14 +191,16 @@ export async function GET(request: Request) {
         const state = room.roomOperationalStateRecords[0];
         const assignment = room.housekeepingScheduleAssignmentRecords[0];
         const activeAssignee = assignment?.assignedToId && housekeepers.has(assignment.assignedToId) && !away.has(assignment.assignedToId) ? assignment.assignedTo : null;
-        const status = state?.noService ? "noCleaningDesired" as const : ({ UNKNOWN: "unassigned", DIRTY: "dirty", CLEANING: "cleaning", CLEAN: "clean", INSPECTED: "inspected" } as const)[state?.cleanliness ?? "UNKNOWN"];
-        const isExpress = Boolean(state?.isExpress) || assignment?.cleaningType === "EXPRESS";
+        const expected = expectedFlagsForStay(room, departureStay ?? primaryStay, date);
+        const liveStatus = state?.noService ? "noCleaningDesired" as const : ({ UNKNOWN: "unassigned", DIRTY: "dirty", CLEANING: "cleaning", CLEAN: "clean", INSPECTED: "inspected" } as const)[state?.cleanliness ?? "UNKNOWN"];
+        const status = isToday ? liveStatus : assignment?.completedAt ? "clean" as const : expected.noService || expected.type === "NONE" ? "noCleaningDesired" as const : "dirty" as const;
+        const isExpress = isToday ? Boolean(state?.isExpress) || assignment?.cleaningType === "EXPRESS" : expected.isExpress;
         return { id: room.id, number: room.number, status, isExpress,
           assignedUserName: activeAssignee ? `${activeAssignee.firstName} ${activeAssignee.lastName}`.trim() || null : null,
-          linenChange: Boolean(state?.linenChange),
-          breakfastInRoom: state?.breakfastInRoom ?? false,
-          doNotDisturb: state?.doNotDisturb ?? false,
-          noService: state?.noService ?? false,
+          linenChange: isToday ? Boolean(state?.linenChange) : expected.linenChange,
+          breakfastInRoom: isToday ? state?.breakfastInRoom ?? false : false,
+          doNotDisturb: isToday ? state?.doNotDisturb ?? false : false,
+          noService: isToday ? state?.noService ?? false : expected.noService,
           arrival: stays.some((stay) => stay.arrivalDate.getTime() === day.getTime()),
           departure: stays.some((stay) => stay.departureDate.getTime() === day.getTime()),
           checkedIn: stays.some((stay) => stay.sourceStatus === "occupied"),
@@ -258,6 +262,30 @@ export async function POST(request: Request) {
     return created;
   });
   return Response.json({ id: room.id }, { status: 201 });
+}
+
+function expectedFlagsForStay(
+  room: {
+    category: { normalMinutes: number | null; expressMinutes: number | null; departureMinutes: number | null; cleaningFrequency: string | null; cleaningWeekdays: number[]; linenFrequency: string | null; linenWeekdays: number[] } | null;
+    roomOperationalStateRecords: Array<{ guestCleaningPreference: string }>;
+  },
+  stay: { arrivalDate: Date; departureDate: Date } | undefined,
+  date: string,
+) {
+  if (!stay) return { type: "NONE" as const, isExpress: false, linenChange: false, noService: false };
+  const category = room.category;
+  return expectedCleaningFlags({
+    arrival_date: dateOnly(stay.arrivalDate),
+    departure_date: dateOnly(stay.departureDate),
+    normal_minutes: category?.normalMinutes ?? null,
+    express_minutes: category?.expressMinutes ?? null,
+    departure_minutes: category?.departureMinutes ?? null,
+    cleaning_frequency: category?.cleaningFrequency ?? null,
+    cleaning_weekdays: category?.cleaningWeekdays ?? null,
+    linen_frequency: category?.linenFrequency ?? null,
+    linen_weekdays: category?.linenWeekdays ?? null,
+    guest_cleaning_preference: room.roomOperationalStateRecords[0]?.guestCleaningPreference ?? "DAILY",
+  }, date);
 }
 
 async function roomInput(request: Request) {

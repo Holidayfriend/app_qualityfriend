@@ -13,6 +13,22 @@ import { loadAwayUserIds } from "./away-staff";
 // Shape of one stay row returned by the DISTINCT ON query below
 type StayRow = { stay_id: string; room_id: string; arrival_date: string; departure_date: string; normal_minutes: number | null; express_minutes: number | null; departure_minutes: number | null; cleaning_frequency: string | null; cleaning_weekdays: number[] | null; linen_frequency: string | null; linen_weekdays: number[] | null; assigned_to_id: string | null; guest_cleaning_preference?: string | null };
 
+const isoDay = /^\d{4}-\d{2}-\d{2}$/;
+
+export function workDateOrToday(raw: string | null | undefined, today: string) {
+  if (typeof raw === "string" && isoDay.test(raw)) {
+    const parsed = new Date(`${raw}T00:00:00.000Z`);
+    if (!Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === raw) return raw;
+  }
+  return today;
+}
+
+export function addIsoDays(date: string, days: number) {
+  const parsed = new Date(`${workDateOrToday(date, date)}T00:00:00.000Z`);
+  parsed.setUTCDate(parsed.getUTCDate() + days);
+  return parsed.toISOString().slice(0, 10);
+}
+
 // Convert "now" into YYYY-MM-DD in a hotel time zone (e.g. Europe/Rome), not the server clock
 export function hotelLocalDate(timeZone: string, now = new Date()) {
   // Ask Intl for year/month/day parts in that time zone (en-CA = YYYY-MM-DD order)
@@ -53,6 +69,16 @@ export function cleaningPlan(stay: Pick<StayRow, "arrival_date" | "departure_dat
   return regular
     ? { type: "REGULAR", minutes: stay.normal_minutes ?? 0 } as const
     : { type: "EXPRESS", minutes: stay.express_minutes ?? 0 } as const;
+}
+
+export function expectedCleaningFlags(stay: Parameters<typeof cleaningPlan>[0] & Pick<StayRow, "linen_frequency" | "linen_weekdays">, date: string) {
+  const plan = cleaningPlan(stay, date);
+  return {
+    type: plan.type,
+    isExpress: plan.type === "EXPRESS",
+    linenChange: linenDueToday(stay, date),
+    noService: plan.type === "NONE" && stay.guest_cleaning_preference === "NONE" && stay.arrival_date < date,
+  };
 }
 
 export function linenDueToday(stay: Pick<StayRow, "arrival_date" | "departure_date" | "linen_frequency" | "linen_weekdays" | "guest_cleaning_preference">, date: string) {
