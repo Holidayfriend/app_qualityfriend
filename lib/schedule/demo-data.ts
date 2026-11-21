@@ -19,6 +19,7 @@ export type ShiftCell = {
   leaveDuration: LeaveDuration | "";
   updatedBy: string;
   draft: boolean;
+  ai?: boolean;
 };
 export type Employee = { key: string; name: string; departmentId: string; departmentIds: string[]; departmentName: string; shifts: ShiftCell[] };
 export const EMPTY_CELL: ShiftCell = { kind: "empty", start: "", end: "", breakMins: 0, splitStart: "", splitEnd: "", splitBreakMins: 0, note: "", templateId: "", leaveCategory: "", leaveDuration: "", updatedBy: "", draft: false };

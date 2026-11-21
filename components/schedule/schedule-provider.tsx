@@ -25,6 +25,22 @@ type ShiftInput = {
   leaveDuration: LeaveDuration;
   confirmOverwrite?: boolean;
 };
+export type AiProposal = {
+  userId: string;
+  date: string;
+  start: string;
+  end: string;
+  breakMins: number;
+  templateId: string;
+};
+
+type AiPlan = {
+  weekStart: string;
+  title: string;
+  body: string;
+  proposals: AiProposal[];
+};
+
 type AbsenceInput = {
   userId: string;
   start: string;
@@ -81,6 +97,12 @@ type Store = {
   templates: Template[];
   draftCount: number;
   sevenDay: SevenDayWarning[];
+  aiPlan: AiPlan | null;
+  setAiPlan: (plan: AiPlan | null) => void;
+  updateAiProposal: (userId: string, date: string, patch: Partial<Pick<AiProposal, "start" | "end" | "breakMins" | "templateId">>) => void;
+  rejectAiProposal: (userId: string, date: string) => void;
+  clearAiPlan: () => void;
+  acceptAiProposals: (rows: AiProposal[]) => Promise<number | null>;
   setEmployees: (employees: Employee[] | ((current: Employee[]) => Employee[])) => void;
   saveShift: (input: ShiftInput) => Promise<number | string[] | null>;
   deleteShift: (empKey: string, day: number) => Promise<boolean>;
@@ -240,6 +262,7 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
   const [templates, setTemplates] = useState<Template[]>(INITIAL_TEMPLATES);
   const [draftCount, setDraftCount] = useState(0);
   const [sevenDay, setSevenDay] = useState<SevenDayWarning[]>([]);
+  const [aiPlan, setAiPlanState] = useState<AiPlan | null>(null);
   const weekDates = useMemo(() => weekIsoDates(weekStartIso), [weekStartIso]);
 
   useEffect(() => {
@@ -319,6 +342,31 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
   }, [ready, reloadWeekShifts]);
 
   const isPlanner = canManageSchedule;
+
+  const setAiPlan = useCallback((plan: AiPlan | null) => { setAiPlanState(plan); }, []);
+  const clearAiPlan = useCallback(() => { setAiPlanState(null); }, []);
+  const updateAiProposal = useCallback((userId: string, date: string, patch: Partial<Pick<AiProposal, "start" | "end" | "breakMins" | "templateId">>) => {
+    setAiPlanState((current) => current ? {
+      ...current,
+      proposals: current.proposals.map((row) => row.userId === userId && row.date === date ? { ...row, ...patch } : row),
+    } : current);
+  }, []);
+  const rejectAiProposal = useCallback((userId: string, date: string) => {
+    setAiPlanState((current) => current ? { ...current, proposals: current.proposals.filter((row) => row.userId !== userId || row.date !== date) } : current);
+  }, []);
+  const acceptAiProposals = useCallback(async (rows: AiProposal[]) => {
+    const response = await fetch("/api/schedule/suggestion/accept", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ shifts: rows }),
+    });
+    const body = await response.json().catch(() => ({})) as { saved?: unknown };
+    if (!response.ok) return null;
+    const savedKeys = new Set(rows.map((row) => `${row.userId}|${row.date}`));
+    setAiPlanState((current) => current ? { ...current, proposals: current.proposals.filter((row) => !savedKeys.has(`${row.userId}|${row.date}`)) } : current);
+    await reloadWeekShifts().catch(() => undefined);
+    return typeof body.saved === "number" ? body.saved : 0;
+  }, [reloadWeekShifts]);
 
   const saveShift = useCallback(async (input: ShiftInput) => {
     const date = weekDates[input.day];
@@ -460,9 +508,10 @@ export function ScheduleProvider({ children }: { children: ReactNode }) {
     goToPrevWeek: () => setWeekStartIso((current) => addDaysIso(current, -7)),
     goToNextWeek: () => setWeekStartIso((current) => addDaysIso(current, 7)),
     goToWeek,
-    departments, employees, absences, templates, draftCount, sevenDay,
+    departments, employees, absences, templates, draftCount, sevenDay, aiPlan,
+    setAiPlan, updateAiProposal, rejectAiProposal, clearAiPlan, acceptAiProposals,
     setEmployees, saveShift, deleteShift, deleteAbsence, publishWeek, copyWeekTo, saveAbsence, decideAbsence, saveTemplate, deleteTemplate,
-  }), [absences, copyWeekTo, currentUserId, decideAbsence, deleteAbsence, deleteShift, deleteTemplate, departments, draftCount, employees, fullName, goToWeek, isPlanner, publishWeek, ready, role, saveAbsence, saveShift, saveTemplate, sevenDay, shiftsReady, templates, weekDates, weekStartIso]);
+  }), [absences, acceptAiProposals, aiPlan, clearAiPlan, copyWeekTo, currentUserId, decideAbsence, deleteAbsence, deleteShift, deleteTemplate, departments, draftCount, employees, fullName, goToWeek, isPlanner, publishWeek, ready, rejectAiProposal, role, saveAbsence, saveShift, saveTemplate, setAiPlan, sevenDay, shiftsReady, templates, updateAiProposal, weekDates, weekStartIso]);
 
   return <ScheduleContext.Provider value={value}>{children}</ScheduleContext.Provider>;
 }

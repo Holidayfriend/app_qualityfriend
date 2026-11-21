@@ -8,7 +8,8 @@ import { BrandLoader } from "../ui/brand-loader";
 import { useToast } from "../ui/toast-provider";
 import { useI18n } from "../i18n/i18n-provider";
 import { getScheduleMessages, type ScheduleMessages } from "../../lib/i18n/schedule-messages";
-import { type AbsenceStatus, type Employee, type LeaveCategory, type LeaveDuration, type ShiftCell } from "../../lib/schedule/demo-data";
+import { EMPTY_CELL, type AbsenceStatus, type Employee, type LeaveCategory, type LeaveDuration, type ShiftCell } from "../../lib/schedule/demo-data";
+import { type AiProposal } from "./schedule-provider";
 import { addDaysIso, formatDayHeader, formatWeekRange, localTodayIso, mondayOfIso } from "../../lib/schedule/week";
 import { formatWorkHours, hoursForHomeDepartment, shiftWorkHours, weekWorkHours } from "../../lib/schedule/hours";
 import { breakMinutesForSave, shiftWarnings } from "../../lib/schedule/shift-rules";
@@ -22,53 +23,35 @@ function fill(template: string, vars: Record<string, string>) {
   return Object.entries(vars).reduce((text, [key, value]) => text.replaceAll(`{${key}}`, value), template);
 }
 
-type ShiftProposal = {
-  userId: string;
-  name: string;
-  date: string;
-  start: string;
-  end: string;
-  department: string;
-  reason: "sameHours" | "housekeeping" | "cover" | "week";
-  coverName: string;
-};
-type WeekSuggestion = { title: string; body: string; proposals?: ShiftProposal[] };
-
-function proposalReason(item: ShiftProposal, t: T) {
-  if (item.reason === "cover") return fill(t.proposalCover, { name: item.coverName, department: item.department || t.noDepartment });
-  if (item.reason === "housekeeping") return t.proposalHousekeeping;
-  if (item.reason === "week") return t.proposalWeek;
-  return t.proposalSameHours;
+function asProposals(value: unknown): AiProposal[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const row = item as Partial<AiProposal>;
+    if (typeof row.userId !== "string" || typeof row.date !== "string" || typeof row.start !== "string" || typeof row.end !== "string") return [];
+    return [{
+      userId: row.userId,
+      date: row.date.slice(0, 10),
+      start: row.start.slice(0, 5),
+      end: row.end.slice(0, 5),
+      breakMins: typeof row.breakMins === "number" ? row.breakMins : 30,
+      templateId: typeof row.templateId === "string" ? row.templateId : "",
+    }];
+  });
 }
 
-function ProposalList({ proposals, t, locale }: { proposals: ShiftProposal[]; t: T; locale: string }) {
-  if (!proposals.length) return null;
-  const language = locale === "de" || locale === "it" ? locale : "en";
-  const grouped = new Map<string, ShiftProposal[]>();
-  for (const item of proposals) {
-    const rows = grouped.get(item.userId) ?? [];
-    rows.push(item);
-    grouped.set(item.userId, rows);
-  }
-  const people = [...grouped.values()].map((rows) => [...rows].sort((left, right) => left.date.localeCompare(right.date))).sort((left, right) => left[0].name.localeCompare(right[0].name) || left[0].department.localeCompare(right[0].department) || left[0].userId.localeCompare(right[0].userId));
-  return <div className="no-print" style={{ marginTop: 10, padding: "12px 16px", background: "#fff", border: "1px solid #FDE68A", borderRadius: 8 }}>
-    <strong style={{ display: "block", marginBottom: 8, fontSize: 13 }}>{t.proposalTitle}</strong>
-    <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 6 }}>
-      {people.map((days) => {
-        const person = days[0];
-        const sameHours = days.every((day) => day.start === person.start && day.end === person.end);
-        const notes = days.filter((day) => day.reason !== "week").map((day) => `${formatDayHeader(day.date, language)}: ${proposalReason(day, t)}`);
-        return <li key={person.userId} style={{ fontSize: 13, color: "var(--text)" }}>
-          <b>{person.name}</b>
-          {person.department ? ` · ${person.department}` : ""}
-          {sameHours
-            ? ` · ${days.map((day) => formatDayHeader(day.date, language)).join(", ")} · ${person.start}–${person.end}`
-            : days.map((day) => ` · ${formatDayHeader(day.date, language)} ${day.start}–${day.end}`).join("")}
-          {notes.length ? ` · ${notes.join("; ")}` : ""}
-        </li>;
-      })}
-    </ul>
-  </div>;
+function overlayAi(employees: Employee[], weekDates: string[], proposals: AiProposal[]) {
+  if (!proposals.length) return employees;
+  const byKey = new Map(proposals.map((row) => [`${row.userId}|${row.date}`, row]));
+  return employees.map((emp) => ({
+    ...emp,
+    shifts: emp.shifts.map((cell, index) => {
+      if (cell.kind !== "empty") return cell;
+      const proposal = byKey.get(`${emp.key}|${weekDates[index]}`);
+      if (!proposal) return cell;
+      return { ...EMPTY_CELL, kind: "work" as const, start: proposal.start, end: proposal.end, breakMins: proposal.breakMins, templateId: proposal.templateId, ai: true };
+    }),
+  }));
 }
 
 function useT() {
@@ -102,8 +85,8 @@ function shiftMeta(cell: ShiftCell | undefined, t: T) {
   const start = cell.start.slice(0, 5);
   const end = cell.end.slice(0, 5);
   const split = cell.splitStart && cell.splitEnd ? ` / ${cell.splitStart.slice(0, 5)}–${cell.splitEnd.slice(0, 5)}` : "";
-  const cls = start <= "08:00" ? "dp-f" : start <= "13:00" ? "dp-m" : "dp-s";
-  return { label: start && end ? `${start}–${end}${split}` : t.dash, sub: "", cls };
+  const cls = cell.ai ? "dp-ai" : start <= "08:00" ? "dp-f" : start <= "13:00" ? "dp-m" : "dp-s";
+  return { label: start && end ? `${start}–${end}${split}` : t.dash, sub: cell.ai ? t.aiBadge : "", cls };
 }
 
 function categoryLabel(category: LeaveCategory, t: T) {
@@ -165,12 +148,34 @@ function mobileDayParts(iso: string, locale: string) {
   };
 }
 
+function SuggestionBar({ t, plan, suggesting, accepting, onSuggest, onAccept, onDiscard, desktop }: {
+  t: T;
+  plan: { title: string; body: string; proposals: AiProposal[] } | null;
+  suggesting: boolean;
+  accepting: boolean;
+  onSuggest: () => void;
+  onAccept: () => void;
+  onDiscard: () => void;
+  desktop?: boolean;
+}) {
+  return <div className={`schedule-ai-bar${desktop ? " schedule-desktop-alert" : ""}`}>
+    <p>{plan ? <><strong>{plan.title}</strong>{plan.body ? ` ${plan.body}` : ""}</> : t.suggestionEmpty}</p>
+    <div className="schedule-ai-actions">
+      {plan ? <>
+        <button type="button" className="btn btn-primary" disabled={!plan.proposals.length || accepting || suggesting} onClick={onAccept}>{t.acceptAll}</button>
+        <button type="button" className="btn btn-ghost" disabled={accepting || suggesting} onClick={onDiscard}>{t.discardPlan}</button>
+      </> : null}
+      <button type="button" className="btn schedule-ai-button" disabled={suggesting || accepting} onClick={onSuggest}>{suggesting ? t.suggestionWorking : t.aiSuggest}</button>
+    </div>
+  </div>;
+}
+
 export function SchedulePlanPage() {
   const t = useT();
   const { locale } = useI18n();
   const router = useRouter();
   const toast = useToast();
-  const { isPlanner, ready, employees, departments, weekStartIso, weekDates, goToPrevWeek, goToNextWeek, publishWeek, copyWeekTo, draftCount, sevenDay } = useSchedule();
+  const { isPlanner, ready, employees, departments, weekStartIso, weekDates, goToPrevWeek, goToNextWeek, publishWeek, copyWeekTo, draftCount, sevenDay, aiPlan, setAiPlan, clearAiPlan, acceptAiProposals } = useSchedule();
   const [deptFilter, setDeptFilter] = useState("all");
   const [publishing, setPublishing] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
@@ -179,26 +184,18 @@ export function SchedulePlanPage() {
   const [copyTarget, setCopyTarget] = useState(() => addDaysIso(weekStartIso, 7));
   const [copying, setCopying] = useState(false);
   const [selectedDay, setSelectedDay] = useState(0);
-  const [suggestion, setSuggestion] = useState<WeekSuggestion | null>(null);
   const [suggesting, setSuggesting] = useState(false);
+  const [accepting, setAccepting] = useState(false);
   const visible = employees.filter((emp) => deptFilter === "all" || (deptFilter === "none" ? emp.departmentIds.length === 0 : emp.departmentIds.includes(deptFilter)));
+  const shown = overlayAi(visible, weekDates, aiPlan?.weekStart === weekStartIso ? aiPlan.proposals : []);
   const onVacation = employees.filter((emp) => emp.shifts.some((shift) => shift.kind === "vac")).length;
-  const scheduledHours = weekWorkHours(visible);
+  const scheduledHours = weekWorkHours(shown);
   const dayLabels = weekDates.map((iso) => formatDayHeader(iso, locale));
 
   useEffect(() => {
     const todayIndex = weekDates.indexOf(localTodayIso());
     setSelectedDay((current) => todayIndex >= 0 ? todayIndex : Math.min(current, Math.max(weekDates.length - 1, 0)));
   }, [weekDates]);
-
-  useEffect(() => {
-    let active = true;
-    fetch(`/api/schedule/suggestion?weekStart=${weekStartIso}&locale=${locale}`, { cache: "no-store" })
-      .then(async (response) => response.ok ? response.json() as Promise<{ suggestion?: WeekSuggestion | null }> : { suggestion: null })
-      .then((data) => { if (active) setSuggestion(data.suggestion && (data.suggestion.title || data.suggestion.proposals?.length) ? data.suggestion : null); })
-      .catch(() => { if (active) setSuggestion(null); });
-    return () => { active = false; };
-  }, [locale, weekStartIso]);
 
   async function askSuggestion() {
     if (suggesting) return;
@@ -209,17 +206,50 @@ export function SchedulePlanPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ weekStart: weekStartIso, locale }),
       });
-      const data = await response.json().catch(() => null) as { suggestion?: WeekSuggestion | null } | null;
-      if (!response.ok || !data?.suggestion || (!data.suggestion.title && !data.suggestion.proposals?.length)) {
+      const data = await response.json().catch(() => null) as { suggestion?: { title?: unknown; body?: unknown; proposals?: unknown } | null } | null;
+      const suggestion = data?.suggestion;
+      const proposals = asProposals(suggestion?.proposals);
+      if (!response.ok || !suggestion || (typeof suggestion.title !== "string" && !proposals.length)) {
         toast({ message: t.suggestionFailed, tone: "error" });
         return;
       }
-      setSuggestion(data.suggestion);
+      setAiPlan({
+        weekStart: weekStartIso,
+        title: typeof suggestion.title === "string" ? suggestion.title : "",
+        body: typeof suggestion.body === "string" ? suggestion.body : "",
+        proposals,
+      });
     } catch {
       toast({ message: t.suggestionFailed, tone: "error" });
     } finally {
       setSuggesting(false);
     }
+  }
+
+  async function acceptAll() {
+    if (!aiPlan || aiPlan.weekStart !== weekStartIso || accepting) return;
+    const open = aiPlan.proposals.filter((proposal) => {
+      const emp = employees.find((item) => item.key === proposal.userId);
+      const index = weekDates.indexOf(proposal.date);
+      return Boolean(emp && index >= 0 && emp.shifts[index]?.kind === "empty");
+    });
+    setAccepting(true);
+    try {
+      const saved = await acceptAiProposals(open);
+      if (saved == null) {
+        toast({ message: t.acceptFailed, tone: "error" });
+        return;
+      }
+      clearAiPlan();
+      toast({ message: fill(t.acceptedDrafts, { n: String(saved) }), tone: "success" });
+    } finally {
+      setAccepting(false);
+    }
+  }
+
+  function discardPlan() {
+    clearAiPlan();
+    toast({ message: t.suggestionRejected, tone: "info" });
   }
 
   function openCopy() {
@@ -332,6 +362,7 @@ export function SchedulePlanPage() {
       <div className="kpi"><div className="kpi-lbl">{t.kpiHours}</div><div className="kpi-val">{formatWorkHours(scheduledHours)}<span>{t.hoursUnit}</span></div><div className="kpi-sub">{formatWeekRange(weekStartIso, locale)}</div></div>
     </div>
     <SevenDayNotice warnings={sevenDay} employees={employees} t={t} locale={locale} />
+    <SuggestionBar t={t} plan={aiPlan?.weekStart === weekStartIso ? aiPlan : null} suggesting={suggesting} accepting={accepting} onSuggest={() => void askSuggestion()} onAccept={() => void acceptAll()} onDiscard={discardPlan} desktop />
     <div className="card schedule-week-card schedule-desktop-only" style={{ marginBottom: 18 }}>
       <div className="ch no-print" style={{ flexWrap: "wrap", gap: 8 }}>
         <div className="ct">{fill(t.weekPlan, { range: formatWeekRange(weekStartIso, locale) })}</div>
@@ -354,7 +385,7 @@ export function SchedulePlanPage() {
         <div className="dp-grid">
           <div className="dp-head" style={{ textAlign: "left" }}>{t.employeeCol}</div>
           {dayLabels.map((day, index) => <div key={weekDates[index]} className="dp-head">{day}</div>)}
-          {visible.length ? visible.map((emp) => <EmployeeRow key={emp.key} emp={emp} t={t} />) : <div className="dp-name" style={{ gridColumn: "1 / -1", color: "var(--text3)", padding: "16px 0" }}>{t.emptyEmployees}</div>}
+          {shown.length ? shown.map((emp) => <EmployeeRow key={emp.key} emp={emp} t={t} />) : <div className="dp-name" style={{ gridColumn: "1 / -1", color: "var(--text3)", padding: "16px 0" }}>{t.emptyEmployees}</div>}
         </div>
       </div>
     </div>
@@ -391,17 +422,12 @@ export function SchedulePlanPage() {
         })}
       </div>
 
-      <div className="schedule-mobile-alert">
-        <span aria-hidden>⚠️</span>
-        <div>{suggestion ? <><strong>{suggestion.title}</strong><span> {suggestion.body}</span></> : <span>{t.suggestionEmpty}</span>}</div>
-        <button type="button" className="btn" disabled={suggesting} onClick={() => void askSuggestion()}>{suggesting ? t.suggestionWorking : t.aiSuggest}</button>
-      </div>
-      <ProposalList proposals={suggestion?.proposals ?? []} t={t} locale={locale} />
+      <SuggestionBar t={t} plan={aiPlan?.weekStart === weekStartIso ? aiPlan : null} suggesting={suggesting} accepting={accepting} onSuggest={() => void askSuggestion()} onAccept={() => void acceptAll()} onDiscard={discardPlan} />
 
       <section className="card schedule-day-card">
-        <div className="ch"><div className="ct">📅 {dayLabels[selectedDay]}</div><span className="schedule-day-count">{visible.length}</span></div>
+        <div className="ch"><div className="ct">📅 {dayLabels[selectedDay]}</div><span className="schedule-day-count">{shown.length}</span></div>
         <div className="cb schedule-shift-list">
-          {visible.length ? visible.map((emp) => {
+          {shown.length ? shown.map((emp) => {
             const shift = emp.shifts[selectedDay];
             const meta = shiftMeta(shift, t);
             return <Link key={emp.key} href={`/schedule/shift?employee=${emp.key}&day=${selectedDay}`} prefetch={false} className="schedule-shift-card">
@@ -413,11 +439,6 @@ export function SchedulePlanPage() {
         </div>
       </section>
     </div>
-    <div className="no-print schedule-desktop-alert" style={{ padding: "12px 16px", background: "var(--amber-bg)", border: "1px solid #FDE68A", borderRadius: 8, fontSize: 13.5, color: "var(--amber)", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-      ⚠️ {suggestion ? <><strong>{suggestion.title}</strong> {suggestion.body}</> : <span>{t.suggestionEmpty}</span>}
-      <button type="button" className="btn" style={{ marginLeft: "auto", background: "var(--amber)", color: "#fff", fontSize: 12, padding: "5px 12px" }} disabled={suggesting} onClick={() => void askSuggestion()}>{suggesting ? t.suggestionWorking : t.aiSuggest}</button>
-    </div>
-    <ProposalList proposals={suggestion?.proposals ?? []} t={t} locale={locale} />
     </div>
   </Shell>;
 }
@@ -668,8 +689,11 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
   const { locale } = useI18n();
   const router = useRouter();
   const toast = useToast();
-  const { ready, shiftsReady, isPlanner, employees, templates, saveShift, deleteShift, weekDates, sevenDay } = useSchedule();
+  const { ready, shiftsReady, isPlanner, employees, templates, saveShift, deleteShift, weekDates, weekStartIso, sevenDay, aiPlan, updateAiProposal, rejectAiProposal, acceptAiProposals } = useSchedule();
   const emp = employees.find((item) => item.key === employee);
+  const dayDate = weekDates[day] || "";
+  const proposal = aiPlan && aiPlan.weekStart === weekStartIso ? aiPlan.proposals.find((row) => row.userId === employee && row.date === dayDate) : undefined;
+  const aiOpen = Boolean(proposal && (!emp?.shifts[day] || emp.shifts[day].kind === "empty"));
   const dayLabel = weekDates[day] ? formatDayHeader(weekDates[day], locale) : t.days[day] ?? t.days[0];
   const [form, setForm] = useState({
     template: "", start: "09:00", end: "17:00", pause: "", note: "", repeat: "none",
@@ -691,7 +715,24 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
   useEffect(() => {
     if (!ready || !shiftsReady || !emp) return;
     const cell = emp.shifts[day];
-    if (!cell || cell.kind === "empty") return;
+    if (!cell || cell.kind === "empty") {
+      if (!proposal) return;
+      setForm({
+        template: proposal.templateId,
+        start: proposal.start || "08:00",
+        end: proposal.end || "16:00",
+        pause: String(proposal.breakMins ?? 30),
+        note: "",
+        repeat: "none",
+        leaveCategory: "paid",
+        leaveDuration: "full",
+        split: false,
+        splitStart: "",
+        splitEnd: "",
+        splitPause: "",
+      });
+      return;
+    }
     const off = cell.kind === "off";
     const vac = cell.kind === "vac";
     const partial = (off || vac) && cell.leaveDuration === "partial";
@@ -709,7 +750,7 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
       splitEnd: cell.splitEnd || "",
       splitPause: cell.splitStart && cell.splitEnd ? String(cell.splitBreakMins || 0) : "",
     });
-  }, [day, emp, ready, shiftsReady]);
+  }, [day, emp, proposal, ready, shiftsReady]);
 
   function applyTemplate(value: string) {
     setForm((current) => {
@@ -802,6 +843,63 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
     }
   }
 
+  function suggestionTimes() {
+    return {
+      start: form.start,
+      end: form.end,
+      breakMins: breakMinutesForSave(form.pause, true) ?? 30,
+      templateId: templates.some((item) => item.id === form.template) ? form.template : "",
+    };
+  }
+
+  async function keepSuggestion() {
+    if (!emp || !proposal || !dayDate || busy) return;
+    if (isLeave) {
+      rejectAiProposal(emp.key, dayDate);
+      await save();
+      return;
+    }
+    if (!form.start || !form.end) {
+      toast({ message: t.needShiftTimes, tone: "error" });
+      return;
+    }
+    updateAiProposal(emp.key, dayDate, suggestionTimes());
+    toast({ message: t.suggestionUpdated, tone: "success" });
+    router.push("/schedule");
+  }
+
+  async function acceptOne() {
+    if (!emp || !proposal || !dayDate || busy) return;
+    if (isLeave) {
+      rejectAiProposal(emp.key, dayDate);
+      await save();
+      return;
+    }
+    if (!form.start || !form.end) {
+      toast({ message: t.needShiftTimes, tone: "error" });
+      return;
+    }
+    setBusy(true);
+    try {
+      const saved = await acceptAiProposals([{ ...proposal, ...suggestionTimes() }]);
+      if (saved == null) {
+        toast({ message: t.acceptFailed, tone: "error" });
+        return;
+      }
+      toast({ message: fill(t.acceptedDrafts, { n: String(saved) }), tone: "success" });
+      router.push("/schedule");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function rejectOne() {
+    if (!emp || !dayDate || busy) return;
+    rejectAiProposal(emp.key, dayDate);
+    toast({ message: t.suggestionRejected, tone: "info" });
+    router.push("/schedule");
+  }
+
   const warnings = isLeave ? [] : shiftWarnings({
     start: form.start,
     end: form.end,
@@ -883,21 +981,27 @@ export function ScheduleShiftPage({ employee, day }: { employee: string; day: nu
         </>}
         <div><label className="field-lbl">{isLeave ? t.comment : t.note}</label><input className="field-input" placeholder={t.optional} value={form.note} onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))} /></div>
         <p style={{ fontSize: 12, color: "var(--text3)", margin: 0 }}>{t.autoTranslate}</p>
-        <div><label className="field-lbl">{t.repeat}</label>
+        {aiOpen ? <p style={{ fontSize: 12, color: "var(--amber)", margin: 0 }}>{t.aiDraftHint}</p> : <div><label className="field-lbl">{t.repeat}</label>
           <select className="field-select" value={form.repeat} onChange={(event) => setForm((current) => ({ ...current, repeat: event.target.value }))}>
             <option value="none">{t.repeatNone}</option>
             <option value="thisWeek">{t.repeatThisWeek}</option>
             {REPEAT_WEEKS.map((weeks) => <option key={weeks} value={String(weeks)}>{repeatLabels[weeks]}</option>)}
           </select>
-        </div>
+        </div>}
         {warnings.length || streaks.length ? <div style={{ padding: "10px 12px", background: "var(--amber-bg)", border: "1px solid #FDE68A", borderRadius: 8, fontSize: 13, color: "var(--amber)" }}>
           {streaks.map((warning) => <p key={`${warning.from}-${warning.to}`} style={{ margin: "0 0 4px" }}>{fill(t.sevenDayWarning, { name: emp.name, days: String(warning.days), from: formatDayHeader(warning.from, language), to: formatDayHeader(warning.to, language) })}</p>)}
           {warnings.map((warning) => <p key={warning.code} style={{ margin: "0 0 4px" }}>{warning.code === "long" ? fill(t.longShiftWarning, { hours: String(warning.hours ?? "") }) : warning.code === "splitLong" ? fill(t.splitLongWarning, { hours: String(warning.hours ?? "") }) : t.splitOverlapWarning}</p>)}
         </div> : null}
         {!isLeave && form.start && form.end ? <p style={{ fontSize: 12, color: "var(--text3)", margin: 0 }}>{fill(t.countedHours, { hours: countedHours })}</p> : null}
         <div className="schedule-form-actions" style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button type="button" className="btn btn-primary" style={{ flex: 1 }} disabled={busy} onClick={() => void save()}>{t.save}</button>
-          {emp.shifts[day] && emp.shifts[day].kind !== "empty" ? <button type="button" className="btn btn-ghost" style={{ color: "var(--red)" }} disabled={busy} onClick={() => setConfirmDelete(true)}>{t.deleteShift}</button> : null}
+          {aiOpen ? <>
+            <button type="button" className="btn btn-primary" style={{ flex: 1 }} disabled={busy} onClick={() => void keepSuggestion()}>{t.updateSuggestion}</button>
+            <button type="button" className="btn" disabled={busy} onClick={() => void acceptOne()}>{t.acceptShift}</button>
+            <button type="button" className="btn btn-ghost" style={{ color: "var(--red)" }} disabled={busy} onClick={rejectOne}>{t.rejectShift}</button>
+          </> : <>
+            <button type="button" className="btn btn-primary" style={{ flex: 1 }} disabled={busy} onClick={() => void save()}>{t.save}</button>
+            {emp.shifts[day] && emp.shifts[day].kind !== "empty" ? <button type="button" className="btn btn-ghost" style={{ color: "var(--red)" }} disabled={busy} onClick={() => setConfirmDelete(true)}>{t.deleteShift}</button> : null}
+          </>}
           <Link href="/schedule" className="btn btn-ghost">{t.cancel}</Link>
         </div>
         <ConfirmDialog open={confirmDelete} title={t.deleteShift} message={t.deleteShiftConfirm} confirmLabel={t.deleteShift} cancelLabel={t.cancel} pending={busy} onConfirm={() => void remove()} onCancel={() => setConfirmDelete(false)} />

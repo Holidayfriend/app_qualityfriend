@@ -8,11 +8,10 @@ function localeOf(value: string | null) {
   return supportedLocales.includes(value as (typeof supportedLocales)[number]) ? value : "en";
 }
 
-export async function GET(request: Request) {
+export async function GET() {
   const actor = await scheduleEditor();
   if (!actor) return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  const url = new URL(request.url);
-  const suggestion = await listScheduleSuggestion(actor, url.searchParams.get("weekStart") ?? "", localeOf(url.searchParams.get("locale")));
+  const suggestion = await listScheduleSuggestion();
   return NextResponse.json({ suggestion }, { headers: { "Cache-Control": "no-store" } });
 }
 

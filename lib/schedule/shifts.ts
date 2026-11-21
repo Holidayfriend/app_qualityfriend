@@ -645,6 +645,93 @@ export async function saveShiftAssignment(actor: ScheduleActor, body: Record<str
   return { ok: true as const, dates, dayCount: dates.length, repeat: dates.length === 1 ? "none" : repeat || "none" };
 }
 
+export async function saveAiDrafts(actor: ScheduleActor, rows: { userId: string; date: string; start: string; end: string; breakMins: unknown; templateId: string }[]) {
+  await ensureShiftTable();
+  const unique = new Map<string, { userId: string; date: string; start: string; end: string; breakMins: number; templateId: string }>();
+  for (const row of rows.slice(0, 300)) {
+    const start = parseTime(row.start);
+    const end = parseTime(row.end);
+    const breakMins = breakMinutesForSave(row.breakMins, true);
+    if (!UUID.test(row.userId) || !DATE.test(row.date) || !start || !end || breakMins == null) continue;
+    unique.set(`${row.userId}|${row.date}`, {
+      userId: row.userId,
+      date: row.date,
+      start,
+      end,
+      breakMins,
+      templateId: UUID.test(row.templateId) ? row.templateId : "",
+    });
+  }
+  const pending = [...unique.values()];
+  if (!pending.length) return { saved: 0 };
+  const userIds = [...new Set(pending.map((row) => row.userId))];
+  const templateIds = [...new Set(pending.map((row) => row.templateId).filter(Boolean))];
+  const [employees, templates] = await Promise.all([
+    prisma.user.findMany({
+      where: { hotelTenantId: actor.hotel_tenant_id, id: { in: userIds }, isActive: true, isDeleted: false },
+      select: { id: true },
+    }),
+    templateIds.length
+      ? prisma.hotelShiftTemplate.findMany({
+        where: { hotelTenantId: actor.hotel_tenant_id, id: { in: templateIds } },
+        select: { id: true },
+      })
+      : Promise.resolve([]),
+  ]);
+  const allowedUsers = new Set(employees.map((row) => row.id));
+  const allowedTemplates = new Set(templates.map((row) => row.id));
+  let saved = 0;
+  await prisma.$transaction(async (tx) => {
+    for (const row of pending) {
+      if (!allowedUsers.has(row.userId)) continue;
+      const day = new Date(`${row.date}T00:00:00.000Z`);
+      const where = { hotelTenantId: actor.hotel_tenant_id, userId: row.userId, workDate: day };
+      const published = await tx.hotelShift.findFirst({ where, select: { id: true } });
+      const draft = published ? null : await tx.hotelShiftDraft.findFirst({ where, select: { id: true } });
+      const leave = published || draft ? null : await tx.hotelLeaveRequest.findFirst({
+        where: {
+          hotelTenantId: actor.hotel_tenant_id,
+          userId: row.userId,
+          status: { not: "REJECTED" },
+          category: { not: "SWAP" },
+          startDate: { lte: day },
+          endDate: { gte: day },
+        },
+        select: { id: true },
+      });
+      if (published || draft || leave) continue;
+      await writeShiftRow(tx, "hotel_shift_drafts", actor, row.userId, row.date, {
+        kind: "WORK",
+        templateId: allowedTemplates.has(row.templateId) ? row.templateId : null,
+        startTime: row.start,
+        endTime: row.end,
+        breakMinutes: row.breakMins,
+        splitStartTime: "",
+        splitEndTime: "",
+        splitBreakMinutes: 0,
+        leaveCategory: "",
+        leaveDuration: "",
+        originalLocale: "en",
+        note: "",
+        noteDe: "",
+        noteIt: "",
+      });
+      saved += 1;
+    }
+    if (saved) {
+      await recordAuditLog(tx, { module: "schedule",
+        hotelTenantId: actor.hotel_tenant_id,
+        actorId: actor.id,
+        action: "CREATE",
+        entityType: "SHIFT_DRAFT",
+        entityId: actor.id,
+        changes: { after: { title: `${saved} AI draft shifts` } },
+      });
+    }
+  });
+  return { saved };
+}
+
 export async function deleteShiftDay(actor: ScheduleActor, userId: string, date: string) {
   await ensureShiftTable();
   if (!UUID.test(userId) || !DATE.test(date)) return { error: "INVALID" as const };
