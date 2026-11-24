@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import type { Prisma, PrismaClient } from "../../app/generated/prisma/client";
 import { completeHotelChatJson } from "../ai/complete";
 import { occupancyPercent } from "../housekeeping/dashboard-summary";
-import { fallbackRate, loadHotelAdr } from "../revenue/daily-recommendations";
+import { fallbackRate, loadHotelAdr, weekDates } from "../revenue/daily-recommendations";
+import { loadMarketPrices, mean } from "../revenue/market-prices";
 
 const bookedStatuses = new Set(["reserved", "roomfixed", "departed", "occupied"]);
 
@@ -129,7 +130,28 @@ function rateForKey(parsed: Record<string, unknown> | null, key: string) {
   return Math.round(rate * 100) / 100;
 }
 
-async function recommendBudgetRates(prisma: PrismaClient, hotelTenantId: string, rows: Array<{ key: string; occupancy: number; current: number | null; competitorAvg: number | null }>) {
+type BudgetRateRow = { key: string; kind: "month" | "category"; name?: string; occupancy: number; current: number | null; competitorAvg: number | null };
+
+// Facts about the next 14 days for the whole hotel, built from our imported prices and the competitors' daily prices.
+export type BudgetRateContext = {
+  next14Days: {
+    ourAverageRate: number | null;
+    competitorAverage: number | null;
+    competitorLowest: number | null;
+    competitorHighest: number | null;
+    competitorHotels: number;
+    wholeHotelRecommendedMovePercent: number | null;
+  };
+  hotelOccupancyThisMonthPercent: number | null;
+};
+
+// A category rate far from our own price is treated as an AI mistake.
+export function sensibleCategoryRate(rate: number | null, current: number | null) {
+  if (rate == null || current == null || current <= 0) return rate;
+  return rate >= current * 0.7 && rate <= current * 1.3 ? rate : null;
+}
+
+async function recommendBudgetRates(prisma: PrismaClient, hotelTenantId: string, rows: BudgetRateRow[], context: BudgetRateContext, moveRatio: number | null) {
   const priced = rows.some((row) => row.current != null || row.competitorAvg != null);
   if (!priced) return new Map(rows.map((row) => [row.key, null]));
   let parsed: Record<string, unknown> | null = null;
@@ -137,14 +159,21 @@ async function recommendBudgetRates(prisma: PrismaClient, hotelTenantId: string,
     parsed = await completeHotelChatJson(prisma, hotelTenantId, [
       {
         role: "system",
-        content: "You recommend one average nightly room rate in EUR for each key. Use only the facts given. Current is this hotel's ADR and competitorAvg is the average competitor ADR. Occupancy is the percent of rooms already booked. Raise the rate when occupancy is high and current is at or below the competitor average. Lower it slightly when occupancy is low and current is above the competitor average. Keep it close when occupancy is moderate. Return JSON only: {\"rates\":[{\"key\":\"2026-11\",\"rate\":380}]}. Include every key once. rate is a positive number.",
+        content: "You recommend one average nightly room rate in EUR for each key. Use only the facts given and do not add any number that is not in the facts. Rows with kind \"month\" are whole months; rows with kind \"category\" are one room category. For a month, current is our average booked rate. For a category, current is our own imported room price for 2 adults (for the single room, for 1 adult) averaged over the next 14 days. occupancy is the percent of rooms booked in the current month for that row. context.next14Days describes the next 14 days for the whole hotel: ourAverageRate is our imported price, competitorAverage, competitorLowest and competitorHighest are competitor prices for 2 adults taken from competitorHotels hotels, and wholeHotelRecommendedMovePercent is the change the daily AI recommendations already suggest for the whole hotel. hotelOccupancyThisMonthPercent is the whole hotel's occupancy this month. For months: raise the rate when occupancy is high and current is at or below competitorAverage, lower it slightly when occupancy is low and current is above competitorAverage, keep it close when occupancy is moderate. For categories: competitor prices are for typical rooms on the market and not for this category, so judge the category against our own prices. Start from wholeHotelRecommendedMovePercent applied to the category's current, move a little more when the category's occupancy is above hotelOccupancyThisMonthPercent and a little less when it is below, and stay within 5 percentage points of the whole-hotel move. If a value is null, ignore it. Return JSON only: {\"rates\":[{\"key\":\"2026-11\",\"rate\":380}]}. Include every key once. rate is a positive number.",
       },
-      { role: "user", content: JSON.stringify({ rows }) },
+      { role: "user", content: JSON.stringify({ context, rows }) },
     ], { temperature: 0.2, timeoutMs: 60_000 });
   } catch (error) {
     console.error(JSON.stringify({ hotelTenantId, error: error instanceof Error ? error.message : String(error) }));
   }
-  return new Map(rows.map((row) => [row.key, rateForKey(parsed, row.key) ?? fallbackRate(row.occupancy, row.current, row.competitorAvg)]));
+  return new Map(rows.map((row) => {
+    const fromAi = rateForKey(parsed, row.key);
+    if (row.kind === "category") {
+      const followWholeHotel = row.current != null && moveRatio != null ? Math.round(row.current * moveRatio) : null;
+      return [row.key, sensibleCategoryRate(fromAi, row.current) ?? followWholeHotel ?? fallbackRate(row.occupancy, row.current, row.competitorAvg)] as const;
+    }
+    return [row.key, fromAi ?? fallbackRate(row.occupancy, row.current, row.competitorAvg)] as const;
+  }));
 }
 
 export async function generateHotelBudget(prisma: PrismaClient, hotelTenantId: string, todayIso: string) {
@@ -153,7 +182,8 @@ export async function generateHotelBudget(prisma: PrismaClient, hotelTenantId: s
   const current = season[0] ?? { year, month: Number(todayIso.slice(5, 7)) };
   const rangeStart = new Date(Date.UTC(year - 1, 0, 1));
   const rangeEnd = new Date(Date.UTC(year + 1, 0, 1));
-  const [rooms, stays, rates] = await Promise.all([
+  const windowDates = weekDates(todayIso);
+  const [rooms, stays, rates, market, week] = await Promise.all([
     prisma.room.findMany({
       where: { hotelTenantId, isActive: true, archivedAt: null },
       select: { number: true, categoryId: true, category: { select: { id: true, nameEn: true, nameDe: true, nameIt: true, currentAdr: true, isActive: true, archivedAt: true } } },
@@ -163,7 +193,19 @@ export async function generateHotelBudget(prisma: PrismaClient, hotelTenantId: s
       select: { roomNumber: true, arrivalDate: true, departureDate: true, status: true, accommodationSale: true, additionalServicesSale: true, spaSale: true },
     }),
     loadHotelAdr(prisma, hotelTenantId),
+    loadMarketPrices(prisma, hotelTenantId, windowDates),
+    prisma.revenueDailyRecommendation.findMany({
+      where: { hotelTenantId, stayDate: { gte: new Date(`${windowDates[0]}T00:00:00.000Z`), lte: new Date(`${windowDates[windowDates.length - 1]}T00:00:00.000Z`) } },
+      select: { currentRate: true, recommendedRate: true },
+    }),
   ]);
+  // Competitor level for the months: the average of the competitors' real prices for the next 14 days
+  // (old single ADR snapshot only while no daily competitor prices exist yet).
+  const competitorAvg = market.hasCompetitors ? market.competitorAverage : rates.competitorAvg;
+  // How much the 14-day recommendations move our price (recommended / current); room categories follow the same move.
+  const pairs = week.flatMap((row) => (row.currentRate != null && row.recommendedRate != null ? [[Number(row.currentRate), Number(row.recommendedRate)] as const] : []));
+  const currentSum = pairs.reduce((sum, [current]) => sum + current, 0);
+  const moveRatio = currentSum > 0 ? pairs.reduce((sum, [, recommended]) => sum + recommended, 0) / currentSum : null;
   const categoryByRoom = new Map(rooms.filter((room) => room.category?.isActive && room.category.archivedAt == null).map((room) => [room.number, room.categoryId]));
   const facts = summarizeStays(stays.filter((stay) => bookedStatuses.has(stay.status.trim().toLowerCase())).map((stay) => ({
     roomNumber: stay.roomNumber,
@@ -194,19 +236,35 @@ export async function generateHotelBudget(prisma: PrismaClient, hotelTenantId: s
     const bucket = facts.categories.get(`${currentKey}|${category.id}`);
     const roomCount = rooms.filter((room) => room.categoryId === category.id).length;
     const calculated = bucket && bucket.nights > 0 ? money(bucket.accommodation / bucket.nights) : null;
+    // Our imported price for this category (average of the next 14 days); old ADR only if the file has no price for it.
+    const imported = market.categories.get(category.id) ?? null;
     return {
       category,
       roomCount,
       occupancy: Math.min(100, occupancyPercent(bucket?.roomNights.size ?? 0, roomCount * daysInMonth(current.year, current.month))),
-      currentAdr: money(category.currentAdr == null ? calculated : Number(category.currentAdr)),
+      currentAdr: money(imported ?? (category.currentAdr == null ? calculated : Number(category.currentAdr))),
       revenue: money(bucket?.revenue ?? 0) ?? 0,
     };
   }).sort((left, right) => left.category.nameEn.localeCompare(right.category.nameEn));
   const shares = revenueShares(categoryFacts.map((item) => item.revenue));
+  const dayMarkets = [...market.days.values()];
+  const lows = dayMarkets.flatMap((day) => (day.competitorLow == null ? [] : [day.competitorLow]));
+  const highs = dayMarkets.flatMap((day) => (day.competitorHigh == null ? [] : [day.competitorHigh]));
+  const context: BudgetRateContext = {
+    next14Days: {
+      ourAverageRate: mean(dayMarkets.map((day) => day.own)),
+      competitorAverage: competitorAvg,
+      competitorLowest: market.hasCompetitors && lows.length ? Math.min(...lows) : null,
+      competitorHighest: market.hasCompetitors && highs.length ? Math.max(...highs) : null,
+      competitorHotels: market.hasCompetitors ? market.competitors.length : 0,
+      wholeHotelRecommendedMovePercent: moveRatio == null ? null : Math.round((moveRatio - 1) * 1000) / 10,
+    },
+    hotelOccupancyThisMonthPercent: monthFacts.find((item) => item.month === current.month && item.year === current.year)?.occupancy ?? null,
+  };
   const recommended = await recommendBudgetRates(prisma, hotelTenantId, [
-    ...monthFacts.map((item) => ({ key: item.key, occupancy: item.occupancy, current: item.currentAdr, competitorAvg: rates.competitorAvg })),
-    ...categoryFacts.map((item) => ({ key: `category:${item.category.id}`, occupancy: item.occupancy, current: item.currentAdr, competitorAvg: rates.competitorAvg })),
-  ]);
+    ...monthFacts.map((item) => ({ key: item.key, kind: "month" as const, occupancy: item.occupancy, current: item.currentAdr, competitorAvg })),
+    ...categoryFacts.map((item) => ({ key: `category:${item.category.id}`, kind: "category" as const, name: item.category.nameEn, occupancy: item.occupancy, current: item.currentAdr, competitorAvg })),
+  ], context, moveRatio);
   const generatedAt = new Date();
   const monthRows: Prisma.BudgetMonthSummaryCreateManyInput[] = monthFacts.map((item) => ({
     id: randomUUID(),

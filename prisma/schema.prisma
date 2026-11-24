@@ -121,10 +121,32 @@ model RoomCategory {
   updatedAt         DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
   hotelTenant       HotelTenant @relation(fields: [hotelTenantId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   roomRecords       Room[]
+  ownRates          OwnRoomRate[]
 
   @@unique([hotelTenantId, id])
   @@unique([hotelTenantId, nameEn])
   @@map("room_categories")
+}
+
+// Our own hotel's price per room category and night, imported from ASA_ftp/rates.json.
+model OwnRoomRate {
+  id                 String       @id @default(uuid()) @db.Uuid
+  hotelTenantId      String       @map("hotel_tenant_id") @db.Uuid
+  categoryId         String       @map("category_id") @db.Uuid
+  rateDate           DateTime     @map("rate_date") @db.Date
+  ratePlan           String       @map("rate_plan") @db.VarChar(40)
+  pricePerPerson1    Decimal?     @map("price_per_person_1") @db.Decimal(14, 2)
+  pricePerPerson2    Decimal?     @map("price_per_person_2") @db.Decimal(14, 2)
+  roomPrice2Adults   Decimal?     @map("room_price_2_adults") @db.Decimal(14, 2)
+  fetchedAt          DateTime     @map("fetched_at") @db.Timestamptz(3)
+  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  hotelTenant        HotelTenant  @relation(fields: [hotelTenantId], references: [id], onDelete: Cascade)
+  category           RoomCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([hotelTenantId, categoryId, rateDate])
+  @@index([hotelTenantId, rateDate])
+  @@map("own_room_rates")
 }
 
 model Room {
@@ -619,6 +641,7 @@ model HotelTenant {
   couponRedemptions                              CouponRedemption[]
   competitors                                    Competitor[]
   competitorSettings                             CompetitorSettings?
+  ownRoomRates                                   OwnRoomRate[]
   revenueDailyRecommendations                    RevenueDailyRecommendation[]
   budgetMonthSummaries                           BudgetMonthSummary[]
   budgetCategorySummaries                        BudgetCategorySummary[]

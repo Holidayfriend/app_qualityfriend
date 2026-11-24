@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isOfferCategory, revenueShares, seasonMonths, summarizeStays, yearOverYear } from "../lib/budget/summaries";
+import { isOfferCategory, revenueShares, seasonMonths, sensibleCategoryRate, summarizeStays, yearOverYear } from "../lib/budget/summaries";
+
+test("a category rate far from our own price is rejected", () => {
+  assert.equal(sensibleCategoryRate(460, 446), 460);
+  assert.equal(sensibleCategoryRate(900, 446), null);
+  assert.equal(sensibleCategoryRate(100, 446), null);
+  assert.equal(sensibleCategoryRate(380, null), 380);
+  assert.equal(sensibleCategoryRate(null, 446), null);
+});
 
 test("Angebot is the offer category kept out of the budget table", () => {
   assert.equal(isOfferCategory(["Angebot", null, null]), true);

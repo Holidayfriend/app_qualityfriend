@@ -4,9 +4,10 @@ import { completeHotelChatJson } from "../ai/complete";
 import { hotelLocalIso } from "../hotel/clock";
 import { occupancyPercent } from "../housekeeping/dashboard-summary";
 import { addDaysIso } from "../schedule/week";
+import { OWN_HOTEL_PREFIX, loadMarketPrices } from "./market-prices";
 
 export const REVENUE_WEEK_DAYS = 14;
-export const OWN_HOTEL_PREFIX = "[OWN HOTEL] ";
+export { OWN_HOTEL_PREFIX };
 
 const closedReservationStatuses: ReservationStatus[] = ["CANCELLED", "NO_SHOW"];
 
@@ -17,6 +18,9 @@ export type RevenueDayInput = {
   occupancy: number;
   current: number | null;
   competitorAvg: number | null;
+  competitorLowest?: number | null;
+  competitorHighest?: number | null;
+  competitorCount?: number;
 };
 
 export function weekDates(startIso: string, days = REVENUE_WEEK_DAYS) {
@@ -129,7 +133,7 @@ async function recommendRates(prisma: PrismaClient, hotelTenantId: string, days:
     parsed = await completeHotelChatJson(prisma, hotelTenantId, [
       {
         role: "system",
-        content: "You recommend one nightly room rate in EUR for each stay date. Use only the facts given. Do not add events, weather, last year, or any number that is not in the facts. Current is this hotel's ADR and competitorAvg is the average competitor ADR. Both prices are one snapshot, repeated for every date. Occupancy is the percent of rooms already booked that night. Raise the rate when occupancy is high and current is at or below the competitor average. Lower it slightly when occupancy is low and current is above the competitor average. Keep it close when occupancy is moderate. Return JSON only: {\"rates\":[{\"date\":\"YYYY-MM-DD\",\"rate\":380}]}. Include every date once. rate is a positive number.",
+        content: "You recommend one nightly room rate in EUR for each stay date. Use only the facts given. Do not add events, weather, last year, or any number that is not in the facts. For each date, current is this hotel's own average room price for 2 adults that night (from our imported rates, null if we have none). competitorAvg, competitorLowest and competitorHighest are the average, lowest and highest competitor price for 2 adults that night, taken from competitorCount hotels that had a price (all null if none). Occupancy is the percent of rooms already booked that night. Raise the rate when occupancy is high and current is at or below competitorAvg. Lower it slightly when occupancy is low and current is above competitorAvg. Keep it close when occupancy is moderate. If competitorAvg is null, decide from current and occupancy only. If current is null, base the rate on competitorAvg. Return JSON only: {\"rates\":[{\"date\":\"YYYY-MM-DD\",\"rate\":380}]}. Include every date once. rate is a positive number.",
       },
       { role: "user", content: JSON.stringify({ days }) },
     ], { temperature: 0.2, timeoutMs: 60_000 });
@@ -145,17 +149,26 @@ async function recommendRates(prisma: PrismaClient, hotelTenantId: string, days:
 
 export async function generateHotelRevenueWeek(prisma: PrismaClient, hotelTenantId: string, startIso: string) {
   const dates = weekDates(startIso);
-  const [capacity, occupied, rates] = await Promise.all([
+  const [capacity, occupied, market, legacy] = await Promise.all([
     prisma.room.count({ where: { hotelTenantId, isActive: true, archivedAt: null } }),
     occupiedByDate(prisma, hotelTenantId, dates),
+    loadMarketPrices(prisma, hotelTenantId, dates),
     loadHotelAdr(prisma, hotelTenantId),
   ]);
-  const days: RevenueDayInput[] = dates.map((date) => ({
-    date,
-    occupancy: occupancyPercent(occupied.get(date) ?? 0, capacity),
-    current: rates.current,
-    competitorAvg: rates.competitorAvg,
-  }));
+  // Real per-day prices: our imported rates and the competitors' prices for that date.
+  // The old single ADR snapshot is only a fallback while nothing has been imported/scraped yet.
+  const days: RevenueDayInput[] = dates.map((date) => {
+    const day = market.days.get(date);
+    return {
+      date,
+      occupancy: occupancyPercent(occupied.get(date) ?? 0, capacity),
+      current: market.hasOwn ? day?.own ?? null : legacy.current,
+      competitorAvg: market.hasCompetitors ? day?.competitorAvg ?? null : legacy.competitorAvg,
+      competitorLowest: market.hasCompetitors ? day?.competitorLow ?? null : null,
+      competitorHighest: market.hasCompetitors ? day?.competitorHigh ?? null : null,
+      competitorCount: market.hasCompetitors ? day?.competitorCount ?? 0 : 0,
+    };
+  });
   const recommended = await recommendRates(prisma, hotelTenantId, days);
   const generatedAt = new Date();
   await prisma.$transaction(days.map((day) => {

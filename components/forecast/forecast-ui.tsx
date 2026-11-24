@@ -12,16 +12,17 @@ export function useForecast() {
   return forecastMessages[locale];
 }
 
-export function ForecastShell({ activeItem, children }: { activeItem: "revenue" | "competitors" | "budget"; children: ReactNode }) {
+export function ForecastShell({ activeItem, children }: { activeItem: "revenue" | "competitors" | "budget" | "myPrices"; children: ReactNode }) {
   const t = useForecast();
   const { locale, dictionary } = useI18n();
   const tabs = [
     { id: "revenue", href: "/revenue", label: `✨ ${dictionary.navigation.revenue}` },
     { id: "competitors", href: "/competitors", label: `🏆 ${moduleNavigationMessages[locale].competitors}` },
     { id: "budget", href: "/budget", label: `📊 ${dictionary.navigation.budget}` },
+    { id: "myPrices", href: "/my-prices", label: `💶 ${t.myPrices.tab}` },
   ] as const;
   return (
-    <AppShell activeItem={activeItem} pageTitle={t.title}>
+    <AppShell activeItem={activeItem === "myPrices" ? "revenue" : activeItem} pageTitle={t.title}>
       <main className="w-full p-4 pb-24 sm:p-5 lg:px-7 lg:py-6">
         <nav className="mb-3.5 flex flex-wrap gap-2" aria-label={t.title}>
           {tabs.map((tab) => (

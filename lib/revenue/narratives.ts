@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
 import type { PrismaClient } from "../../app/generated/prisma/client";
 import { completeHotelChatJson } from "../ai/complete";
-import { OWN_HOTEL_PREFIX, weekDates } from "./daily-recommendations";
+import { weekDates } from "./daily-recommendations";
+import { loadMarketPrices } from "./market-prices";
 
 export type NarrativeText = { en: string; de: string; it: string };
 
@@ -56,11 +57,6 @@ export function narrativeFromAi(parsed: Record<string, unknown> | null, fallback
   };
 }
 
-function numberOrNull(value: unknown) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? Math.round(parsed * 100) / 100 : null;
-}
-
 function money(value: unknown) {
   if (value == null) return null;
   const parsed = Number(value);
@@ -112,14 +108,11 @@ async function ask(prisma: PrismaClient, hotelTenantId: string, facts: unknown, 
 
 export async function generateForecastNarratives(prisma: PrismaClient, hotelTenantId: string, startIso: string) {
   const dates = weekDates(startIso);
-  const [rows, settings] = await Promise.all([
-    prisma.revenueDailyRecommendation.findMany({
-      where: { hotelTenantId, stayDate: { gte: new Date(`${dates[0]}T00:00:00.000Z`), lte: new Date(`${dates[dates.length - 1]}T00:00:00.000Z`) } },
-      orderBy: { stayDate: "asc" },
-      select: { stayDate: true, occupancyPercent: true, currentRate: true, recommendedRate: true, competitorAvg: true, status: true },
-    }),
-    prisma.competitorSettings.findUnique({ where: { hotelTenantId }, select: { locationCode: true } }),
-  ]);
+  const rows = await prisma.revenueDailyRecommendation.findMany({
+    where: { hotelTenantId, stayDate: { gte: new Date(`${dates[0]}T00:00:00.000Z`), lte: new Date(`${dates[dates.length - 1]}T00:00:00.000Z`) } },
+    orderBy: { stayDate: "asc" },
+    select: { stayDate: true, occupancyPercent: true, currentRate: true, recommendedRate: true, competitorAvg: true, status: true },
+  });
   const days = rows.map((row) => ({
     date: row.stayDate.toISOString().slice(0, 10),
     occupancy: row.occupancyPercent,
@@ -128,22 +121,15 @@ export async function generateForecastNarratives(prisma: PrismaClient, hotelTena
     competitorAvg: money(row.competitorAvg),
     status: row.status,
   }));
-  const competitors = settings?.locationCode == null ? [] : await prisma.competitor.findMany({
-    where: { hotelTenantId, locationKey: String(settings.locationCode) },
-    orderBy: [{ bestValueRank: "asc" }, { name: "asc" }],
-    take: 20,
-    select: { name: true, adr: true, rating: true, reviewCount: true, rawPayload: true },
-  });
-  const hotels = competitors.map((row) => ({
-    name: row.name.startsWith(OWN_HOTEL_PREFIX) ? row.name.slice(OWN_HOTEL_PREFIX.length) : row.name,
-    own: row.name.startsWith(OWN_HOTEL_PREFIX),
-    adr: money(row.adr),
-    rating: row.rating,
-    reviewCount: row.reviewCount,
-    distanceKm: row.rawPayload && typeof row.rawPayload === "object" && !Array.isArray(row.rawPayload) ? numberOrNull((row.rawPayload as { distKm?: unknown }).distKm) : null,
+  const market = await loadMarketPrices(prisma, hotelTenantId, dates);
+  const others = market.competitors.map((hotel) => ({
+    name: hotel.name,
+    adr: money(hotel.averageRate),
+    rating: hotel.rating,
+    reviewCount: hotel.reviewCount,
+    distanceKm: hotel.distanceKm,
+    daysWithPrice: hotel.daysWithPrice,
   }));
-  const own = hotels.find((hotel) => hotel.own) ?? null;
-  const others = hotels.filter((hotel) => !hotel.own);
   const occupancies = days.map((day) => day.occupancy);
   const priceFacts = {
     days: days.length,
@@ -159,13 +145,15 @@ export async function generateForecastNarratives(prisma: PrismaClient, hotelTena
   };
   const price = await ask(prisma, hotelTenantId, { task: "Summarize the price recommendation for these days.", ...priceFacts }, priceFallback(days.length, priceFacts["average occupancy percent"], priceFacts["average current rate EUR"], priceFacts["average recommended rate EUR"]));
   const closest = [...others].sort((left, right) => (left.distanceKm ?? 999) - (right.distanceKm ?? 999)).slice(0, 6);
+  const ownRate = priceFacts["average current rate EUR"];
+  const competitorRate = average(days.map((day) => day.competitorAvg));
   const competitor = await ask(prisma, hotelTenantId, {
-    task: "In two sentences, compare our rate with these competitors. Name at most three hotels. Do not list every hotel.",
-    own: own ? { name: own.name, adr: own.adr, rating: own.rating, reviewCount: own.reviewCount } : null,
+    task: "In two sentences, compare our average room price for the next 14 days with these competitors' average prices for 2 adults. Name at most three hotels. Do not list every hotel.",
+    ourAverageRateEUR: ownRate,
     competitorCount: others.length,
-    averageCompetitorRateEUR: average(others.map((hotel) => hotel.adr)),
-    nearestCompetitors: closest,
-  }, competitorFallback(own?.adr ?? null, average(others.map((hotel) => hotel.adr)), others.length));
+    averageCompetitorRateEUR: competitorRate,
+    nearestCompetitors: closest.map((hotel) => ({ name: hotel.name, averageRateEUR: hotel.adr, distanceKm: hotel.distanceKm, rating: hotel.rating, daysWithPrice: hotel.daysWithPrice })),
+  }, competitorFallback(ownRate, competitorRate, others.length));
   const generatedAt = new Date();
   await prisma.forecastNarrative.upsert({
     where: { hotelTenantId },
