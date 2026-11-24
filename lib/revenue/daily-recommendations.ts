@@ -21,6 +21,7 @@ export type RevenueDayInput = {
   competitorLowest?: number | null;
   competitorHighest?: number | null;
   competitorCount?: number;
+  competitorPricedThatNight?: number;
 };
 
 export function weekDates(startIso: string, days = REVENUE_WEEK_DAYS) {
@@ -133,7 +134,7 @@ async function recommendRates(prisma: PrismaClient, hotelTenantId: string, days:
     parsed = await completeHotelChatJson(prisma, hotelTenantId, [
       {
         role: "system",
-        content: "You recommend one nightly room rate in EUR for each stay date. Use only the facts given. Do not add events, weather, last year, or any number that is not in the facts. For each date, current is this hotel's own average room price for 2 adults that night (from our imported rates, null if we have none). competitorAvg, competitorLowest and competitorHighest are the average, lowest and highest competitor price for 2 adults that night, taken from competitorCount hotels that had a price (all null if none). Occupancy is the percent of rooms already booked that night. Raise the rate when occupancy is high and current is at or below competitorAvg. Lower it slightly when occupancy is low and current is above competitorAvg. Keep it close when occupancy is moderate. If competitorAvg is null, decide from current and occupancy only. If current is null, base the rate on competitorAvg. Return JSON only: {\"rates\":[{\"date\":\"YYYY-MM-DD\",\"rate\":380}]}. Include every date once. rate is a positive number.",
+        content: "You recommend one nightly room rate in EUR for each stay date. Use only the facts given. Do not add events, weather, last year, or any number that is not in the facts. For each date, current is this hotel's own average room price for 2 adults that night (from our imported rates, null if we have none). competitorAvg is the average competitor price for 2 adults over competitorCount hotels (a hotel with no price that night counts with its average price from other nights), competitorPricedThatNight of them had a real price that night, and competitorLowest and competitorHighest are the lowest and highest of those real prices (null if none). Trust competitorAvg less when competitorPricedThatNight is 0 or 1. Occupancy is the percent of rooms already booked that night. Raise the rate when occupancy is high and current is at or below competitorAvg. Lower it slightly when occupancy is low and current is above competitorAvg. Keep it close when occupancy is moderate. If competitorAvg is null, decide from current and occupancy only. If current is null, base the rate on competitorAvg. Return JSON only: {\"rates\":[{\"date\":\"YYYY-MM-DD\",\"rate\":380}]}. Include every date once. rate is a positive number.",
       },
       { role: "user", content: JSON.stringify({ days }) },
     ], { temperature: 0.2, timeoutMs: 60_000 });
@@ -167,6 +168,7 @@ export async function generateHotelRevenueWeek(prisma: PrismaClient, hotelTenant
       competitorLowest: market.hasCompetitors ? day?.competitorLow ?? null : null,
       competitorHighest: market.hasCompetitors ? day?.competitorHigh ?? null : null,
       competitorCount: market.hasCompetitors ? day?.competitorCount ?? 0 : 0,
+      competitorPricedThatNight: market.hasCompetitors ? day?.competitorPriced ?? 0 : 0,
     };
   });
   const recommended = await recommendRates(prisma, hotelTenantId, days);

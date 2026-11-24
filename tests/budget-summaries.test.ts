@@ -1,6 +1,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isOfferCategory, revenueShares, seasonMonths, sensibleCategoryRate, summarizeStays, yearOverYear } from "../lib/budget/summaries";
+import { bookedNightsInWindow, isOfferCategory, revenueShares, seasonMonths, sensibleCategoryRate, summarizeStays, yearOverYear } from "../lib/budget/summaries";
+
+test("counts booked room-nights per category inside the 14-day window", () => {
+  const stay = (roomNumber: string, categoryId: string | null, arrival: string, departure: string) => ({ roomNumber, categoryId, arrival, departure, accommodation: 0, additional: 0, spa: 0 });
+  const dates = ["2026-11-24", "2026-11-25", "2026-11-26"];
+  const nights = bookedNightsInWindow([
+    stay("101", "a", "2026-11-23", "2026-11-25"),
+    stay("101", "a", "2026-11-24", "2026-11-25"),
+    stay("102", "a", "2026-11-26", "2026-11-30"),
+    stay("201", "b", "2026-12-01", "2026-12-03"),
+    stay("301", null, "2026-11-24", "2026-11-26"),
+  ], dates);
+  // 101 on 24 Nov (two overlapping stays count once) + 102 on 26 Nov.
+  assert.equal(nights.get("a"), 2);
+  assert.equal(nights.has("b"), false);
+});
 
 test("a category rate far from our own price is rejected", () => {
   assert.equal(sensibleCategoryRate(460, 446), 460);

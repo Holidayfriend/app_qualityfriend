@@ -22,8 +22,20 @@ test("competitor average, lowest and highest for one date", () => {
     { days: new Map([["2026-11-24", 250]]) },
     { days: new Map<string, number>() },
   ];
-  assert.deepEqual(competitorsOnDate(competitors, "2026-11-24"), { avg: 220, low: 190, high: 250, count: 2 });
-  assert.deepEqual(competitorsOnDate(competitors, "2026-11-26"), { avg: null, low: null, high: null, count: 0 });
+  assert.deepEqual(competitorsOnDate(competitors, "2026-11-24"), { avg: 220, low: 190, high: 250, count: 2, priced: 2 });
+  assert.deepEqual(competitorsOnDate(competitors, "2026-11-26"), { avg: null, low: null, high: null, count: 0, priced: 0 });
+});
+
+test("a hotel with no price that day counts with its own average ADR; hotels with no price at all are left out", () => {
+  const competitors = [
+    { days: new Map([["2026-11-25", 801], ["2026-11-27", 1001]]), overall: 901 },
+    { days: new Map([["2026-11-27", 200]]), overall: 200 },
+    { days: new Map<string, number>(), overall: null },
+  ];
+  // 25 Nov: only the first hotel has a real price; the second counts with its average (200); the third is excluded.
+  assert.deepEqual(competitorsOnDate(competitors, "2026-11-25"), { avg: 500.5, low: 801, high: 801, count: 2, priced: 1 });
+  // 24 Nov: nobody has a real price, but the average still uses the hotels' own ADRs.
+  assert.deepEqual(competitorsOnDate(competitors, "2026-11-24"), { avg: 550.5, low: null, high: null, count: 2, priced: 0 });
 });
 
 test("our price is the room-count weighted average of the categories that have a price", () => {

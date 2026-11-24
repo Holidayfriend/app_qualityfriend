@@ -44,13 +44,28 @@ export function weightedPrice(items: Array<{ price: number | null; weight: numbe
   return round2(priced.reduce((sum, item, index) => sum + item.price * weights[index], 0) / total);
 }
 
-export function competitorsOnDate(competitors: Array<{ days: Map<string, number> }>, date: string) {
-  const prices = competitors.flatMap((competitor) => {
+// Competitor level for one date. Every competitor that has an ADR counts: its own price for that date,
+// or - when it returned none that day - its average ADR over the other days (`overall`).
+// Competitors with no price at all are left out. Lowest / highest only use real prices for that date.
+export function competitorsOnDate(competitors: Array<{ days: Map<string, number>; overall?: number | null }>, date: string) {
+  const actual: number[] = [];
+  const used: number[] = [];
+  for (const competitor of competitors) {
     const price = competitor.days.get(date);
-    return price === undefined ? [] : [price];
-  });
-  if (!prices.length) return { avg: null, low: null, high: null, count: 0 };
-  return { avg: mean(prices), low: Math.min(...prices), high: Math.max(...prices), count: prices.length };
+    if (price !== undefined) {
+      actual.push(price);
+      used.push(price);
+    } else if (competitor.overall != null) {
+      used.push(competitor.overall);
+    }
+  }
+  return {
+    avg: mean(used),
+    low: actual.length ? Math.min(...actual) : null,
+    high: actual.length ? Math.max(...actual) : null,
+    count: used.length,
+    priced: actual.length,
+  };
 }
 
 export type DayMarket = {
@@ -58,7 +73,9 @@ export type DayMarket = {
   competitorAvg: number | null;
   competitorLow: number | null;
   competitorHigh: number | null;
+  // Hotels in the average, and how many of them had a real price on that date.
   competitorCount: number;
+  competitorPriced: number;
 };
 
 export type MarketPrices = {
@@ -67,6 +84,8 @@ export type MarketPrices = {
   days: Map<string, DayMarket>;
   // Our average price per room category over the dates (EZ has no 2-person price, so its 1-person price is used).
   categories: Map<string, number>;
+  // Our imported price per category and date (same figures as the My prices page).
+  categoryDaily: Map<string, Array<{ date: string; price: number }>>;
   competitorAverage: number | null;
   competitors: Array<{ name: string; distanceKm: number | null; rating: number | null; reviewCount: number | null; averageRate: number | null; daysWithPrice: number }>;
 };
@@ -96,10 +115,10 @@ export async function loadMarketPrices(prisma: PrismaClient, hotelTenantId: stri
     reviewCount: row.reviewCount,
     distanceKm: row.rawPayload && typeof row.rawPayload === "object" && !Array.isArray(row.rawPayload) ? num((row.rawPayload as { distKm?: unknown }).distKm) : null,
     days: dailyFromMentions(row.mentions, dateSet),
-  }));
+  })).map((competitor) => ({ ...competitor, overall: mean([...competitor.days.values()]) }));
 
   const ownByDate = new Map<string, Array<{ price: number | null; weight: number }>>();
-  const byCategory = new Map<string, number[]>();
+  const byCategory = new Map<string, Array<{ date: string; price: number }>>();
   for (const rate of rates) {
     const date = rate.rateDate.toISOString().slice(0, 10);
     const room2 = num(rate.roomPrice2Adults);
@@ -108,8 +127,9 @@ export async function loadMarketPrices(prisma: PrismaClient, hotelTenantId: stri
     ownByDate.set(date, list);
     const single = num(rate.pricePerPerson1);
     const price = room2 ?? single;
-    if (price !== null) byCategory.set(rate.categoryId, [...(byCategory.get(rate.categoryId) ?? []), price]);
+    if (price !== null) byCategory.set(rate.categoryId, [...(byCategory.get(rate.categoryId) ?? []), { date, price }]);
   }
+  for (const list of byCategory.values()) list.sort((a, b) => a.date.localeCompare(b.date));
 
   const days = new Map<string, DayMarket>();
   for (const date of dates) {
@@ -120,6 +140,7 @@ export async function loadMarketPrices(prisma: PrismaClient, hotelTenantId: stri
       competitorLow: market.low,
       competitorHigh: market.high,
       competitorCount: market.count,
+      competitorPriced: market.priced,
     });
   }
   const values = [...days.values()];
@@ -127,7 +148,8 @@ export async function loadMarketPrices(prisma: PrismaClient, hotelTenantId: stri
     hasOwn: values.some((day) => day.own !== null),
     hasCompetitors: values.some((day) => day.competitorCount > 0),
     days,
-    categories: new Map([...byCategory.entries()].flatMap(([id, prices]) => { const average = mean(prices); return average === null ? [] : [[id, average] as const]; })),
+    categories: new Map([...byCategory.entries()].flatMap(([id, list]) => { const average = mean(list.map((item) => item.price)); return average === null ? [] : [[id, average] as const]; })),
+    categoryDaily: byCategory,
     competitorAverage: mean(values.map((day) => day.competitorAvg)),
     competitors: competitors.map((competitor) => ({
       name: competitor.name,
