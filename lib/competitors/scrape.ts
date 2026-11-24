@@ -1,7 +1,9 @@
 import { LocationLookupError } from "./location";
 
 const SEARCH_URL = "https://api.dataforseo.com/v3/business_data/google/hotel_searches";
-export const DAYS_AHEAD = [0, 10, 24, 45, 90];
+// One search per day for the next 14 days: check-in today / check-out tomorrow, then +1 day, and so on.
+export const DAYS_AHEAD = Array.from({ length: 14 }, (_, day) => day);
+export const ADULTS = 2;
 export const NIGHTS = 1;
 export const RADIUS_KM = 6;
 
@@ -20,8 +22,15 @@ export type SearchHotel = {
   maxPrice: number | null;
   adr: number | null;
   prices: Record<string, number>;
+  daily: DailyPrice[];
   raw: Record<string, unknown>;
 };
+
+export type DailyPrice = { date: string; min: number; max: number; adr: number };
+
+export function dailyMentions(daily: DailyPrice[]) {
+  return daily.map((day) => ({ date: day.date, price: day.min, minPrice: day.min, maxPrice: day.max, adr: day.adr }));
+}
 
 type HotelItem = {
   title?: string;
@@ -95,12 +104,6 @@ export function selectHotels(
     }
   }
 
-  const titles = [...merged.values()].map((entry) => entry.item.title ?? "");
-  const mustHave = mustInclude.map((name) => ({
-    name,
-    found: titles.some((title) => title.toLowerCase().includes(name.trim().toLowerCase())),
-  }));
-
   const hotels = [...merged.entries()].flatMap(([key, entry]) => {
     const latitude = numberOrNull(entry.item.location?.latitude);
     const longitude = numberOrNull(entry.item.location?.longitude);
@@ -127,12 +130,23 @@ export function selectHotels(
       maxPrice,
       adr: averageAdr(minPrice, maxPrice),
       prices: entry.prices,
+      daily: Object.entries(entry.ranges)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([date, span]) => ({ date, min: span.min, max: span.max, adr: averageAdr(span.min, span.max) ?? span.min })),
       raw: { ...entry.item, title, distKm: distance, priceList: entry.prices, own },
     } satisfies SearchHotel];
   });
 
   hotels.sort((a, b) => (a.distanceKm ?? 9999) - (b.distanceKm ?? 9999));
-  return { hotels, mustHave };
+
+  const needles = mustInclude.map((name) => name.trim().toLowerCase()).filter(Boolean);
+  const mustHave = mustInclude.map((name) => ({
+    name,
+    found: hotels.some((hotel) => competitorNameKey(hotel.title).includes(name.trim().toLowerCase())),
+  }));
+  // Only hotels the user typed under "Must include" are kept when scraping.
+  const selected = hotels.filter((hotel) => needles.some((needle) => competitorNameKey(hotel.title).includes(needle)));
+  return { hotels, selected, mustHave };
 }
 
 export async function searchCompetitorHotels(input: {
@@ -160,7 +174,7 @@ export async function searchCompetitorHotels(input: {
       language_code: "en",
       check_in: stay.checkIn,
       check_out: stay.checkOut,
-      adults: 2,
+      adults: ADULTS,
       currency: "EUR",
       priority: 2,
     },
@@ -181,7 +195,7 @@ export async function searchCompetitorHotels(input: {
   const batches: Array<{ date: string; items: HotelItem[] }> = [];
   for (let round = 0; round < 36 && pending.size; round += 1) {
     await sleep(10_000);
-    for (const [id, meta] of [...pending]) {
+    await Promise.all([...pending].map(async ([id, meta]) => {
       const result = await dataForSeo<{ tasks?: Array<{ status_code?: number; result?: Array<{ items?: HotelItem[] }> }> }>("GET", `${SEARCH_URL}/task_get/${id}`, undefined, login, password);
       const task = result.tasks?.[0];
       const code = task?.status_code ?? 0;
@@ -191,7 +205,7 @@ export async function searchCompetitorHotels(input: {
       } else if (code >= 40000 && code !== 40601 && code !== 40602) {
         pending.delete(id);
       }
-    }
+    }));
   }
 
   const today = checkInDates(now, [0])[0]?.date;

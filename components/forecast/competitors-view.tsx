@@ -18,7 +18,14 @@ type Hotel = {
   distanceKm: number | null;
   url: string;
   fetchedAt: string;
+  daily?: Array<{ date: string; minPrice: number | null; maxPrice: number | null; adr: number | null }>;
 };
+
+function dayText(date: string, locale: string) {
+  const parsed = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return date;
+  return parsed.toLocaleDateString(locale === "de" ? "de-DE" : locale === "it" ? "it-IT" : "en-GB", { weekday: "short", day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
+}
 
 function moneyText(value: number | null) {
   if (value === null) return "–";
@@ -77,6 +84,7 @@ export function CompetitorsView() {
   const [saving, setSaving] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [updateError, setUpdateError] = useState("");
+  const [openDays, setOpenDays] = useState<string | null>(null);
 
   function reload() {
     return fetch("/api/competitors")
@@ -250,9 +258,14 @@ export function CompetitorsView() {
       {updateError ? <p role="alert" className="mb-3.5 text-[12px] text-[#DC2626]">{updateError}</p> : null}
       <Card title={t.tracked} flush>
         <DataTable headers={[{ label: t.hotel }, { label: t.minPrice }, { label: t.maxPrice }, { label: t.adr }, { label: t.distanceCol }, { label: t.ratingLead }, { label: t.actions, align: "right" }]}>
-          {tracked.length === 0 ? <tr><td colSpan={7} className="px-3 py-4 text-[13px] text-[var(--qf-text-muted)]">{t.empty}</td></tr> : tracked.map((hotel) => (
+          {tracked.length === 0 ? <tr><td colSpan={7} className="px-3 py-4 text-[13px] text-[var(--qf-text-muted)]">{t.empty}</td></tr> : tracked.flatMap((hotel) => [
             <tr key={hotel.id} className="group">
-              <Td>{hotel.name}</Td>
+              <Td>
+                {hotel.name}
+                <button type="button" onClick={() => setOpenDays((current) => (current === hotel.id ? null : hotel.id))} aria-expanded={openDays === hotel.id} className="mt-0.5 block cursor-pointer text-[12px] font-semibold text-[var(--qf-accent)] hover:underline">
+                  {openDays === hotel.id ? t.hideDays : t.nextDays} {openDays === hotel.id ? "▴" : "▾"}
+                </button>
+              </Td>
               <Td muted={hotel.minPrice === null}>{moneyText(hotel.minPrice)}</Td>
               <Td muted={hotel.maxPrice === null}>{moneyText(hotel.maxPrice)}</Td>
               <Td muted={hotel.adr === null}>{moneyText(hotel.adr)}</Td>
@@ -262,8 +275,37 @@ export function CompetitorsView() {
                 <button type="button" aria-label={t.edit} title={t.edit} onClick={() => openEdit(hotel)} className="mr-1 inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-[6px] border border-[var(--qf-border)] bg-white text-[12px] text-[var(--qf-text-muted)] hover:border-[var(--qf-accent)] hover:text-[var(--qf-accent)]">✏️</button>
                 <button type="button" aria-label={t.remove} title={t.remove} onClick={() => remove(hotel)} className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-[6px] border border-[var(--qf-border)] bg-white text-[12px] text-[var(--qf-text-muted)] hover:border-[#DC2626] hover:text-[#DC2626]">🗑️</button>
               </Td>
-            </tr>
-          ))}
+            </tr>,
+            ...(openDays === hotel.id ? [
+              <tr key={`${hotel.id}-days`}>
+                <td colSpan={7} className="bg-[#FAF9F7] px-4 py-3">
+                  <p className="mb-2 text-[12px] text-[var(--qf-text-muted)]">{t.daysHint}</p>
+                  {hotel.daily?.length ? (
+                    <table className="w-full max-w-[560px] text-[12.5px]">
+                      <thead>
+                        <tr className="text-left text-[var(--qf-text-muted)]">
+                          <th className="py-1 pr-3 font-semibold">{t.date}</th>
+                          <th className="py-1 pr-3 font-semibold">{t.minPrice}</th>
+                          <th className="py-1 pr-3 font-semibold">{t.maxPrice}</th>
+                          <th className="py-1 font-semibold">{t.adr}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {hotel.daily.map((day) => (
+                          <tr key={day.date} className="border-t border-[var(--qf-border)]">
+                            <td className="py-1 pr-3">{dayText(day.date, locale)}</td>
+                            <td className="py-1 pr-3">{moneyText(day.minPrice)}</td>
+                            <td className="py-1 pr-3">{moneyText(day.maxPrice)}</td>
+                            <td className="py-1">{moneyText(day.adr)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : <p className="text-[12.5px] text-[var(--qf-text-muted)]">{t.noDays}</p>}
+                </td>
+              </tr>,
+            ] : []),
+          ])}
         </DataTable>
       </Card>
       {editor ? (

@@ -3,7 +3,7 @@ import type { Prisma } from "../../../../app/generated/prisma/client";
 import { accessibleModules } from "../../../../lib/auth/module-access";
 import { getSessionUserId } from "../../../../lib/auth/session";
 import { LocationLookupError, parseCompetitorSettings } from "../../../../lib/competitors/location";
-import { matchStoredCompetitor, searchCompetitorHotels } from "../../../../lib/competitors/scrape";
+import { competitorNameKey, dailyMentions, matchStoredCompetitor, searchCompetitorHotels } from "../../../../lib/competitors/scrape";
 import { prisma } from "../../../../lib/prisma";
 import { hasTrustedOrigin } from "../../../../lib/security/request-origin";
 
@@ -83,13 +83,13 @@ export async function POST(request: Request) {
               minPrice: match.minPrice,
               maxPrice: match.maxPrice,
               adr: match.adr,
-              mentions: Object.entries(match.prices).map(([date, price]) => ({ date, price })) as Prisma.InputJsonValue,
+              mentions: dailyMentions(match.daily) as Prisma.InputJsonValue,
               lastFetchedAt: fetchedAt,
             },
           });
           count += 1;
         }
-        return count;
+        return { added: 0, refreshed: count };
       }
       await tx.competitorSettings.upsert({
         where: { hotelTenantId: current.hotelTenantId },
@@ -106,38 +106,50 @@ export async function POST(request: Request) {
           mustInclude: parsed.mustInclude,
         },
       });
-      await tx.competitor.deleteMany({ where: { hotelTenantId: current.hotelTenantId, locationKey } });
-      if (found.hotels.length) {
-        await tx.competitor.createMany({
-          data: found.hotels.map((item, index) => ({
-            hotelTenantId: current.hotelTenantId,
-            locationKey,
-            externalKey: item.key,
-            name: item.title,
-            accommodationType: item.stars === null ? null : String(item.stars),
-            rating: item.rating,
-            reviewCount: item.reviewCount === null ? null : Math.max(0, Math.trunc(item.reviewCount)),
-            minPrice: item.minPrice,
-            maxPrice: item.maxPrice,
-            adr: item.adr,
-            latitude: item.latitude,
-            longitude: item.longitude,
-            image: item.image,
-            mentions: Object.entries(item.prices).map(([date, price]) => ({ date, price })) as Prisma.InputJsonValue,
-            merchandisingLabels: [] as Prisma.InputJsonValue,
-            rawPayload: item.raw as Prisma.InputJsonValue,
-            bestValueRank: index + 1,
-            lastFetchedAt: fetchedAt,
-          })),
-        });
+      // Only the "Must include" hotels are saved: update the ones already stored, add the new ones.
+      const existing = await tx.competitor.findMany({
+        where: { hotelTenantId: current.hotelTenantId, locationKey },
+        select: { id: true, externalKey: true, name: true },
+      });
+      let added = 0;
+      let refreshed = 0;
+      for (const [index, item] of found.selected.entries()) {
+        const data = {
+          name: item.title,
+          accommodationType: item.stars === null ? null : String(item.stars),
+          rating: item.rating,
+          reviewCount: item.reviewCount === null ? null : Math.max(0, Math.trunc(item.reviewCount)),
+          minPrice: item.minPrice,
+          maxPrice: item.maxPrice,
+          adr: item.adr,
+          latitude: item.latitude,
+          longitude: item.longitude,
+          image: item.image,
+          mentions: dailyMentions(item.daily) as Prisma.InputJsonValue,
+          merchandisingLabels: [] as Prisma.InputJsonValue,
+          rawPayload: item.raw as Prisma.InputJsonValue,
+          bestValueRank: index + 1,
+          lastFetchedAt: fetchedAt,
+        };
+        const stored = existing.find((row) => row.externalKey === item.key)
+          ?? existing.find((row) => competitorNameKey(row.name) === competitorNameKey(item.title));
+        if (stored) {
+          await tx.competitor.update({ where: { id: stored.id }, data: { ...data, externalKey: item.key } });
+          refreshed += 1;
+        } else {
+          await tx.competitor.create({ data: { ...data, hotelTenantId: current.hotelTenantId, locationKey, externalKey: item.key } });
+          added += 1;
+        }
       }
-      return found.hotels.length;
+      return { added, refreshed };
     });
 
     return NextResponse.json({
-      saved: updated,
+      saved: updated.added + updated.refreshed,
+      added: updated.added,
+      updated: updated.refreshed,
       mustHave: found.mustHave,
-      hotels: found.hotels.map((item) => ({
+      hotels: found.selected.map((item) => ({
         name: item.title,
         distanceKm: item.distanceKm === null ? null : Math.round(item.distanceKm * 10) / 10,
         minPrice: item.minPrice,

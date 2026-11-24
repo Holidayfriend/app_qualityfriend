@@ -43,6 +43,22 @@ test("keeps hotels inside 6 km and checks must-include names", () => {
   assert.equal(result.hotels[0]?.adr, 210);
 });
 
+test("scrape keeps only the hotels typed under Must include", () => {
+  const result = selectHotels([
+    {
+      date: "2026-11-19",
+      items: [
+        { title: "Hotel Weihrerhof", hotel_identifier: "own", location: { latitude: 46.5207, longitude: 11.4248 }, prices: { price: 180 } },
+        { title: "Hotel Wolfsgrubenersee", hotel_identifier: "wolf", location: { latitude: 46.522, longitude: 11.426 }, prices: { price: 210 } },
+        { title: "Hotel Other", hotel_identifier: "other", location: { latitude: 46.523, longitude: 11.427 }, prices: { price: 120 } },
+      ],
+    },
+  ], { latitude: 46.5207, longitude: 11.4248 }, "Weihrerhof", ["wolfsgrubenersee"]);
+
+  assert.deepEqual(result.selected.map((hotel) => hotel.key), ["wolf"]);
+  assert.equal(selectHotels([], { latitude: 0, longitude: 0 }, "X", []).selected.length, 0);
+});
+
 test("uses today's quoted min and max and sets ADR to their average", () => {
   const result = selectHotels([
     {
@@ -72,6 +88,28 @@ test("price updates match a saved competitor and ignore a new one", () => {
   assert.equal(matchStoredCompetitor({ externalKey: "hang", name: "Hotel Am Hang" }, found)?.key, "hang");
   assert.equal(matchStoredCompetitor({ externalKey: "manual-1", name: "[OWN HOTEL] Hotel Weihrerhof" }, [{ key: "own", title: "[OWN HOTEL] Hotel Weihrerhof" }])?.key, "own");
   assert.equal(matchStoredCompetitor({ externalKey: "old", name: "Hotel Alt" }, found), null);
+});
+
+test("searches the next 14 days, one night each", () => {
+  const dates = checkInDates(new Date("2026-11-24T12:00:00Z"));
+  assert.equal(dates.length, 14);
+  assert.deepEqual([dates[0], dates[1], dates[13]].map((d) => [d.checkIn, d.checkOut]), [
+    ["2026-11-24", "2026-11-25"],
+    ["2026-11-25", "2026-11-26"],
+    ["2026-12-07", "2026-12-08"],
+  ]);
+});
+
+test("keeps min, max and ADR for every date", () => {
+  const origin = { latitude: 46.5207, longitude: 11.4248 };
+  const result = selectHotels([
+    { date: "2026-11-24", items: [{ title: "Hotel Am Hang", hotel_identifier: "hang", location: { latitude: 46.521, longitude: 11.425 }, prices: { price: 160, price_without_discount: 220 } }] },
+    { date: "2026-11-25", items: [{ title: "Hotel Am Hang", hotel_identifier: "hang", prices: { price: 200 } }] },
+  ], origin, "Weihrerhof", ["Am Hang"], 6, "2026-11-24");
+  assert.deepEqual(result.selected[0]?.daily, [
+    { date: "2026-11-24", min: 160, max: 220, adr: 190 },
+    { date: "2026-11-25", min: 200, max: 200, adr: 200 },
+  ]);
 });
 
 test("check-in dates start with today", () => {

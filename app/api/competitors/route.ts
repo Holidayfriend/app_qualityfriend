@@ -30,6 +30,20 @@ function distance(value: unknown) {
   return amount((value as { distKm?: unknown }).distKm);
 }
 
+// Per-day prices saved by the last scrape (today onwards), shown under "Next 14 days".
+function dailyPrices(mentions: unknown) {
+  if (!Array.isArray(mentions)) return [];
+  const today = new Date().toISOString().slice(0, 10);
+  return mentions.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") return [];
+    const item = entry as { date?: unknown; price?: unknown; minPrice?: unknown; maxPrice?: unknown };
+    if (typeof item.date !== "string" || item.date < today) return [];
+    const min = amount(item.minPrice ?? item.price);
+    const max = amount(item.maxPrice ?? item.price);
+    return [{ date: item.date, minPrice: min, maxPrice: max, adr: averageAdr(min, max) }];
+  }).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 14);
+}
+
 export async function GET() {
   const current = await actor();
   if (!current) return NextResponse.json({ error: "UNAUTHENTICATED" }, { status: 401 });
@@ -56,6 +70,7 @@ export async function GET() {
       adr: true,
       accommodationType: true,
       url: true,
+      mentions: true,
       rawPayload: true,
       lastFetchedAt: true,
     },
@@ -79,6 +94,7 @@ export async function GET() {
         url: row.url ?? "",
         stars: Number.isInteger(stars) && stars > 0 ? Math.min(stars, 5) : null,
         distanceKm: distance(row.rawPayload),
+        daily: dailyPrices(row.mentions),
         fetchedAt: row.lastFetchedAt.toISOString(),
       };
     }),
