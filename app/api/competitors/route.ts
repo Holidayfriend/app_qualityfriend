@@ -77,25 +77,34 @@ export async function GET() {
   });
 
   const narrative = await listForecastNarrative(prisma, current.hotelTenantId);
+  // Our own hotel's card shows our imported prices (My prices page), not a public online price.
+  const ownRates = await prisma.ownRoomRate.aggregate({
+    where: { hotelTenantId: current.hotelTenantId, rateDate: { gte: new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`) }, roomPrice2Adults: { not: null } },
+    _min: { roomPrice2Adults: true },
+    _max: { roomPrice2Adults: true, fetchedAt: true },
+  });
+  const ownMin = amount(ownRates._min.roomPrice2Adults);
+  const ownMax = amount(ownRates._max.roomPrice2Adults);
   return NextResponse.json({
     summary: narrative.competitor,
     hotels: rows.map((row) => {
       const own = row.name.startsWith("[OWN HOTEL] ");
       const stars = Number(row.accommodationType);
+      const useOwnRates = own && ownMin !== null && ownMax !== null;
       return {
         id: row.id,
         name: own ? row.name.slice("[OWN HOTEL] ".length) : row.name,
         own,
         rating: row.rating,
         reviewCount: row.reviewCount,
-        minPrice: amount(row.minPrice),
-        maxPrice: amount(row.maxPrice),
-        adr: averageAdr(amount(row.minPrice), amount(row.maxPrice)) ?? amount(row.adr),
+        minPrice: useOwnRates ? ownMin : amount(row.minPrice),
+        maxPrice: useOwnRates ? ownMax : amount(row.maxPrice),
+        adr: useOwnRates ? averageAdr(ownMin, ownMax) : averageAdr(amount(row.minPrice), amount(row.maxPrice)) ?? amount(row.adr),
         url: row.url ?? "",
         stars: Number.isInteger(stars) && stars > 0 ? Math.min(stars, 5) : null,
         distanceKm: distance(row.rawPayload),
         daily: dailyPrices(row.mentions),
-        fetchedAt: row.lastFetchedAt.toISOString(),
+        fetchedAt: (useOwnRates && ownRates._max.fetchedAt ? ownRates._max.fetchedAt : row.lastFetchedAt).toISOString(),
       };
     }),
   });

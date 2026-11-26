@@ -133,7 +133,9 @@ export function MyPricesView() {
                   <Td strong>{dayText(date, locale)}</Td>
                   {categories.map((category) => {
                     const row = cell.get(`${date}|${category.id}`);
-                    return <Td key={category.id} align="right" muted={!row || row.roomPrice2Adults === null}>{money(row?.roomPrice2Adults ?? null)}</Td>;
+                    // A single room has no 2-person price, so its 1-person price is shown (marked "(1)") instead of a dash.
+                    const single = row && row.roomPrice2Adults === null ? row.pricePerPerson1 : null;
+                    return <Td key={category.id} align="right" muted={!row || row.roomPrice2Adults === null}>{single !== null ? <>{money(single)} <span className="text-[10px]">(1)</span></> : money(row?.roomPrice2Adults ?? null)}</Td>;
                   })}
                 </tr>
               ))}

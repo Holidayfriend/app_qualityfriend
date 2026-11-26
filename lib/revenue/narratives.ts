@@ -57,6 +57,32 @@ export function narrativeFromAi(parsed: Record<string, unknown> | null, fallback
   };
 }
 
+function collectNumbers(value: unknown, into = new Set<number>()) {
+  if (typeof value === "number" && Number.isFinite(value)) into.add(Math.round(value));
+  else if (Array.isArray(value)) value.forEach((item) => collectNumbers(item, into));
+  else if (value && typeof value === "object") Object.values(value).forEach((item) => collectNumbers(item, into));
+  return into;
+}
+
+// Numbers written in a text that are not in the facts we sent (1-3 are allowed for "2 adults", "1 night").
+export function unsupportedNumbers(text: string, facts: unknown) {
+  const allowed = collectNumbers(facts);
+  const found = text.match(/\d+(?:[.,]\d+)?/g) ?? [];
+  return found.filter((raw) => {
+    const value = Math.round(Number.parseFloat(raw.replace(",", ".")));
+    return !(value >= 1 && value <= 3) && !allowed.has(value);
+  });
+}
+
+// Keeps the AI text only when every number in it comes from the facts; otherwise the plain sentence built from the data is used.
+export function checkedNarrative(text: NarrativeText, fallback: NarrativeText, facts: unknown): NarrativeText {
+  return {
+    en: unsupportedNumbers(text.en, facts).length ? fallback.en : text.en,
+    de: unsupportedNumbers(text.de, facts).length ? fallback.de : text.de,
+    it: unsupportedNumbers(text.it, facts).length ? fallback.it : text.it,
+  };
+}
+
 function money(value: unknown) {
   if (value == null) return null;
   const parsed = Number(value);
@@ -69,14 +95,15 @@ function average(values: Array<number | null>) {
   return Math.round(amounts.reduce((sum, value) => sum + value, 0) / amounts.length);
 }
 
-function priceFallback(days: number, occupancy: number | null, current: number | null, recommended: number | null): NarrativeText {
+function priceFallback(days: number, occupancy: number | null, current: number | null, recommended: number | null, competitor: number | null): NarrativeText {
   const occ = occupancy == null ? "–" : `${occupancy}%`;
   const currentText = current == null ? "–" : `${current}€`;
   const recommendedText = recommended == null ? "–" : `${recommended}€`;
+  const competitorText = competitor == null ? "–" : `${competitor}€`;
   return {
-    en: `Across the next ${days} days, average occupancy is ${occ}. The current ADR is ${currentText} and the recommended ADR averages ${recommendedText}.`,
-    de: `In den nächsten ${days} Tagen liegt die durchschnittliche Auslastung bei ${occ}. Der aktuelle ADR ist ${currentText}, der empfohlene ADR im Schnitt ${recommendedText}.`,
-    it: `Nei prossimi ${days} giorni l'occupazione media è ${occ}. L'ADR attuale è ${currentText} e l'ADR consigliato medio è ${recommendedText}.`,
+    en: `Across the next ${days} days, average occupancy is ${occ}. The current average rate is ${currentText}, the recommended average rate is ${recommendedText} and the competitor average is ${competitorText}.`,
+    de: `In den nächsten ${days} Tagen liegt die durchschnittliche Auslastung bei ${occ}. Der aktuelle Durchschnittspreis ist ${currentText}, der empfohlene ${recommendedText} und der Mitbewerber-Durchschnitt ${competitorText}.`,
+    it: `Nei prossimi ${days} giorni l'occupazione media è ${occ}. Il prezzo medio attuale è ${currentText}, quello consigliato ${recommendedText} e la media dei concorrenti ${competitorText}.`,
   };
 }
 
@@ -103,7 +130,7 @@ async function ask(prisma: PrismaClient, hotelTenantId: string, facts: unknown, 
   } catch (error) {
     console.error(JSON.stringify({ hotelTenantId, error: error instanceof Error ? error.message : String(error) }));
   }
-  return narrativeFromAi(parsed, fallback);
+  return checkedNarrative(narrativeFromAi(parsed, fallback), fallback, facts);
 }
 
 export async function generateForecastNarratives(prisma: PrismaClient, hotelTenantId: string, startIso: string) {
@@ -143,7 +170,7 @@ export async function generateForecastNarratives(prisma: PrismaClient, hotelTena
     "days that need an adjustment": days.filter((day) => day.status === "ADJUST").length,
     "days already at the right rate": days.filter((day) => day.status === "OPTIMAL").length,
   };
-  const price = await ask(prisma, hotelTenantId, { task: "Summarize the price recommendation for these days.", ...priceFacts }, priceFallback(days.length, priceFacts["average occupancy percent"], priceFacts["average current rate EUR"], priceFacts["average recommended rate EUR"]));
+  const price = await ask(prisma, hotelTenantId, { task: "Summarize the price recommendation for these days.", ...priceFacts }, priceFallback(days.length, priceFacts["average occupancy percent"], priceFacts["average current rate EUR"], priceFacts["average recommended rate EUR"], priceFacts["average competitor rate EUR"]));
   const closest = [...others].sort((left, right) => (left.distanceKm ?? 999) - (right.distanceKm ?? 999)).slice(0, 6);
   const ownRate = priceFacts["average current rate EUR"];
   const competitorRate = average(days.map((day) => day.competitorAvg));

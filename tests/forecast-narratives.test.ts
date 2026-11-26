@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { narrativeFromAi } from "../lib/revenue/narratives";
+import { checkedNarrative, narrativeFromAi, unsupportedNumbers } from "../lib/revenue/narratives";
 
 const fallback = { en: "English fallback text for the banner.", de: "Deutscher Ersatztext fÃ¼r das Banner.", it: "Testo italiano di riserva per il banner." };
 
@@ -32,4 +32,14 @@ test("a missing language uses the factual fallback", () => {
   assert.equal(text.en, fallback.en);
   assert.equal(text.de.startsWith("Der empfohlene"), true);
   assert.equal(text.it, fallback.it);
+});
+
+test("a number that is not in the facts replaces the AI text with the fallback", () => {
+  const facts = { "average current rate EUR": 391, "average recommended rate EUR": 390, days: 14 };
+  const wrong = { en: "The current rate of EUR 402 is above the recommended EUR 390.", de: "Der aktuelle Preis von 391 EUR liegt über dem empfohlenen Preis von 390 EUR.", it: "Il prezzo attuale di 391 EUR è vicino a quello consigliato di 390 EUR." };
+  assert.deepEqual(unsupportedNumbers(wrong.en, facts), ["402"]);
+  const text = checkedNarrative(wrong, fallback, facts);
+  assert.equal(text.en, fallback.en);
+  assert.equal(text.de, wrong.de);
+  assert.equal(text.it, wrong.it);
 });
